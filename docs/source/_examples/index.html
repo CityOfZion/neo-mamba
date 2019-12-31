@@ -1,0 +1,49 @@
+<html>
+   <head>
+      
+      <script type = "text/javascript">
+         window.onload = function() {
+  
+            
+            if ("WebSocket" in window) {
+               console.log("WebSocket is supported by your Browser!");
+               
+               // Let us open a web socket
+               var ws = new WebSocket("ws://localhost:5000/ws");
+				
+               ws.onopen = function() {
+                  let element = document.getElementById('socketstatus');
+                  element.innerHTML = 'CONNECTED';
+               };
+				
+               ws.onmessage = function (evt) { 
+                  var received_msg = evt.data;
+                  
+                  let para = document.createElement("P"); 
+                  let text = document.createTextNode(received_msg);
+                  para.appendChild(text);
+
+                  let msg_list = document.querySelector("#messages");
+                  msg_list.insertBefore(para, msg_list.childNodes[0])
+               };
+				
+               ws.onclose = function() { 
+                  let element = document.getElementById('socketstatus');
+                  element.innerHTML = 'CLOSED';
+               };
+            } else {
+               let element = document.getElementById('socketstatus');
+               element.innerHTML = 'WebSocket NOT supported by your Browser!';
+            }
+         };
+      </script>
+		
+   </head>
+   
+   <body>
+      <div>Socket status:
+         <span id = "socketstatus"></span>
+      </div>
+      <div id = "messages" style="font-family: Courier"></div>
+   </body>
+</html>

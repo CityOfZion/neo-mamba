@@ -1,0 +1,42 @@
+.. _whatsnew-v01:
+
+*******************************
+  What's New in neo3-python 0.1
+*******************************
+
+:Author: Erik van den Brink
+
+Introduction
+============
+Hooray! The first release is out. This release brings the initial building blocks for working with the NEO3 platform to the Python ecosystem. 
+
+This release covers 3 major areas being Core, Storage and Networking. Other components such as the Virtual Machine and Smart Contract support will be adde over time. 
+
+
+core
+====
+The core package provides a collection of tools and reference implementations to work with NEO blockchain specific data.
+
+You will find 
+
+- NEO specific complex data types such as UInt160, UInt256 and a BigInteger [#f1]_ class
+- A varierty of encryption, hash and secure data structures modules used in NEO3 such as ECDSA, Merkle Patricia Tree and a bloomfilter
+- BinaryReader and BinaryWriter utility classes for data serialization [#f2]_
+
+network
+=======
+The Network package gives access to the P2P layer of the NEO Network over TCP IPv4. Websockets are currently not supported, which should be a very minor impact as 99% of the nodes in the network communicate via the basic TCP stream.
+
+Here you will find all network payloads [#f3]_, the network Message and a Node implementation to help you quickly connect to the network. With these 3 in hands you can start participating in the network as you please. Convenience classes are provided in the form of a NodeManager and a SyncManager. These are there to help you setup long running services for syncing the chain and keeping it in sync.
+
+A special mention is in place for the Block and Transaction classes that are part of the network payloads.    
+
+storage
+=======
+This package provides two backend implementations as well as a set of interfaces for implementating your backend. The backends are an In-Memory backend and LevelDB. LevelDB is expected to be replaced over time by RocksDB once a decent Python wrapper becomes available. The main advantage of RocksDB over LevelDB is the support for multi process access to the database which can become useful if wish to keep your chain up to date while also running queries on the same database. 
+
+.. rubric:: Footnotes
+
+.. [#f1] While Python by default supports infinite size integers there are important differences when it comes to the C# BigInteger class as used in the NEO reference implementation. The BigInteger class is used heavily in relationship to the Virtual Machine and Smart Contracts and we thus have to ensure similar behaviour.
+.. [#f2] A number of data structures in the NEO platform have variable length types. Support for easy (de)serialization are part of the BinaryReader/Writer classes.
+.. [#f3] the Consensus payload related data structures are only partially implemented. The effort to add support at this moment does not outweigh the small expected number of required use-cases. A future version is expected to also implement full support for this. 

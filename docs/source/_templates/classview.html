@@ -1,0 +1,15 @@
+{# template to insert a Classes topic in the sidebar if the
+    .. classoverview
+    directive is used in the current document
+#}
+
+{% if classoverview_links | length > 0 %}
+    <div id="classoverview">
+        <h3>Classes</h3>
+        {% for pair in classoverview_links %}
+            <p class="topless">
+                <a class="reference internal" href="#{{pair[1]}}" title="">{{pair[0]}}</a>
+            </p>
+        {% endfor %}
+    </div>
+{% endif %}

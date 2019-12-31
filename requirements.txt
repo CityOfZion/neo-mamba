@@ -1,0 +1,14 @@
+aiodns==2.0.0
+asynctest==0.13.0
+base58==1.0.3
+bitarray==1.0.1
+Events==0.3
+lz4==2.2.1
+mmh3==2.5.1
+mpmath==1.1.0
+mypy==0.761
+mypy-extensions==0.4.3
+netaddr==0.7.19
+Sphinx==2.2.0
+sphinx-autodoc-typehints==1.7.0
+pycodestyle==2.5.0
