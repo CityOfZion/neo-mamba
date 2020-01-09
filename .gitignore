@@ -2,3 +2,5 @@ docs/build
 dist
 build
 *__pycache__*
+htmlcov
+.coverage

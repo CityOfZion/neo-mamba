@@ -18,16 +18,16 @@ class Blockchain(convenience._Singleton):
 
     @property
     def height(self):
-        return self.currentSnapshot.height
+        return self.currentSnapshot.block_height
 
     async def persist(self, block: payloads.Block):
         with self.backend.get_snapshotview() as snapshot:
-            snapshot.height = block.index
-            snapshot.blocks.add(block)
+            snapshot.block_height = block.index
+            snapshot.blocks.put(block)
 
             for tx in block.transactions:
                 tx.block_height = block.index
-                snapshot.transactions.add(tx)
+                snapshot.transactions.put(tx)
 
                 # TODO: run VM
 

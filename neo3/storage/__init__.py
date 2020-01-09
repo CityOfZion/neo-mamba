@@ -9,7 +9,8 @@ from .cache import (Trackable,
                     CachedContractAccess,
                     CloneContractCache,
                     CachedStorageAccess,
-                    CloneStorageCache)
+                    CloneStorageCache,
+                    AttributeCache)
 from .snapshot import CloneSnapshot, Snapshot
 from .storageitem import StorageItem
 from .storagekey import StorageKey

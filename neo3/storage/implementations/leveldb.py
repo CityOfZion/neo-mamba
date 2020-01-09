@@ -4,14 +4,16 @@ from neo3 import storage
 from neo3 import storage_logger as logger
 from neo3.core import types, serialization
 from neo3.network import payloads
+from contextlib import suppress
 
 
 class DBPrefixes:
     BLOCKS = b'\x01'
     BLOCKS_HEIGHT_MAP = b'\x02'
-    CONTRACTS = b'\x03'
-    STORAGES = b'\x04'
-    TRANSACTIONS = b'\x05'
+    BLOCKS_BEST_HEIGHT = b'\x03'
+    CONTRACTS = b'\x04'
+    STORAGES = b'\x05'
+    TRANSACTIONS = b'\x06'
 
 
 class LevelDB(storage.IDBImplementation):
@@ -30,14 +32,41 @@ class LevelDB(storage.IDBImplementation):
     def get_snapshotview(self) -> LevelDBSnapshot:
         return LevelDBSnapshot(self)
 
+    def _internal_bestblockheight_get(self):
+        height_bytes = self._real_db.get(DBPrefixes.BLOCKS_BEST_HEIGHT)
+        if height_bytes is None:
+            raise KeyError
+        return int.from_bytes(height_bytes, 'little')
+
+    def _internal_bestblockheight_put(self, height: int, batch=None):
+        if batch:
+            db = batch
+        else:
+            db = self._real_db
+
+        db.put(DBPrefixes.BLOCKS_BEST_HEIGHT, height.to_bytes(4, 'little'))
+
+    def _internal_bestblockheight_update(self, height: int, batch=None):
+        self._internal_bestblockheight_put(height, batch)
+
     def _internal_block_put(self, block: payloads.Block, batch=None):
         if batch:
             db = batch
         else:
             db = self._real_db
 
+        block_height_bytes = block.index.to_bytes(4, 'little')
         db.put(DBPrefixes.BLOCKS + block.hash().to_array(), block.to_array())
-        db.put(DBPrefixes.BLOCKS_HEIGHT_MAP + block.index.to_bytes(4, 'little'), block.hash().to_array())
+        db.put(DBPrefixes.BLOCKS_HEIGHT_MAP + block_height_bytes, block.hash().to_array())
+
+        # this function is only called when putting blocks to the backend via the raw view, or when committing
+        # a snapshot view. Either way it is ok to persist the height
+        stored_value = -1
+        with suppress(KeyError):
+            stored_value = self._internal_bestblockheight_get()
+
+        if block.index > stored_value:
+            db.put(DBPrefixes.BLOCKS_BEST_HEIGHT, block_height_bytes)
 
     def _internal_block_update(self, block: payloads.Block, batch=None):
         self._internal_block_put(block, batch)
@@ -247,10 +276,30 @@ class LevelDBSnapshot(storage.Snapshot):
         self._contract_cache = LevelDBCachedContractAccess(db, self._batch)
         self._storage_cache = LevelDBCachedStorageAccess(db, self._batch)
         self._tx_cache = LevelDBCachedTXAccess(db, self._batch)
+        self._block_height_cache = LevelDBBestBlockHeightAttribute(db, self._batch)
 
     def commit(self) -> None:
         super(LevelDBSnapshot, self).commit()
         self._batch.write()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self._snapshot.close()
+
+
+class LevelDBBestBlockHeightAttribute(storage.AttributeCache):
+    def __init__(self, db, batch):
+        super(LevelDBBestBlockHeightAttribute, self).__init__()
+        self._db = db
+        self._batch = batch
+
+    def _get_internal(self):
+        return self._db._internal_bestblockheight_get()
+
+    def _update_internal(self, value):
+        self._db._internal_bestblockheight_update(value, self._batch)
 
 
 class LevelDBCachedBlockAccess(storage.CachedBlockAccess):

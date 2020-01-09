@@ -18,6 +18,18 @@ class IDBImplementation(abc.ABC):
         """ clean up any resources."""
 
     @abc.abstractmethod
+    def _internal_bestblockheight_get(self):
+        """ Get the best stored block height. """
+
+    @abc.abstractmethod
+    def _internal_bestblockheight_put(self, height: int):
+        """ Persist a new best stored block height. """
+
+    @abc.abstractmethod
+    def _internal_bestblockheight_update(self, height: int):
+        """ Update the existing best stored block height. """
+
+    @abc.abstractmethod
     def _internal_block_put(self, block: payloads.Block) -> None:
         """ Persist a block to the real backend. """
 
@@ -171,6 +183,18 @@ class RawView:
     @property
     def transactions(self):
         return RawTXAccess(self._db)
+
+    @property
+    def block_height(self):
+        try:
+            return self._db._internal_bestblockheight_get()
+        except KeyError:
+            return -1
+
+    @block_height.setter
+    def block_height(self, value):
+        raise AttributeError("Can't set attribute on a raw view. view.blocks.put() automatically updates the height "
+                             "when applicable")
 
 
 class RawBlockAccess:

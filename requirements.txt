@@ -2,6 +2,7 @@ aiodns==2.0.0
 asynctest==0.13.0
 base58==1.0.3
 bitarray==1.0.1
+coverage==5.0.2
 Events==0.3
 lz4==2.2.1
 mmh3==2.5.1

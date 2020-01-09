@@ -2,7 +2,7 @@ from __future__ import annotations
 import abc
 from copy import deepcopy
 from enum import Enum, auto
-from typing import Optional, Iterator, Tuple, TypeVar
+from typing import Optional, Iterator, Tuple, TypeVar, Any
 from neo3.core import types, serialization
 from neo3.network import payloads
 from neo3 import storage
@@ -111,6 +111,40 @@ class CachedAccess:
     @abc.abstractmethod
     def create_snapshot(self):
         """ Deep copy. """
+
+
+class AttributeCache:
+    def __init__(self):
+        self._item = None
+        self._state = TrackState.NONE
+
+    def put(self, item) -> None:
+        self._item = item
+
+    def get(self, read_only=False) -> Any:
+        if self._item is None:
+            self._item = self._get_internal()
+
+        if read_only:
+            return deepcopy(self._item)
+        else:
+            self._state = TrackState.CHANGED
+            return self._item
+
+    def commit(self) -> None:
+        if self._state == TrackState.CHANGED:
+            self._update_internal(self._item)
+
+    def create_snapshot(self) -> CloneAttributeCache:
+        return CloneAttributeCache(self)
+
+    @abc.abstractmethod
+    def _get_internal(self):
+        """ Return the value from the real backend. """
+
+    @abc.abstractmethod
+    def _update_internal(self, value):
+        """ Update the value in the real backend. """
 
 
 class CachedBlockAccess(CachedAccess):
@@ -637,3 +671,15 @@ class CloneTXCache(CachedTXAccess):
                     item.from_replica(trackable.item)
             elif trackable.state == TrackState.DELETED:
                 self.inner_cache.delete(trackable.item.hash())
+
+
+class CloneAttributeCache(AttributeCache):
+    def __init__(self, inner_cache: AttributeCache):
+        super(CloneAttributeCache, self).__init__()
+        self._inner_cache = inner_cache
+
+    def _get_internal(self):
+        return self._inner_cache.get()
+
+    def _update_internal(self, value):
+        self._inner_cache.put(value)

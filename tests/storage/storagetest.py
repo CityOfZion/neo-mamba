@@ -6,7 +6,7 @@ from neo3 import storage
 from neo3.contracts import manifest
 from contextlib import suppress
 from copy import deepcopy
-from neo3.storage import implementations
+
 
 class AbstractBlockStorageTest(abc.ABC, unittest.TestCase):
     """
@@ -16,6 +16,18 @@ class AbstractBlockStorageTest(abc.ABC, unittest.TestCase):
     @abc.abstractmethod
     def db_factory(self):
         """ Implement to return an instance of your DB """
+
+    def test_rawview_bestblockheight(self):
+
+        raw_view = self.db.get_rawview()
+        self.assertEqual(-1, raw_view.block_height)
+
+        raw_view.blocks.put(self.block1)
+        self.assertEqual(1, raw_view.block_height)
+
+        with self.assertRaises(AttributeError):
+            raw_view.block_height = 2
+        self.assertEqual(1, raw_view.block_height)
 
     def setUp(self) -> None:
         self.db = self.db_factory()
@@ -278,6 +290,40 @@ class AbstractBlockStorageTest(abc.ABC, unittest.TestCase):
         self.assertEqual(self.block1, blocks[0])
         self.assertEqual(self.block2, blocks[1])
         self.assertEqual(block3, blocks[2])
+
+    def test_snapshot_bestblockheight(self):
+        snapshot_view = self.db.get_snapshotview()
+        self.assertEqual(-1, snapshot_view.block_height)
+
+        snapshot_view.block_height = 2
+        self.assertEqual(2, snapshot_view.block_height)
+
+        # nothing yet in raw view
+        raw_view = self.db.get_rawview()
+        self.assertEqual(-1, raw_view.block_height)
+
+        clone_view = snapshot_view.clone()
+        self.assertEqual(2, clone_view.block_height)
+
+        clone_view.block_height = 3
+        self.assertEqual(3, clone_view.block_height)
+        self.assertEqual(2, snapshot_view.block_height)
+        self.assertEqual(-1, raw_view.block_height)
+
+        clone_view.commit()
+        self.assertEqual(3, snapshot_view.block_height)
+        self.assertEqual(-1, raw_view.block_height)
+
+        snapshot_view.commit()
+        self.assertEqual(3, raw_view.block_height)
+
+    def test_snapshot_bestblockheight_2(self):
+        snapshot_view = self.db.get_snapshotview()
+        snapshot_view.blocks.put(self.block1)
+        snapshot_view.commit()
+
+        raw_view = self.db.get_rawview()
+        self.assertEqual(self.block1.index, raw_view.block_height)
 
 
 class AbstractContractStorageTest(abc.ABC, unittest.TestCase):
@@ -574,10 +620,9 @@ class AbstractStorageStorageTest(abc.ABC, unittest.TestCase):
     A helper class to easily test backend specific code
     """
 
-    # @abc.abstractmethod
+    @abc.abstractmethod
     def db_factory(self):
         """ Implement to return an instance of your DB """
-        return implementations.MemoryDB()
 
     def setUp(self) -> None:
         self.db = self.db_factory()

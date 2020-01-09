@@ -10,6 +10,7 @@ from copy import deepcopy
 class MemoryDB(storage.IDBImplementation):
     BLOCK = 'blocks'
     BLOCK_HEIGHT_MAP = 'blocksmap'
+    BLOCK_BEST_HEIGHT = 'blockheight'
     CONTRACT = 'contracts'
     STORAGE = 'storages'
     TX = 'transactions'
@@ -22,9 +23,24 @@ class MemoryDB(storage.IDBImplementation):
             self.STORAGE: {},
             self.TX: {}
         }
+        self._best_block_height = -1
 
     def get_snapshotview(self) -> MemorySnapshot:
         return MemorySnapshot(self)
+
+    def _internal_bestblockheight_get(self):
+        if self._best_block_height == -1:
+            raise KeyError
+        return self._best_block_height
+
+    def _internal_bestblockheight_put(self, height: int, batch=None):
+        if batch:
+            batch.put(self.BLOCK_BEST_HEIGHT, height, height)
+        else:
+            self._best_block_height = height
+
+    def _internal_bestblockheight_update(self, height: int, batch=None):
+        self._internal_bestblockheight_put(height, batch)
 
     def _internal_block_put(self, block: payloads.Block, batch: WriteBatch = None) -> None:
         if batch:
@@ -32,6 +48,13 @@ class MemoryDB(storage.IDBImplementation):
         else:
             self.db[self.BLOCK][block.hash()] = block
             self.db[self.BLOCK_HEIGHT_MAP][block.index] = block.hash()
+
+        stored_value = -1
+        with suppress(KeyError):
+            stored_value = self._internal_bestblockheight_get()
+
+        if block.index > stored_value:
+            self._best_block_height = block.index
 
     def _internal_block_update(self, block: payloads.Block, batch: WriteBatch = None) -> None:
         self._internal_block_put(block, batch)
@@ -167,6 +190,9 @@ class MemoryDB(storage.IDBImplementation):
                 if table == self.BLOCK:
                     self.db[self.BLOCK_HEIGHT_MAP].pop(item.index)
             elif action in ['update', 'add']:
+                if table == self.BLOCK_BEST_HEIGHT:
+                    self._best_block_height = pair[0]
+                    continue
                 self.db[table][pair[0]] = pair[1]
                 if table == self.BLOCK:
                     # pair = (UInt256, Block)
@@ -198,10 +224,31 @@ class MemorySnapshot(storage.Snapshot):
         self._contract_cache = MemoryDBCachedContractAccess(db, self._batch)
         self._storage_cache = MemoryDBCachedStorageAccess(db, self._batch)
         self._tx_cache = MemoryDBCachedTXAccess(db, self._batch)
+        self._block_height_cache = MemoryBestBlockHeightAttribute(db, self._batch)
 
     def commit(self) -> None:
         super(MemorySnapshot, self).commit()
         self._db.write_batch(self._batch)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        # nothing to do
+        pass
+
+
+class MemoryBestBlockHeightAttribute(storage.AttributeCache):
+    def __init__(self, db, batch):
+        super(MemoryBestBlockHeightAttribute, self).__init__()
+        self._db = db
+        self._batch = batch
+
+    def _get_internal(self):
+        return self._db._internal_bestblockheight_get()
+
+    def _update_internal(self, value):
+        self._db._internal_bestblockheight_update(value, self._batch)
 
 
 class MemoryDBCachedBlockAccess(storage.CachedBlockAccess):
