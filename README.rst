@@ -34,8 +34,8 @@ Over time the following components are expected to be implemented starting with 
 release versions and receive feedback components may be added or restructured. Some components may end up living in
 separate repositories but be included here by default (e.g. virtual machine implementations).
 
-.. image:: https://raw.githubusercontent.com/CityOfZion/neo3-python/docs/source/library/images/SDK_overview.png
-    :alt: CoZ logo
+.. image:: https://raw.githubusercontent.com/CityOfZion/neo3-python/master/docs/source/library/images/SDK_overview.png
+    :alt: SDK overview
 
 - Core (v0.1)
 - Network (v0.1)
