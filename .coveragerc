@@ -1,0 +1,6 @@
+[run]
+source = neo3
+
+[report]
+omit =
+  neo3/core/cryptography/ecc*

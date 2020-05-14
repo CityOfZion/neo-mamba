@@ -52,11 +52,10 @@ lint: ## check style with flake8
 test: ## run tests quickly with the default Python
 	python -m unittest discover -v -s tests/
 
-REPORT_FLAGS = --include="neo3/*.py" --omit="neo3/core/cryptography/ecc*"
 coverage: ## check code coverage quickly with the default Python
 	coverage run -m unittest discover -v -s tests/
-	coverage report -m $(REPORT_FLAGS) 
-	coverage html $(REPORT_FLAGS)
+	coverage report
+	coverage html
 	$(BROWSER) htmlcov/index.html
 
 clean-docs:
