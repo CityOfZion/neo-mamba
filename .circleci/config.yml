@@ -1,0 +1,90 @@
+version: 2.1
+
+executors:
+  python38-executor:
+    docker:
+      - image: circleci/python:3.8.2-buster
+  python37-executor:
+    docker:
+      - image: circleci/python:3.7.7-buster
+
+jobs:
+  setup-environment:
+    executor: python38-executor
+    steps:
+      - checkout
+      - run:
+          name: Version information
+          command: python --version
+      - run:
+          name: Setup VENV & install dependencies
+          command: |
+            python -m venv venv
+            source venv/bin/activate
+            pip install -e .
+      - persist_to_workspace:
+          root: ~/
+          paths: project/*
+  unit-tests:
+    executor: python38-executor
+    steps:
+      - attach_workspace:
+          at: ~/
+      - run:
+          name: Unit tests
+          command: |
+            source venv/bin/activate
+            make test
+  linting:
+    executor: python38-executor
+    steps:
+      - attach_workspace:
+          at: ~/
+      - run:
+          name: Python code style checking
+          command: |
+            source venv/bin/activate
+            make lint
+  type-checking:
+    executor: python38-executor
+    steps:
+      - attach_workspace:
+          at: ~/
+      - run:
+          name: Type checking
+          command: |
+            source venv/bin/activate
+            make type
+  code-coverage:
+    executor: python38-executor
+    steps:
+      - attach_workspace:
+          at: ~/
+      - run:
+          name: Coverage checking
+          command: |
+            source venv/bin/activate
+            make coverage
+      - run:
+          name: Upload coverage
+          command: |
+            source venv/bin/activate
+            pip install codecov
+            codecov
+
+workflows:
+  main:
+    jobs:
+      - setup-environment
+      - type-checking:
+          requires:
+            - setup-environment
+      - linting:
+          requires:
+            - setup-environment
+      - unit-tests:
+          requires:
+            - setup-environment
+      - code-coverage:
+          requires:
+            - setup-environment
