@@ -82,7 +82,7 @@ class MemoryDB(storage.IDBImplementation):
 
     def _internal_block_all(self) -> Iterator[payloads.Block]:
         for block in self.db[self.BLOCK].values():
-            yield block
+            yield deepcopy(block)
 
     def _internal_contract_put(self, contract: storage.ContractState, batch: WriteBatch = None) -> None:
         if batch:
@@ -109,7 +109,7 @@ class MemoryDB(storage.IDBImplementation):
 
     def _internal_contract_all(self) -> Iterator[storage.ContractState]:
         for contract in self.db[self.CONTRACT].values():
-            yield contract
+            yield deepcopy(contract)
 
     def _internal_storage_put(self, key: storage.StorageKey,
                               value: storage.StorageItem,
@@ -181,7 +181,7 @@ class MemoryDB(storage.IDBImplementation):
 
     def _internal_transaction_all(self) -> Iterator[payloads.Transaction]:
         for tx in self.db[self.TX].values():
-            yield tx
+            yield deepcopy(tx)
 
     def write_batch(self, batch) -> None:
         for table, action, pair in batch:
@@ -263,7 +263,7 @@ class MemoryDBCachedBlockAccess(storage.CachedBlockAccess):
             elif trackable.state == storage.TrackState.CHANGED:
                 self._db._internal_block_update(trackable.item, self._batch)
             elif trackable.state == storage.TrackState.DELETED:
-                self._db._internal_block_delete(trackable.item.hash(), self._batch)  # type: payloads.Block
+                self._db._internal_block_delete(trackable.item.hash(), self._batch)
 
     def create_snapshot(self):
         return storage.CloneBlockCache(self._db, self)

@@ -8,9 +8,9 @@ import abc
 
 
 class InventoryType(IntEnum):
-    TX = 0x01
-    BLOCK = 0x02
-    CONSENSUS = 0xe0
+    TX = 0x2b
+    BLOCK = 0x2c
+    CONSENSUS = 0x2d
 
 
 class InventoryPayload(serialization.ISerializable):

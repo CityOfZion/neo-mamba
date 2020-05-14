@@ -65,7 +65,7 @@ class IDBImplementation(abc.ABC):
 
     @abc.abstractmethod
     def _internal_block_all(self) -> Iterator[payloads.Block]:
-        """ Return all blocks stored in the real backend. """
+        """ Return all blocks stored in the real backend (readonly). """
 
     @abc.abstractmethod
     def _internal_contract_put(self, contract: storage.ContractState) -> None:
@@ -95,7 +95,7 @@ class IDBImplementation(abc.ABC):
 
     @abc.abstractmethod
     def _internal_contract_all(self) -> Iterator[storage.ContractState]:
-        """ Return all contracts stored in the real backend. """
+        """ Return all contracts stored in the real backend (readonly). """
 
     @abc.abstractmethod
     def _internal_storage_put(self, key: storage.StorageKey, value: storage.StorageItem) -> None:
@@ -126,7 +126,7 @@ class IDBImplementation(abc.ABC):
     @abc.abstractmethod
     def _internal_storage_all(self, contract_script_hash: types.UInt160 = None) -> Iterator[
             Tuple[storage.StorageKey, storage.StorageItem]]:
-        """ Return all storage pairs for a given smart contract stored in the real backend. """
+        """ Return all storage pairs for a given smart contract stored in the real backend (readonly). """
 
     @abc.abstractmethod
     def _internal_storage_find(self, contract_script_hash: types.UInt160,
@@ -135,7 +135,7 @@ class IDBImplementation(abc.ABC):
 
     @abc.abstractmethod
     def _internal_transaction_put(self, transaction: payloads.Transaction) -> None:
-        """ Persist a transaction in the real backend. """
+        """ Persist a transaction in the real backend (readonly). """
 
     @abc.abstractmethod
     def _internal_transaction_update(self, transaction: payloads.Transaction) -> None:
