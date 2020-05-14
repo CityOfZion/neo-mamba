@@ -4,6 +4,15 @@
 neo3-python
 -----------
 
+.. image:: https://circleci.com/gh/CityOfZion/neo3-python.svg?style=shield
+  :target: https://circleci.com/gh/CityOfZion/neo3-python
+
+.. image:: https://codecov.io/gh/CityOfZion/neo3-python/branch/master/graph/badge.svg
+  :target: https://codecov.io/gh/CityOfZion/neo3-python
+
+.. image:: http://www.mypy-lang.org/static/mypy_badge.svg
+  :target: http://mypy-lang.org/
+
 This SDK intends to provide building blocks for Python developers to interact with the NEO blockchain as a means to lower the entry barrier.
 
 It is a work in progress and thus you can expect that not all parts of the blockchain are supported. What is present should be functioning correctly unless explicitely mentioned (e.g. because they depend on structures not yet available).
