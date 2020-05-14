@@ -3,7 +3,7 @@ import json
 import importlib
 from types import SimpleNamespace
 
-version = '0.1'
+version = '0.2'
 
 core_logger = logging.getLogger('neo3.core')
 network_logger = logging.getLogger('neo3.network')

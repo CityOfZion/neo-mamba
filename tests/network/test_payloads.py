@@ -190,7 +190,7 @@ class BlockTestCase(unittest.TestCase):
 
     def test_serialization(self):
         # captured from C#, see setUpClass() for the capture code
-        expected_data = binascii.unhexlify("000000000AAEB9C2C35A97AF7C054553CE64DA5E52FB530D6CB929E6AFF6EEB2FBC782F77741E42064CEA6B013A0AA2545AC86F0C56BA12BFF18E4AEC7F6CB146E9F56707B000000000000000100000054A64CAC1B1073E662933EF3E30B007CD98D67D70100015502017B00000000000000007B000000DA1745E9B549BD0BFA1A569971C77EBA30CD5A4BC8010000000000001503000000000000010000000000010100")
+        expected_data = binascii.unhexlify("000000000AAEB9C2C35A97AF7C054553CE64DA5E52FB530D6CB929E6AFF6EEB2FBC782F7DF3462429C12B5FD6F933AFC90004109B07A5F5BBA5800CCFE5C488EAFD3E9457B000000000000000100000054A64CAC1B1073E662933EF3E30B007CD98D67D70100015502017B00000000000000007B000000DA1745E9B549BD0BFA1A569971C77EBA30CD5A4BC8010000000000001503000000000000010000000000010100")
         self.assertEqual(expected_data, self.block.to_array())
 
     def test_deserialization(self):
@@ -243,7 +243,7 @@ class BlockTestCase(unittest.TestCase):
         expected_len = 178
         self.assertEqual(expected_len, len(trimmed_block))
 
-        expected_data = binascii.unhexlify('000000000AAEB9C2C35A97AF7C054553CE64DA5E52FB530D6CB929E6AFF6EEB2FBC782F77741E42064CEA6B013A0AA2545AC86F0C56BA12BFF18E4AEC7F6CB146E9F56707B000000000000000100000054A64CAC1B1073E662933EF3E30B007CD98D67D70100015502FCAF61CDF5BEF2AB0FFAC66D846D14EDF06C84A0FD852264918E2F1E2E0A546C242BEA42FC79A67D203257638151B65C667C2B3B3F8B789F801A8047472EFC02017B00000000000000')
+        expected_data = binascii.unhexlify('000000000AAEB9C2C35A97AF7C054553CE64DA5E52FB530D6CB929E6AFF6EEB2FBC782F7DF3462429C12B5FD6F933AFC90004109B07A5F5BBA5800CCFE5C488EAFD3E9457B000000000000000100000054A64CAC1B1073E662933EF3E30B007CD98D67D70100015502FCAF61CDF5BEF2AB0FFAC66D846D14EDF06C84A0FD852264918E2F1E2E0A546C4E7D2808A695A6A8185846293428D4674056C6FAF63FB117361DAF7719782875017B00000000000000')
         self.assertEqual(expected_data, trimmed_block.to_array())
 
         deserialized_trimmed_block = payloads.TrimmedBlock.deserialize_from_bytes(trimmed_block.to_array())
@@ -739,7 +739,7 @@ class InventoryPayloadTestCase(unittest.TestCase):
 
     def test_serialization(self):
         # captured from C#, see setUpClass() for the capture code
-        expected_data = binascii.unhexlify(b'020201FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A402FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A4')
+        expected_data = binascii.unhexlify(b'2C0201FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A402FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A4')
         self.assertEqual(expected_data, self.inv.to_array())
 
     def test_deserialization(self):
@@ -781,7 +781,7 @@ class MerkleBlockPayloadTestCase(unittest.TestCase):
         byte[] bytes = { 0x1, 0x2 };
         BitArray flags = new BitArray(bytes);
         MerkleBlockPayload mbp = MerkleBlockPayload.Create(b, flags);
-
+        Console.WriteLine($"b\'{BitConverter.ToString(mbp.ToArray()).Replace("-", "")}\'");
         """
         cls.tx = payloads.Transaction(version=0,
                                   nonce=123,
@@ -814,7 +814,7 @@ class MerkleBlockPayloadTestCase(unittest.TestCase):
 
     def test_serialization(self):
         # captured from C#, see setUpClass() for the capture code
-        expected_data = binascii.unhexlify(b'000000000AAEB9C2C35A97AF7C054553CE64DA5E52FB530D6CB929E6AFF6EEB2FBC782F77741E42064CEA6B013A0AA2545AC86F0C56BA12BFF18E4AEC7F6CB146E9F56707B000000000000000100000054A64CAC1B1073E662933EF3E30B007CD98D67D7010001550202FCAF61CDF5BEF2AB0FFAC66D846D14EDF06C84A0FD852264918E2F1E2E0A546C242BEA42FC79A67D203257638151B65C667C2B3B3F8B789F801A8047472EFC02020102')
+        expected_data = binascii.unhexlify(b'000000000AAEB9C2C35A97AF7C054553CE64DA5E52FB530D6CB929E6AFF6EEB2FBC782F7DF3462429C12B5FD6F933AFC90004109B07A5F5BBA5800CCFE5C488EAFD3E9457B000000000000000100000054A64CAC1B1073E662933EF3E30B007CD98D67D7010001550202FCAF61CDF5BEF2AB0FFAC66D846D14EDF06C84A0FD852264918E2F1E2E0A546C4E7D2808A695A6A8185846293428D4674056C6FAF63FB117361DAF7719782875020102')
         self.assertEqual(expected_data, self.merkle_payload.to_array())
 
     def test_deserialization(self):
@@ -936,7 +936,7 @@ class TransactionTestCase(unittest.TestCase):
     def test_len_and_hash(self):
         # captured from C#, see setUpClass() for the capture code
         expected_len = 77
-        expected_hash = types.UInt256.from_string('65793a030c0dcd4fff4da8a6a6d5daa8b570750da4fdeea1bbc43bdf124aedc9')
+        expected_hash = types.UInt256.from_string('e8dcae85d7a5d3965da7f07ab7bd48968a8a9021b8826c91bee5cb14431b6970')
         self.assertEqual(expected_len, len(self.tx))
         self.assertEqual(expected_hash, self.tx.hash())
 
@@ -1066,6 +1066,10 @@ class VersionTestCase(unittest.TestCase):
         ]
         cls.vp = payloads.VersionPayload.create(nonce=888, user_agent="my-user-agent", capabilities=capa)
         cls.vp.timestamp = 0
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        settings.reset_settings_to_default()
 
     def test_len(self):
         # captured from C#, see setUpClass() for the capture code

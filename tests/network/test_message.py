@@ -40,7 +40,7 @@ class NetworkMessageTestCase(unittest.TestCase):
             }          
 
         """
-        expected_data = binascii.unhexlify(b'00272202010000000000000000000000000000000000000000000000000000000000000000')
+        expected_data = binascii.unhexlify(b'0027222C010000000000000000000000000000000000000000000000000000000000000000')
         self.assertEqual(expected_data, data)
 
     def test_create_compressed_inv_message(self):
@@ -57,14 +57,14 @@ class NetworkMessageTestCase(unittest.TestCase):
         Data created in the same fashion as how it's done in test_create_inv_message()
         The deviation is `hashes` now contains 4 x UInt256.zero()
         """
-        expected_data = binascii.unhexlify(b'01270D3F020400010067500000000000')
+        expected_data = binascii.unhexlify(b'01270D3F2C0400010067500000000000')
         self.assertEqual(expected_data, data)
 
         # message.Message.deserialize_from_bytes(expected_data)
 
     def test_inv_message_deserialization(self):
         # see test_create_compressed_inv_message() how it was obtained
-        raw_data = binascii.unhexlify(b'01270D3F020400010067500000000000')
+        raw_data = binascii.unhexlify(b'01270D3F2C0400010067500000000000')
         m = message.Message.deserialize_from_bytes(raw_data)
         self.assertIsInstance(m.payload, payloads.InventoryPayload)
         self.assertEqual(132, len(m))
@@ -84,7 +84,7 @@ class NetworkMessageTestCase(unittest.TestCase):
 
     def test_deserialization_from_stream(self):
         # see test_create_compressed_inv_message() how it was obtained
-        raw_data = binascii.unhexlify(b'01270D3F020400010067500000000000')
+        raw_data = binascii.unhexlify(b'01270D3F2C0400010067500000000000')
         with serialization.BinaryReader(raw_data) as br:
             m = message.Message()
             m.deserialize(br)

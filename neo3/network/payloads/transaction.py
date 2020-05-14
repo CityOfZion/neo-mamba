@@ -4,6 +4,7 @@ from enum import IntEnum
 from neo3.core import Size as s, serialization, utils, types
 from neo3.network import payloads
 from neo3.vm import VMState
+from neo3 import settings
 
 
 class TransactionAttributeUsage(IntEnum):
@@ -65,7 +66,8 @@ class Transaction(serialization.ISerializable, payloads.IInventory):
                  attributes: List[TransactionAttribute] = None,
                  cosigners: List[payloads.Cosigner] = None,
                  script: bytes = None,
-                 witnesses: List[payloads.Witness] = None):
+                 witnesses: List[payloads.Witness] = None,
+                 protocol_magic: int = None):
         self.version = version
         self.nonce = nonce
         #: Script hash of the first signing authority
@@ -83,6 +85,15 @@ class Transaction(serialization.ISerializable, payloads.IInventory):
         # unofficial attributes
         self.vm_state = VMState.NONE
         self.block_height = 0
+        #: The network protocol magic number to use in the Transaction hash function. Defaults to 0x4F454E
+        #: Warning: changing this will change the TX hash which can result in dangling transactions in the database as
+        #: deletion and duplication checking will fail.
+        if protocol_magic:
+            self.protocol_magic = protocol_magic
+        elif settings.network.magic is not None:
+            self.protocol_magic = settings.network.magic
+        else:
+            self.protocol_magic = 0x4F454E
 
     def __len__(self):
         return (s.uint8 + s.uint32 + s.uint160 + s.uint64 + s.uint64 + s.uint32
@@ -119,6 +130,7 @@ class Transaction(serialization.ISerializable, payloads.IInventory):
         Get a unique block identifier based on the unsigned data portion of the object.
         """
         with serialization.BinaryWriter() as bw:
+            bw.write_uint32(self.protocol_magic)
             self.serialize_unsigned(bw)
             data_to_hash = bytearray(bw._stream.getvalue())
             data = hashlib.sha256(hashlib.sha256(data_to_hash).digest()).digest()
@@ -176,12 +188,12 @@ class Transaction(serialization.ISerializable, payloads.IInventory):
         self.system_fee = reader.read_int64()
         if self.system_fee < 0:
             raise ValueError("Deserialization error - negative system fee")
-        # TODO: fix once we have a gas factor
-        # if self.system_fee % NativeContract.Gas.Factor != 0:
-        #     raise ValueError("Deserialization error")
         self.network_fee = reader.read_int64()
         if self.network_fee < 0:
             raise ValueError("Deserialization error - negative network fee")
+        # Impossible overflow, only applicable to the C# implementation where they use longs
+        # if (self.system_fee + self.network_fee < self.system_fee):
+        #     raise ValueError("Deserialization error - overflow")
         self.valid_until_block = reader.read_uint32()
         self.attributes = reader.read_serializable_list(TransactionAttribute)
         self.cosigners = reader.read_serializable_list(payloads.Cosigner)

@@ -1,10 +1,15 @@
 from __future__ import annotations
-import plyvel  # type: ignore
 from neo3 import storage
 from neo3 import storage_logger as logger
 from neo3.core import types, serialization
 from neo3.network import payloads
 from contextlib import suppress
+from copy import deepcopy
+
+level_db_supported = False
+with suppress(ModuleNotFoundError):
+    import plyvel  # type: ignore
+    level_db_supported = True
 
 
 class DBPrefixes:
@@ -18,6 +23,9 @@ class DBPrefixes:
 
 class LevelDB(storage.IDBImplementation):
     def __init__(self, options: dict):
+        if not level_db_supported:
+            raise ModuleNotFoundError("plyvel module not found - try 'pip install plyvel'. "
+                                      "Also make sure to have leveldb installed.")
         try:
             self._path = options['path']
             self._real_db = plyvel.DB(self._path, create_if_missing=True, max_open_files=100,
@@ -116,7 +124,7 @@ class LevelDB(storage.IDBImplementation):
 
             # yielding outside of iterator to make sure the LevelDB iterator is closed and not leaking resources
             for block in res:
-                yield block
+                yield deepcopy(block)
 
     def _internal_contract_put(self, contract: storage.ContractState, batch=None):
         if batch:
@@ -154,7 +162,7 @@ class LevelDB(storage.IDBImplementation):
 
         # yielding outside of iterator to make sure the LevelDB iterator is closed and not leaking resources
         for contract in res:
-            yield contract
+            yield deepcopy(contract)
 
     def _internal_storage_put(self, key: storage.StorageKey, value: storage.StorageItem, batch=None):
         if batch:
@@ -197,7 +205,7 @@ class LevelDB(storage.IDBImplementation):
 
         # yielding outside of iterator to make sure the LevelDB iterator is closed and not leaking resources
         for k, v in res.items():
-            yield k, v
+            yield deepcopy(k), deepcopy(v)
 
     def _internal_storage_find(self, contract_script_hash: types.UInt160, key_prefix: bytes):
         prefix = DBPrefixes.STORAGES + contract_script_hash.to_array() + key_prefix
@@ -259,7 +267,7 @@ class LevelDB(storage.IDBImplementation):
 
         # yielding outside of iterator to make sure the LevelDB iterator is closed and not leaking resources
         for tx in res:
-            yield tx
+            yield deepcopy(tx)
 
     def close(self):
         self._real_db.close()

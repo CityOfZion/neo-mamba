@@ -1,5 +1,6 @@
 import abc
 import unittest
+import binascii
 from neo3.core import types
 from neo3.network import payloads
 from neo3 import storage
@@ -270,15 +271,27 @@ class AbstractBlockStorageTest(abc.ABC, unittest.TestCase):
 
         snapshot_view = self.db.get_snapshotview()
 
-        # get block 2 to add a cache entry, so we can confirm correct sorting
+        # get() a block to fill the cache so we can test sorting and readonly behaviour
+        # block2's hash comes before block1 when sorting. So we cache that first as the all() internals
+        # collect the results from the backend (=block1) before results from the cache (=block2).
+        # Therefore if block2 is found in the first position of the all() results, we can
+        # conclude that the sort() happened correctly.
         snapshot_view.blocks.get(self.block2_hash)
-
         blocks = list(snapshot_view.blocks.all())
         self.assertEqual(2, len(blocks))
-        self.assertEqual(self.block1, blocks[0])
-        self.assertEqual(self.block2, blocks[1])
+        self.assertEqual(self.block2, blocks[0])
+        self.assertEqual(self.block1, blocks[1])
 
-        # test clone all
+        # ensure all() results are readonly
+        blocks[0].transactions.append(payloads.Transaction())
+        blocks[1].transactions.append(payloads.Transaction())
+
+        block1_from_snap = snapshot_view.blocks.get(self.block1_hash, read_only=True)
+        block2_from_snap = snapshot_view.blocks.get(self.block2_hash, read_only=True)
+        self.assertNotEqual(3, len(block1_from_snap.transactions))
+        self.assertNotEqual(3, len(block2_from_snap.transactions))
+
+        # test clone all()
         block3 = deepcopy(self.block1)
         block3.index = 3
 
@@ -287,9 +300,9 @@ class AbstractBlockStorageTest(abc.ABC, unittest.TestCase):
         blocks = list(clone_view.blocks.all())
         self.assertEqual(3, len(blocks))
         self.assertEqual(2, len(list(snapshot_view.blocks.all())))
-        self.assertEqual(self.block1, blocks[0])
+        self.assertEqual(self.block1, blocks[2])
         self.assertEqual(self.block2, blocks[1])
-        self.assertEqual(block3, blocks[2])
+        self.assertEqual(block3, blocks[0])
 
     def test_snapshot_bestblockheight(self):
         snapshot_view = self.db.get_snapshotview()
@@ -597,11 +610,14 @@ class AbstractContractStorageTest(abc.ABC, unittest.TestCase):
         # key the contract is stored under (a.k.a does not affect the contract script hash)
         mani = manifest.ContractManifest()
         mani._attr_for_test = 111
+        contracts[0].manifest = mani
         contracts[1].manifest = mani
 
-        mani_from_snapshot = snapshot_view.contracts.get(self.contract2_hash, read_only=True)
+        mani1_from_snapshot = snapshot_view.contracts.get(self.contract1_hash, read_only=True)
+        mani2_from_snapshot = snapshot_view.contracts.get(self.contract2_hash, read_only=True)
         # validate the manifest is unchanged
-        self.assertEqual(0, mani_from_snapshot.manifest._attr_for_test)
+        self.assertEqual(0, mani1_from_snapshot.manifest._attr_for_test)
+        self.assertEqual(0, mani2_from_snapshot.manifest._attr_for_test)
 
         # find something that's only in a clone
         clone_view = snapshot_view.clone()
@@ -907,11 +923,15 @@ class AbstractStorageStorageTest(abc.ABC, unittest.TestCase):
         self.assertEqual(self.storageitem2, list(all_pairs.values())[0])
         self.assertEqual(self.storageitem3, list(all_pairs.values())[1])
 
-        # test results are readonly by modifying one of the results and requesting it again from the snapshot.
-        storage_item = list(all_pairs.values())[1]
-        storage_item.value = b'\x55\x55'
-        item_from_snap = snapshot_view.storages.get(self.storagekey3, read_only=True)
-        self.assertNotEqual(b'\x55\x55', item_from_snap.value)
+        # test results are readonly by modifying the results and requesting it again from the snapshot.
+        storage_item2 = list(all_pairs.values())[0]
+        storage_item3 = list(all_pairs.values())[1]
+        storage_item2.value = b'\x55\x55'
+        storage_item3.value = b'\x55\x55'
+        item2_from_snap = snapshot_view.storages.get(self.storagekey2, read_only=True)
+        item3_from_snap = snapshot_view.storages.get(self.storagekey3, read_only=True)
+        self.assertNotEqual(b'\x55\x55', item2_from_snap.value)
+        self.assertNotEqual(b'\x55\x55', item3_from_snap.value)
 
 
         clone_view = snapshot_view.clone()
@@ -1352,23 +1372,28 @@ class AbstractTransactionStorageTest(abc.ABC, unittest.TestCase):
 
         snapshot_view = self.db.get_snapshotview()
 
-        # get a tx to fill the cache so we can test sorting and readonly behaviour
-        # tx 1 hash comes before tx2, so we cache that first as the internals add
-        # results from the backend before from cache
-        snapshot_view.transactions.get(self.tx1_hash, read_only=True)
+        # get() a tx to fill the cache so we can test sorting and readonly behaviour
+        # tx2's hash comes before tx1 when sorting. So we cache that first as the all() internals
+        # collect the results from the backend (=tx1) before results from the cache (=tx2).
+        # Therefore if tx2 is found in the first position of the all() results, we can
+        # conclude that the sort() happened correctly.
+        snapshot_view.transactions.get(self.tx2_hash, read_only=True)
 
         txs = list(snapshot_view.transactions.all())
         self.assertEqual(2, len(txs))
-        self.assertEqual(self.tx1, txs[1])
         self.assertEqual(self.tx2, txs[0])
+        self.assertEqual(self.tx1, txs[1])
 
-        # ensure results are readonly
+        # ensure all() results are readonly
+        txs[0].block_height = 999
         txs[1].block_height = 999
 
-        tx_from_snap = snapshot_view.transactions.get(self.tx1_hash, read_only=True)
-        self.assertNotEqual(999, tx_from_snap.block_height)
+        tx1_from_snap = snapshot_view.transactions.get(self.tx1_hash, read_only=True)
+        tx2_from_snap = snapshot_view.transactions.get(self.tx2_hash, read_only=True)
+        self.assertNotEqual(999, tx1_from_snap.block_height)
+        self.assertNotEqual(999, tx2_from_snap.block_height)
 
-        # test clone all
+        # test clone all()
         tx3 = deepcopy(self.tx1)
         tx3.script = b'\x05\x06'
         clone_view = snapshot_view.clone()
@@ -1378,5 +1403,5 @@ class AbstractTransactionStorageTest(abc.ABC, unittest.TestCase):
         self.assertEqual(3, len(txs))
         self.assertEqual(2, len(list(snapshot_view.transactions.all())))
         self.assertEqual(self.tx1, txs[2])
-        self.assertEqual(self.tx2, txs[0])
-        self.assertEqual(tx3, txs[1])
+        self.assertEqual(self.tx2, txs[1])
+        self.assertEqual(tx3, txs[0])

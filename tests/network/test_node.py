@@ -71,6 +71,10 @@ class NeoNodeTestCase(asynctest.TestCase):
         stdio_handler = logging.StreamHandler()
         network_logger.addHandler(stdio_handler)
 
+    @classmethod
+    def tearDownClass(cls) -> None:
+        settings.reset_settings_to_default()
+
     def setUp(self) -> None:
         settings.reset_settings_to_default()
         node.NeoNode._reset_for_test()

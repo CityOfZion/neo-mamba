@@ -233,8 +233,8 @@ class NeoNode:
                                     payload=payloads.PingPayload(height=height))
                 self._create_task_with_cleanup(self.send_message(m))
         else:
-            logger.debug(f"Message with type INV received. No processing for payload type {payload.type} "
-                         f"implemented")
+            logger.debug(f"Message with type INV received. No processing for payload type "  # type:ignore
+                         f"{payload.type.name} implemented")
 
     def handler_filteradd(self, msg: message.Message) -> None:
         """
