@@ -10,10 +10,9 @@ class StorageItem(serialization.ISerializable, IClonable):
         return utils.get_var_size(self.value)
 
     def __eq__(self, other):
-        if type(other) is type(self):
-            return self.value == other.value
-        else:
+        if not isinstance(other, type(self)):
             return False
+        return self.value == other.value
 
     def serialize(self, writer: serialization.BinaryWriter) -> None:
         writer.write_var_bytes(self.value)

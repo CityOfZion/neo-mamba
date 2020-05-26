@@ -110,7 +110,7 @@ class LevelDB(storage.IDBImplementation):
         block_bytes = self._real_db.get(DBPrefixes.BLOCKS + block_hash_bytes)
         if block_bytes is None:
             # should not be reachable unless _internal_block_put/delete() are messed up.
-            raise KeyError
+            raise KeyError  # pragma: no cover
 
         return payloads.Block.deserialize_from_bytes(block_bytes)
 

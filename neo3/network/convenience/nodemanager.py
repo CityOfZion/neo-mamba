@@ -21,7 +21,7 @@ def is_ip_address(hostname: str) -> bool:
 
 class NodeManager(convenience._Singleton):
     """
-    This class is a convenience class that helps establish and maintain a pool active connections to NEO nodes.
+    This class is a convenience class that helps establish and maintain a pool of active connections to NEO nodes.
 
     Attention:
         This class is singleton.
