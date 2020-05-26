@@ -1,6 +1,5 @@
 import abc
 import unittest
-import binascii
 from neo3.core import types
 from neo3.network import payloads
 from neo3 import storage
@@ -569,28 +568,28 @@ class AbstractContractStorageTest(abc.ABC, unittest.TestCase):
         snapshot_view.contracts.get(self.contract1_hash)
 
         clone_view = snapshot_view.clone()
-        contract_from_clone = clone_view.contracts.get(self.contract1_hash) # type: storage.ContractState
-        # modify one of augmented attributes
-        contract_from_clone.manifest._attr_for_test = 1
+        contract_from_clone = clone_view.contracts.get(self.contract1_hash)  # type: storage.ContractState
+        # modify one of the attributes
+        contract_from_clone.manifest.extra = True
 
         # validate the snapshot and real backend are not affected
         contract_from_snapshot = snapshot_view.contracts.get(self.contract1_hash)
         contract_from_real_db = raw_view.contracts.get(self.contract1_hash)
-        self.assertNotEqual(1, contract_from_snapshot.manifest._attr_for_test)
-        self.assertNotEqual(1, contract_from_real_db.manifest._attr_for_test)
+        self.assertNotEqual(True, contract_from_snapshot.manifest.extra)
+        self.assertNotEqual(True, contract_from_real_db.manifest.extra)
 
         # commit clone
         clone_view.commit()
         # now snapshot should be updated, but real db not
         contract_from_snapshot = snapshot_view.contracts.get(self.contract1_hash)
         contract_from_real_db = raw_view.contracts.get(self.contract1_hash)
-        self.assertEqual(1, contract_from_snapshot.manifest._attr_for_test)
-        self.assertNotEqual(1, contract_from_real_db.manifest._attr_for_test)
+        self.assertEqual(True, contract_from_snapshot.manifest.extra)
+        self.assertNotEqual(True, contract_from_real_db.manifest.extra)
 
         # finally persist to real db
         snapshot_view.commit()
         contract_from_real_db = raw_view.contracts.get(self.contract1_hash)
-        self.assertEqual(1, contract_from_real_db.manifest._attr_for_test)
+        self.assertEqual(True, contract_from_real_db.manifest.extra)
 
     def test_all(self):
         raw_view = self.db.get_rawview()
@@ -616,8 +615,8 @@ class AbstractContractStorageTest(abc.ABC, unittest.TestCase):
         mani1_from_snapshot = snapshot_view.contracts.get(self.contract1_hash, read_only=True)
         mani2_from_snapshot = snapshot_view.contracts.get(self.contract2_hash, read_only=True)
         # validate the manifest is unchanged
-        self.assertEqual(0, mani1_from_snapshot.manifest._attr_for_test)
-        self.assertEqual(0, mani2_from_snapshot.manifest._attr_for_test)
+        self.assertIsNone(mani1_from_snapshot.manifest.extra)
+        self.assertIsNone(mani2_from_snapshot.manifest.extra)
 
         # find something that's only in a clone
         clone_view = snapshot_view.clone()
