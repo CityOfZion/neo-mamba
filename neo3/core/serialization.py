@@ -198,6 +198,15 @@ class BinaryReader(object):
         """
         return self._unpack('%sI' % endian, 4)
 
+    def read_int32(self, endian: str = "<") -> int:
+        """
+        Read 4 bytes as a signed integer value from the stream.
+
+        Args:
+            endian: specify the endianness. (Default) Little endian ('<'). Use '>' for big endian.
+        """
+        return self._unpack('%si' % endian, 4)
+
     def read_uint64(self, endian: str = "<") -> int:
         """
         Read 8 bytes as an unsigned integer value from the stream.
@@ -523,6 +532,17 @@ class BinaryWriter(object):
             int: the number of bytes written.
         """
         return self._pack('%sh' % endian, value)
+
+    def write_int32(self, value: int, endian: str = "<") -> int:
+        """
+        Pack the value as a signed integer and write 4 bytes to the stream.
+        Args:
+            value: integer value to write to the stream.
+            endian: specify the endianness. (Default) Little endian ('<'). Use '>' for big endian.
+        Returns:
+            int: the number of bytes written.
+        """
+        return self._pack('%si' % endian, value)
 
     def write_int64(self, value: int, endian: str = "<") -> int:
         """

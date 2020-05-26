@@ -1,4 +1,5 @@
 import shutil
+import unittest
 from sys import stderr
 from contextlib import suppress
 from tests.storage import storagetest
@@ -56,3 +57,24 @@ class LevelDBTransactionsTestCase(storagetest.AbstractTransactionStorageTest):
         self.db.close()
         with suppress(Exception):
             shutil.rmtree('./unittest-leveldb')
+
+
+class LevelDBVariousTests(unittest.TestCase):
+    def test_plyvel_init_exception(self):
+        options = {}
+        with self.assertRaises(Exception) as context:
+            implementations.LevelDB(options)
+        self.assertIn("leveldb exception", str(context.exception))
+
+    def test_no_plyvel_support(self):
+        # at this point we know level_db_supported is always true because otherwise it would have failed
+        # at `setUpModule` and this test case would never have been called.
+        implementations.leveldb.level_db_supported = False
+        options = {}
+        try:
+            with self.assertRaises(Exception) as context:
+                implementations.LevelDB(options)
+            self.assertIn("plyvel module not found - try 'pip install plyvel", str(context.exception))
+        finally:
+            implementations.leveldb.level_db_supported = True
+

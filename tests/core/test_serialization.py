@@ -103,6 +103,11 @@ class BinaryReaderTestCase(unittest.TestCase):
             b = br.read_uint32()
             self.assertEqual(4278387201, b)
 
+    def test_read_int32(self):
+        with serialization.BinaryReader(b'\x01\x02\x03\xFF') as br:
+            b = br.read_int32()
+            self.assertEqual(-16580095, b)
+
     def test_read_uint64(self):
         input_data = b'\x01\x02\x03\x04\x05\x06\x07\x08\x09'
         # make sure we read only 4 bytes
@@ -338,6 +343,12 @@ class BinaryWriterTestCase(unittest.TestCase):
             bw.write_int16(-1)
             # this also validates signed vs unsigned. If it was unsigned it would be without \x00
             self.assertEqual(b'\xFF\xFF', bw._stream.getvalue())
+
+    def test_write_int32(self):
+        with serialization.BinaryWriter() as bw:
+            bw.write_int32(-1)
+            # this also validates signed vs unsigned. If it was unsigned it would be without \x00
+            self.assertEqual(b'\xFF\xFF\xFF\xFF', bw._stream.getvalue())
 
     def test_write_int64(self):
         with serialization.BinaryWriter() as bw:
