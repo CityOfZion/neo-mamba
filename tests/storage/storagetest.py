@@ -734,6 +734,28 @@ class AbstractStorageStorageTest(abc.ABC, unittest.TestCase):
         snapshot_view.commit()
         self.assertIsNone(raw_view.storages.try_get(self.storagekey1))
 
+    def test_snapshot_with_context_manager(self):
+        # partially repeat test_snapshot_basic_add_delete_get()
+        raw_view = self.db.get_rawview()
+        with self.db.get_snapshotview() as snapshot_view:
+            # we should not find any key in an empty db
+            target_key = storage.StorageKey(types.UInt160.zero(), b'\x00')
+            with self.assertRaises(KeyError):
+                raw_view.storages.get(target_key)
+            self.assertIsNone(raw_view.storages.try_get(target_key))
+
+            # add item
+            snapshot_view.storages.put(self.storagekey1, self.storageitem1)
+            # real backend should not be affected until a commit is called
+            self.assertIsNone(raw_view.storages.try_get(self.storagekey1))
+
+            # persist to backend
+            snapshot_view.commit()
+            storage_from_db = raw_view.storages.try_get(self.storagekey1)
+            # and validate
+            self.assertIsNotNone(storage_from_db)
+            self.assertEqual(self.storageitem1, storage_from_db)
+
     def test_snapshot_add_duplicates(self):
         snapshot_view = self.db.get_snapshotview()
 

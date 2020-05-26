@@ -200,7 +200,7 @@ class BinaryReader(object):
 
     def read_int32(self, endian: str = "<") -> int:
         """
-        Read 4 bytes as an signed integer value from the stream.
+        Read 4 bytes as a signed integer value from the stream.
 
         Args:
             endian: specify the endianness. (Default) Little endian ('<'). Use '>' for big endian.
