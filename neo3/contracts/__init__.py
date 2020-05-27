@@ -11,6 +11,7 @@ from .abi import (ContractParameterType,
                   ContractEventDescriptor,
                   ContractParameterDefinition,
                   ContractABI)
+from .nef import (NEF, Version)
 
 __all__ = ['ContractParameterType',
            'TriggerType',
