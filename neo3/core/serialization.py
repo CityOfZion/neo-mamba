@@ -34,7 +34,7 @@ class ISerializable(abc.ABC):
         """
 
     @classmethod
-    def deserialize_from_bytes(cls, data: Union[bytes, bytearray]) -> ISerializable:
+    def deserialize_from_bytes(cls: Type[ISerializable_T], data: Union[bytes, bytearray]) -> ISerializable_T:
         """
         Parse data into an object instance.
 
