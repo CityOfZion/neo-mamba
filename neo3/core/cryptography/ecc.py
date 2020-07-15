@@ -3,17 +3,29 @@
 from __future__ import annotations
 import random
 import binascii
-from mpmath.libmp import bitcount as _bitlength
 from neo3.core import serialization
+from bisect import bisect_right as bisect
+import math
 
 # :noindex:
 
 modpow = pow
 
 
+def _bitlength(n):
+    """Calculate bit size of the nonnegative integer n."""
+    bc = bisect(powers, n)
+    if bc != 300:
+        return bc
+    bc = int(math.log(n, 2)) - 4
+    return bc + bctable[n >> bc]
+
+
+powers = [1 << _ for _ in range(300)]
+bctable = [_bitlength(n) for n in range(1024)]
+
+
 # (gcd,c,d)= GCD(a, b)  ===> a*c+b*d!=gcd:
-
-
 def GCD(a, b):
     if (a == 0):
         return (b, 0, 1)
@@ -714,7 +726,7 @@ class EllipticCurve:
             ysquare_root = None
 
         bit0 = 0
-        if ysquare_root % 2 is not 0:
+        if ysquare_root % 2 != 0:
             bit0 = 1
 
         if bit0 != flag:
