@@ -12,9 +12,14 @@ from .abi import (ContractParameterType,
                   ContractParameterDefinition,
                   ContractABI)
 from .nef import (NEF, Version)
+from .binaryserializer import BinarySerializer
+from .jsonserializer import (NEOJson, JSONSerializer)
 
 __all__ = ['ContractParameterType',
            'TriggerType',
            'ContractMethodDescriptor',
            'ContractEventDescriptor',
-           'ContractParameterDefinition']
+           'ContractParameterDefinition',
+           'BinarySerializer',
+           'NEOJson',
+           'JSONSerializer']

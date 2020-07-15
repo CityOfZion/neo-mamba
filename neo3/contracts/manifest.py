@@ -291,7 +291,7 @@ class ContractManifest(serialization.ISerializable, IJson):
         # Update trusts/safe_methods with outcome of https://github.com/neo-project/neo/issues/1664
         # Unfortunately we have to add this nonsense logic or we get deviating VM results.
         self.trusts = WildcardContainer()  # for UInt160 types
-        self.safe_methods = WildcardContainer()  # for string types
+        self.safe_methods: WildcardContainer = WildcardContainer()  # for string types
         self.extra = None
 
     def __len__(self):
