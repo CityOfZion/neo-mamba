@@ -1,13 +1,14 @@
 .. _whatsnew-index:
 
-###########################
- What's New in neo3-python
-###########################
+########################
+ What's New in neo-mamba
+########################
 
 
-This chapter describes the most important changes between the neo3-python versions. For a detailed list of all changes see the CHANGELOG.
+This chapter describes the most important changes between the neo-mamba versions. For a detailed list of all changes see the CHANGELOG.
 
 .. toctree::
    :maxdepth: 2
 
    0.1.rst
+   0.2.rst

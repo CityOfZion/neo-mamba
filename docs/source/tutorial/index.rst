@@ -8,7 +8,7 @@ After a quick introduction and environment setup we'll create a small program th
 
 Introduction
 ------------
-This SDK intends to provide building blocks for Python developers to interact with the NEO blockchain as a means to lower the entry barrier. It is a work in progress and thus you can expect that not all parts of the blockchain are supported. What is present should be functioning correctly unless explicitely mentioned (e.g. because they depend on structures not yet available). Please report any issues on `Github <https://github.com/CityOfZion/neo3-python/issues>`_ or submit ideas how to improve the SDK.
+This SDK intends to provide building blocks for Python developers to interact with the NEO blockchain as a means to lower the entry barrier. It is a work in progress and thus you can expect that not all parts of the blockchain are supported. What is present should be functioning correctly unless explicitly mentioned (e.g. because they depend on structures not yet available). Please report any issues on `Github <https://github.com/CityOfZion/neo-mamba/issues>`_ or submit ideas how to improve the SDK.
 
 Have a look at :ref:`What's new in version 0.1 <whatsnew-v01>` to get a feel what you can expect.
 
@@ -23,8 +23,8 @@ It is recommended to put all project dependencies into its own virtual environme
 
   ::
 
-    git clone https://github.com/CityOfZion/neo3-python.git
-    cd neo3-python
+    git clone https://github.com/CityOfZion/neo-mamba.git
+    cd neo-mamba
 
     # create virtual environment using Python 3.7 and activate
     python3.7 -m venv venv
@@ -45,7 +45,7 @@ It is recommended to put all project dependencies into its own virtual environme
     python3.7 -m venv venv
     source venv/bin/activate
 
-    (venv) pip install wheel neo3-python
+    (venv) pip install wheel neo-mamba
 
 
 If you intend the use LevelDB as backend (as opposed to the In-Memory solution), then you'll also have to install that system dependency. 

@@ -80,7 +80,7 @@ class NeoNode:
         caps: List[capabilities.NodeCapability] = [capabilities.FullNodeCapability(0)]
         # TODO: fix nonce and port if a service is running
         send_version = message.Message(msg_type=message.MessageType.VERSION,
-                                       payload=payloads.VersionPayload.create(nonce=123, user_agent="NEO3-PYTHON",
+                                       payload=payloads.VersionPayload.create(nonce=123, user_agent="NEO-MAMBA",
                                                                               capabilities=caps))
         await self.send_message(send_version)
 

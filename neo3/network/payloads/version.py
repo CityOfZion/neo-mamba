@@ -27,7 +27,7 @@ class VersionPayload(serialization.ISerializable):
         self.timestamp = int(datetime.datetime.utcnow().timestamp())
         #: A unique identifier for the node.
         self.nonce = nonce if nonce else random.randint(0, 10000)
-        #: A node client description i.e. "NEO-PYTHON-V001"
+        #: A node client description i.e. "NEO-MAMBA-V001"
         self.user_agent = user_agent if user_agent else ""
         #: A list of services a node offers. See :ref:`capabilities <library-network-capabilities>`
         self.capabilities = capabilities if capabilities else []
