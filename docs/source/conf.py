@@ -22,8 +22,8 @@ from neo3 import version
 
 # -- Project information -----------------------------------------------------
 
-project = 'neo3-python'
-copyright = '2019, COZ - Erik van den Brink'
+project = 'neo-mamba'
+copyright = '2019-2020, COZ - Erik van den Brink'
 author = 'Erik van den Brink'
 
 

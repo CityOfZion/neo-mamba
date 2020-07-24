@@ -1,0 +1,19 @@
+.. _whatsnew-v02:
+
+*****************************
+  What's New in neo-mamba 0.2
+*****************************
+
+:Author: Erik van den Brink
+
+Preview 2 compatibility
+=======================
+
+The release updates the existing components to be compatible with `NEO v3.0.0-preview2 <https://github.com/neo-project/neo/releases/tag/v3.0.0-preview2>`_. The affected areas are all network related.
+
+.. warning:: This release is not backwards compatible.
+
+Bug fixes
+=========
+A handful of bugs have been fixed to bring compatibility with Python 3.8 and PIP >= 20. Finally, the storage layer has been
+updated to fix a bug where the ``all()`` method did not always return readonly objects.
