@@ -4,9 +4,9 @@
 Introduction
 ************
 
-The neo3-python library contains a collection of modules to help work with the `NEO3 <https://neo.org/>`_ blockchain. 
+The neo-mamba library contains a collection of modules to help work with the `NEO3 <https://neo.org/>`_ blockchain.
 
-It can be considered the succesor of `neo-python <https://github.com/CityOfZion/neo-python>`_. The former targets the NEO 2.x blockchain, whereas this library targets NEO 3.x. It is rewritten from scratch with the vision of being an SDK first with node support second. Its goal is to lower the entry barrier for working with the NEO3 blockchain by providing the primary building blocks with full and concise documentation. Convenience modules and functionality to support full node capabilities will selectively be present. An example of such convenience functionality is the SyncManager, with its accompanying NodeManager, which take away the burden of syncing the blockchain and staying in sync, allowing the user to focus on post processing of the incoming data instead of retrieving it.
+It can be considered the successor of `neo-python <https://github.com/CityOfZion/neo-python>`_. The former targets the NEO 2.x blockchain, whereas this library targets NEO 3.x. It is rewritten from scratch with the vision of being an SDK first with node support second. Its goal is to lower the entry barrier for working with the NEO3 blockchain by providing the primary building blocks with full and concise documentation. Convenience modules and functionality to support full node capabilities will selectively be present. An example of such convenience functionality is the SyncManager, with its accompanying NodeManager, which take away the burden of syncing the blockchain and staying in sync, allowing the user to focus on post processing of the incoming data instead of retrieving it.
 
 Overview
 ========

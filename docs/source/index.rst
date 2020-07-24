@@ -3,8 +3,8 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome! This is neo3-python's documentation
-============================================
+Welcome! This is neo-mamba's documentation
+==========================================
 
 .. toctree::
    whatsnew/index.rst
