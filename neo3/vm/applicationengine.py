@@ -1,3 +1,4 @@
+from __future__ import annotations
 from neo3 import contracts, storage, vm
 from typing import Any
 
@@ -18,4 +19,3 @@ class ApplicationEngine(vm.ExecutionEngine):
         self.test_mode = test_mode
         self.script_container = container
         self.gas_amount = self.GAS_FREE + gas
-

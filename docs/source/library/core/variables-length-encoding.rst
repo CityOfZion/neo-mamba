@@ -21,7 +21,7 @@ The NEO network protocol supports a variable length encoding for space saving. A
    | > 0xffffffff  |         9         | 0xff + uint64 + data |
    +---------------+-------------------+----------------------+
 
-The :ref:`~neo3.core.serialization.BinaryReader` and :ref:`~neo3.core.serialization.BinaryWriter` classes have functions to easily support these. Specifically:
+The :class:`~neo3.core.serialization.BinaryReader` and :class:`~neo3.core.serialization.BinaryWriter` classes have functions to easily support these. Specifically:
 
 * :func:`~neo3.core.serialization.BinaryReader.read_var_int`
 * :func:`~neo3.core.serialization.BinaryReader.read_var_bytes`

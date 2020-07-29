@@ -15,6 +15,7 @@ from .nef import (NEF, Version)
 from .contract import Contract
 from .binaryserializer import BinarySerializer
 from .jsonserializer import (NEOJson, JSONSerializer)
+from .native import NativeContract, CallFlags
 
 __all__ = ['ContractParameterType',
            'TriggerType',
@@ -24,4 +25,6 @@ __all__ = ['ContractParameterType',
            'Contract',
            'BinarySerializer',
            'NEOJson',
-           'JSONSerializer']
+           'JSONSerializer',
+           'NativeContract',
+           'CallFlags']

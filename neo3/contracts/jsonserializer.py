@@ -179,7 +179,7 @@ class JSONSerializer:
         elif t == str:
             return vm.ByteStringStackItem(json_data)
         elif t == int:
-            return vm.IntegerStackItem(vm.BigInteger(json_data))
+            return vm.IntegerStackItem(json_data)
         elif t == bool:
             return vm.BooleanStackItem(json_data)
         else:

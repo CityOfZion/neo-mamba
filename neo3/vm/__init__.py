@@ -1,5 +1,5 @@
 """The actual classes come from C-extension modules"""
+from __future__ import annotations
 from pybiginteger import BigInteger
-from pyneo3vm import *
+from neo3vm import *
 from .applicationengine import ApplicationEngine
-

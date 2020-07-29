@@ -15,13 +15,13 @@ class InteropDescriptor:
         Create a interoperability call descriptor.
         This are the functions that can be called using the SYSCALL OpCode in the virtual machine.
 
-        Usage the alternative constructor `create_with_price_calculator` if the price needs to be determined dynamically.
+        Use the alternative constructor `create_with_price_calculator` if the price needs to be determined dynamically.
 
         Args:
             method: name of call.
             handler: the function that will be executed when called.
             price: the price of calling the handler.
-            allowed_triggers: the trigger type the contract must have been called with to allow execution of the handler.
+            allowed_triggers: the trigger type the contract must be called with to allow execution of the handler.
             call_flags: ExecutionContext rights needed.
         """
         self.method = method
@@ -78,7 +78,7 @@ class InteropService:
         descriptor = cls._methods.get(method, False)
         if not descriptor:
             return False
-        if not engine.trigger in descriptor.allowed_triggers:
+        if engine.trigger not in descriptor.allowed_triggers:
             return False
         context = engine.current_context
         if descriptor.required_call_flags not in contracts.native.CallFlags(context.call_flags):
@@ -103,8 +103,8 @@ class InteropService:
         Args:
             method: name of call.
             handler: the function that will be executed when called.
-            price_or_calculator: a fixed price for calling the handler, or a callable to dynamically determine the price.
-            allowed_triggers: the trigger type the contract must have been called with to allow execution of the handler.
+            price_or_calculator: a fixed price for calling the handler, or a callable to dynamically determine the price.  # noqa
+            allowed_triggers: the trigger type the contract must be called with to allow execution of the handler.
             call_flags: ExecutionContext rights needed.
         """
         if type(price_or_calculator) is int:

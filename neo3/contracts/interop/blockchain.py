@@ -20,7 +20,7 @@ def _is_traceable_block(snapshot: storage.Snapshot, index: int):
 
 @register("System.Blockchain.GetHeight", 400, contracts.TriggerType.APPLICATION, contracts.native.CallFlags.NONE)
 def blockchain_get_height(engine: vm.ApplicationEngine) -> bool:
-    engine.push(vm.IntegerStackItem(vm.BigInteger(engine.snapshot.block_height)))
+    engine.push(vm.IntegerStackItem(engine.snapshot.block_height))
     return True
 
 
@@ -106,7 +106,7 @@ def blockchain_get_transaction_height(engine: vm.ApplicationEngine) -> bool:
         tx = None
 
     if tx is None:
-        engine.push(vm.IntegerStackItem(vm.BigInteger(-1)))
+        engine.push(vm.IntegerStackItem(-1))
     else:
         engine.push(payloads.Transaction.to_stack_item(engine.reference_counter))
     return True
