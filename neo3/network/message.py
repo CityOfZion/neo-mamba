@@ -81,6 +81,7 @@ class Message(serialization.ISerializable):
 
         if len(self.payload) > self.COMPRESSION_MIN_SIZE and MessageConfig.COMPRESSED not in self.config:
             compressed_data = lz4.block.compress(self.payload.to_array(), store_size=False)
+            compressed_data = len(payload).to_bytes(4, 'little') + compressed_data
             if len(compressed_data) < len(self.payload) - self.COMPRESSION_THRESHOLD:
                 payload = compressed_data
                 self.config |= MessageConfig.COMPRESSED
@@ -108,7 +109,8 @@ class Message(serialization.ISerializable):
                 # "The uncompressed_size argument specifies an upper bound on the size of the uncompressed data size
                 # rather than an absolute value"
                 try:
-                    payload_data = lz4.block.decompress(payload_data, uncompressed_size=self.PAYLOAD_MAX_SIZE)
+                    size = int.from_bytes(payload_data[:4], 'little')
+                    payload_data = lz4.block.decompress(payload_data[4:], uncompressed_size=size)
                 except lz4.block.LZ4BlockError:
                     raise ValueError("Invalid payload data - decompress failed")
 
