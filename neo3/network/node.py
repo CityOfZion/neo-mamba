@@ -45,7 +45,7 @@ class NeoNode:
             message.MessageType.FILTERLOAD: self.handler_filterload,
             message.MessageType.GETADDR: self.handler_getaddr,
             message.MessageType.GETBLOCKS: self.handler_getblocks,
-            message.MessageType.GETBLOCKDATA: self.handler_getblockdata,
+            message.MessageType.GETBLOCKBYINDEX: self.handler_getblockdata,
             message.MessageType.GETDATA: self.handler_getdata,
             message.MessageType.GETHEADERS: self.handler_getheaders,
             message.MessageType.HEADERS: self.handler_headers,
@@ -287,7 +287,7 @@ class NeoNode:
 
     def handler_getblockdata(self, msg: message.Message) -> None:
         """
-        Handler for a message with the GETBLOCKDATA type.
+        Handler for a message with the GETBLOCKBYINDEX type.
 
         Args:
             msg:
@@ -468,7 +468,7 @@ class NeoNode:
         """
         Send a request for `count` blocks starting from `index_start`.
 
-        Count cannot exceed :attr:`~neo3.network.payloads.block.GetBlockDataPayload.MAX_BLOCKS_COUNT`.
+        Count cannot exceed :attr:`~neo3.network.payloads.block.GetBlockByIndexPayload.MAX_BLOCKS_COUNT`.
 
         See also:
             :meth:`~neo3.network.node.NeoNode.request_blocks()` to only request block hashes.
@@ -477,8 +477,8 @@ class NeoNode:
             index_start: block index to start from.
             count: number of blocks to return.
         """
-        m = message.Message(msg_type=message.MessageType.GETBLOCKDATA,
-                            payload=payloads.GetBlockDataPayload(index_start, count))
+        m = message.Message(msg_type=message.MessageType.GETBLOCKBYINDEX,
+                            payload=payloads.GetBlockByIndexPayload(index_start, count))
         await self.send_message(m)
 
     async def request_data(self, type: payloads.InventoryType, hashes: List[types.UInt256]) -> None:

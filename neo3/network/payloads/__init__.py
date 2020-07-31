@@ -7,12 +7,12 @@ from .verification import Witness, WitnessScope, Cosigner
 from .consensus import ConsensusData, ConsensusPayload
 from .transaction import Transaction, TransactionAttributeUsage, TransactionAttribute
 from .block import Header, Block, MerkleBlockPayload, HeadersPayload, TrimmedBlock, GetBlocksPayload, \
-    GetBlockDataPayload
+    GetBlockByIndexPayload
 from .filter import FilterAddPayload, FilterLoadPayload
 
 
 __all__ = ['EmptyPayload', 'InventoryPayload', 'InventoryType', 'VersionPayload', 'NetworkAddress',
            'AddrPayload', 'PingPayload', 'Witness', 'WitnessScope', 'Header', 'Block', 'MerkleBlockPayload',
            'HeadersPayload', 'ConsensusData', 'ConsensusPayload', 'Transaction', 'TransactionAttribute',
-           'TransactionAttributeUsage', 'Cosigner', 'GetBlocksPayload', 'GetBlockDataPayload', 'FilterAddPayload',
+           'TransactionAttributeUsage', 'Cosigner', 'GetBlocksPayload', 'GetBlockByIndexPayload', 'FilterAddPayload',
            'FilterLoadPayload', 'TrimmedBlock']

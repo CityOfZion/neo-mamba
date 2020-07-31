@@ -506,14 +506,13 @@ class GetBlocksPayload(serialization.ISerializable):
         return cls(hash_start, count)
 
 
-class GetBlockDataPayload(serialization.ISerializable):
+class GetBlockByIndexPayload(serialization.ISerializable):
     """
-    Used to request full Block objects via a message with the :const:`~neo3.network.message.MessageType.GETBLOCKDATA`
+    Used to request full Block objects via a message with the :const:`~neo3.network.message.MessageType.GETBLOCKBYINDEX`
     type.
     """
-    MAX_BLOCKS_COUNT = 500
 
-    def __init__(self, index_start: int = 0, count: int = 500):
+    def __init__(self, index_start: int = 0, count: int = HeadersPayload.MAX_HEADERS_COUNT):
         """
         Should not be called directly. Use create() instead.
         """
@@ -531,7 +530,7 @@ class GetBlockDataPayload(serialization.ISerializable):
             writer: instance.
         """
         writer.write_uint32(self.index_start)
-        writer.write_uint16(self.count)
+        writer.write_int16(self.count)
 
     def deserialize(self, reader: serialization.BinaryReader) -> None:
         """
@@ -542,15 +541,15 @@ class GetBlockDataPayload(serialization.ISerializable):
 
         Raises:
             ValueError: if `count` is zero or exceeds
-               :const:`~neo3.network.payloads.getblocks.GetBlockDataPayload.MAX_BLOCKS_COUNT`.
+               :const:`~neo3.network.payloads.getblocks.GetBlockByIndexPayload.MAX_BLOCKS_COUNT`.
         """
         self.index_start = reader.read_uint32()
-        self.count = reader.read_uint16()
-        if self.count == 0 or self.count > self.MAX_BLOCKS_COUNT:
+        self.count = reader.read_int16()
+        if self.count < 1 or self.count == 0 or self.count > HeadersPayload.MAX_HEADERS_COUNT:
             raise ValueError("Deserialization error - invalid count")
 
     @classmethod
-    def create(cls, index_start: int, count: int = 500) -> GetBlockDataPayload:
+    def create(cls, index_start: int, count: int = 500) -> GetBlockByIndexPayload:
         """
         Create payload.
 

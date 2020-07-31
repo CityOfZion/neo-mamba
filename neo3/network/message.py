@@ -21,7 +21,7 @@ class MessageType(IntEnum):
     MEMPOOL = 0x25
     INV = 0x27
     GETDATA = 0x28
-    GETBLOCKDATA = 0x29
+    GETBLOCKBYINDEX = 0x29
     NOTFOUND = 0x2a
     TRANSACTION = 0x2b
     BLOCK = 0x2c
@@ -124,8 +124,8 @@ class Message(serialization.ISerializable):
         with serialization.BinaryReader(data) as br:
             if msg_type in [MessageType.INV, MessageType.GETDATA]:
                 return br.read_serializable(payloads.InventoryPayload)
-            elif msg_type == MessageType.GETBLOCKDATA:
-                return br.read_serializable(payloads.GetBlockDataPayload)
+            elif msg_type == MessageType.GETBLOCKBYINDEX:
+                return br.read_serializable(payloads.GetBlockByIndexPayload)
             elif msg_type == MessageType.VERSION:
                 return br.read_serializable(payloads.VersionPayload)
             elif msg_type == MessageType.VERACK:
