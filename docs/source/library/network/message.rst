@@ -94,7 +94,7 @@ Usage
 
    Request Header objects (can be used for syncing).
    
-   **Payload**: :class:`~neo3.network.payloads.block.GetBlocksPayload`
+   **Payload**: :class:`~neo3.network.payloads.block.GetBlockByIndexPayload`
 
    **Response type**: :const:`~neo3.network.message.MessageType.HEADERS`
 
