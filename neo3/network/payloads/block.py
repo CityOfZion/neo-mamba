@@ -508,8 +508,9 @@ class GetBlocksPayload(serialization.ISerializable):
 
 class GetBlockByIndexPayload(serialization.ISerializable):
     """
-    Used to request full Block objects via a message with the :const:`~neo3.network.message.MessageType.GETBLOCKBYINDEX`
-    type.
+    Used to request full Block or Header objects via a message with the
+    :const:`~neo3.network.message.MessageType.GETBLOCKBYINDEX` or :const:`~neo3.network.message.MessageType.GETHEADERS`
+    type respectively.
     """
 
     def __init__(self, index_start: int = 0, count: int = HeadersPayload.MAX_HEADERS_COUNT):
@@ -549,11 +550,11 @@ class GetBlockByIndexPayload(serialization.ISerializable):
             raise ValueError("Deserialization error - invalid count")
 
     @classmethod
-    def create(cls, index_start: int, count: int = 500) -> GetBlockByIndexPayload:
+    def create(cls, index_start: int, count: int = HeadersPayload.MAX_HEADERS_COUNT) -> GetBlockByIndexPayload:
         """
         Create payload.
 
         Args:
             index_start: start block height.
-            count: number of blocks to requests starting from `index_start`.
+            count: number of blocks or headers to requests starting from `index_start`.
         """
