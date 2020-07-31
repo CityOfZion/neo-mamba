@@ -327,8 +327,8 @@ class NeoNodeTestCase(asynctest.TestCase):
         await n.request_block_data(index_start, count)
         self.assertIsNotNone(n.send_message.call_args)
         m = n.send_message.call_args[0][0]  # type: message.Message
-        self.assertEqual(message.MessageType.GETBLOCKDATA, m.type)
-        self.assertIsInstance(m.payload, payloads.GetBlockDataPayload)
+        self.assertEqual(message.MessageType.GETBLOCKBYINDEX, m.type)
+        self.assertIsInstance(m.payload, payloads.GetBlockByIndexPayload)
         self.assertEqual(index_start, m.payload.index_start)
         self.assertEqual(count, m.payload.count)
 

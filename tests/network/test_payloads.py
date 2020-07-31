@@ -522,15 +522,16 @@ class GetBlocksPayloadTestCase(unittest.TestCase):
         self.assertEqual(self.payload.hash_start, deserialized_payload.hash_start)
         self.assertEqual(2, deserialized_payload.count)
 
+
 class GetBlockDataPayloadTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         """
-        GetBlockDataPayload payload = GetBlockDataPayload.Create(1, 2);
+        GetBlockByIndexPayload payload = GetBlockByIndexPayload.Create(1, 2);
         Console.WriteLine($"len: {payload.Size}");
         Console.WriteLine($"b\'{BitConverter.ToString(payload.ToArray()).Replace("-", "")}\'");
         """
-        cls.payload = payloads.GetBlockDataPayload(index_start=1, count=2)
+        cls.payload = payloads.GetBlockByIndexPayload(index_start=1, count=2)
 
     def test_len(self):
         # captured from C#, see setUpClass() for the capture code
@@ -544,21 +545,27 @@ class GetBlockDataPayloadTestCase(unittest.TestCase):
 
     def test_deserialization(self):
         # if the serialization() test for this class passes, we can use that as a reference to test deserialization against
-        deserialized_payload = payloads.GetBlockDataPayload.deserialize_from_bytes(self.payload.to_array())
+        deserialized_payload = payloads.GetBlockByIndexPayload.deserialize_from_bytes(self.payload.to_array())
         self.assertEqual(self.payload.index_start, deserialized_payload.index_start)
         self.assertEqual(2, deserialized_payload.count)
 
     def test_deserialization_error(self):
         # test exceed max count
-        payload = payloads.GetBlockDataPayload(index_start=1, count=payloads.GetBlockDataPayload.MAX_BLOCKS_COUNT + 1)
+        payload = payloads.GetBlockByIndexPayload(index_start=1, count=payloads.HeadersPayload.MAX_HEADERS_COUNT + 1)
         with self.assertRaises(ValueError) as context:
-            payloads.GetBlockDataPayload.deserialize_from_bytes(payload.to_array())
+            payloads.GetBlockByIndexPayload.deserialize_from_bytes(payload.to_array())
         self.assertIn("Deserialization error - invalid count", str(context.exception))
 
         # test 0 count
-        payload = payloads.GetBlockDataPayload(index_start=1, count=0)
+        payload = payloads.GetBlockByIndexPayload(index_start=1, count=0)
         with self.assertRaises(ValueError) as context:
-            payloads.GetBlockDataPayload.deserialize_from_bytes(payload.to_array())
+            payloads.GetBlockByIndexPayload.deserialize_from_bytes(payload.to_array())
+        self.assertIn("Deserialization error - invalid count", str(context.exception))
+
+        # test negative count
+        payload = payloads.GetBlockByIndexPayload(index_start=1, count=-10)
+        with self.assertRaises(ValueError) as context:
+            payloads.GetBlockByIndexPayload.deserialize_from_bytes(payload.to_array())
         self.assertIn("Deserialization error - invalid count", str(context.exception))
 
 

@@ -112,7 +112,7 @@ class NetworkMessageTestCase(unittest.TestCase):
         with patch('neo3.core.serialization.BinaryReader') as br:
             reader = br.return_value.__enter__.return_value
             message.Message._payload_from_data(message.MessageType.INV, b'')
-            message.Message._payload_from_data(message.MessageType.GETBLOCKDATA, b'')
+            message.Message._payload_from_data(message.MessageType.GETBLOCKBYINDEX, b'')
             message.Message._payload_from_data(message.MessageType.VERSION, b'')
             message.Message._payload_from_data(message.MessageType.VERACK, b'')
             message.Message._payload_from_data(message.MessageType.BLOCK, b'')
@@ -124,7 +124,7 @@ class NetworkMessageTestCase(unittest.TestCase):
 
             calls = [
                 call(payloads.InventoryPayload),
-                call(payloads.GetBlockDataPayload),
+                call(payloads.GetBlockByIndexPayload),
                 call(payloads.VersionPayload),
                 call(payloads.EmptyPayload),
                 call(payloads.Block),
