@@ -31,14 +31,15 @@ class AbstractBlockStorageTest(abc.ABC, unittest.TestCase):
 
     def setUp(self) -> None:
         self.db = self.db_factory()
+        signer = payloads.Signer(account=types.UInt160.from_string("d7678dd97c000be3f33e9362e673101bac4ca654"),
+                                 scope=payloads.WitnessScope.FEE_ONLY)
         tx = payloads.Transaction(version=0,
                                   nonce=123,
-                                  sender=types.UInt160.from_string("4b5acd30ba7ec77199561afa0bbd49b5e94517da"),
                                   system_fee=456,
                                   network_fee=789,
                                   valid_until_block=1,
                                   attributes=[],
-                                  cosigners=[],
+                                  signers=[signer],
                                   script=b'\x01',
                                   witnesses=[])
 
@@ -271,7 +272,7 @@ class AbstractBlockStorageTest(abc.ABC, unittest.TestCase):
         snapshot_view = self.db.get_snapshotview()
 
         # get() a block to fill the cache so we can test sorting and readonly behaviour
-        # block2's hash comes before block1 when sorting. So we cache that first as the all() internals
+        # block2's hash comes before block1 when sorting. So we cache that first as the all() function internals
         # collect the results from the backend (=block1) before results from the cache (=block2).
         # Therefore if block2 is found in the first position of the all() results, we can
         # conclude that the sort() happened correctly.
@@ -299,9 +300,9 @@ class AbstractBlockStorageTest(abc.ABC, unittest.TestCase):
         blocks = list(clone_view.blocks.all())
         self.assertEqual(3, len(blocks))
         self.assertEqual(2, len(list(snapshot_view.blocks.all())))
+        self.assertEqual(self.block2, blocks[0])
+        self.assertEqual(block3, blocks[1])
         self.assertEqual(self.block1, blocks[2])
-        self.assertEqual(self.block2, blocks[1])
-        self.assertEqual(block3, blocks[0])
 
     def test_snapshot_bestblockheight(self):
         snapshot_view = self.db.get_snapshotview()
@@ -1125,21 +1126,19 @@ class AbstractTransactionStorageTest(abc.ABC, unittest.TestCase):
 
     def setUp(self) -> None:
         self.db = self.db_factory()
-        attribute = payloads.TransactionAttribute(payloads.TransactionAttributeUsage.URL, b'')
 
-        cosigner = payloads.Cosigner(account=types.UInt160.from_string("d7678dd97c000be3f33e9362e673101bac4ca654"),
-                                     scope=payloads.WitnessScope.GLOBAL)
+        cosigner = payloads.Signer(account=types.UInt160.from_string("d7678dd97c000be3f33e9362e673101bac4ca654"),
+                                   scope=payloads.WitnessScope.GLOBAL)
 
         witness = payloads.Witness(invocation_script=b'', verification_script=b'\x55')
 
         self.tx1 = payloads.Transaction(version=0,
                                         nonce=123,
-                                        sender=types.UInt160.from_string("4b5acd30ba7ec77199561afa0bbd49b5e94517da"),
                                         system_fee=456,
                                         network_fee=789,
                                         valid_until_block=1,
-                                        attributes=[attribute],
-                                        cosigners=[cosigner],
+                                        attributes=[],
+                                        signers=[cosigner],
                                         script=b'\x01\x02',
                                         witnesses=[witness])
 

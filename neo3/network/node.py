@@ -364,10 +364,11 @@ class NeoNode:
             msg:
         """
         payload = cast(payloads.PingPayload, msg.payload)
-        logger.debug(f"Updating node {self.nodeid_human} height "
-                     f"from {self.best_height} to {payload.current_height}")
-        self.best_height = payload.current_height
-        self.best_height_last_update = datetime.utcnow().timestamp()
+        if self.best_height != payload.current_height:
+            logger.debug(f"Updating node {self.nodeid_human} height "
+                         f"from {self.best_height} to {payload.current_height}")
+            self.best_height = payload.current_height
+            self.best_height_last_update = datetime.utcnow().timestamp()
 
     def handler_transaction(self, msg: message.Message) -> None:
         """
@@ -498,6 +499,16 @@ class NeoNode:
     async def send_inventory(self, inv_type: payloads.InventoryType, inv_hash: types.UInt256):
         inv = payloads.InventoryPayload(type=inv_type, hashes=[inv_hash])
         m = message.Message(msg_type=message.MessageType.INV, payload=inv)
+        await self.send_message(m)
+
+    async def send_ping(self):
+        if settings.database:
+            height = max(0, blockchain.Blockchain().height)
+        else:
+            height = 0
+
+        ping = payloads.PingPayload(height)
+        m = message.Message(msg_type=message.MessageType.PING, payload=ping)
         await self.send_message(m)
 
     async def relay(self, inventory: payloads.IInventory) -> bool:

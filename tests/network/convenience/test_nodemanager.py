@@ -250,8 +250,8 @@ class NodeManagerTestCase2(asynctest.TestCase):
         # advance loop
         await asyncio.sleep(0.1)
         self.assertTrue(self.nodemgr.is_running)
-        # 3 looping service tasks
-        self.assertEqual(3, len(self.nodemgr.tasks))
+        # 4 looping service tasks
+        self.assertEqual(4, len(self.nodemgr.tasks))
         self.assertIsInstance(call_back_result, node.NeoNode)
         await self.nodemgr.shutdown()
         for t in self.nodemgr.tasks:
