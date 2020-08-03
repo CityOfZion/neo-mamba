@@ -1114,6 +1114,45 @@ class AbstractStorageStorageTest(abc.ABC, unittest.TestCase):
         self.assertEqual(key3, results[1][0])
         self.assertEqual(key1, results[2][0])
 
+    def test_1673(self):
+        # test if we are affected by https://github.com/neo-project/neo/issues/1672
+        self.storagekey1 = storage.StorageKey(self.contract1_hash, b'\x00\x01')
+        self.storagekey2 = storage.StorageKey(self.contract1_hash, b'\x00\x02')
+        self.storagekey3 = storage.StorageKey(self.contract1_hash, b'\x00\x03')
+        self.storagekey4 = storage.StorageKey(self.contract1_hash, b'\x00\x04')
+
+        self.storageitem1 = storage.StorageItem(b'\x01\x01')
+        self.storageitem2 = storage.StorageItem(b'\x02\x02')
+        self.storageitem3 = storage.StorageItem(b'\x03\x03')
+        self.storageitem4 = storage.StorageItem(b'\x04\x04')
+
+        # prepare
+        snapshot = self.db.get_snapshotview()
+        snapshot.storages.put(self.storagekey1, self.storageitem1)
+
+        raw = self.db.get_rawview()
+        raw.storages.put(self.storagekey2, self.storageitem2)
+        raw.storages.put(self.storagekey3, self.storageitem3)
+        raw.storages.put(self.storagekey4, self.storageitem4)
+
+        # test
+        iter = snapshot.storages.find(self.contract1_hash, key_prefix=b'\x00')
+        kv_pair = next(iter)
+        self.assertEqual(self.storagekey1, kv_pair[0])
+
+        kv_pair = snapshot.storages.get(self.storagekey3)
+        kv_pair = next(iter)
+        self.assertEqual(self.storagekey2, kv_pair[0])
+        self.assertEqual(self.storageitem2, kv_pair[1])
+
+        kv_pair = next(iter)
+        self.assertEqual(self.storagekey3, kv_pair[0])
+        self.assertEqual(self.storageitem3, kv_pair[1])
+
+        kv_pair = next(iter)
+        self.assertEqual(self.storagekey4, kv_pair[0])
+        self.assertEqual(self.storageitem4, kv_pair[1])
+
 
 class AbstractTransactionStorageTest(abc.ABC, unittest.TestCase):
     """
