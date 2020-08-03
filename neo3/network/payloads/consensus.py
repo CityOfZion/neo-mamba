@@ -169,5 +169,5 @@ class ConsensusData(serialization.ISerializable):
         Args:
             reader: instance.
         """
-        self.primary_index = reader.read_var_int(max=1024)  # comes from C#'s Clockchain.MaxValidators
+        self.primary_index = reader.read_var_int(max=1024)  # comes from C#'s Blockchain.MaxValidators
         self.nonce = reader.read_uint64()
