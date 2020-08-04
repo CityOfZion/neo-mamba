@@ -13,7 +13,7 @@ class ContractGroupTestCase(unittest.TestCase):
         cls.keypair = cryptography.KeyPair(private_key)
 
         # capture from C#
-        cls.expected_json = {'pubKey': '033d523f36a732974c0f7dbdfafb5206ecd087211366a274190f05b86d357f4bad', 'signature': 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA='}
+        cls.expected_json = {'pubkey': '033d523f36a732974c0f7dbdfafb5206ecd087211366a274190f05b86d357f4bad', 'signature': 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA='}
 
     def test_is_valid(self):
         """
@@ -213,7 +213,7 @@ class ManifestTestCase(unittest.TestCase):
         Console.WriteLine(cm.ToJson());
         Console.WriteLine(cm.Size);
         """
-        cls.expected_json = {"groups":[],"features":{"storage":False,"payable":False},"abi":{"hash":"0x0000000000000000000000000000000000000000","entryPoint":{"name":"Main","parameters":[{"name":"operation","type":"String"},{"name":"args","type":"Array"}],"returnType":"Any"},"methods":[],"events":[]},"permissions":[{"contract":"*","methods":"*"}],"trusts":[],"safeMethods":[],"extra":None}
+        cls.expected_json = {"groups":[],"features":{"storage":False,"payable":False},"abi":{"hash":"0x0000000000000000000000000000000000000000","entryPoint":{"name":"Main","parameters":[{"name":"operation","type":"String"},{"name":"args","type":"Array"}],"returntype":"Any"},"methods":[],"events":[]},"permissions":[{"contract":"*","methods":"*"}],"trusts":[],"safemethods":[],"extra":None}
 
     def test_create_default(self):
         cm = contracts.ContractManifest(types.UInt160.zero())
@@ -240,7 +240,7 @@ class ManifestTestCase(unittest.TestCase):
 
         self.assertIn("0x" + str(t1), json_out['trusts'])
         self.assertIn("0x" + str(t2), json_out['trusts'])
-        self.assertIn("safe1", json_out['safeMethods'])
+        self.assertIn("safe1", json_out['safemethods'])
         self.assertFalse(json_out['extra'])
 
     def test_from_json(self):
