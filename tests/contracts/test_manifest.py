@@ -209,17 +209,33 @@ class ManifestTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         """
-        var cm = ContractManifest.CreateDefault(UInt160.Zero);
-        Console.WriteLine(cm.ToJson());
-        Console.WriteLine(cm.Size);
+            var manifest = new ContractManifest()
+            {
+                Groups = new ContractGroup[0],
+                Features = ContractFeatures.NoProperty,
+                SupportedStandards = Array.Empty<string>(),
+                Abi = new ContractAbi()
+                {
+                    Hash = UInt160.Zero,
+                    Events = new ContractEventDescriptor[0],
+                    Methods = new ContractMethodDescriptor[0]
+                },
+                Permissions = new[] { ContractPermission.DefaultPermission },
+                Trusts = WildcardContainer<UInt160>.Create(),
+                SafeMethods = WildcardContainer<string>.Create(),
+                Extra = null
+            };
+            Console.WriteLine($"{manifest.Size}");
+            Console.WriteLine($"{manifest.ToJson()}");
         """
-        cls.expected_json = {"groups":[],"features":{"storage":False,"payable":False},"abi":{"hash":"0x0000000000000000000000000000000000000000","entryPoint":{"name":"Main","parameters":[{"name":"operation","type":"String"},{"name":"args","type":"Array"}],"returntype":"Any"},"methods":[],"events":[]},"permissions":[{"contract":"*","methods":"*"}],"trusts":[],"safemethods":[],"extra":None}
+        cls.expected_json = {"groups":[],"features":{"storage":False,"payable":False},"supportedstandards":[],"abi":{"hash":"0x0000000000000000000000000000000000000000","methods":[],"events":[]},"permissions":[{"contract":"*","methods":"*"}],"trusts":[],"safemethods":[],"extra":None}
+        # cls.expected_json = {"groups":[],"features":{"storage":False,"payable":False},"abi":{"hash":"0x0000000000000000000000000000000000000000","entryPoint":{"name":"Main","parameters":[{"name":"operation","type":"String"},{"name":"args","type":"Array"}],"returntype":"Any"},"methods":[],"events":[]},"permissions":[{"contract":"*","methods":"*"}],"trusts":[],"safemethods":[],"extra":None}
 
     def test_create_default(self):
         cm = contracts.ContractManifest(types.UInt160.zero())
         self.assertEqual(self.expected_json, cm.to_json())
         # see setupClass for C# reference code
-        self.assertEqual(366, len(cm))
+        self.assertEqual(259, len(cm))
 
     def test_serialize(self):
         # if test_create_default() passes, then we know `to_json()` is ok, which serialize internally uses
