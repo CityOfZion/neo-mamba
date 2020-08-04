@@ -159,7 +159,7 @@ class ContractMethodDescriptor(ContractEventDescriptor, IJson):
         """
         json = super(ContractMethodDescriptor, self).to_json()
         json.update({
-            "returnType": self.return_type.name.title()
+            "returntype": self.return_type.name.title()
         })
         return json
 
@@ -177,7 +177,7 @@ class ContractMethodDescriptor(ContractEventDescriptor, IJson):
         return cls(
             name=json['name'],
             parameters=list(map(lambda p: contracts.ContractParameterDefinition.from_json(p), json['parameters'])),
-            return_type=contracts.ContractParameterType[json['returnType'].upper()]
+            return_type=contracts.ContractParameterType[json['returntype'].upper()]
         )
 
 

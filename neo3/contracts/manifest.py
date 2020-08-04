@@ -40,7 +40,7 @@ class ContractGroup(IJson):
         Convert object into JSON representation.
         """
         json = {
-            'pubKey': str(self.public_key),
+            'pubkey': str(self.public_key),
             'signature': base64.b64encode(self.signature).decode()
         }
         return json
@@ -57,7 +57,7 @@ class ContractGroup(IJson):
             KeyError: if the data supplied does not contain the necessary keys.
         """
         return cls(
-            public_key=cryptography.EllipticCurve.ECPoint.deserialize_from_bytes(binascii.unhexlify(json['pubKey'])),
+            public_key=cryptography.EllipticCurve.ECPoint.deserialize_from_bytes(binascii.unhexlify(json['pubkey'])),
             signature=base64.b64decode(json['signature'].encode('utf8'))
         )
 
@@ -341,7 +341,7 @@ class ContractManifest(serialization.ISerializable, IJson):
             lambda t: types.UInt160.from_string(t))
 
         # converting json key/value back to default WildcardContainer format
-        self.safe_methods = WildcardContainer.from_json({'wildcard': json['safeMethods']})
+        self.safe_methods = WildcardContainer.from_json({'wildcard': json['safemethods']})
         self.extra = json['extra']
 
     def to_json(self) -> dict:
@@ -358,7 +358,7 @@ class ContractManifest(serialization.ISerializable, IJson):
             "abi": self.abi.to_json(),
             "permissions": list(map(lambda p: p.to_json(), self.permissions)),
             "trusts": trusts,
-            "safeMethods": self.safe_methods.to_json()['wildcard'],
+            "safemethods": self.safe_methods.to_json()['wildcard'],
             "extra": self.extra
         }
         return json
