@@ -255,7 +255,7 @@ class ContractManifest(serialization.ISerializable, IJson):
     https://github.com/neo-project/proposals/blob/3e492ad05d9de97abb6524fb9a73714e2cdc5461/nep-15.mediawiki
     """
     #: The maximum byte size after serialization to be considered valid a valid contract.
-    MAX_LENGTH = 2048
+    MAX_LENGTH = 4096
 
     def __init__(self, contract_hash: types.UInt160 = types.UInt160.zero()):
         """
@@ -274,11 +274,13 @@ class ContractManifest(serialization.ISerializable, IJson):
         #: Features describe what contract abilities are available. TODO: link to contract features
         self.features: ContractFeatures = ContractFeatures.NO_PROPERTY
 
+        #: The list of NEP standards supported e.g. "NEP-3"
+        self.supported_standards: List[str] = []
+
         #: For technical details of ABI, please refer to NEP-14: NeoContract ABI.
         #: https://github.com/neo-project/proposals/blob/d1f4e9e1a67d22a5755c45595121f80b0971ea64/nep-14.mediawiki
         self.abi: contracts.ContractABI = contracts.ContractABI(
             contract_hash=contract_hash,
-            entry_point=contracts.ContractMethodDescriptor.default_entrypoint(),
             events=[],
             methods=[]
         )
@@ -315,7 +317,7 @@ class ContractManifest(serialization.ISerializable, IJson):
         Args:
             writer: instance.
         """
-        writer.write_var_string(json.dumps(self.to_json()).replace(' ', ''))
+        writer.write_var_string(json.dumps(self.to_json(), separators=(',', ':')))
 
     def deserialize(self, reader: BinaryReader) -> None:
         """
@@ -355,6 +357,7 @@ class ContractManifest(serialization.ISerializable, IJson):
                 "storage": contracts.ContractFeatures.HAS_STORAGE in self.features,
                 "payable": contracts.ContractFeatures.PAYABLE in self.features,
             },
+            "supportedstandards": self.supported_standards,
             "abi": self.abi.to_json(),
             "permissions": list(map(lambda p: p.to_json(), self.permissions)),
             "trusts": trusts,
