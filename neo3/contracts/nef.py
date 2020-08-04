@@ -194,7 +194,7 @@ class NEF(serialization.ISerializable):
                 + self.compiler.encode('utf-8')
                 + self.version.to_array()
                 + self.script_hash.to_array())
-        return hashlib.sha256(data).digest()[:4]
+        return hashlib.sha256(hashlib.sha256(data).digest()).digest()[:4]
 
     def compute_script_hash(self) -> types.UInt160:
         """
