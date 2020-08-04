@@ -10,7 +10,7 @@ max_traceable_blocks = payloads.Transaction.MAX_VALID_UNTIL_BLOCK_INCREMENT
 
 def _is_traceable_block(snapshot: storage.Snapshot, index: int):
     if index > snapshot.block_height:
-        # Why does C# have this? It seems not reachable because it we always try to get
+        # Why does C# have this? It seems not reachable because if we always try to get
         # the block or tx from the snapshot and if it is in the snapshot it can never be
         # higher than the snapshot.block_height
         return False  # pragma: no cover
@@ -18,7 +18,8 @@ def _is_traceable_block(snapshot: storage.Snapshot, index: int):
     return index + max_traceable_blocks > snapshot.block_height
 
 
-@register("System.Blockchain.GetHeight", 400, contracts.TriggerType.APPLICATION, contracts.native.CallFlags.NONE)
+@register("System.Blockchain.GetHeight", 400, contracts.TriggerType.APPLICATION,
+          contracts.native.CallFlags.ALLOW_STATES)
 def blockchain_get_height(engine: vm.ApplicationEngine) -> bool:
     engine.push(vm.IntegerStackItem(engine.snapshot.block_height))
     return True
@@ -40,7 +41,8 @@ def _try_get_block(engine: vm.ApplicationEngine) -> Optional[payloads.Block]:
     return block
 
 
-@register("System.Blockchain.GetBlock", 2500000, contracts.TriggerType.APPLICATION, contracts.native.CallFlags.NONE)
+@register("System.Blockchain.GetBlock", 2500000, contracts.TriggerType.APPLICATION,
+          contracts.native.CallFlags.ALLOW_STATES)
 def blockchain_get_block(engine: vm.ApplicationEngine) -> bool:
     try:
         block = _try_get_block(engine)
@@ -55,7 +57,7 @@ def blockchain_get_block(engine: vm.ApplicationEngine) -> bool:
 
 
 @register("System.Blockchain.GetTransactionFromBlock", 1000000, contracts.TriggerType.APPLICATION,
-          contracts.native.CallFlags.NONE)
+          contracts.native.CallFlags.ALLOW_STATES)
 def blockchain_get_transaction_from_block(engine: vm.ApplicationEngine) -> bool:
     try:
         block = _try_get_block(engine)
@@ -77,7 +79,7 @@ def blockchain_get_transaction_from_block(engine: vm.ApplicationEngine) -> bool:
 
 
 @register("System.Blockchain.GetTransaction", 1000000, contracts.TriggerType.APPLICATION,
-          contracts.native.CallFlags.NONE)
+          contracts.native.CallFlags.ALLOW_STATES)
 def blockchain_get_transaction(engine: vm.ApplicationEngine) -> bool:
     tx_hash_bytes = engine.try_pop_bytes()
     if tx_hash_bytes is None:
@@ -95,7 +97,7 @@ def blockchain_get_transaction(engine: vm.ApplicationEngine) -> bool:
 
 
 @register("System.Blockchain.GetTransactionHeight", 1000000, contracts.TriggerType.APPLICATION,
-          contracts.native.CallFlags.NONE)
+          contracts.native.CallFlags.ALLOW_STATES)
 def blockchain_get_transaction_height(engine: vm.ApplicationEngine) -> bool:
     tx_hash_bytes = engine.try_pop_bytes()
     if tx_hash_bytes is None:
@@ -112,7 +114,8 @@ def blockchain_get_transaction_height(engine: vm.ApplicationEngine) -> bool:
     return True
 
 
-@register("System.Blockchain.GetContract", 1000000, contracts.TriggerType.APPLICATION, contracts.native.CallFlags.NONE)
+@register("System.Blockchain.GetContract", 1000000, contracts.TriggerType.APPLICATION,
+          contracts.native.CallFlags.ALLOW_STATES)
 def blockchain_get_contract(engine: vm.ApplicationEngine) -> bool:
     # will throw exception if fails (like C# does)
     item = engine.current_context.evaluation_stack.pop()
