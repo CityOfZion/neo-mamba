@@ -15,3 +15,4 @@ Sphinx==2.2.0
 sphinx-autodoc-typehints==1.7.0
 plyvel==1.2.0
 pycodestyle==2.5.0
+pybiginteger=1.1
