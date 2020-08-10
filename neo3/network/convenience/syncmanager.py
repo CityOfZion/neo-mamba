@@ -14,7 +14,7 @@ class SyncManager(convenience._Singleton):
     #: requested.
     BLOCK_MAX_CACHE_SIZE = 500
     #: Maximum number of blocks to ask per request. Cannot exceed
-    #: :attr:`~neo3.network.payloads.block.GetBlockDataPayload.MAX_BLOCKS_COUNT`.
+    #: :attr:`~neo3.network.payloads.block.GetBlockByIndexPayload.MAX_BLOCKS_COUNT`.
     BLOCK_NETWORK_REQ_LIMIT = 500
     #: Maximum time in seconds that a node may take to respond to a data request before it is tagged and eventually
     #: replaced.

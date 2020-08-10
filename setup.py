@@ -25,6 +25,7 @@ class InstallCommand(install):
 
         super().run()
 
+
 class DevelopCommand(develop):
     user_options = develop.user_options + [
         ('without-leveldb', None, 'Do not install leveldb requirements'),
@@ -67,7 +68,7 @@ else:
     reqs = [str(ir.req) for ir in install_reqs]
 
 setup(
-    name='neo3-python',
+    name='neo-mamba',
     python_requires='>=3.7',
     version='0.2',
     description="Python SDK for the NEO 3 blockchain",
@@ -76,7 +77,7 @@ setup(
     author_email='erik@coz.io',
     maintainer="Erik van den Brink",
     maintainer_email='erik@coz.io',
-    url='https://github.com/CityOfZion/neo3-python',
+    url='https://github.com/CityOfZion/neo-mamba',
     packages=find_packages(include=['neo3']),
     include_package_data=True,
     install_requires=reqs,

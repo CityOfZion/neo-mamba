@@ -8,7 +8,7 @@ This module contains the famous Block class (and subcomponents) as well as paylo
    :class:`~neo3.network.payloads.block.Header`
    :class:`~neo3.network.payloads.block.TrimmedBlock`
    :class:`~neo3.network.payloads.block.GetBlocksPayload`
-   :class:`~neo3.network.payloads.block.GetBlockDataPayload`
+   :class:`~neo3.network.payloads.block.GetBlockByIndexPayload`
    :class:`~neo3.network.payloads.block.HeadersPayload`
    :class:`~neo3.network.payloads.block.MerkleBlockPayload`
 
@@ -42,11 +42,12 @@ There are four payloads discussed in this section. Two for requesting data and t
 
 Requesting
 ^^^^^^^^^^
-The :class:`~neo3.network.payloads.block.GetBlocksPayload` and :class:`~neo3.network.payloads.block.GetBlockDataPayload` are used to request Block data (including block Headers). Use these in conjunction with the :const:`~neo3.network.message.MessageType.GETBLOCKS` and :const:`~neo3.network.message.MessageType.GETBLOCKDATA` or :const:`~neo3.network.message.MessageType.GETHEADERS` message types. 
+The :class:`~neo3.network.payloads.block.GetBlocksPayload` and :class:`~neo3.network.payloads.block.GetBlockByIndexPayload` are used to request Block data (including block Headers). Use these in conjunction with the :const:`~neo3.network.message.MessageType.GETBLOCKS` and :const:`~neo3.network.message.MessageType.GETBLOCKBYINDEX` or :const:`~neo3.network.message.MessageType.GETHEADERS` message types.
 
-The GetBlocksPayload is used in the classic Bitcoin like data exchange structure in which you request a list of hashes first, then request the actual Block data using the hash list. This gives the flexibility to request a series of Block data which are non-consequtive in a single request.
+The GetBlocksPayload is used in the classic Bitcoin like data exchange structure in which you request a list of hashes first, then request the actual Block data using the hash list. This gives the flexibility to request a series of Block data which are non-consecutive in a single request.
 
-The GetBlockDataPayload is a payload new to NEO3 with which you can directly request the full Block using a block height and a count. This is a simplified interface compared to using the GetBlocksPayload but is limited to consecutive data in a single request.
+The GetBlockByIndexPayload is a payload new to NEO3 with which you can directly request the full Block using a block height and a count. This is a simplified interface compared to using the GetBlocksPayload but is limited to consecutive data in a single request.
+The GetBlocksByIndexPayload is also used as for requesting headers via the :const:`~neo3.network.message.MessageType.GETHEADERS` message type.
 
 Responding
 ^^^^^^^^^^
@@ -61,7 +62,7 @@ The :class:`~neo3.network.payloads.block.MerkleBlockPayload` is used to reply to
    :show-inheritance:
    :inherited-members:
 
-.. autoclass:: neo3.network.payloads.block.GetBlockDataPayload
+.. autoclass:: neo3.network.payloads.block.GetBlockByIndexPayload
    :undoc-members:
    :show-inheritance:
    :inherited-members:

@@ -50,4 +50,4 @@ class IInteroperable(abc.ABC):
 
     def from_stack_item(self) -> None:
         """ Convert a stack item into an object"""
-        raise ValueError(f"{self.__name__} cannot be converted to a stack item")
+        raise ValueError(f"{self.__class__.__name__} cannot be converted to a stack item")

@@ -44,30 +44,6 @@ class InteropService:
         return cls._methods.get(method_id, None)
 
     @classmethod
-    def invoke(cls, engine: contracts.ApplicationEngine, method: int) -> bool:
-        """
-        Invoke a interoperability layer method.
-
-        Args:
-            engine: the virtual machine to use.
-            method: the interoperability identifier to call.
-
-        Returns:
-            bool: indicating if the call was executed successfully.
-        """
-        descriptor = cls._methods.get(method, False)
-        if not descriptor:
-            return False
-        if descriptor.required_call_flags not in contracts.native.CallFlags(engine.current_context.call_flags):
-            return False
-        return descriptor.handler(engine)
-
-    @classmethod
-    def invoke_with_name(cls, engine: contracts.ApplicationEngine, method: str):
-        method_num = int.from_bytes(hashlib.sha256(method.encode()).digest()[:4], 'little', signed=False)
-        return cls.invoke(engine, method_num)
-
-    @classmethod
     def register(cls,
                  method: str,
                  handler: Callable,

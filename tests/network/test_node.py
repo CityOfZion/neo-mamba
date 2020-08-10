@@ -327,8 +327,8 @@ class NeoNodeTestCase(asynctest.TestCase):
         await n.request_block_data(index_start, count)
         self.assertIsNotNone(n.send_message.call_args)
         m = n.send_message.call_args[0][0]  # type: message.Message
-        self.assertEqual(message.MessageType.GETBLOCKDATA, m.type)
-        self.assertIsInstance(m.payload, payloads.GetBlockDataPayload)
+        self.assertEqual(message.MessageType.GETBLOCKBYINDEX, m.type)
+        self.assertIsInstance(m.payload, payloads.GetBlockByIndexPayload)
         self.assertEqual(index_start, m.payload.index_start)
         self.assertEqual(count, m.payload.count)
 
@@ -349,7 +349,7 @@ class NeoNodeTestCase(asynctest.TestCase):
     async def test_send_inventory_and_relay(self):
         # test 2 in 1
         # taken from the Transaction testcase in `test_payloads.py`
-        raw_tx = binascii.unhexlify(b'007B000000DA1745E9B549BD0BFA1A569971C77EBA30CD5A4BC8010000000000001503000000000000010000000181000154A64CAC1B1073E662933EF3E30B007CD98D67D70002010201000155')
+        raw_tx = binascii.unhexlify(b'007B000000C8010000000000001503000000000000010000000154A64CAC1B1073E662933EF3E30B007CD98D67D7000002010201000155')
         tx = payloads.Transaction.deserialize_from_bytes(raw_tx)
 
         n = node.NeoNode(object())

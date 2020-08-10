@@ -9,7 +9,7 @@ def binary_serialize(engine: contracts.ApplicationEngine, stack_item: vm.StackIt
 
 
 @register("System.Binary.Deserialize", 500000, contracts.native.CallFlags.NONE, True, [bytes])
-def binary_serialize(engine: contracts.ApplicationEngine, data: bytes) -> vm.StackItem:
+def binary_derialize(engine: contracts.ApplicationEngine, data: bytes) -> vm.StackItem:
     return contracts.BinarySerializer.deserialize(data,
                                                   engine.MAX_STACK_SIZE,
                                                   engine.MAX_ITEM_SIZE,

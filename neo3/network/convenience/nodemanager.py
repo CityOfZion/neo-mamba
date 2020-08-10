@@ -30,6 +30,9 @@ class NodeManager(convenience._Singleton):
     ADDR_QUERY_INTERVAL = 15
     #: Time interval in seconds for calling the height monitoring check.
     MONITOR_HEIGHT_INTERVAL = 30
+    #: Time interval in seconds for pinging remote nodes. Ping (and the Pong) response informs each other about chain
+    #: heights
+    PING_INTERVAL = 2
 
     #: Maximum time in seconds a node may take to update its best height before being removed for being stuck.
     MAX_HEIGHT_UPDATE_DURATION = 120
@@ -86,6 +89,7 @@ class NodeManager(convenience._Singleton):
             self._run_in_loop(self._query_addresses, interval=self.ADDR_QUERY_INTERVAL)
 
             # 4. monitor that connected nodes are not stuck
+            self._run_in_loop(self._send_ping, interval=self.PING_INTERVAL)
             self._run_in_loop(self._monitor_node_height, interval=self.MONITOR_HEIGHT_INTERVAL)
 
         # 1. build an initial address list
@@ -268,7 +272,6 @@ class NodeManager(convenience._Singleton):
             if not is_ip_address(host):
                 try:
                     result = await resolver.query(host, 'A')
-                    # x = result[0]
                     host = result[0].host
                 except aiodns.error.DNSError as e:
                     logger.debug(f"Skipping {host}, address could not be resolved: {e}.")
@@ -374,6 +377,18 @@ class NodeManager(convenience._Singleton):
                 task = asyncio.create_task(node.send_message(m))
                 self.tasks.append(task)
                 task.add_done_callback(lambda fut: self.tasks.remove(fut))
+
+    async def _send_ping(self):
+        """
+        Inform connected nodes of our height while also learning if their height has changed
+
+        NEO C# Preview3 no longer seems to instantly inform its connected nodes about new available blocks. Therefore
+        syncing can be 2-3 blocks behind. By calling this in an interval we improve
+        1) new block receiving speed when our local chain is "in sync".
+        2) our node height monitoring service
+        """
+        for remote_node in self.nodes:  # type: node.NeoNode
+            asyncio.create_task(remote_node.send_ping())
 
     def _run_in_loop(self, coro_func, interval) -> None:
         """
