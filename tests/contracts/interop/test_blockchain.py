@@ -1,13 +1,13 @@
 import unittest
-from neo3 import vm, contracts
-from neo3.contracts import interop
+from neo3 import vm, storage
+from neo3.contracts import manifest
 from .utils import test_engine, test_block
 
 
 class BlockchainInteropTestCase(unittest.TestCase):
-    def test_getheight(self):
+    def test_get_height(self):
         engine = test_engine(has_container=True, has_snapshot=True)
-        self.assertTrue(interop.InteropService.invoke_with_name(engine, "System.Blockchain.GetHeight"))
+        engine.invoke_syscall_by_name("System.Blockchain.GetHeight")
         item = engine.current_context.evaluation_stack.pop()
         # unlike the C# test case, our chain starts at -1 because our chain is created without the genesis block
         # this was done such that you can sync without having to know the validators to create the genesis block
@@ -18,17 +18,25 @@ class BlockchainInteropTestCase(unittest.TestCase):
         engine = test_engine(has_container=True, has_snapshot=True)
         # test with height
         engine.push(vm.ByteStringStackItem(b'\x01'))
-        self.assertTrue(interop.InteropService.invoke_with_name(engine, "System.Blockchain.GetBlock"))
-        self.assertIsInstance(engine.try_pop_item(), vm.NullStackItem)
+        engine.invoke_syscall_by_name("System.Blockchain.GetBlock")
+        self.assertIsInstance(engine.pop(), vm.NullStackItem)
+
+        # test with invalid height (-1)
+        engine.push(vm.ByteStringStackItem(b'\xFF'))
+        with self.assertRaises(ValueError) as context:
+            engine.invoke_syscall_by_name("System.Blockchain.GetBlock")
+        self.assertEqual("Invalid height", str(context.exception))
+
+        # test with invalid data > 32 bytes
+        engine.push(vm.ByteStringStackItem(b'\xFF' * 33))
+        with self.assertRaises(ValueError) as context:
+            engine.invoke_syscall_by_name("System.Blockchain.GetBlock")
+        self.assertEqual("Invalid data", str(context.exception))
 
         # test with serialized block hash (UInt256). This fake hash won't return a block
         engine.push(vm.ByteStringStackItem(b'\x01' * 32))
-        self.assertTrue(interop.InteropService.invoke_with_name(engine, "System.Blockchain.GetBlock"))
-        self.assertIsInstance(engine.try_pop_item(), vm.NullStackItem)
-
-        # try with serialized block data that is too short
-        engine.push(vm.ByteStringStackItem(b'\x01' * 8))
-        self.assertFalse(interop.InteropService.invoke_with_name(engine, "System.Blockchain.GetBlock"))
+        engine.invoke_syscall_by_name("System.Blockchain.GetBlock")
+        self.assertIsInstance(engine.pop(), vm.NullStackItem)
 
         # now find an existing block
         # first add a block and update the snapshot
@@ -37,10 +45,9 @@ class BlockchainInteropTestCase(unittest.TestCase):
         engine.snapshot.block_height = testblock.index
         engine.snapshot.blocks.put(testblock)
         engine.push(vm.ByteStringStackItem(testblock.hash().to_array()))
-        self.assertTrue(interop.InteropService.invoke_with_name(engine, "System.Blockchain.GetBlock"))
-
-        # validate the right content was pushed onto the stack
-        item = engine.try_pop_item()
+        engine.invoke_syscall_by_name("System.Blockchain.GetBlock")
+        # # validate the right content was pushed onto the stack
+        item = engine.pop()
         self.assertIsInstance(item, vm.ArrayStackItem)
         self.assertEqual(len(item), 8)
         self.assertEqual(item[0].to_array(), testblock.hash().to_array())
@@ -56,47 +63,38 @@ class BlockchainInteropTestCase(unittest.TestCase):
         # this test for the first part is identical to the GetBlock test above
         engine = test_engine(has_container=True, has_snapshot=True)
 
-        # test with height
-        engine.push(vm.ByteStringStackItem(b'\x01'))
-        self.assertTrue(interop.InteropService.invoke_with_name(engine, "System.Blockchain.GetTransactionFromBlock"))
-        self.assertIsInstance(engine.try_pop_item(), vm.NullStackItem)
-
         # test with serialized block hash (UInt256). This fake hash won't return a block
+        engine.push(vm.IntegerStackItem(0))  # index
         engine.push(vm.ByteStringStackItem(b'\x01' * 32))
-        self.assertTrue(interop.InteropService.invoke_with_name(engine, "System.Blockchain.GetTransactionFromBlock"))
-        self.assertIsInstance(engine.try_pop_item(), vm.NullStackItem)
+        engine.invoke_syscall_by_name("System.Blockchain.GetTransactionFromBlock")
+        self.assertIsInstance(engine.pop(), vm.NullStackItem)
 
-        # try with serialized block data that is too short
-        engine.push(vm.ByteStringStackItem(b'\x01' * 8))
-        self.assertFalse(interop.InteropService.invoke_with_name(engine, "System.Blockchain.GetTransactionFromBlock"))
-
-        # now find an existing block
+        # now find an existing block, but with an invalid transaction index (
         # first add a block and update the snapshot
         # normally this would be done while persisting in Blockchain
         testblock = test_block()
         engine.snapshot.block_height = testblock.index
         engine.snapshot.blocks.put(testblock)
-        engine.push(vm.ByteStringStackItem(testblock.hash().to_array()))
-        # we fail because we've not put enough data on the stack to indicate the transaction index
-        self.assertFalse(interop.InteropService.invoke_with_name(engine, "System.Blockchain.GetTransactionFromBlock"))
-
-        # now let's try again but this time with an invalid index (negative)
-        engine.push(vm.IntegerStackItem(vm.BigInteger(-1)))  # index
+        engine.push(vm.IntegerStackItem(-1))  # index
         engine.push(vm.ByteStringStackItem(testblock.hash().to_array()))  # hash
-        self.assertFalse(interop.InteropService.invoke_with_name(engine, "System.Blockchain.GetTransactionFromBlock"))
+        with self.assertRaises(ValueError) as context:
+            engine.invoke_syscall_by_name("System.Blockchain.GetTransactionFromBlock")
+        self.assertEqual("Transaction index out of range: -1", str(context.exception))
 
         # now let's try again but this time with an invalid index (out of bounds)
-        engine.push(vm.IntegerStackItem(vm.BigInteger(len(testblock.transactions) + 1)))  # index
+        engine.push(vm.IntegerStackItem(len(testblock.transactions) + 1))  # index
         engine.push(vm.ByteStringStackItem(testblock.hash().to_array()))  # hash
-        self.assertFalse(interop.InteropService.invoke_with_name(engine, "System.Blockchain.GetTransactionFromBlock"))
+        with self.assertRaises(ValueError) as context:
+            engine.invoke_syscall_by_name("System.Blockchain.GetTransactionFromBlock")
+        self.assertEqual("Transaction index out of range: 2", str(context.exception))
 
         # Finally, we try with a valid index (we have only 1 transaction, so 0)
         engine.push(vm.IntegerStackItem(vm.BigInteger(0)))  # index
         engine.push(vm.ByteStringStackItem(testblock.hash().to_array()))  # hash
-        self.assertTrue(interop.InteropService.invoke_with_name(engine, "System.Blockchain.GetTransactionFromBlock"))
+        engine.invoke_syscall_by_name("System.Blockchain.GetTransactionFromBlock")
 
         # and test the TX items pushed to the stack
-        item = engine.try_pop_item()
+        item = engine.pop()
         testblock_tx = testblock.transactions[0]
         self.assertIsInstance(item, vm.ArrayStackItem)
         self.assertEqual(len(item), 8)
@@ -113,10 +111,61 @@ class BlockchainInteropTestCase(unittest.TestCase):
         engine = test_engine(has_container=True, has_snapshot=True)
         bad_tx_hash_bytes = b'\x01' * 32
         engine.push(vm.ByteStringStackItem(bad_tx_hash_bytes))
+        engine.invoke_syscall_by_name("System.Blockchain.GetTransaction")
+        self.assertIsInstance(engine.pop(), vm.NullStackItem)
 
+        # now get a valid tx
+        testblock = test_block()
+        engine.snapshot.block_height = testblock.index
+        testblock_tx = testblock.transactions[0]
+        engine.snapshot.transactions.put(testblock_tx)
+        engine.push(vm.ByteStringStackItem(testblock_tx.hash().to_array()))
+        engine.invoke_syscall_by_name("System.Blockchain.GetTransaction")
+
+        # and test the TX item pushed to the stack. We're not going to check all items in the array as we've already
+        # done that in test_get_transaction_from_block() so we already know that the "to_stack_item()" conversion works
+        item = engine.pop()
+        self.assertIsInstance(item, vm.ArrayStackItem)
+        self.assertEqual(len(item), 8)
+        self.assertEqual(item[0].to_array(), testblock_tx.hash().to_array())
 
     def test_get_transaction_height(self):
-        pass
+        engine = test_engine(has_container=True, has_snapshot=True)
+        bad_tx_hash_bytes = b'\x01' * 32
+        engine.push(vm.ByteStringStackItem(bad_tx_hash_bytes))
+        engine.invoke_syscall_by_name("System.Blockchain.GetTransactionHeight")
+        item = engine.pop()
+        self.assertIsInstance(item, vm.IntegerStackItem)
+        self.assertEqual(vm.BigInteger(-1), item.to_biginteger())
+
+        # now get a valid tx
+        testblock = test_block()
+        engine.snapshot.block_height = testblock.index
+        testblock_tx = testblock.transactions[0]
+        engine.snapshot.transactions.put(testblock_tx)
+        engine.push(vm.ByteStringStackItem(testblock_tx.hash().to_array()))
+        engine.invoke_syscall_by_name("System.Blockchain.GetTransactionHeight")
+        item = engine.pop()
+        self.assertIsInstance(item, vm.IntegerStackItem)
+        self.assertEqual(str(vm.BigInteger(1)), str(item.to_biginteger()))
 
     def test_get_contract(self):
-        pass
+        engine = test_engine(has_container=True, has_snapshot=True)
+        bad_contract_hash_bytes = b'\x01' * 20
+        engine.push(vm.ByteStringStackItem(bad_contract_hash_bytes))
+        engine.invoke_syscall_by_name("System.Blockchain.GetContract")
+        item = engine.pop()
+        self.assertIsInstance(item, vm.NullStackItem)
+
+        # now get a valid contract
+        # first put one in storage
+        contract = storage.ContractState(b'\x01\x02', manifest.ContractManifest())
+        engine.snapshot.contracts.put(contract)
+        engine.push(vm.ByteStringStackItem(contract.script_hash().to_array()))
+        engine.invoke_syscall_by_name("System.Blockchain.GetContract")
+        item = engine.pop()
+        self.assertIsInstance(item, vm.ArrayStackItem)
+        self.assertEqual(len(item), 3)
+        self.assertEqual(contract.script, item[0].to_array())
+        self.assertEqual(contract.has_storage, item[1].to_boolean())
+        self.assertEqual(contract.is_payable, item[2].to_boolean())

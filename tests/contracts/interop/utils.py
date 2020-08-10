@@ -12,13 +12,13 @@ def test_engine(has_container=False, has_snapshot=False):
 
     snapshot = blockchain.Blockchain().currentSnapshot
     if has_container and has_snapshot:
-        engine = vm.ApplicationEngine(contracts.TriggerType.APPLICATION, tx, snapshot, 0, test_mode=True)
+        engine = contracts.ApplicationEngine(contracts.TriggerType.APPLICATION, tx, snapshot, 0, test_mode=True)
     elif has_container:
-        engine = vm.ApplicationEngine(contracts.TriggerType.APPLICATION, tx, None, 0, test_mode=True)
+        engine = contracts.ApplicationEngine(contracts.TriggerType.APPLICATION, tx, None, 0, test_mode=True)
     elif has_snapshot:
-        engine = vm.ApplicationEngine(contracts.TriggerType.APPLICATION, None, snapshot, 0, test_mode=True)
+        engine = contracts.ApplicationEngine(contracts.TriggerType.APPLICATION, None, snapshot, 0, test_mode=True)
     else:
-        engine = vm.ApplicationEngine(contracts.TriggerType.APPLICATION, None, None, 0, test_mode=True)
+        engine = contracts.ApplicationEngine(contracts.TriggerType.APPLICATION, None, None, 0, test_mode=True)
 
     engine.load_script(vm.Script(b'\x01'))
     return engine
@@ -35,6 +35,7 @@ def test_block(with_index=1):
                               cosigners=[],
                               script=b'\x01',
                               witnesses=[])
+    tx.block_height = with_index
 
     block1 = payloads.Block(version=0,
                             prev_hash=types.UInt256.from_string(

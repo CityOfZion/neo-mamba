@@ -1,5 +1,5 @@
-from .service import InteropService
-from .decorator import register
+from __future__ import annotations
+from .service import InteropService, InteropDescriptor
 # having the decorator out of the __init__ ensures we can use it in the modules below on import
 # otherwise we get a circular import issue
 from .decorator import register

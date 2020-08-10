@@ -1,8 +1,11 @@
 from __future__ import annotations
 import hashlib
 from typing import List
-from neo3.core import Size as s, serialization, types, utils, cryptography as crypto, IClonable
+
+from neo3 import vm
+from neo3.core import Size as s, serialization, types, utils, cryptography as crypto, IClonable, IInteroperable
 from neo3.network import payloads
+from neo3.contracts import interop
 from bitarray import bitarray  # type: ignore
 from copy import deepcopy
 
@@ -141,7 +144,7 @@ class Header(_BlockBase):
             raise ValueError("Deserialization error")
 
 
-class Block(_BlockBase, payloads.IInventory):
+class Block(_BlockBase, payloads.IInventory, IInteroperable):
     """
     The famous Block. I transfer chain state.
     """
@@ -274,6 +277,19 @@ class Block(_BlockBase, payloads.IInventory):
         self.witness = replica.witness
         self.consensus_data = replica.consensus_data
         self.transactions = replica.transactions
+
+    def to_stack_item(self, reference_counter: vm.ReferenceCounter) -> vm.StackItem:
+        array = vm.ArrayStackItem(reference_counter)
+        block_hash = vm.ByteStringStackItem(self.hash().to_array())
+        version = vm.IntegerStackItem(self.version)
+        prev_hash = vm.ByteStringStackItem(self.prev_hash.to_array())
+        merkle_root = vm.ByteStringStackItem(self.merkle_root.to_array())
+        timestamp = vm.IntegerStackItem(self.timestamp)
+        index = vm.IntegerStackItem(self.index)
+        next_consensus = vm.ByteStringStackItem(self.next_consensus.to_array())
+        tx_len = vm.IntegerStackItem(len(self.transactions))
+        array.append([block_hash, version, prev_hash, merkle_root, timestamp, index, next_consensus, tx_len])
+        return array
 
 
 class TrimmedBlock(_BlockBase, IClonable):

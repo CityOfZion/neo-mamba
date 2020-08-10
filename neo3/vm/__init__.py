@@ -2,4 +2,3 @@
 from __future__ import annotations
 from pybiginteger import BigInteger
 from neo3vm import *
-from .applicationengine import ApplicationEngine

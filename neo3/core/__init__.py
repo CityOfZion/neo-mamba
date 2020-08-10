@@ -1,5 +1,6 @@
 from __future__ import annotations
 import abc
+from neo3 import vm
 from enum import IntEnum
 from events import Events  # type: ignore
 
@@ -40,3 +41,13 @@ class IJson(abc.ABC):
     @abc.abstractmethod
     def from_json(cls, json: dict):
         pass
+
+
+class IInteroperable(abc.ABC):
+    @abc.abstractmethod
+    def to_stack_item(self, reference_counter: vm.ReferenceCounter) -> vm.StackItem:
+        """ Convert object to a virtual machine stack item"""
+
+    def from_stack_item(self) -> None:
+        """ Convert a stack item into an object"""
+        raise ValueError(f"{self.__name__} cannot be converted to a stack item")

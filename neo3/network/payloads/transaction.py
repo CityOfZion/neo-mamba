@@ -1,10 +1,12 @@
+from __future__ import annotations
 import hashlib
 from typing import List
 from enum import IntEnum
-from neo3.core import Size as s, serialization, utils, types
+from neo3.core import Size as s, serialization, utils, types, IInteroperable
 from neo3.network import payloads
 from neo3.vm import VMState
-from neo3 import settings
+from neo3 import settings, vm
+from neo3.contracts import interop
 
 
 class TransactionAttributeUsage(IntEnum):
@@ -43,7 +45,7 @@ class TransactionAttribute(serialization.ISerializable):
         self.data = reader.read_var_bytes(max=252)
 
 
-class Transaction(serialization.ISerializable, payloads.IInventory):
+class Transaction(serialization.ISerializable, payloads.IInventory, IInteroperable):
     """
     Data to be executed by the NEO virtual machine.
     """
@@ -230,5 +232,18 @@ class Transaction(serialization.ISerializable, payloads.IInventory):
         self.witnesses = replica.witnesses
         self.block_height = replica.block_height
         self.vm_state = replica.vm_state
+
+    def to_stack_item(self, reference_counter: vm.ReferenceCounter) -> vm.StackItem:
+        array = vm.ArrayStackItem(reference_counter)
+        tx_hash = vm.ByteStringStackItem(self.hash().to_array())
+        version = vm.IntegerStackItem(self.version)
+        nonce = vm.IntegerStackItem(self.nonce)
+        sender = vm.ByteStringStackItem(self.sender.to_array())
+        system_fee = vm.IntegerStackItem(self.system_fee)
+        network_fee = vm.IntegerStackItem(self.network_fee)
+        valid_until = vm.IntegerStackItem(self.valid_until_block)
+        script = vm.ByteStringStackItem(self.script)
+        array.append([tx_hash, version, nonce, sender, system_fee, network_fee, valid_until, script])
+        return array
 
     # TODO: implement Verify methods once we have Snapshot support

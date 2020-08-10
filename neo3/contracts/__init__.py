@@ -16,6 +16,7 @@ from .contract import Contract
 from .binaryserializer import BinarySerializer
 from .jsonserializer import (NEOJson, JSONSerializer)
 from .native import NativeContract, CallFlags
+from .applicationengine import ApplicationEngine
 
 __all__ = ['ContractParameterType',
            'TriggerType',
@@ -27,4 +28,5 @@ __all__ = ['ContractParameterType',
            'NEOJson',
            'JSONSerializer',
            'NativeContract',
-           'CallFlags']
+           'CallFlags',
+           'ApplicationEngine']

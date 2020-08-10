@@ -1,21 +1,23 @@
-from neo3 import contracts, vm, storage
-from typing import Callable, Union
+from __future__ import annotations
+from neo3 import contracts
 from neo3.contracts import interop
 
 
-def register(name: str,
-             price_or_calculator: Union[int, Callable[[vm.EvaluationStack, storage.Snapshot], int]],
-             triggers: contracts.TriggerType,
-             flags: contracts.native.CallFlags):
+def register(method: str,
+             price: int,
+             flags: contracts.native.CallFlags,
+             allow_callback: bool,
+             param_types=None):
     """
-    Register a SYSCALL with the interoperability service.
+    Register a SYSCALL handler with the Application engine.
 
     Args:
-        name: syscall identifier i.e. "System.Blockchain.GetHeight".
-        price_or_calculator: a fixed price for calling the handler, or a callable to dynamically determine the price.
-        triggers: the trigger type the contract must have been called with to allow execution of the handler.
+        method: name of call.
+        price: the price of calling the handler.
         flags: ExecutionContext rights needed.
+        allow_callback: can be used in callbacks.
+        param_types: optional list of function argument types
     """
     def inner_func(func):
-        interop.InteropService.register(name, func, price_or_calculator, triggers, flags)
+        interop.InteropService.register(method, func, price, flags, allow_callback, param_types)
     return inner_func
