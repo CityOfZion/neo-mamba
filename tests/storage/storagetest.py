@@ -1114,7 +1114,7 @@ class AbstractStorageStorageTest(abc.ABC, unittest.TestCase):
         self.assertEqual(key3, results[1][0])
         self.assertEqual(key1, results[2][0])
 
-    def test_1673(self):
+    def test_issue_1672(self):
         # test if we are affected by https://github.com/neo-project/neo/issues/1672
         self.storagekey1 = storage.StorageKey(self.contract1_hash, b'\x00\x01')
         self.storagekey2 = storage.StorageKey(self.contract1_hash, b'\x00\x02')
