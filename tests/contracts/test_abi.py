@@ -78,7 +78,7 @@ class ContractMethodDescriptorTestCase(unittest.TestCase):
                         "returntype": "Boolean"}
 
     def test_to_json(self):
-        cmd = contracts.ContractMethodDescriptor("MainMethod", self.parameters, 0, contracts.ContractParameterType.BOOLEAN)
+        cmd = contracts.ContractMethodDescriptor("MainMethod", 0, self.parameters, contracts.ContractParameterType.BOOLEAN)
         self.assertEqual(self.expected, cmd.to_json())
 
     def test_from_json(self):

@@ -1,7 +1,7 @@
 import json
 import base64
 from neo3 import vm
-from typing import Union, Any, TypeVar, Iterable
+from typing import Union, Any, TypeVar, Iterable, cast
 
 
 class _JSONDecodeError(json.JSONDecodeError):
@@ -145,7 +145,6 @@ class NEOJson:
 
 
 JObject = Union[dict, bool, None, int, list]
-StackItem = TypeVar('StackItem', bound=vm.StackItem)
 
 
 class JSONSerializer:
@@ -156,31 +155,34 @@ class JSONSerializer:
     MIN_SAFE_INTEGER = -MAX_SAFE_INTEGER
 
     @staticmethod
-    def deserialize(json_data: JObject, reference_counter: vm.ReferenceCounter = None) -> StackItem:
+    def deserialize(json_data: JObject, reference_counter: vm.ReferenceCounter = None) -> vm.StackItem:
         t = type(json_data)
         if t == dict:
+            json_data = cast(dict, json_data)
             if reference_counter is None:
                 raise ValueError("Can't deserialize JSON object without reference counter")
-            item = vm.MapStackItem(reference_counter)
+            map_item = vm.MapStackItem(reference_counter)
             for k, v in json_data.items():
                 key = vm.ByteStringStackItem(k)
                 value = JSONSerializer.deserialize(v, reference_counter)
-                item[key] = value
-            return item
+                map_item[key] = value
+            return map_item
         elif t == list:
             if reference_counter is None:
                 raise ValueError("Can't deserialize JSON array without reference counter")
-            item = vm.ArrayStackItem(reference_counter)
+            array_item = vm.ArrayStackItem(reference_counter)
+            json_data = cast(list, json_data)
             elements = [JSONSerializer.deserialize(e, reference_counter) for e in json_data]
-            item.append(elements)
-            return item
+            array_item.append(elements)
+            return array_item
         elif json_data is None:
             return vm.NullStackItem()
         elif t == str:
-            return vm.ByteStringStackItem(json_data)
+            return vm.ByteStringStackItem(json_data)  # type: ignore
         elif t == int:
-            return vm.IntegerStackItem(json_data)
+            return vm.IntegerStackItem(json_data)  # type: ignore
         elif t == bool:
+            json_data = cast(bool, json_data)
             return vm.BooleanStackItem(json_data)
         else:
             # should never happen or somebody ignored the type checker output

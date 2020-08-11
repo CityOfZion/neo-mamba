@@ -18,7 +18,7 @@ class CallFlags(IntFlag):
 
 
 class ContractMethodMetadata:
-    def __init__(self, delegate: Callable[[vm.ApplicationEngine, vm.ArrayStackItem, vm.StackItem], None],
+    def __init__(self, delegate: Callable[[contracts.ApplicationEngine, vm.ArrayStackItem, vm.StackItem], None],
                  price: int,
                  required_flags: CallFlags):
         self.delegate = delegate
@@ -100,6 +100,7 @@ class NativeContract:
         self._manifest.abi.methods.append(
             contracts.ContractMethodDescriptor(
                 name=func_name,
+                offset=-1,
                 return_type=return_type,
                 parameters=params
             )
@@ -149,7 +150,7 @@ class NativeContract:
         return set("NEP-10")
 
     @staticmethod
-    def initialize(engine: vm.ApplicationEngine) -> bool:
+    def initialize(engine: contracts.ApplicationEngine) -> bool:
         """
         Args:
             engine: ApplicationEngine
@@ -160,6 +161,6 @@ class NativeContract:
             raise ValueError(f"Invalid trigger {engine.trigger}, must be APPLICATION")
         return True
 
-    def invoke(self, engine: vm.ApplicationEngine):
+    def invoke(self, engine: contracts.ApplicationEngine):
         # TODO: implement
         pass

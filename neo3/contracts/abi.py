@@ -117,8 +117,8 @@ class ContractMethodDescriptor(ContractEventDescriptor, IJson):
     A description of a callable method on a contract.
     """
     def __init__(self, name: str,
-                 parameters: List[ContractParameterDefinition],
                  offset: int,
+                 parameters: List[ContractParameterDefinition],
                  return_type: contracts.ContractParameterType):
         """
         Args:

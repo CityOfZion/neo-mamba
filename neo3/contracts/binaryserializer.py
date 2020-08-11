@@ -1,10 +1,7 @@
 from __future__ import annotations
-from collections import namedtuple
 from neo3 import vm
 from neo3.core import serialization
-from typing import NamedTuple, Union, List, TypeVar, TYPE_CHECKING
-
-StackItem_T = TypeVar('StackItem_T', bound=vm.StackItem)
+from typing import NamedTuple, Union, List, cast
 
 
 class PlaceHolder(NamedTuple):
@@ -15,7 +12,7 @@ class PlaceHolder(NamedTuple):
 class BinarySerializer:
 
     @staticmethod
-    def serialize(stack_item: StackItem_T, max_size: int) -> bytes:
+    def serialize(stack_item: vm.StackItem, max_size: int) -> bytes:
         """
         Serialize a stack item.
 
@@ -30,7 +27,7 @@ class BinarySerializer:
             ValueError: if the output exceeds `max_size`.
         """
         unserialized = [stack_item]
-        serialized: List[Union[StackItem_T, PlaceHolder]] = []
+        serialized: List[Union[vm.StackItem, PlaceHolder]] = []
         with serialization.BinaryWriter() as writer:
             while len(unserialized) > 0:
                 item = unserialized.pop()
@@ -47,15 +44,15 @@ class BinarySerializer:
                     if item in serialized:
                         raise ValueError("Item already exists")
                     serialized.append(item)
-                    writer.write_var_int(len(item))
-                    for element in reversed(item):
+                    writer.write_var_int(len(item))  # type: ignore
+                    for element in reversed(item):  # type: ignore
                         unserialized.append(element)
                 elif item_type == vm.MapStackItem:
                     if item in serialized:
                         raise ValueError("Item already exists")
                     serialized.append(item)
-                    writer.write_var_int(len(item))
-                    for k, v in reversed(item):
+                    writer.write_var_int(len(item))  # type: ignore
+                    for k, v in reversed(item):  # type: ignore
                         unserialized.append(v)
                         unserialized.append(k)
                 else:
@@ -82,7 +79,7 @@ class BinarySerializer:
         if len(data) == 0:
             raise ValueError("Nothing to deserialize")
 
-        deserialized = []
+        deserialized: List[Union[vm.StackItem, PlaceHolder]] = []
         to_deserialize = 1
         with serialization.BinaryReader(data) as reader:
             while not to_deserialize == 0:
@@ -113,26 +110,30 @@ class BinarySerializer:
                 else:
                     raise ValueError("Invalid format")
 
-        temp = []
+        temp: List[vm.StackItem] = []
         while len(deserialized) > 0:
             item = deserialized.pop()
             if type(item) == PlaceHolder:
+                item = cast(PlaceHolder, item)
                 if item.type == vm.StackItemType.ARRAY:
                     array = vm.ArrayStackItem(reference_counter)
                     for _ in range(0, item.count):
                         array.append(temp.pop())
-                    item = array
+                    temp.append(array)
                 elif item.type == vm.StackItemType.STRUCT:
                     struct = vm.StructStackItem(reference_counter)
                     for _ in range(0, item.count):
                         struct.append(temp.pop())
-                    item = struct
+                    temp.append(struct)
                 elif item.type == vm.StackItemType.MAP:
                     m = vm.MapStackItem(reference_counter)
                     for _ in range(0, item.count):
                         k = temp.pop()
+                        k = cast(vm.PrimitiveType, k)
                         v = temp.pop()
                         m[k] = v
-                    item = m
-            temp.append(item)
+                    temp.append(m)
+            else:
+                item = cast(vm.StackItem, item)
+                temp.append(item)
         return temp.pop()
