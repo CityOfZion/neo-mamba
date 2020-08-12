@@ -7,3 +7,4 @@ from .decorator import register
 # which in turn executes the decorators to register the SYSCALLS
 from .binary import __name__
 from .blockchain import __name__
+from .json import __name__

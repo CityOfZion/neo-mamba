@@ -17,7 +17,9 @@ class ApplicationEngine(vm.ExecutionEngine):
                  gas: int,
                  test_mode: bool = False
                  ):
-        super(ApplicationEngine, self).__init__()
+        # Do not use super() version, see
+        # https://pybind11.readthedocs.io/en/master/advanced/classes.html#overriding-virtual-functions-in-python
+        vm.ExecutionEngine.__init__(self)
         self.snapshot = snapshot
         self.trigger = trigger
         self.is_test_mode = test_mode
@@ -44,8 +46,8 @@ class ApplicationEngine(vm.ExecutionEngine):
             raise ValueError(f"Unknown class type, don't know how to convert: {class_type}")
 
     def _native_to_stackitem(self, value, native_type):
-        if native_type == vm.StackItem:
-            native_type = type(value)
+        if isinstance(value, vm.StackItem):
+            return value
         if native_type in [int, vm.BigInteger]:
             return vm.IntegerStackItem(value)
         elif native_type == type(None):
@@ -53,6 +55,10 @@ class ApplicationEngine(vm.ExecutionEngine):
         elif issubclass(native_type, IInteroperable):
             value_ = cast(IInteroperable, value)
             return value_.to_stack_item(self.reference_counter)
+        elif native_type in [bytes, bytearray]:
+            return vm.ByteStringStackItem(value)
+        elif native_type == str:
+            return vm.ByteStringStackItem(bytes(value, 'utf-8'))
 
     def add_gas(self, amount: int):
         self.gas_consumed += amount

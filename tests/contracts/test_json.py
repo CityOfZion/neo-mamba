@@ -38,7 +38,6 @@ class JSONParsingTestCase(unittest.TestCase):
         expected = "[1,-2,3.5]"
         self.assertEqual(expected, self._parse_and_dump("[  1, -2 , 3.5 ]"))
 
-        # expected = "[20050000,20050000,-1.1234E-100]"
         expected = "[20050000,20050000,-1.1234e-100]"
         self.assertEqual(expected, self._parse_and_dump("[200.500000E+005,200.500000e+5,-1.1234e-100]"))
 
@@ -210,8 +209,8 @@ class JSONSerializerTestCase(unittest.TestCase):
         s = contracts.JSONSerializer.serialize(a, 999)
         self.assertEqual(r'[]', s)
 
-        i1 = vm.IntegerStackItem(vm.BigInteger(1))
-        i2 = vm.IntegerStackItem(vm.BigInteger(9007199254740992))
+        i1 = vm.IntegerStackItem(1)
+        i2 = vm.IntegerStackItem(9007199254740992)
         a.append([i1, i2])
         s = contracts.JSONSerializer.serialize(a, 999)
         self.assertEqual(r'[1,"9007199254740992"]', s)
@@ -221,9 +220,9 @@ class JSONSerializerTestCase(unittest.TestCase):
         key1 = vm.ByteStringStackItem("test1")
         key2 = vm.ByteStringStackItem("test2")
         key3 = vm.ByteStringStackItem("test3")
-        v1 = vm.IntegerStackItem(vm.BigInteger(1))
-        v2 = vm.IntegerStackItem(vm.BigInteger(2))
-        v3 = vm.IntegerStackItem(vm.BigInteger(3))
+        v1 = vm.IntegerStackItem(1)
+        v2 = vm.IntegerStackItem(2)
+        v3 = vm.IntegerStackItem(3)
         m = vm.MapStackItem(ref)
         m[key1] = v1
         m[key3] = v3
@@ -237,12 +236,12 @@ class JSONSerializerTestCase(unittest.TestCase):
     def test_serialization_array(self):
         b = vm.BooleanStackItem(True)
         bs = vm.ByteStringStackItem("test")
-        i = vm.IntegerStackItem(vm.BigInteger(123))
+        i = vm.IntegerStackItem(123)
         n = vm.NullStackItem()
         ref_ctr = vm.ReferenceCounter()
         a = vm.ArrayStackItem(ref_ctr)
         a.append([b, bs, i, n])
-        expected = r'[true,"dGVzdA==",123,null]'
+        expected = r'[true,"test",123,null]'
         self.assertEqual(expected, contracts.JSONSerializer.serialize(a, 999))
 
     def test_serialization_array_nested(self):
@@ -251,8 +250,8 @@ class JSONSerializerTestCase(unittest.TestCase):
         bs1 = vm.ByteStringStackItem("test1")
         bs2 = vm.ByteStringStackItem("test2")
 
-        i1 = vm.IntegerStackItem(vm.BigInteger(123))
-        i2 = vm.IntegerStackItem(vm.BigInteger(321))
+        i1 = vm.IntegerStackItem(123)
+        i2 = vm.IntegerStackItem(321)
         ref_ctr = vm.ReferenceCounter()
 
         a1 = vm.ArrayStackItem(ref_ctr)
@@ -263,7 +262,7 @@ class JSONSerializerTestCase(unittest.TestCase):
 
         parent = vm.ArrayStackItem(ref_ctr)
         parent.append([a1, a2])
-        expected = r'[[true,"dGVzdDE=",123],[false,"dGVzdDI=",321]]'
+        expected = r'[[true,"test1",123],[false,"test2",321]]'
         self.assertEqual(expected, contracts.JSONSerializer.serialize(parent, 999))
 
     def test_serialization_invalid_type(self):
@@ -283,8 +282,8 @@ class JSONSerializerTestCase(unittest.TestCase):
             contracts.JSONSerializer.serialize(data, max_size=len(expected) - 1)
 
     def test_serialization_map_with_integer_key(self):
-        i = vm.IntegerStackItem(vm.BigInteger(123))
-        v = vm.IntegerStackItem(vm.BigInteger(321))
+        i = vm.IntegerStackItem(123)
+        v = vm.IntegerStackItem(321)
         ref_ctr = vm.ReferenceCounter()
         m = vm.MapStackItem(ref_ctr)
         m[i] = v

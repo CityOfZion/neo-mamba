@@ -1,5 +1,5 @@
 import json
-import base64
+import binascii
 from neo3 import vm
 from typing import Union, Any, TypeVar, Iterable, cast
 
@@ -26,7 +26,7 @@ class _NEOVMEncoder(json.JSONEncoder):
                 a.append(self._encode(i))
             return a
         elif t == vm.ByteStringStackItem:
-            return base64.b64encode(item.to_array()).decode()
+            return binascii.unhexlify(str(item).encode()).decode()
         elif t == vm.IntegerStackItem:
             i = item.to_biginteger()
             if i > JSONSerializer.MAX_SAFE_INTEGER or i < JSONSerializer.MIN_SAFE_INTEGER:
@@ -144,7 +144,7 @@ class NEOJson:
         return json.dumps(src, cls=_NEOVMEncoder, separators=(',', ':'))
 
 
-JObject = Union[dict, bool, None, int, list]
+JObject = Union[dict, bool, None, int, list, str]
 
 
 class JSONSerializer:
@@ -178,6 +178,8 @@ class JSONSerializer:
         elif json_data is None:
             return vm.NullStackItem()
         elif t == str:
+            if json_data == "null":
+                return vm.NullStackItem()
             return vm.ByteStringStackItem(json_data)  # type: ignore
         elif t == int:
             return vm.IntegerStackItem(json_data)  # type: ignore
