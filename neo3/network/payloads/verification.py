@@ -14,12 +14,12 @@ class Signer(serialization.ISerializable):
     #: Maximum number of allowed_contracts or allowed_groups
     MAX_SUB_ITEMS = 16
 
-    def __init__(self, account: types.UInt160 = None,
+    def __init__(self, account: types.UInt160,
                  scope: payloads.WitnessScope = None,
                  allowed_contracts: List[types.UInt160] = None,
                  allowed_groups: List[cryptography.EllipticCurve.ECPoint] = None):
         #: The TX sender.
-        self.account = account if account else types.UInt160.zero()
+        self.account = account
         #: payloads.WitnessScope: The configured validation scope.
         self.scope = scope if scope else payloads.WitnessScope.FEE_ONLY
         #: List[types.UInt160]: Whitelist of contract hashes if used with
@@ -85,17 +85,21 @@ class Signer(serialization.ISerializable):
             self.allowed_groups = reader.read_serializable_list(cryptography.EllipticCurve.ECPoint,
                                                                 max=self.MAX_SUB_ITEMS)
 
+    @classmethod
+    def _serializable_init(cls):
+        return cls(types.UInt160.zero())
+
 
 class Witness(serialization.ISerializable):
     """
     An executable verification script that validates a verifiable object like a transaction.
     """
-    def __init__(self, invocation_script: bytes = None, verification_script: bytes = None):
+    def __init__(self, invocation_script: bytes, verification_script: bytes):
         #: A set of VM instructions to setup the stack for verification.
-        self.invocation_script = invocation_script if invocation_script else b''
+        self.invocation_script = invocation_script
         #: A set of VM instructions that does the actual verification.
         #: It is expected to set the result stack to a boolean True if validation passed.
-        self.verification_script = verification_script if verification_script else b''
+        self.verification_script = verification_script
         self._script_hash = None
 
     def __len__(self):
@@ -126,6 +130,10 @@ class Witness(serialization.ISerializable):
         intermediate_data = hashlib.sha256(self.verification_script).digest()
         data = hashlib.new('ripemd160', intermediate_data).digest()
         return types.UInt160(data=data)
+
+    @classmethod
+    def _serializable_init(cls):
+        return cls(b'', b'')
 
 
 class WitnessScope(IntFlag):

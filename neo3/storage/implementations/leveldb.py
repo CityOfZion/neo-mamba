@@ -251,7 +251,7 @@ class LevelDB(storage.IDBImplementation):
             raise KeyError
 
         with serialization.BinaryReader(tx_bytes) as br:
-            tx = payloads.Transaction()
+            tx = payloads.Transaction._serializable_init()
             tx.deserialize_special(br)
             return tx
 
@@ -261,7 +261,7 @@ class LevelDB(storage.IDBImplementation):
             for value in it:
                 # strip off prefix
                 with serialization.BinaryReader(value) as br:
-                    v = payloads.Transaction()
+                    v = payloads.Transaction._serializable_init()
                     v.deserialize_special(br)
                     res.append(v)
 

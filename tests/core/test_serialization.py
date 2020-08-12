@@ -15,6 +15,7 @@ class SerializableObj(serialization.ISerializable):
     def __len__(self):
         return 1
 
+
 class ISerializableTestCase(unittest.TestCase):
     def test_deserialize_from_bytes(self):
         # test class method

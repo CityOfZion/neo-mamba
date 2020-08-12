@@ -283,8 +283,8 @@ class AbstractBlockStorageTest(abc.ABC, unittest.TestCase):
         self.assertEqual(self.block1, blocks[1])
 
         # ensure all() results are readonly
-        blocks[0].transactions.append(payloads.Transaction())
-        blocks[1].transactions.append(payloads.Transaction())
+        blocks[0].transactions.append(payloads.Transaction._serializable_init())
+        blocks[1].transactions.append(payloads.Transaction._serializable_init())
 
         block1_from_snap = snapshot_view.blocks.get(self.block1_hash, read_only=True)
         block2_from_snap = snapshot_view.blocks.get(self.block2_hash, read_only=True)
