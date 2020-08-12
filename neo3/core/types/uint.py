@@ -113,11 +113,15 @@ class _UIntBase(serialization.ISerializable):
         """
         return bytes(self._data)
 
+    @classmethod
+    def _serializable_init(cls):
+        return cls(b'\x00' * cls._BYTE_LEN)
+
 
 class UInt160(_UIntBase):
     _BYTE_LEN = 20
 
-    def __init__(self, data: bytes = None):
+    def __init__(self, data: bytes):
         """
         Initialize an instance.
 
@@ -192,7 +196,7 @@ class UInt160(_UIntBase):
 class UInt256(_UIntBase):
     _BYTE_LEN = 32
 
-    def __init__(self, data: bytes = None):
+    def __init__(self, data: bytes):
         """
         Initialize an instance.
 

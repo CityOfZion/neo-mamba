@@ -23,12 +23,16 @@ class InventoryPayload(serialization.ISerializable):
         - :ref:`mempool <message-usage-mempool>`
     """
 
-    def __init__(self, type: InventoryType = None, hashes: List[types.UInt256] = None):
+    def __init__(self, type: InventoryType, hashes: List[types.UInt256]):
         """
-        Should not be called directly. Use create() instead.
+        Create payload.
+
+        Args:
+            type: indicator to what type of object the the hashes of this payload relate to.
+            hashes: hashes of "type" objects.
         """
         self.type = type
-        self.hashes = hashes if hashes else []
+        self.hashes = hashes
 
     def __len__(self):
         """ Get the total size in bytes of the object. """
@@ -57,15 +61,8 @@ class InventoryPayload(serialization.ISerializable):
         self.hashes = reader.read_serializable_list(types.UInt256)
 
     @classmethod
-    def create(cls, type: InventoryType, hashes: List[types.UInt256]) -> InventoryPayload:
-        """
-        Create payload.
-
-        Args:
-            type: indicator to what type of object the the hashes of this payload relate to.
-            hashes: hashes of "type" objects.
-        """
-        return cls(type, hashes)
+    def _serializable_init(cls):
+        return cls(InventoryType.BLOCK, [])
 
 
 class IInventory(abc.ABC):

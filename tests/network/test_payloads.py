@@ -26,7 +26,7 @@ class AddrTestCase(unittest.TestCase):
         cls.network_addr = payloads.NetworkAddress(address='127.0.0.1:0', timestamp=0,
                                 capabilities=[capabilities.FullNodeCapability(start_height=123)])
 
-        cls.addr_payload = payloads.AddrPayload.create([cls.network_addr])
+        cls.addr_payload = payloads.AddrPayload([cls.network_addr])
 
     def test_network_addr_len(self):
         # captured from C#, see setUpClass() for the capture code
@@ -260,12 +260,12 @@ class BlockTestCase(unittest.TestCase):
         self.assertEqual(cloned_trimmed_block.prev_hash, trimmed_block.prev_hash)
         self.assertNotEqual(id(cloned_trimmed_block.prev_hash), id(trimmed_block.prev_hash))
 
-        replica = payloads.TrimmedBlock()
+        replica = payloads.TrimmedBlock._serializable_init()
         replica.from_replica(trimmed_block)
         self.assertEqual(id(replica.prev_hash), id(trimmed_block.prev_hash))
 
     def test_from_replica(self):
-        b = payloads.Block()
+        b = payloads.Block._serializable_init()
         b.from_replica(self.block)
         self.assertEqual(self.block.version, b.version)
         self.assertEqual(self.block.prev_hash, b.prev_hash)
@@ -340,7 +340,7 @@ class ConsensusPayloadTestCase(unittest.TestCase):
         Console.WriteLine(cp.Hash);
         Console.WriteLine($"b\'{BitConverter.ToString(cp.ToArray()).Replace("-", "")}\'");
         """
-        cls.payload = payloads.ConsensusPayload.create(
+        cls.payload = payloads.ConsensusPayload(
             version=1,
             prev_hash=types.UInt256.from_string("f782c7fbb2eef6afe629b96c0d53fb525eda64ce5345057caf975ac3c2b9ae0a"),
             block_index=2,
@@ -400,8 +400,7 @@ class SignerTestCase(unittest.TestCase):
         Console.WriteLine($"{co.Size}");
         Console.WriteLine($"{BitConverter.ToString(co.ToArray()).Replace("-","")}");
         """
-        cls.signer = payloads.Signer()
-        cls.signer.account = types.UInt160.from_string("d7678dd97c000be3f33e9362e673101bac4ca654")
+        cls.signer = payloads.Signer(types.UInt160.from_string("d7678dd97c000be3f33e9362e673101bac4ca654"))
         cls.signer.scope = payloads.WitnessScope.CUSTOM_CONTRACTS | payloads.WitnessScope.CUSTOM_GROUPS
         cls.signer.allowed_contracts = [types.UInt160.from_string("5b7074e873973a6ed3708862f219a6fbf4d1c411")]
         ecdsa = crypto.ECDSA.decode_secp256r1("026241e7e26b38bb7154b8ad49458b97fb1c4797443dc921c5ca5774f511a2bbfc")
@@ -416,7 +415,7 @@ class SignerTestCase(unittest.TestCase):
     def test_equals(self):
         self.assertFalse(self.signer == None)
         self.assertFalse(self.signer == object())
-        signer2 = payloads.Signer()
+        signer2 = payloads.Signer._serializable_init()
         self.assertFalse(self.signer == signer2)
         self.assertTrue(self.signer == self.signer)
 
@@ -452,7 +451,7 @@ class FilterAddTestCase(unittest.TestCase):
         Console.WriteLine($"{fa.Size}");
         Console.WriteLine($"{BitConverter.ToString(fa.ToArray()).Replace("-", "")}");
         """
-        cls.filter = payloads.FilterAddPayload.create(b'\x01\x02')
+        cls.filter = payloads.FilterAddPayload(b'\x01\x02')
 
     def test_len(self):
         # captured from C#, see setUpClass() for the capture code
@@ -480,7 +479,7 @@ class FilterLoadTestCase(unittest.TestCase):
         Console.WriteLine($"{BitConverter.ToString(fl.ToArray()).Replace("-", "")}");
         """
         bloom = crypto.BloomFilter(8, 2, 345, b'\x01\x02')
-        cls.filter = payloads.FilterLoadPayload.create(bloom)
+        cls.filter = payloads.FilterLoadPayload(bloom)
 
     def test_len(self):
         # captured from C#, see setUpClass() for the capture code
@@ -502,7 +501,7 @@ class FilterLoadTestCase(unittest.TestCase):
     def test_deserialization_with_invalid_K_value(self):
         invalid_K = 51
         bloom = crypto.BloomFilter(8, invalid_K, 345, b'\x01\x02')
-        filter = payloads.FilterLoadPayload.create(bloom)
+        filter = payloads.FilterLoadPayload(bloom)
 
         with self.assertRaises(ValueError) as context:
             payloads.FilterLoadPayload.deserialize_from_bytes(filter.to_array())
@@ -519,7 +518,7 @@ class GetBlocksPayloadTestCase(unittest.TestCase):
         Console.WriteLine($"b\'{BitConverter.ToString(payload.ToArray()).Replace("-", "")}\'");
         """
         cls.hash_start = types.UInt256.from_string("a400ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff01")
-        cls.payload = payloads.GetBlocksPayload.create(hash_start=cls.hash_start, count=2)
+        cls.payload = payloads.GetBlocksPayload(hash_start=cls.hash_start, count=2)
 
     def test_len(self):
         # captured from C#, see setUpClass() for the capture code
@@ -538,7 +537,7 @@ class GetBlocksPayloadTestCase(unittest.TestCase):
         self.assertEqual(2, deserialized_payload.count)
 
 
-class GetBlockDataPayloadTestCase(unittest.TestCase):
+class GetBlockByIndexPayloadTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         """
@@ -619,7 +618,7 @@ class HeaderTestCase(unittest.TestCase):
         next_consensus = types.UInt160(data=addr_data)
         witness = payloads.Witness(invocation_script=b'\x01\x02', verification_script=b'\x03\x04')
 
-        cls.header = payloads.Header(version, previous_hash, merkleroot, timestamp, index, next_consensus, witness)
+        cls.header = payloads.Header(version, previous_hash, timestamp, index, next_consensus, witness, merkleroot)
 
     def test_len_and_hash(self):
         # captured from C#, see setUpClass() for the capture code
@@ -650,7 +649,7 @@ class HeaderTestCase(unittest.TestCase):
         # there should be a 1 byte witness object count (fixed to value 1) before the actual witness object.
         # see https://github.com/neo-project/neo/issues/1128
         raw_data = binascii.unhexlify(b'0000000001FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A402FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A400000000000000007B0000008A2B438EACA8B4B2AB6B4524B5A69A45D920C351FF02010202030400')
-        deserialized_header = payloads.Header()
+        deserialized_header = payloads.Header._serializable_init()
 
         with self.assertRaises(ValueError) as context:
             with serialization.BinaryReader(raw_data) as br:
@@ -663,7 +662,7 @@ class HeaderTestCase(unittest.TestCase):
         # the last byte in the stream should always be 0, this is to differentiate between blocks and headers according to
         # https://github.com/neo-project/neo/pull/1129#issuecomment-537102207
         raw_data = binascii.unhexlify(b'0000000001FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A402FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A400000000000000007B0000008A2B438EACA8B4B2AB6B4524B5A69A45D920C3510102010202030411')
-        deserialized_header = payloads.Header()
+        deserialized_header = payloads.Header._serializable_init()
 
         with self.assertRaises(ValueError) as context:
             with serialization.BinaryReader(raw_data) as br:
@@ -717,8 +716,8 @@ class HeadersPayloadTestCase(unittest.TestCase):
         next_consensus = types.UInt160(data=addr_data)
         witness = payloads.Witness(invocation_script=b'\x01\x02', verification_script=b'\x03\x04')
 
-        h1 = payloads.Header(version, previous_hash, merkleroot, timestamp, index, next_consensus, witness)
-        h2 = payloads.Header(version, previous_hash, merkleroot, timestamp, index, next_consensus, witness)
+        h1 = payloads.Header(version, previous_hash, timestamp, index, next_consensus, witness, merkleroot)
+        h2 = payloads.Header(version, previous_hash, timestamp, index, next_consensus, witness, merkleroot)
         cls.payload = payloads.HeadersPayload.create([h1, h2])
 
     def test_len(self):
@@ -752,7 +751,7 @@ class InventoryPayloadTestCase(unittest.TestCase):
         """
         cls.u1 = types.UInt256.from_string("a400ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff01")
         cls.u2 = types.UInt256.from_string("a400ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff02")
-        cls.inv = payloads.InventoryPayload.create(payloads.InventoryType.BLOCK, [cls.u1, cls.u2])
+        cls.inv = payloads.InventoryPayload(payloads.InventoryType.BLOCK, [cls.u1, cls.u2])
 
     def test_len(self):
         # captured from C#, see setUpClass() for the capture code
@@ -825,7 +824,7 @@ class MerkleBlockPayloadTestCase(unittest.TestCase):
         cls.block.rebuild_merkle_root()
         flags = bitarray()
         flags.frombytes(b'\x01\x02')
-        cls.merkle_payload = payloads.MerkleBlockPayload.create(cls.block, flags)
+        cls.merkle_payload = payloads.MerkleBlockPayload(cls.block, flags)
 
     def test_len(self):
         # captured from C#, see setUpClass() for the capture code
@@ -1118,7 +1117,7 @@ class TransactionTestCase(unittest.TestCase):
         self.assertEqual(payloads.InventoryType.TX, self.tx.inventory_type)
 
     def test_from_replica(self):
-        t = payloads.Transaction()
+        t = payloads.Transaction._serializable_init()
         t.from_replica(self.tx)
         self.assertEqual(self.tx.version, t.version)
         self.assertEqual(self.tx.nonce, t.nonce)
@@ -1141,7 +1140,7 @@ class TransactionTestCase(unittest.TestCase):
             tx_special_bytes = bw.to_array()
 
         with serialization.BinaryReader(tx_special_bytes) as br:
-            tx_from_bytes = payloads.Transaction()
+            tx_from_bytes = payloads.Transaction._serializable_init()
             tx_from_bytes.deserialize_special(br)
         self.assertEqual(tx_special.block_height, tx_from_bytes.block_height)
 
@@ -1156,15 +1155,15 @@ class TransactionTestCase(unittest.TestCase):
 
     def test_protocol_magic(self):
         # test proper initialization
-        tx = payloads.Transaction()
+        tx = payloads.Transaction._serializable_init()
         # test default
         self.assertEqual(0x4F454E, tx.protocol_magic)
         # test init supplied
-        tx = payloads.Transaction(protocol_magic=123)
+        tx = payloads.Transaction(0, 0, 0, 0, 0, protocol_magic=123)
         self.assertEqual(123, tx.protocol_magic)
         # test settings supplied
         settings.network.magic = 456
-        tx = payloads.Transaction()
+        tx = payloads.Transaction._serializable_init()
         self.assertEqual(456, tx.protocol_magic)
 
 
@@ -1189,7 +1188,7 @@ class VersionTestCase(unittest.TestCase):
             capabilities.FullNodeCapability(start_height=123),
             capabilities.ServerCapability(capabilities.NodeCapabilityType.TCPSERVER, port=456)
         ]
-        cls.vp = payloads.VersionPayload.create(nonce=888, user_agent="my-user-agent", capabilities=capa)
+        cls.vp = payloads.VersionPayload(nonce=888, user_agent="my-user-agent", capabilities=capa)
         cls.vp.timestamp = 0
 
     @classmethod

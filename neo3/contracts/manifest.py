@@ -20,3 +20,7 @@ class ContractManifest(serialization.ISerializable):
     def deserialize(self, reader: BinaryReader) -> None:
         """"""
         self._attr_for_test = reader.read_uint8()
+
+    @classmethod
+    def _serializable_init(cls):
+        return cls()

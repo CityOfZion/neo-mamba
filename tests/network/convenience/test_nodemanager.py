@@ -160,7 +160,7 @@ class NeoNodeSocketMock(asynctest.SocketMock):
     def _recv_data(self):
         caps = [capabilities.FullNodeCapability(0)]
         m_send_version = message.Message(msg_type=message.MessageType.VERSION,
-                                          payload=payloads.VersionPayload.create(nonce=123,
+                                          payload=payloads.VersionPayload(nonce=123,
                                                                                  user_agent="NEO3-MOCK-CLIENT",
                                                                                  capabilities=caps))
         m_verack = message.Message(msg_type=message.MessageType.VERACK)
