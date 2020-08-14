@@ -20,7 +20,7 @@ class NeoNode:
     def __init__(self, protocol):
         self.protocol = protocol
         #: payloads.NetworkAddress: Address of the remote endpoint.
-        self.address = payloads.NetworkAddress(state=payloads.AddressState.DEAD)
+        self.address = payloads.NetworkAddress("0.0.0.0:0", state=payloads.AddressState.DEAD)
         self.nodeid: int = id(self)  #: int: Unique identifier.
         self.nodeid_human: str = encode_base62(self.nodeid)  #: str: Human readable id.
         self.version = None
@@ -80,8 +80,9 @@ class NeoNode:
         caps: List[capabilities.NodeCapability] = [capabilities.FullNodeCapability(0)]
         # TODO: fix nonce and port if a service is running
         send_version = message.Message(msg_type=message.MessageType.VERSION,
-                                       payload=payloads.VersionPayload.create(nonce=123, user_agent="NEO-MAMBA",
-                                                                              capabilities=caps))
+                                       payload=payloads.VersionPayload(nonce=123,
+                                                                       user_agent="NEO-MAMBA",
+                                                                       capabilities=caps))
         await self.send_message(send_version)
 
         m = await self.read_message(timeout=3)

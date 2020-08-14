@@ -87,11 +87,11 @@ class Transaction(serialization.ISerializable, payloads.IInventory, IInteroperab
     MAX_TRANSACTION_ATTRIBUTES = 16
 
     def __init__(self,
-                 version: int = 0,
-                 nonce: int = 0,
-                 system_fee: int = 0,
-                 network_fee: int = 0,
-                 valid_until_block: int = 0,
+                 version: int,
+                 nonce: int,
+                 system_fee: int,
+                 network_fee: int,
+                 valid_until_block: int,
                  attributes: List[TransactionAttribute] = None,
                  signers: List[payloads.Signer] = None,
                  script: bytes = None,
@@ -151,7 +151,7 @@ class Transaction(serialization.ISerializable, payloads.IInventory, IInteroperab
         with serialization.BinaryWriter() as bw:
             self.serialize_special(bw)
             with serialization.BinaryReader(bw.to_array()) as br:
-                tx = Transaction()
+                tx = Transaction._serializable_init()
                 tx.deserialize_special(br)
                 return tx
 
@@ -308,3 +308,7 @@ class Transaction(serialization.ISerializable, payloads.IInventory, IInteroperab
                 raise ValueError("Deserialization error - duplicate transaction attribute")
             values.append(attribute)
         return values
+
+    @classmethod
+    def _serializable_init(cls):
+        return cls(0, 0, 0, 0, 99999)

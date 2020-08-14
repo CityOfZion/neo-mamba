@@ -3,11 +3,15 @@ from neo3.core import serialization, utils, Size as s, cryptography as crypto
 
 
 class FilterAddPayload(serialization.ISerializable):
-    def __init__(self, data: bytes = None):
+    def __init__(self, data: bytes):
         """
-        Should not be called directly. Use create() instead.
+        Create payload.
+
+        Args:
+            data: the data to add to the configured bloomfilter.
+
         """
-        self.data = data if data else b''
+        self.data = data
 
     def __len__(self):
         return utils.get_var_size(self.data)
@@ -31,24 +35,21 @@ class FilterAddPayload(serialization.ISerializable):
         self.data = reader.read_var_bytes(520)
 
     @classmethod
-    def create(cls, data: bytes) -> FilterAddPayload:
+    def _serializable_init(cls):
+        return cls(b'')
+
+
+class FilterLoadPayload(serialization.ISerializable):
+    def __init__(self, filter: crypto.BloomFilter):
         """
         Create payload.
 
         Args:
-            data: the data to add to the configured bloomfilter.
+            filter: bloom filter to load
         """
-        return cls(data)
-
-
-class FilterLoadPayload(serialization.ISerializable):
-    def __init__(self, filter: bytes = None, K: int = 0, tweak: int = 0):
-        """
-        Should not be called directly. Use create() instead.
-        """
-        self.filter = filter if filter else b''
-        self.K = K
-        self.tweak = tweak
+        self.filter = filter.get_bits()
+        self.K = filter.K
+        self.tweak = filter.tweak
 
     def __len__(self):
         return utils.get_var_size(self.filter) + s.uint8 + s.uint32
@@ -78,11 +79,6 @@ class FilterLoadPayload(serialization.ISerializable):
         self.tweak = reader.read_uint32()
 
     @classmethod
-    def create(cls, filter: crypto.BloomFilter) -> FilterLoadPayload:
-        """
-        Create payload.
-
-        Args:
-            filter: bloom filter to load
-        """
-        return cls(filter=filter.get_bits(), K=filter.K, tweak=filter.tweak)
+    def _serializable_init(cls):
+        bf = crypto.BloomFilter(8, 2, 345)
+        return cls(bf)

@@ -85,7 +85,7 @@ class NetworkMessageTestCase(unittest.TestCase):
         # see test_create_compressed_inv_message() how it was obtained
         raw_data = binascii.unhexlify(b'012711820000003F2C0400010067500000000000')
         with serialization.BinaryReader(raw_data) as br:
-            m = message.Message()
+            m = message.Message(message.MessageType.DEFAULT)
             m.deserialize(br)
             self.assertEqual(m.type, message.MessageType.INV)
             self.assertEqual(m.payload.type, payloads.inventory.InventoryType.BLOCK)

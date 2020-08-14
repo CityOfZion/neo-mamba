@@ -7,9 +7,9 @@ from neo3 import vm, contracts
 
 
 class ContractState(serialization.ISerializable, IClonable, IInteroperable):
-    def __init__(self, script: bytes = None, _manifest: manifest.ContractManifest = None):
-        self.script = script if script else b''
-        self.manifest = _manifest if _manifest else manifest.ContractManifest()
+    def __init__(self, script: bytes, _manifest: manifest.ContractManifest):
+        self.script = script
+        self.manifest = _manifest
 
     def __len__(self):
         return utils.get_var_size(self.script) + len(self.manifest)
@@ -60,3 +60,7 @@ class ContractState(serialization.ISerializable, IClonable, IInteroperable):
         is_payable = vm.BooleanStackItem(self.is_payable)
         array.append([script, has_storage, is_payable])
         return array
+
+    @classmethod
+    def _serializable_init(cls):
+        return cls(b'', manifest.ContractManifest())

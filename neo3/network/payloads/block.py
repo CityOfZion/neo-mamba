@@ -12,22 +12,22 @@ from copy import deepcopy
 
 class _BlockBase(serialization.ISerializable):
     def __init__(self,
-                 version: int = 0,
-                 prev_hash: types.UInt256 = None,
+                 version: int,
+                 prev_hash: types.UInt256,
+                 timestamp: int,
+                 index: int,
+                 next_consensus: types.UInt160,
+                 witness: payloads.Witness,
                  merkle_root: types.UInt256 = None,
-                 timestamp: int = 0,
-                 index: int = 0,
-                 next_consensus: types.UInt160 = None,
-                 witness: payloads.Witness = None
                  ):
 
         self.version = version
-        self.prev_hash = prev_hash if prev_hash else types.UInt256.zero()
+        self.prev_hash = prev_hash
         self.merkle_root = merkle_root if merkle_root else types.UInt256.zero()
         self.timestamp = timestamp
         self.index = index
-        self.next_consensus = next_consensus if next_consensus else types.UInt160.zero()
-        self.witness = witness if witness else payloads.Witness()
+        self.next_consensus = next_consensus
+        self.witness = witness
 
     def __len__(self):
         return s.uint32 + s.uint256 + s.uint256 + s.uint64 + s.uint32 + s.uint160 + 1 + len(self.witness)
@@ -96,15 +96,15 @@ class Header(_BlockBase):
         :class:`~neo3.network.payloads.block.TrimmedBlock`
     """
     def __init__(self,
-                 version: int = 0,
-                 prev_hash: types.UInt256 = None,
-                 merkle_root: types.UInt256 = None,
-                 timestamp: int = 0,
-                 index: int = 0,
-                 next_consensus: types.UInt160 = None,
-                 witness: payloads.Witness = None
+                 version: int,
+                 prev_hash: types.UInt256,
+                 timestamp: int,
+                 index: int,
+                 next_consensus: types.UInt160,
+                 witness: payloads.Witness,
+                 merkle_root: types.UInt256 = None
                  ):
-        super(Header, self).__init__(version, prev_hash, merkle_root, timestamp, index, next_consensus, witness)
+        super(Header, self).__init__(version, prev_hash, timestamp, index, next_consensus, witness, merkle_root)
 
     def __len__(self):
         return super(Header, self).__len__() + 1
@@ -143,6 +143,15 @@ class Header(_BlockBase):
         if tmp != 0:
             raise ValueError("Deserialization error")
 
+    @classmethod
+    def _serializable_init(cls):
+        return cls(0,
+                   types.UInt256.zero(),
+                   0,
+                   0,
+                   types.UInt160.zero(),
+                   payloads.Witness(b'', b''))
+
 
 class Block(_BlockBase, payloads.IInventory, IInteroperable):
     """
@@ -154,18 +163,18 @@ class Block(_BlockBase, payloads.IInventory, IInteroperable):
     MAX_TX_PER_BLOCK = MAX_CONTENTS_PER_BLOCK - 1
 
     def __init__(self,
-                 version: int = 0,
-                 prev_hash: types.UInt256 = None,
+                 version: int,
+                 prev_hash: types.UInt256,
+                 timestamp: int,
+                 index: int,
+                 next_consensus: types.UInt160,
+                 witness: payloads.Witness,
+                 consensus_data: payloads.ConsensusData,
+                 transactions: List[payloads.Transaction] = None,
                  merkle_root: types.UInt256 = None,
-                 timestamp: int = 0,
-                 index: int = 0,
-                 next_consensus: types.UInt160 = None,
-                 witness: payloads.Witness = None,
-                 consensus_data: payloads.ConsensusData = None,
-                 transactions: List[payloads.Transaction] = None
                  ):
-        super(Block, self).__init__(version, prev_hash, merkle_root, timestamp, index, next_consensus, witness)
-        self.consensus_data = consensus_data if consensus_data else payloads.ConsensusData()
+        super(Block, self).__init__(version, prev_hash, timestamp, index, next_consensus, witness, merkle_root)
+        self.consensus_data = consensus_data
         self.transactions = [] if transactions is None else transactions
 
     def __len__(self):
@@ -291,6 +300,16 @@ class Block(_BlockBase, payloads.IInventory, IInteroperable):
         array.append([block_hash, version, prev_hash, merkle_root, timestamp, index, next_consensus, tx_len])
         return array
 
+    @classmethod
+    def _serializable_init(cls):
+        return cls(0,
+                   types.UInt256.zero(),
+                   0,
+                   0,
+                   types.UInt160.zero(),
+                   payloads.Witness(b'', b''),
+                   payloads.ConsensusData())
+
 
 class TrimmedBlock(_BlockBase, IClonable):
     """
@@ -300,18 +319,18 @@ class TrimmedBlock(_BlockBase, IClonable):
     """
 
     def __init__(self,
-                 version: int = 0,
-                 prev_hash: types.UInt256 = None,
-                 merkle_root: types.UInt256 = None,
-                 timestamp: int = 0,
-                 index: int = 0,
-                 next_consensus: types.UInt160 = None,
-                 witness: payloads.Witness = None,
-                 hashes: List[types.UInt256] = None,
-                 consensus_data: payloads.ConsensusData = None):
-        super(TrimmedBlock, self).__init__(version, prev_hash, merkle_root, timestamp, index, next_consensus, witness)
-        self.hashes = hashes if hashes else []
-        self.consensus_data = consensus_data if consensus_data else payloads.ConsensusData()
+                 version: int,
+                 prev_hash: types.UInt256,
+                 timestamp: int,
+                 index: int,
+                 next_consensus: types.UInt160,
+                 witness: payloads.Witness,
+                 hashes: List[types.UInt256],
+                 consensus_data: payloads.ConsensusData,
+                 merkle_root: types.UInt256 = None):
+        super(TrimmedBlock, self).__init__(version, prev_hash, timestamp, index, next_consensus, witness, merkle_root)
+        self.hashes = hashes
+        self.consensus_data = consensus_data
 
     def __len__(self):
         size = super(TrimmedBlock, self).__len__()
@@ -357,51 +376,42 @@ class TrimmedBlock(_BlockBase, IClonable):
         """
         return deepcopy(self)
 
+    @classmethod
+    def _serializable_init(cls):
+        return cls(0,
+                   types.UInt256.zero(),
+                   0,
+                   0,
+                   types.UInt160.zero(),
+                   payloads.Witness(b'', b''),
+                   [],
+                   payloads.ConsensusData())
+
 
 class MerkleBlockPayload(_BlockBase):
-    def __init__(self,
-                 version: int = 0,
-                 prev_hash: types.UInt256 = None,
-                 merkle_root: types.UInt256 = None,
-                 timestamp: int = 0,
-                 index: int = 0,
-                 next_consensus: types.UInt160 = None,
-                 witness: payloads.Witness = None,
-                 content_count: int = None,
-                 hashes: List[types.UInt256] = None,
-                 flags: bytearray = None):
-        super(MerkleBlockPayload, self).__init__(version, prev_hash, merkle_root,
-                                                 timestamp, index, next_consensus, witness)
-        """
-        Should not be called directly. Use create() instead.
-        """
-        self.hashes = hashes if hashes else []
-        self.content_count = content_count if content_count else len(self.hashes)
-        self.flags = flags if flags else b''
+    def __init__(self, block: Block, flags: bitarray):
+        super(MerkleBlockPayload, self).__init__(block.version,
+                                                 block.prev_hash,
+                                                 block.timestamp,
+                                                 block.index,
+                                                 block.next_consensus,
+                                                 block.witness,
+                                                 block.merkle_root)
+        hashes = [block.consensus_data.hash()] + [t.hash() for t in block.transactions]
+        tree = crypto.MerkleTree(hashes)
+        self.flags = flags.tobytes()
+        self.content_count = len(hashes)
+        self.hashes = tree.to_hash_array()
 
     def __len__(self):
         return super(MerkleBlockPayload, self).__len__() + s.uint32 + utils.get_var_size(self.hashes) + \
             utils.get_var_size(self.flags)
 
     @classmethod
-    def create(cls, block: Block, flags: bitarray) -> MerkleBlockPayload:
-        """
-        Create payload.
-
-        Should be used instead of directly calling the initializer.
-
-        Args:
-            block:
-            flags:
-        """
-        hashes = [block.consensus_data.hash()] + [t.hash() for t in block.transactions]
-        tree = crypto.MerkleTree(hashes)
-        flag_bytes = flags.tobytes()
-
-        return cls(version=block.version, prev_hash=block.prev_hash, merkle_root=block.merkle_root,
-                   timestamp=block.timestamp, index=block.index, next_consensus=block.next_consensus,
-                   witness=block.witness, content_count=len(hashes), hashes=tree.to_hash_array(),
-                   flags=flag_bytes)
+    def _serializable_init(cls):
+        block = payloads.Block._serializable_init()
+        flags = bitarray()
+        return cls(block, flags)
 
     def serialize(self, writer: serialization.BinaryWriter) -> None:
         """
@@ -474,11 +484,21 @@ class GetBlocksPayload(serialization.ISerializable):
     Used to request an array block hashes that can be retrieved via a message with the
     :const:`~neo3.network.message.MessageType.GETDATA` type.
     """
-    def __init__(self, hash_start: types.UInt256 = None, count=-1):
+    def __init__(self, hash_start: types.UInt256, count=-1):
         """
-        Should not be called directly. Use create() instead.
+        Create payload.
+
+        Args:
+            hash_start: starting point from which to return the `next` hash.
+
+                Note:
+
+                    For syncing supply the local best height block hash to receive the hashes in the range of
+                    best_height+1 to best_height+1+count
+
+            count: number of hashes to return.
         """
-        self.hash_start = hash_start if hash_start else types.UInt256.zero()
+        self.hash_start = hash_start
         self.count = count
 
     def __len__(self):
@@ -505,21 +525,8 @@ class GetBlocksPayload(serialization.ISerializable):
         self.count = reader.read_int16()
 
     @classmethod
-    def create(cls, hash_start: types.UInt256, count=-1) -> GetBlocksPayload:
-        """
-        Create payload.
-
-        Args:
-            hash_start: starting point from which to return the `next` hash.
-
-                Note:
-
-                    For syncing supply the local best height block hash to receive the hashes in the range of
-                    best_height+1 to best_height+1+count
-
-            count: number of hashes to return.
-        """
-        return cls(hash_start, count)
+    def _serializable_init(cls):
+        return cls(types.UInt256.zero())
 
 
 class GetBlockByIndexPayload(serialization.ISerializable):
@@ -529,9 +536,14 @@ class GetBlockByIndexPayload(serialization.ISerializable):
     type respectively.
     """
 
-    def __init__(self, index_start: int = 0, count: int = HeadersPayload.MAX_HEADERS_COUNT):
+    def __init__(self, index_start: int, count: int = HeadersPayload.MAX_HEADERS_COUNT):
         """
-        Should not be called directly. Use create() instead.
+        Create payload.
+
+        Args:
+            index_start: start block height.
+            count: number of blocks or headers to requests starting from `index_start`.
+
         """
         self.index_start = index_start
         self.count = count
@@ -566,11 +578,5 @@ class GetBlockByIndexPayload(serialization.ISerializable):
             raise ValueError("Deserialization error - invalid count")
 
     @classmethod
-    def create(cls, index_start: int, count: int = HeadersPayload.MAX_HEADERS_COUNT) -> GetBlockByIndexPayload:
-        """
-        Create payload.
-
-        Args:
-            index_start: start block height.
-            count: number of blocks or headers to requests starting from `index_start`.
-        """
+    def _serializable_init(cls):
+        return cls(0)

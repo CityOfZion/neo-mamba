@@ -409,3 +409,7 @@ class ContractManifest(serialization.ISerializable, IJson):
         """
         results = list(map(lambda p: p.is_allowed(target_manifest, method), self.permissions))
         return any(results)
+
+    @classmethod
+    def _serializable_init(cls):
+        return cls()

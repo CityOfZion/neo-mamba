@@ -181,12 +181,12 @@ class UInt160_and_256Test(TestCase):
 
         with serialization.BinaryReader(data_uint160) as br:
             # we explicitly call deserialize, instead of br.read_uint160() for coverage
-            uint160 = UInt160()
+            uint160 = UInt160.zero()
             uint160.deserialize(br)
             self.assertEqual(data_uint160, uint160._data)
 
         with serialization.BinaryReader(data_uint256) as br:
-            uint256 = UInt256()
+            uint256 = UInt256.zero()
             uint256.deserialize(br)
             self.assertEqual(data_uint256, uint256._data)
 

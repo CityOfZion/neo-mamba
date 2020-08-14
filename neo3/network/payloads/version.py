@@ -13,10 +13,14 @@ class VersionPayload(serialization.ISerializable):
     """
     MAX_CAPABILITIES = 32
 
-    def __init__(self, nonce: int = None, user_agent: str = None,
-                 capabilities: List[capabilities.NodeCapability] = None):
+    def __init__(self, nonce: int, user_agent: str, capabilities: List[capabilities.NodeCapability]):
         """
-        Should not be called directly. Use create() instead.
+        Create payload.
+
+        Args:
+            nonce: unique number which identifies the node instance.
+            user_agent: node user agent description. e.g. "NEO3-PYTHON-V001". Max 1024 bytes.
+            capabilities: a list of services a node offers.
         """
 
         #: A network id. Differs for NEO's Mainnet (use 5195086) and Testnet (use 1951352142).
@@ -26,11 +30,11 @@ class VersionPayload(serialization.ISerializable):
         self.version = 0
         self.timestamp = int(datetime.datetime.utcnow().timestamp())
         #: A unique identifier for the node.
-        self.nonce = nonce if nonce else random.randint(0, 10000)
+        self.nonce = nonce
         #: A node client description i.e. "NEO-MAMBA-V001"
-        self.user_agent = user_agent if user_agent else ""
+        self.user_agent = user_agent
         #: A list of services a node offers. See :ref:`capabilities <library-network-capabilities>`
-        self.capabilities = capabilities if capabilities else []
+        self.capabilities = capabilities
 
     def __len__(self):
         """ Get the total size in bytes of the object. """
@@ -71,21 +75,5 @@ class VersionPayload(serialization.ISerializable):
         self.capabilities = capabilities_list
 
     @classmethod
-    def deserialize_from_bytes(cls: Type[VersionPayload], data: bytes) -> VersionPayload:
-        """ Deserialize object. """
-        with serialization.BinaryReader(data) as br:
-            obj = cls()
-            obj.deserialize(br)
-            return obj
-
-    @staticmethod
-    def create(nonce: int, user_agent: str, capabilities: List[capabilities.NodeCapability]) -> VersionPayload:
-        """
-        Create payload.
-
-        Args:
-            nonce: unique number which identifies the node instance.
-            user_agent: node user agent description. e.g. "NEO3-PYTHON-V001". Max 1024 bytes.
-            capabilities: a list of services a node offers.
-        """
-        return VersionPayload(nonce, user_agent, capabilities)
+    def _serializable_init(cls):
+        return cls(0, "", [])

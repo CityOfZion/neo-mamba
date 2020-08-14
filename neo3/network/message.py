@@ -48,7 +48,7 @@ class Message(serialization.ISerializable):
     COMPRESSION_MIN_SIZE = 128
     COMPRESSION_THRESHOLD = 64
 
-    def __init__(self, msg_type: MessageType = None, payload: serialization.ISerializable_T = None):
+    def __init__(self, msg_type: MessageType, payload: serialization.ISerializable_T = None):
         """
 
         Args:
@@ -56,10 +56,8 @@ class Message(serialization.ISerializable):
             payload: an identifier specifying the purpose of the message.
         """
         self.config = MessageConfig.NONE  #: MessageConfig: message object configuration.
-        # something strange is going on if the check does not explicitly include "is not None", then it will
-        # use the 'else' result even if a msg_type is clearly specified and present in the debugger
         #: MessageType: an identifier specifying the purpose of the message.
-        self.type: MessageType = msg_type if msg_type is not None else MessageType.DEFAULT
+        self.type: MessageType = msg_type
         self.payload: serialization.ISerializable_T = payloads.EmptyPayload()  # type: ignore
         # mypy doesn't get EmptyPayload is an ISerializable
 
@@ -142,3 +140,7 @@ class Message(serialization.ISerializable):
                 return br.read_serializable(payloads.Transaction)
             else:
                 logger.debug(f"Unsupported payload {msg_type.name}")
+
+    @classmethod
+    def _serializable_init(cls):
+        return cls(MessageType.DEFAULT)
