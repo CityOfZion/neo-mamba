@@ -33,7 +33,8 @@ class ContractGroup(IJson):
         """
         return cryptography.verify_signature(contract_hash.to_array(),
                                              self.signature,
-                                             self.public_key.encode_point(False))
+                                             self.public_key.encode_point(False),
+                                             cryptography.ECCCurve.NISTP256)
 
     def to_json(self) -> dict:
         """

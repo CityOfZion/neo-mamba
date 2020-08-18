@@ -1,12 +1,8 @@
 import unittest
-import hashlib
 import binascii
 from neo3 import vm
 from neo3 import contracts
-
-
-def syscall_name_to_int(name: str) -> int:
-    return int.from_bytes(hashlib.sha256(name.encode()).digest()[:4], 'little', signed=False)
+from .utils import syscall_name_to_int
 
 
 class JSONInteropTestCase(unittest.TestCase):

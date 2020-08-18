@@ -6,7 +6,7 @@ from typing import List
 from neo3.core import Size as s, serialization, utils, types, IInteroperable
 from neo3.network import payloads
 from neo3.vm import VMState
-from neo3 import settings, vm
+from neo3 import settings, vm, storage
 
 
 class TransactionAttributeType(Enum):
@@ -75,7 +75,7 @@ class TransactionAttribute(serialization.ISerializable):
         """ Deserialize the remaining attributes """
 
 
-class Transaction(serialization.ISerializable, payloads.IInventory, IInteroperable):
+class Transaction(payloads.IVerifiable, payloads.IInventory, IInteroperable):
     """
     Data to be executed by the NEO virtual machine.
     """
@@ -277,6 +277,9 @@ class Transaction(serialization.ISerializable, payloads.IInventory, IInteroperab
         script = vm.ByteStringStackItem(self.script)
         array.append([tx_hash, version, nonce, sender, system_fee, network_fee, valid_until, script])
         return array
+
+    def get_script_hashes_for_verifying(self, snapshot: storage.Snapshot) -> List[types.UInt160]:
+        return list(map(lambda signer: signer.account, self.signers))
 
     # TODO: implement Verify methods once we have Snapshot support
 

@@ -1,8 +1,10 @@
 from __future__ import annotations
 import hashlib
+import abc
 from enum import IntFlag
 from neo3.core import serialization, utils, types, cryptography, Size as s
 from neo3.network import payloads
+from neo3 import storage
 from typing import List
 
 
@@ -154,3 +156,31 @@ class WitnessScope(IntFlag):
     CUSTOM_GROUPS = 0x20
     #: Allow the witness in all context. Equal to NEO 2.x's default behaviour.
     GLOBAL = 0x80
+
+
+class IVerifiable(serialization.ISerializable):
+    def __init__(self, *args, **kwargs):
+        super(IVerifiable, self).__init__(*args, **kwargs)
+        self.witnesses: List[Witness] = []
+
+    @abc.abstractmethod
+    def serialize_unsigned(self, writer: serialization.BinaryWriter) -> None:
+        """ """
+
+    @abc.abstractmethod
+    def deserialize_unsigned(self, reader: serialization.BinaryReader) -> None:
+        """ """
+
+    @abc.abstractmethod
+    def get_script_hashes_for_verifying(self, snapshot: storage.Snapshot) -> List[types.UInt160]:
+        """ """
+
+    def get_hash_data(self, protocol_magic: int) -> bytes:
+        """ Get the unsigned data
+        Args:
+            protocol_magic: network protocol number (NEO MainNet = 5195086, Testnet = 1951352142, private net = ??)
+        """
+        with serialization.BinaryWriter() as writer:
+            writer.write_uint32(protocol_magic)
+            self.serialize_unsigned(writer)
+            return writer.to_array()

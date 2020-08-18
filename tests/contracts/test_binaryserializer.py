@@ -35,7 +35,7 @@ class BinarySerializerTestCase(unittest.TestCase):
             contracts.BinarySerializer.serialize(m, 999)
         self.assertEqual("Item already exists", str(context.exception))
 
-        # now test deserializationt
+        # now test deserialization
         m[i] = b # restore m[i] to original content
         new_m = contracts.BinarySerializer.deserialize(out, 2048, len(out), self.reference_counter)
         self.assertEqual(len(m), len(new_m))

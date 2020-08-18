@@ -1,10 +1,15 @@
+import hashlib
 from neo3.network import payloads
 from neo3.core import types
 from neo3 import vm, contracts, blockchain
 
 
+def syscall_name_to_int(name: str) -> int:
+    return int.from_bytes(hashlib.sha256(name.encode()).digest()[:4], 'little', signed=False)
+
+
 def test_engine(has_container=False, has_snapshot=False):
-    tx = payloads.Transaction()
+    tx = payloads.Transaction._serializable_init()
 
     # this little hack basically nullifies the singleton behaviour and ensures we create
     # a new instance every time we call it. This in turn gives us a clean backend/snapshot
@@ -20,19 +25,18 @@ def test_engine(has_container=False, has_snapshot=False):
     else:
         engine = contracts.ApplicationEngine(contracts.TriggerType.APPLICATION, None, None, 0, test_mode=True)
 
-    engine.load_script(vm.Script(b'\x01'))
+    engine.load_script(vm.Script(b'\x40'))  # OpCode::RET
     return engine
 
 
 def test_block(with_index=1):
     tx = payloads.Transaction(version=0,
                               nonce=123,
-                              sender=types.UInt160.from_string("4b5acd30ba7ec77199561afa0bbd49b5e94517da"),
                               system_fee=456,
                               network_fee=789,
                               valid_until_block=1,
                               attributes=[],
-                              cosigners=[],
+                              signers=[],
                               script=b'\x01',
                               witnesses=[])
     tx.block_height = with_index

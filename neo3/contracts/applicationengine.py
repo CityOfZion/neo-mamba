@@ -2,7 +2,7 @@ from __future__ import annotations
 from neo3 import contracts, storage, vm
 from neo3.core import types, cryptography, IInteroperable
 from neo3.contracts import interop
-from typing import Any, Callable, Dict, cast
+from typing import Any, Callable, Dict, cast, List
 import hashlib
 
 
@@ -42,6 +42,12 @@ class ApplicationEngine(vm.ExecutionEngine):
             return types.UInt256(data=stack_item.to_array())
         elif class_type == cryptography.EllipticCurve.ECPoint:
             return cryptography.EllipticCurve.ECPoint.deserialize_from_bytes(stack_item.to_array())
+        elif hasattr(class_type, '__origin__') and class_type.__origin__ == list:
+            element_type = class_type.__args__[0]
+            array = []
+            for e in stack_item:
+                array.append(self._convert(e, element_type))
+            return array
         else:
             raise ValueError(f"Unknown class type, don't know how to convert: {class_type}")
 
@@ -59,6 +65,8 @@ class ApplicationEngine(vm.ExecutionEngine):
             return vm.ByteStringStackItem(value)
         elif native_type == str:
             return vm.ByteStringStackItem(bytes(value, 'utf-8'))
+        elif native_type == bool:
+            return vm.BooleanStackItem(value)
 
     def add_gas(self, amount: int):
         self.gas_consumed += amount
