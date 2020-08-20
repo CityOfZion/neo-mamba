@@ -109,6 +109,10 @@ workflows:
     jobs:
       - approve-update:
           type: approval
+          filters:
+            branches:
+              only:
+                - master
       - setup-environment:
           requires:
             - approve-update
