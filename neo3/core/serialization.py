@@ -45,7 +45,7 @@ class ISerializable(abc.ABC):
             a deserialized instance of the class.
         """
         with BinaryReader(data) as br:
-            payload = cls()
+            payload = cls._serializable_init()
             payload.deserialize(br)
             return payload
 
@@ -58,6 +58,15 @@ class ISerializable(abc.ABC):
     @abc.abstractmethod
     def __len__(self):
         """ Return the length of the object in number of bytes."""
+
+    @classmethod
+    def _serializable_init(cls):
+        """
+        If the interface inheritor has mandatory arguments, override this functin and provide dummy values. These values
+        will be overwritten by the read_serializable, read_serializable_list and deserialize_from_bytes methods that
+        rely on this function for class instantiation.
+        """
+        return cls()
 
 
 class BinaryReader(object):
@@ -352,7 +361,7 @@ class BinaryReader(object):
         Args:
             obj_type: the object class to deserialize into.
         """
-        obj = obj_type()
+        obj = obj_type._serializable_init()
         obj.deserialize(self)
         return obj
 
@@ -375,7 +384,7 @@ class BinaryReader(object):
             count = max
 
         for _ in range(count):
-            obj = obj_type()
+            obj = obj_type._serializable_init()
             obj.deserialize(self)
             obj_array.append(obj)
         return obj_array

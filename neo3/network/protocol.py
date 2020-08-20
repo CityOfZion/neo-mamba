@@ -88,14 +88,11 @@ class NeoProtocol(StreamReaderProtocol):
                 payload_data = await self._stream_reader_orig.readexactly(payload_length)
                 raw = message_header + len_bytes + payload_data
 
-                with serialization.BinaryReader(raw) as br:
-                    m = Message()
-                    try:
-                        m.deserialize(br)
-                        return m
-                    except Exception:
-                        logger.debug(f"Failed to deserialize message: {traceback.format_exc()}")
-                        return None
+                try:
+                    return Message.deserialize_from_bytes(raw)
+                except Exception:
+                    logger.debug(f"Failed to deserialize message: {traceback.format_exc()}")
+                    return None
 
             except (ConnectionResetError, ValueError) as e:
                 # ensures we break out of the main run() loop of Node, which triggers a disconnect callback to clean up

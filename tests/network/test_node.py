@@ -24,8 +24,8 @@ class NeoNodeSocketMock(asynctest.SocketMock):
         caps = [capabilities.FullNodeCapability(0),
                 capabilities.ServerCapability(n_type=capabilities.NodeCapabilityType.TCPSERVER, port=10333)]
         self.m_send_version = message.Message(msg_type=message.MessageType.VERSION,
-                                          payload=payloads.VersionPayload.create(nonce=123,
-                                                                                 user_agent="NEO3-MOCK-CLIENT",
+                                              payload=payloads.VersionPayload(nonce=123,
+                                                                          user_agent="NEO3-MOCK-CLIENT",
                                                                                  capabilities=caps))
         self.m_verack = message.Message(msg_type=message.MessageType.VERACK)
 
@@ -183,7 +183,7 @@ class NeoNodeTestCase(asynctest.TestCase):
         self.start_height = 888
         caps = [capabilities.FullNodeCapability(start_height=self.start_height),
                 capabilities.ServerCapability(capabilities.NodeCapabilityType.TCPSERVER, 10333)]
-        return payloads.VersionPayload.create(nonce=123, user_agent="NEO3-MOCK-CLIENT", capabilities=caps)
+        return payloads.VersionPayload(nonce=123, user_agent="NEO3-MOCK-CLIENT", capabilities=caps)
 
     def test_version_validation_client_is_self(self):
         n = node.NeoNode(object())
@@ -327,8 +327,8 @@ class NeoNodeTestCase(asynctest.TestCase):
         await n.request_block_data(index_start, count)
         self.assertIsNotNone(n.send_message.call_args)
         m = n.send_message.call_args[0][0]  # type: message.Message
-        self.assertEqual(message.MessageType.GETBLOCKDATA, m.type)
-        self.assertIsInstance(m.payload, payloads.GetBlockDataPayload)
+        self.assertEqual(message.MessageType.GETBLOCKBYINDEX, m.type)
+        self.assertIsInstance(m.payload, payloads.GetBlockByIndexPayload)
         self.assertEqual(index_start, m.payload.index_start)
         self.assertEqual(count, m.payload.count)
 
@@ -349,7 +349,7 @@ class NeoNodeTestCase(asynctest.TestCase):
     async def test_send_inventory_and_relay(self):
         # test 2 in 1
         # taken from the Transaction testcase in `test_payloads.py`
-        raw_tx = binascii.unhexlify(b'007B000000DA1745E9B549BD0BFA1A569971C77EBA30CD5A4BC8010000000000001503000000000000010000000181000154A64CAC1B1073E662933EF3E30B007CD98D67D70002010201000155')
+        raw_tx = binascii.unhexlify(b'007B000000C8010000000000001503000000000000010000000154A64CAC1B1073E662933EF3E30B007CD98D67D7000002010201000155')
         tx = payloads.Transaction.deserialize_from_bytes(raw_tx)
 
         n = node.NeoNode(object())
@@ -365,14 +365,14 @@ class NeoNodeTestCase(asynctest.TestCase):
         settings.network.magic = 769
         socket_mock = NeoNodeSocketMock(self.loop, '127.0.0.1', 1111)
 
-        m_addr = message.Message(msg_type=message.MessageType.ADDR, payload=payloads.AddrPayload())
+        m_addr = message.Message(msg_type=message.MessageType.ADDR, payload=payloads.AddrPayload([]))
         m_block = message.Message(msg_type=message.MessageType.BLOCK, payload=payloads.EmptyPayload())
         m_inv1 = message.Message(msg_type=message.MessageType.INV, payload=payloads.InventoryPayload(
             payloads.InventoryType.BLOCK,
             hashes=[types.UInt256.from_string("65793a030c0dcd4fff4da8a6a6d5daa8b570750da4fdeea1bbc43bdf124aedc9")]
         ))
         m_inv2 = message.Message(msg_type=message.MessageType.INV,
-                                 payload=payloads.InventoryPayload(payloads.InventoryType.TX))
+                                 payload=payloads.InventoryPayload(payloads.InventoryType.TX, []))
         m_getaddr = message.Message(msg_type=message.MessageType.GETADDR, payload=payloads.EmptyPayload())
         m_mempool = message.Message(msg_type=message.MessageType.MEMPOOL, payload=payloads.EmptyPayload())
 
@@ -402,7 +402,11 @@ class NeoNodeTestCase(asynctest.TestCase):
 
         socket_mock.recv_data = _recv_data2(socket_mock)
         with self.assertLogs(network_logger, 'DEBUG') as log_context:
-            n, _ = await node.NeoNode.connect_to(socket=socket_mock)
+            try:
+                n, _ = await node.NeoNode.connect_to(socket=socket_mock)
+            except Exception as e:
+                print(f"GVD {e}")
+
             await asyncio.sleep(0.5)
             await n.disconnect(payloads.DisconnectReason.SHUTTING_DOWN)
 

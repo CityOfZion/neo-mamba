@@ -6,7 +6,7 @@ class BloomFilter:
     """
     BloomFilter implementation conforming to NEO's `implementation <https://github.com/neo-project/neo/blob/982e69090f27c1415872536ce39aea22f0873467/neo.UnitTests/Cryptography/UT_BloomFilter.cs>`_.  # noqa
     """
-    def __init__(self, m: int, k: int, ntweak: int, elements: bytearray = None):
+    def __init__(self, m: int, k: int, ntweak: int, elements: bytes = None):
         """
 
         Args:
@@ -29,7 +29,7 @@ class BloomFilter:
             self.bits.setall(False)
         self.tweak = ntweak
 
-    def add(self, element: bytearray) -> None:
+    def add(self, element: bytes) -> None:
         """
         Add an element to the filter.
 
@@ -40,7 +40,7 @@ class BloomFilter:
             h = mmh3.hash(element, s, signed=False)
             self.bits[h % self.bits.length()] = True
 
-    def check(self, element: bytearray) -> bool:
+    def check(self, element: bytes) -> bool:
         """
         Check if the element is present
 

@@ -14,7 +14,7 @@ class NodeCapability(serialization.ISerializable):
     """
     Capability base class.
     """
-    def __init__(self, n_type: NodeCapabilityType = None):
+    def __init__(self, n_type: NodeCapabilityType):
         self.type = n_type
 
     def __len__(self):
@@ -53,7 +53,7 @@ class NodeCapability(serialization.ISerializable):
             capability = FullNodeCapability()
 
         capability.deserialize_without_type(reader)
-        return capability  # a type of Nodecapbility or inherited
+        return capability  # a type of NodeCapability or inherited
 
     @abc.abstractmethod
     def deserialize_without_type(self, reader: serialization.BinaryReader) -> None:
@@ -63,15 +63,18 @@ class NodeCapability(serialization.ISerializable):
     def serialize_without_type(self, writer: serialization.BinaryWriter) -> None:
         """ Serialize into a buffer without including the `type` member. """
 
+    @classmethod
+    def _serializable_init(cls):
+        return cls(NodeCapabilityType.FULLNODE)
+
 
 class ServerCapability(NodeCapability):
     """
     A capability expressing node support for TCP or Websocket services.
     """
-    def __init__(self, n_type: NodeCapabilityType = None, port: int = 0):
+    def __init__(self, n_type: NodeCapabilityType, port: int = 0):
         super(ServerCapability, self).__init__(n_type)
-        # None is allowed because that ensure we can still call `deserialize_from_bytes`
-        if n_type and n_type not in [NodeCapabilityType.TCPSERVER, NodeCapabilityType.WSSERVER]:
+        if n_type not in [NodeCapabilityType.TCPSERVER, NodeCapabilityType.WSSERVER]:
             raise TypeError(f"{n_type} not one of: {NodeCapabilityType.TCPSERVER.name} {NodeCapabilityType.WSSERVER.name}")  # noqa
         self.port = port
 
@@ -95,6 +98,10 @@ class ServerCapability(NodeCapability):
             reader: instance.
         """
         self.port = reader.read_uint16()
+
+    @classmethod
+    def _serializable_init(cls):
+        return cls(NodeCapabilityType.TCPSERVER, 0)
 
 
 class FullNodeCapability(NodeCapability):

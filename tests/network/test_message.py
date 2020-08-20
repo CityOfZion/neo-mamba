@@ -85,7 +85,7 @@ class NetworkMessageTestCase(unittest.TestCase):
         # see test_create_compressed_inv_message() how it was obtained
         raw_data = binascii.unhexlify(b'012711820000003F2C0400010067500000000000')
         with serialization.BinaryReader(raw_data) as br:
-            m = message.Message()
+            m = message.Message(message.MessageType.DEFAULT)
             m.deserialize(br)
             self.assertEqual(m.type, message.MessageType.INV)
             self.assertEqual(m.payload.type, payloads.inventory.InventoryType.BLOCK)
@@ -112,7 +112,7 @@ class NetworkMessageTestCase(unittest.TestCase):
         with patch('neo3.core.serialization.BinaryReader') as br:
             reader = br.return_value.__enter__.return_value
             message.Message._payload_from_data(message.MessageType.INV, b'')
-            message.Message._payload_from_data(message.MessageType.GETBLOCKDATA, b'')
+            message.Message._payload_from_data(message.MessageType.GETBLOCKBYINDEX, b'')
             message.Message._payload_from_data(message.MessageType.VERSION, b'')
             message.Message._payload_from_data(message.MessageType.VERACK, b'')
             message.Message._payload_from_data(message.MessageType.BLOCK, b'')
@@ -124,7 +124,7 @@ class NetworkMessageTestCase(unittest.TestCase):
 
             calls = [
                 call(payloads.InventoryPayload),
-                call(payloads.GetBlockDataPayload),
+                call(payloads.GetBlockByIndexPayload),
                 call(payloads.VersionPayload),
                 call(payloads.EmptyPayload),
                 call(payloads.Block),

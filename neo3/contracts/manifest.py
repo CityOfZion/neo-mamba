@@ -259,7 +259,7 @@ class ContractManifest(serialization.ISerializable, IJson):
 
     def __init__(self, contract_hash: types.UInt160 = types.UInt160.zero()):
         """
-        Creates a default contract manifest if not arguments are supplied.
+        Creates a default contract manifest if no arguments are supplied.
 
         A default contract is not Payable and has no storage as configured by its features.
         It may not be called by any other contracts
@@ -406,3 +406,7 @@ class ContractManifest(serialization.ISerializable, IJson):
         """
         results = list(map(lambda p: p.is_allowed(target_manifest, method), self.permissions))
         return any(results)
+
+    @classmethod
+    def _serializable_init(cls):
+        return cls()
