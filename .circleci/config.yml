@@ -106,12 +106,13 @@ workflows:
           requires:
             - setup-environment
   update-docs:
-    branches:
-      only:
-        - master
     jobs:
       - approve-update:
           type: approval
+          filters:
+            branches:
+              only:
+                - master
       - setup-environment:
           requires:
             - approve-update
