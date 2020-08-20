@@ -10,7 +10,7 @@ Introduction
 ------------
 This SDK intends to provide building blocks for Python developers to interact with the NEO blockchain as a means to lower the entry barrier. It is a work in progress and thus you can expect that not all parts of the blockchain are supported. What is present should be functioning correctly unless explicitly mentioned (e.g. because they depend on structures not yet available). Please report any issues on `Github <https://github.com/CityOfZion/neo-mamba/issues>`_ or submit ideas how to improve the SDK.
 
-Have a look at :ref:`What's new in version 0.1 <whatsnew-v01>` to get a feel what you can expect.
+Have a look at the :ref:`What's new <whatsnew-index>` pages to get a feel what you can expect.
 
 Setup
 -----
@@ -109,11 +109,11 @@ Let's get to it!
         asyncio.create_task(msg_queue.put(f"Received block with height {block.index} and hash {block.hash()}"))
 
     async def run_neo():
-        # set network magic to NEO MainNet
-        settings.network.magic = 769
+        # set network magic to NEO TestNet
+        settings.network.magic = 1951352142
 
-        # add a local node to test against
-        settings.network.seedlist = ['127.0.0.1:40333']
+        # add a node to test against
+        settings.network.seedlist = ['seed1t.neo.org:20333']
 
         # listen to the connection events broad casted by the node manager
         msgrouter.on_client_connect_done += connection_done
@@ -131,6 +131,35 @@ Let's get to it!
         loop = asyncio.get_event_loop()
         loop.create_task(run_neo())
         app.run(loop=loop)
+
+Copy the following in a file name ``index.html`` and place it in the same folder as the example Python program.
+
+.. code-block:: html
+   :linenos:
+
+   <!DOCTYPE html>
+   <html lang="en">
+   <head>
+       <meta charset="UTF-8">
+       <title>Title</title>
+       <script>
+           let socket = new WebSocket("ws://127.0.0.1:5000/ws");
+
+           socket.onmessage = function(event) {
+               var blocks = document.getElementById("blocks");
+               if (blocks.childElementCount > 10) {
+                   blocks.removeChild(blocks.firstChild)
+               }
+               var child = document.createElement("div")
+               child.innerText = `${event.data}`;
+               blocks.appendChild(child);
+           };
+       </script>
+   </head>
+   <body>
+       <div id="blocks"></div>
+   </body>
+   </html>
 
 
 Let's start with the webservice
@@ -176,11 +205,11 @@ The :code:`run_neo()` function should be self-explanatory.
    :lineno-start: 41
 
    async def run_neo():
-      # set network magic to NEO MainNet
-      settings.network.magic = 769
+      # set network magic to NEO TestNet
+      settings.network.magic = 1951352142
 
-      # add a local node to test against
-      settings.network.seedlist = ['127.0.0.1:40333']
+      # add a node to test against
+      settings.network.seedlist = ['seed1t.neo.org:20333']
 
 We start by configuring the network magic. This is a special number identifying the Main network, test network or even a privat network. It is shared and validated during the first connection to the network and will disconnect nodes if there is a mismatch. The seedlist is consulted by the node manager as the first entry point to connect to the network by the code.
 
@@ -204,7 +233,8 @@ Next, we start the sync manager which takes care of retrieving the blocks from t
    # listen to block received events
    msgrouter.on_block += block_received
 
-Everytime a block is received on the network we call our event handler at ``block_received()``. This handler puts a message into the ``msg_queue`` that our websocket server reads, and with that the circle is complete.
+Every time a block is received on the network we call our event handler at ``block_received()``. This handler puts a
+message into the ``msg_queue`` that our websocket server reads from once a web client has connected to the websocket.
 
 .. code-block:: python
    :lineno-start: 38
@@ -212,3 +242,8 @@ Everytime a block is received on the network we call our event handler at ``bloc
    def block_received(from_nodeid: int, block: payloads.Block):
       asyncio.create_task(msg_queue.put(f"Received block with height {block.index} and hash {block.hash()}"))
 
+The sample HTML file does connects to this sockets and displays the blocks as flowing in as they are retrieved from the
+network as shown below. With that the circle is complete.
+
+.. image:: images/sync.gif
+   :align: center

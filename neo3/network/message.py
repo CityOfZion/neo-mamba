@@ -21,7 +21,7 @@ class MessageType(IntEnum):
     MEMPOOL = 0x25
     INV = 0x27
     GETDATA = 0x28
-    GETBLOCKDATA = 0x29
+    GETBLOCKBYINDEX = 0x29
     NOTFOUND = 0x2a
     TRANSACTION = 0x2b
     BLOCK = 0x2c
@@ -48,7 +48,7 @@ class Message(serialization.ISerializable):
     COMPRESSION_MIN_SIZE = 128
     COMPRESSION_THRESHOLD = 64
 
-    def __init__(self, msg_type: MessageType = None, payload: serialization.ISerializable_T = None):
+    def __init__(self, msg_type: MessageType, payload: serialization.ISerializable_T = None):
         """
 
         Args:
@@ -56,10 +56,8 @@ class Message(serialization.ISerializable):
             payload: an identifier specifying the purpose of the message.
         """
         self.config = MessageConfig.NONE  #: MessageConfig: message object configuration.
-        # something strange is going on if the check does not explicitly include "is not None", then it will
-        # use the 'else' result even if a msg_type is clearly specified and present in the debugger
         #: MessageType: an identifier specifying the purpose of the message.
-        self.type: MessageType = msg_type if msg_type is not None else MessageType.DEFAULT
+        self.type: MessageType = msg_type
         self.payload: serialization.ISerializable_T = payloads.EmptyPayload()  # type: ignore
         # mypy doesn't get EmptyPayload is an ISerializable
 
@@ -81,6 +79,7 @@ class Message(serialization.ISerializable):
 
         if len(self.payload) > self.COMPRESSION_MIN_SIZE and MessageConfig.COMPRESSED not in self.config:
             compressed_data = lz4.block.compress(self.payload.to_array(), store_size=False)
+            compressed_data = len(payload).to_bytes(4, 'little') + compressed_data
             if len(compressed_data) < len(self.payload) - self.COMPRESSION_THRESHOLD:
                 payload = compressed_data
                 self.config |= MessageConfig.COMPRESSED
@@ -108,7 +107,8 @@ class Message(serialization.ISerializable):
                 # "The uncompressed_size argument specifies an upper bound on the size of the uncompressed data size
                 # rather than an absolute value"
                 try:
-                    payload_data = lz4.block.decompress(payload_data, uncompressed_size=self.PAYLOAD_MAX_SIZE)
+                    size = int.from_bytes(payload_data[:4], 'little')
+                    payload_data = lz4.block.decompress(payload_data[4:], uncompressed_size=size)
                 except lz4.block.LZ4BlockError:
                     raise ValueError("Invalid payload data - decompress failed")
 
@@ -122,8 +122,8 @@ class Message(serialization.ISerializable):
         with serialization.BinaryReader(data) as br:
             if msg_type in [MessageType.INV, MessageType.GETDATA]:
                 return br.read_serializable(payloads.InventoryPayload)
-            elif msg_type == MessageType.GETBLOCKDATA:
-                return br.read_serializable(payloads.GetBlockDataPayload)
+            elif msg_type == MessageType.GETBLOCKBYINDEX:
+                return br.read_serializable(payloads.GetBlockByIndexPayload)
             elif msg_type == MessageType.VERSION:
                 return br.read_serializable(payloads.VersionPayload)
             elif msg_type == MessageType.VERACK:
@@ -140,3 +140,7 @@ class Message(serialization.ISerializable):
                 return br.read_serializable(payloads.Transaction)
             else:
                 logger.debug(f"Unsupported payload {msg_type.name}")
+
+    @classmethod
+    def _serializable_init(cls):
+        return cls(MessageType.DEFAULT)

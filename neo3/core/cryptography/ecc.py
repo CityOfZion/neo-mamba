@@ -460,7 +460,7 @@ class EllipticCurve:
             return self.__gt__(other)
 
         def __str__(self):
-            return self.encode_point(compressed=True)
+            return binascii.hexlify(self.encode_point(compressed=True)).decode('utf8')
 
         def __neg__(self):
             return self.curve.neg(self)

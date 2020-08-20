@@ -6,18 +6,22 @@ from neo3.network import payloads
 from typing import List
 
 
-class Cosigner(serialization.ISerializable):
+class Signer(serialization.ISerializable):
     """
     A class that specifies who can pass CheckWitness() verifications in a smart contract.
     """
-    def __init__(self, account: types.UInt160 = None,
+
+    #: Maximum number of allowed_contracts or allowed_groups
+    MAX_SUB_ITEMS = 16
+
+    def __init__(self, account: types.UInt160,
                  scope: payloads.WitnessScope = None,
                  allowed_contracts: List[types.UInt160] = None,
                  allowed_groups: List[cryptography.EllipticCurve.ECPoint] = None):
         #: The TX sender.
-        self.account = account if account else types.UInt160.zero()
+        self.account = account
         #: payloads.WitnessScope: The configured validation scope.
-        self.scope = scope if scope else payloads.WitnessScope.GLOBAL
+        self.scope = scope if scope else payloads.WitnessScope.FEE_ONLY
         #: List[types.UInt160]: Whitelist of contract hashes if used with
         #: :const:`~neo3.network.payloads.verification.WitnessScope.CUSTOM_CONTRACTS`.
         self.allowed_contracts = allowed_contracts if allowed_contracts else []
@@ -35,6 +39,15 @@ class Cosigner(serialization.ISerializable):
             groups_size = utils.get_var_size(self.allowed_groups)
 
         return s.uint160 + s.uint8 + contracts_size + groups_size
+
+    def __eq__(self, other):
+        if other is None:
+            return False
+        if type(self) != type(other):
+            return False
+        if self.account != other.account:
+            return False
+        return True
 
     def serialize(self, writer: serialization.BinaryWriter) -> None:
         """
@@ -62,23 +75,31 @@ class Cosigner(serialization.ISerializable):
         self.account = reader.read_serializable(types.UInt160)
         self.scope = payloads.WitnessScope(reader.read_uint8())
 
+        if payloads.WitnessScope.GLOBAL in self.scope and self.scope != payloads.WitnessScope.GLOBAL:
+            raise ValueError("Deserialization error - invalid scope. GLOBAL scope not allowed with other scope types")
+
         if payloads.WitnessScope.CUSTOM_CONTRACTS in self.scope:
             self.allowed_contracts = reader.read_serializable_list(types.UInt160)
 
         if payloads.WitnessScope.CUSTOM_GROUPS in self.scope:
-            self.allowed_groups = reader.read_serializable_list(cryptography.EllipticCurve.ECPoint)
+            self.allowed_groups = reader.read_serializable_list(cryptography.EllipticCurve.ECPoint,
+                                                                max=self.MAX_SUB_ITEMS)
+
+    @classmethod
+    def _serializable_init(cls):
+        return cls(types.UInt160.zero())
 
 
 class Witness(serialization.ISerializable):
     """
     An executable verification script that validates a verifiable object like a transaction.
     """
-    def __init__(self, invocation_script: bytes = None, verification_script: bytes = None):
+    def __init__(self, invocation_script: bytes, verification_script: bytes):
         #: A set of VM instructions to setup the stack for verification.
-        self.invocation_script = invocation_script if invocation_script else b''
+        self.invocation_script = invocation_script
         #: A set of VM instructions that does the actual verification.
         #: It is expected to set the result stack to a boolean True if validation passed.
-        self.verification_script = verification_script if verification_script else b''
+        self.verification_script = verification_script
         self._script_hash = None
 
     def __len__(self):
@@ -110,20 +131,26 @@ class Witness(serialization.ISerializable):
         data = hashlib.new('ripemd160', intermediate_data).digest()
         return types.UInt160(data=data)
 
+    @classmethod
+    def _serializable_init(cls):
+        return cls(b'', b'')
+
 
 class WitnessScope(IntFlag):
     """
     Determine the rules for a smart contract :func:`CheckWitness()` sys call.
     """
-    #: Allow the witness in all context. Equal to NEO 2.x's default behaviour.
-    GLOBAL = 0x00
+    #: Special case only valid for the first signer in the transaction, a.k.a the sender
+    FEE_ONLY = 0x0
     #: Allow the witness if the current calling script hash equals the entry script hash into the virtual machine.
     #: Using this prevents passing :func:`CheckWitness()` in a smart contract called via another smart contract.
     CALLED_BY_ENTRY = 0x01
-    #: Allow the witness if called from a smart contract that is whitelisted in the cosigner
-    #: :attr:`~neo3.network.payloads.verification.Cosigner.allowed_contracts` attribute.
+    #: Allow the witness if called from a smart contract that is whitelisted in the signer
+    #: :attr:`~neo3.network.payloads.verification.Signer.allowed_contracts` attribute.
     CUSTOM_CONTRACTS = 0x10
-    #: Allow the witness if it any public key in the cosigner
-    #: :attr:`~neo3.network.payloads.verification.Cosigner.allowed_groups` attribute is whitelisted in the contracts
+    #: Allow the witness if any public key is in the signer
+    #: :attr:`~neo3.network.payloads.verification.Signer.allowed_groups` attribute is whitelisted in the contracts
     #: manifest.groups array.
     CUSTOM_GROUPS = 0x20
+    #: Allow the witness in all context. Equal to NEO 2.x's default behaviour.
+    GLOBAL = 0x80

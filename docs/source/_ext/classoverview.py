@@ -1,13 +1,15 @@
 from docutils import nodes
 from sphinx.util.docutils import SphinxDirective
 
+
 class ClassOverviewNode(nodes.General, nodes.Element):
     pass
+
 
 class ClassOverview(SphinxDirective):
     """
     Add a .. classoverview:: directive
-    through which we can filter he sidebar with a list of classes discussed in the module
+    through which we can filter the sidebar with a list of classes discussed in the module
     """
     has_content = True
 
@@ -25,6 +27,7 @@ class ClassOverview(SphinxDirective):
         # we add the node for the time being so we can easily find it when we do the transform step below
         return [co_node]
 
+
 def transform(app, doctree, fromdocname):
     document_class_links = app.env.side_bar_classes.get(fromdocname, None)
 
@@ -38,6 +41,7 @@ def transform(app, doctree, fromdocname):
                         app.env.side_bar_classes[fromdocname].append(child.attributes['refid'])
             # we don't want to keep the node in the doc that has the directive because it will be moved to the sidebar
             n.parent.remove(n)
+
 
 def update_context(app, pagename, templatename, context, doctree):
     # Here we update the context passed to our classoverview.html template to include our data
@@ -65,17 +69,20 @@ def update_context(app, pagename, templatename, context, doctree):
         else:
             context['classoverview_links'] = None
 
+
 def purge_classoverview_links(app, env, docname):
     if not hasattr(env, 'side_bar_classes'):
         return
 
     env.side_bar_classes = {}
 
+
 def show_all_attrs(value):
     res = []
     for k in dir(value):
         res.append('%r %r\n' % (k, getattr(value, k)))
     return '\n'.join(res)
+
 
 def add_jinja_filters(app):
     app.builder.templates.environment.filters['dir'] = show_all_attrs

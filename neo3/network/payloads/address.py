@@ -49,8 +49,11 @@ class DisconnectReason(IntEnum):
 
 class NetworkAddress(serialization.ISerializable):
 
-    def __init__(self, address: str = None, timestamp: int = None,
-                 capabilities: List[capabilities.NodeCapability] = None, state: AddressState = AddressState.NEW):
+    def __init__(self,
+                 address: str,
+                 capabilities: List[capabilities.NodeCapability] = None,
+                 timestamp: int = None,
+                 state: AddressState = AddressState.NEW):
         """ Create an instance. """
         if timestamp is None:
             self.timestamp = int(datetime.utcnow().timestamp())
@@ -167,13 +170,14 @@ class NetworkAddress(serialization.ISerializable):
         self.capabilities = capabilities_list
         self.address = f"{host}:{port}"
 
+    @classmethod
+    def _serializable_init(cls):
+        return cls("0.0.0.0:0")
+
 
 class AddrPayload(serialization.ISerializable):
-    def __init__(self, addresses: List[NetworkAddress] = None):
-        """
-        Should not be called directly. Use create() instead.
-        """
-        self.addresses = addresses if addresses else []
+    def __init__(self, addresses: List[NetworkAddress]):
+        self.addresses = addresses
 
     def __len__(self):
         return utils.get_var_size(self.addresses)
@@ -198,16 +202,10 @@ class AddrPayload(serialization.ISerializable):
         """
         addr_list_len = reader.read_var_int()
         for i in range(0, addr_list_len):
-            nawt = NetworkAddress()
+            nawt = NetworkAddress("0.0.0.0:0")
             nawt.deserialize(reader)
             self.addresses.append(nawt)
 
     @classmethod
-    def create(cls, addresses: List[NetworkAddress]) -> AddrPayload:
-        """
-        Create payload.
-
-        Args:
-            addresses: network addresses
-        """
-        return cls(addresses)
+    def _serializable_init(cls):
+        return cls([])

@@ -1,0 +1,26 @@
+.. _whatsnew-v03:
+
+*****************************
+  What's New in neo-mamba 0.3
+*****************************
+
+:Author: Erik van den Brink
+
+Preview 3 compatibility
+=======================
+
+The release updates the existing components to be compatible with `NEO v3.0.0-preview3 <https://github.com/neo-project/neo/releases/tag/v3.0.0-preview3>`_. The affected areas are all network related.
+
+.. warning:: This release is not backwards compatible.
+
+Updates beyond preview 3 compatibility
+======================================
+Manifest and NEO Executable Format (NEF) support has been added to aid working with smart contracts.
+
+The ``ISerializable`` interface has been refactored to make subclasses initialization more natural.
+Previously, all subclasses needed to have default values for all their arguments in their ``__init__`` functions such
+that certain serialization functions could work. This resulted in a confusing interface where it was unclear which
+initialization arguments were truly optional and which not.
+
+``NodeManager`` has been expanded to make sure it updates its connected node state faster. This also results in being
+able to grab the latest available block faster when the chain is in sync.

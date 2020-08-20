@@ -34,7 +34,7 @@ or
   pip install wheel -e .
 
 
-For full documentation including more elaborate install instructions go to `<https://coz.io/docs/>`_.
+For full documentation including more elaborate installation instructions go to `<https://docs.coz.io/neo3/mamba/index.html>`_.
 
 Roadmap
 -------
@@ -45,11 +45,11 @@ separate repositories but be included here by default (e.g. virtual machine impl
 .. image:: https://raw.githubusercontent.com/CityOfZion/neo-mamba/master/docs/source/library/images/SDK_overview.png
     :alt: SDK overview
 
-- Core (v0.1)
-- Network (v0.1)
-- Storage (v0.1)
-- Virtual Machine
-- Smart contracts
+- Core (Released)
+- Network (Released)
+- Storage (Released)
+- Virtual Machine (Released)
+- Smart contracts (`In development <https://github.com/CityOfZion/neo-mamba/commits/feature-smart-contracts>`_)
 
 FAQ
 ---

@@ -20,7 +20,7 @@ class NeoNode:
     def __init__(self, protocol):
         self.protocol = protocol
         #: payloads.NetworkAddress: Address of the remote endpoint.
-        self.address = payloads.NetworkAddress(state=payloads.AddressState.DEAD)
+        self.address = payloads.NetworkAddress("0.0.0.0:0", state=payloads.AddressState.DEAD)
         self.nodeid: int = id(self)  #: int: Unique identifier.
         self.nodeid_human: str = encode_base62(self.nodeid)  #: str: Human readable id.
         self.version = None
@@ -45,7 +45,7 @@ class NeoNode:
             message.MessageType.FILTERLOAD: self.handler_filterload,
             message.MessageType.GETADDR: self.handler_getaddr,
             message.MessageType.GETBLOCKS: self.handler_getblocks,
-            message.MessageType.GETBLOCKDATA: self.handler_getblockdata,
+            message.MessageType.GETBLOCKBYINDEX: self.handler_getblockdata,
             message.MessageType.GETDATA: self.handler_getdata,
             message.MessageType.GETHEADERS: self.handler_getheaders,
             message.MessageType.HEADERS: self.handler_headers,
@@ -80,8 +80,9 @@ class NeoNode:
         caps: List[capabilities.NodeCapability] = [capabilities.FullNodeCapability(0)]
         # TODO: fix nonce and port if a service is running
         send_version = message.Message(msg_type=message.MessageType.VERSION,
-                                       payload=payloads.VersionPayload.create(nonce=123, user_agent="NEO-MAMBA",
-                                                                              capabilities=caps))
+                                       payload=payloads.VersionPayload(nonce=123,
+                                                                       user_agent="NEO-MAMBA",
+                                                                       capabilities=caps))
         await self.send_message(send_version)
 
         m = await self.read_message(timeout=3)
@@ -287,7 +288,7 @@ class NeoNode:
 
     def handler_getblockdata(self, msg: message.Message) -> None:
         """
-        Handler for a message with the GETBLOCKDATA type.
+        Handler for a message with the GETBLOCKBYINDEX type.
 
         Args:
             msg:
@@ -364,10 +365,11 @@ class NeoNode:
             msg:
         """
         payload = cast(payloads.PingPayload, msg.payload)
-        logger.debug(f"Updating node {self.nodeid_human} height "
-                     f"from {self.best_height} to {payload.current_height}")
-        self.best_height = payload.current_height
-        self.best_height_last_update = datetime.utcnow().timestamp()
+        if self.best_height != payload.current_height:
+            logger.debug(f"Updating node {self.nodeid_human} height "
+                         f"from {self.best_height} to {payload.current_height}")
+            self.best_height = payload.current_height
+            self.best_height_last_update = datetime.utcnow().timestamp()
 
     def handler_transaction(self, msg: message.Message) -> None:
         """
@@ -468,7 +470,7 @@ class NeoNode:
         """
         Send a request for `count` blocks starting from `index_start`.
 
-        Count cannot exceed :attr:`~neo3.network.payloads.block.GetBlockDataPayload.MAX_BLOCKS_COUNT`.
+        Count cannot exceed :attr:`~neo3.network.payloads.block.GetBlockByIndexPayload.MAX_BLOCKS_COUNT`.
 
         See also:
             :meth:`~neo3.network.node.NeoNode.request_blocks()` to only request block hashes.
@@ -477,8 +479,8 @@ class NeoNode:
             index_start: block index to start from.
             count: number of blocks to return.
         """
-        m = message.Message(msg_type=message.MessageType.GETBLOCKDATA,
-                            payload=payloads.GetBlockDataPayload(index_start, count))
+        m = message.Message(msg_type=message.MessageType.GETBLOCKBYINDEX,
+                            payload=payloads.GetBlockByIndexPayload(index_start, count))
         await self.send_message(m)
 
     async def request_data(self, type: payloads.InventoryType, hashes: List[types.UInt256]) -> None:
@@ -498,6 +500,16 @@ class NeoNode:
     async def send_inventory(self, inv_type: payloads.InventoryType, inv_hash: types.UInt256):
         inv = payloads.InventoryPayload(type=inv_type, hashes=[inv_hash])
         m = message.Message(msg_type=message.MessageType.INV, payload=inv)
+        await self.send_message(m)
+
+    async def send_ping(self):
+        if settings.database:
+            height = max(0, blockchain.Blockchain().height)
+        else:
+            height = 0
+
+        ping = payloads.PingPayload(height)
+        m = message.Message(msg_type=message.MessageType.PING, payload=ping)
         await self.send_message(m)
 
     async def relay(self, inventory: payloads.IInventory) -> bool:

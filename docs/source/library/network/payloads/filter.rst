@@ -6,7 +6,7 @@
    :class:`neo3.network.payloads.filter.FilterAddPayload`
 
 
-Bloomfilters affect the return results of the :const:`~neo3.network.message.MessageType.GETDATA` and :const:`~neo3.network.message.MessageType.GETBLOCKDATA` message types. See :ref:`getdata <message-usage-getdata>` and :ref:`getblockdata <message-usage-getblockdata>` respectively. The mechanism is present in the C# reference implementation but without active use-case.
+Bloomfilters affect the return results of the :const:`~neo3.network.message.MessageType.GETDATA` and :const:`~neo3.network.message.MessageType.GETBLOCKBYINDEX` message types. See :ref:`getdata <message-usage-getdata>` and :ref:`getblockdata <message-usage-getblockbyindex>` respectively. The mechanism is present in the C# reference implementation but without active use-case.
 
 .. autoclass:: neo3.network.payloads.filter.FilterLoadPayload
    :members:
