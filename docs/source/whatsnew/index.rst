@@ -10,5 +10,6 @@ This chapter describes the most important changes between the neo-mamba versions
 .. toctree::
    :maxdepth: 2
 
-   0.1.rst
+   0.3.rst
    0.2.rst
+   0.1.rst

@@ -160,7 +160,7 @@ class NeoNodeSocketMock(asynctest.SocketMock):
     def _recv_data(self):
         caps = [capabilities.FullNodeCapability(0)]
         m_send_version = message.Message(msg_type=message.MessageType.VERSION,
-                                          payload=payloads.VersionPayload.create(nonce=123,
+                                          payload=payloads.VersionPayload(nonce=123,
                                                                                  user_agent="NEO3-MOCK-CLIENT",
                                                                                  capabilities=caps))
         m_verack = message.Message(msg_type=message.MessageType.VERACK)
@@ -250,8 +250,8 @@ class NodeManagerTestCase2(asynctest.TestCase):
         # advance loop
         await asyncio.sleep(0.1)
         self.assertTrue(self.nodemgr.is_running)
-        # 3 looping service tasks
-        self.assertEqual(3, len(self.nodemgr.tasks))
+        # 4 looping service tasks
+        self.assertEqual(4, len(self.nodemgr.tasks))
         self.assertIsInstance(call_back_result, node.NeoNode)
         await self.nodemgr.shutdown()
         for t in self.nodemgr.tasks:

@@ -94,7 +94,7 @@ Usage
 
    Request Header objects (can be used for syncing).
    
-   **Payload**: :class:`~neo3.network.payloads.block.GetBlocksPayload`
+   **Payload**: :class:`~neo3.network.payloads.block.GetBlockByIndexPayload`
 
    **Response type**: :const:`~neo3.network.message.MessageType.HEADERS`
 
@@ -111,12 +111,12 @@ Usage
 
    **Response payload**: :class:`~neo3.network.payloads.inventory.InventoryPayload` with type set to :const:`~neo3.network.payloads.inventory.InventoryType.BLOCK`
 
-.. _message-usage-getblockdata:
-.. data:: GETBLOCKDATA
+.. _message-usage-getblockbyindex:
+.. data:: GETBLOCKBYINDEX
 
    Request block objects.
    
-   **Payload**: :class:`~neo3.network.payloads.block.GetBlockDataPayload`
+   **Payload**: :class:`~neo3.network.payloads.block.GetBlockByIndexPayload`
 
    **Response type**: :const:`~neo3.network.message.MessageType.BLOCK` or :const:`~neo3.network.message.MessageType.MERKLEBLOCK`.
 

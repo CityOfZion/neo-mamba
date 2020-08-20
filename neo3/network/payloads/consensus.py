@@ -21,8 +21,8 @@ class ConsensusMessage(serialization.ISerializable):
     """
     Base class for the various consensus messages
     """
-    def __init__(self, type: ConsensusMessageType = None):
-        self.type = type if type else ConsensusMessageType.CHANGE_VIEW
+    def __init__(self, type: ConsensusMessageType):
+        self.type = type
         self.view_number: int = 0
 
     def __len__(self):
@@ -52,20 +52,24 @@ class ConsensusMessage(serialization.ISerializable):
         # TODO: not implemented. Requires all ConsensusMessage subclasses to be implemented. Low priority.
         pass
 
+    @classmethod
+    def _serializable_init(cls):
+        return cls(ConsensusMessageType.CHANGE_VIEW)
+
 
 class ConsensusPayload(serialization.ISerializable, payloads.IInventory):
-    def __init__(self, version: int = 0,
-                 prev_hash: types.UInt256 = None,
-                 block_index: int = 0,
-                 validator_index: int = 0,
-                 data: bytes = None,
-                 witness: payloads.Witness = None):
+    def __init__(self, version: int,
+                 prev_hash: types.UInt256,
+                 block_index: int,
+                 validator_index: int,
+                 data: bytes,
+                 witness: payloads.Witness):
         self.version = version
-        self.prev_hash = prev_hash if prev_hash else types.UInt256.zero()
+        self.prev_hash = prev_hash
         self.block_index = block_index
         self.validator_index = validator_index
-        self.data = data if data else b''
-        self.witness = witness if witness else payloads.Witness()
+        self.data = data
+        self.witness = witness
 
     def __len__(self):
         return (s.uint32 + len(self.prev_hash) + s.uint32 + s.uint16 + utils.get_var_size(self.data) + 1
@@ -135,9 +139,8 @@ class ConsensusPayload(serialization.ISerializable, payloads.IInventory):
         self.data = reader.read_var_bytes()
 
     @classmethod
-    def create(cls, version: int, prev_hash: types.UInt256, block_index: int, validator_index: int, data: bytes,
-               witness: payloads.Witness) -> ConsensusPayload:
-        return cls(version, prev_hash, block_index, validator_index, data, witness)
+    def _serializable_init(cls):
+        return cls(0, types.UInt256.zero(), 0, 0, b'', payloads.Witness(b'', b''))
 
 
 class ConsensusData(serialization.ISerializable):
@@ -169,5 +172,5 @@ class ConsensusData(serialization.ISerializable):
         Args:
             reader: instance.
         """
-        self.primary_index = reader.read_var_int(max=1024)  # comes from C#'s Clockchain.MaxValidators
+        self.primary_index = reader.read_var_int(max=1024)  # comes from C#'s Blockchain.MaxValidators
         self.nonce = reader.read_uint64()

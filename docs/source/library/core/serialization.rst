@@ -3,9 +3,9 @@
 
 This module provides classes to help share NEO data structures over the network between nodes.
 
-The BinaryWriter and BinaryReader classes are convenience classes to help serialize and deserialize in a consistent, predictable and easy manner. They provide utility functions for easy writing and reading of :ref:`library-core-variable-length-encoding`.
+The BinaryWriter and BinaryReader classes are convenience classes to help serialize and deserialize in a consistent, predictable and easy manner. They provide utility functions for easy writing and reading of :ref:`Variable Length Encoded <library-core-variable-length-encoding>` data.
 
-Objects that want to be serializable through the reader and writer are encouraged to implement the :class:`~neo3.core.serialization.ISerializable` interface. An example using this interface can be see next
+Objects that want to be serializable through the reader and writer are encouraged to implement the :class:`~neo3.core.serialization.ISerializable` interface. An example using this interface can be seen next
 
 .. code-block:: python
 

@@ -57,14 +57,13 @@ class NetworkMessageTestCase(unittest.TestCase):
         Data created in the same fashion as how it's done in test_create_inv_message()
         The deviation is `hashes` now contains 4 x UInt256.zero()
         """
-        expected_data = binascii.unhexlify(b'01270D3F2C0400010067500000000000')
-        self.assertEqual(expected_data, data)
 
-        # message.Message.deserialize_from_bytes(expected_data)
+        expected_data = binascii.unhexlify(b'012711820000003F2C0400010067500000000000')
+        self.assertEqual(expected_data, data)
 
     def test_inv_message_deserialization(self):
         # see test_create_compressed_inv_message() how it was obtained
-        raw_data = binascii.unhexlify(b'01270D3F2C0400010067500000000000')
+        raw_data = binascii.unhexlify(b'012711820000003F2C0400010067500000000000')
         m = message.Message.deserialize_from_bytes(raw_data)
         self.assertIsInstance(m.payload, payloads.InventoryPayload)
         self.assertEqual(132, len(m))
@@ -84,9 +83,9 @@ class NetworkMessageTestCase(unittest.TestCase):
 
     def test_deserialization_from_stream(self):
         # see test_create_compressed_inv_message() how it was obtained
-        raw_data = binascii.unhexlify(b'01270D3F2C0400010067500000000000')
+        raw_data = binascii.unhexlify(b'012711820000003F2C0400010067500000000000')
         with serialization.BinaryReader(raw_data) as br:
-            m = message.Message()
+            m = message.Message(message.MessageType.DEFAULT)
             m.deserialize(br)
             self.assertEqual(m.type, message.MessageType.INV)
             self.assertEqual(m.payload.type, payloads.inventory.InventoryType.BLOCK)
@@ -113,7 +112,7 @@ class NetworkMessageTestCase(unittest.TestCase):
         with patch('neo3.core.serialization.BinaryReader') as br:
             reader = br.return_value.__enter__.return_value
             message.Message._payload_from_data(message.MessageType.INV, b'')
-            message.Message._payload_from_data(message.MessageType.GETBLOCKDATA, b'')
+            message.Message._payload_from_data(message.MessageType.GETBLOCKBYINDEX, b'')
             message.Message._payload_from_data(message.MessageType.VERSION, b'')
             message.Message._payload_from_data(message.MessageType.VERACK, b'')
             message.Message._payload_from_data(message.MessageType.BLOCK, b'')
@@ -125,7 +124,7 @@ class NetworkMessageTestCase(unittest.TestCase):
 
             calls = [
                 call(payloads.InventoryPayload),
-                call(payloads.GetBlockDataPayload),
+                call(payloads.GetBlockByIndexPayload),
                 call(payloads.VersionPayload),
                 call(payloads.EmptyPayload),
                 call(payloads.Block),

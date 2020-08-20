@@ -3,9 +3,9 @@ from neo3.core import serialization, types, Size as s, utils
 
 
 class StorageKey(serialization.ISerializable):
-    def __init__(self, contract: types.UInt160 = None, key: bytes = None):
-        self.contract = contract if contract else types.UInt160.zero()
-        self.key = key if key else b''
+    def __init__(self, contract: types.UInt160, key: bytes):
+        self.contract = contract
+        self.key = key
 
     def __len__(self):
         # TODO: see if there is a cleaner way of doing this
@@ -32,6 +32,10 @@ class StorageKey(serialization.ISerializable):
     def deserialize(self, reader: serialization.BinaryReader) -> None:
         self.contract = reader.read_serializable(types.UInt160)
         self.key = reader.read_bytes_with_grouping(group_size=16)
+
+    @classmethod
+    def _serializable_init(cls):
+        return cls(types.UInt160.zero(), b'')
 
     # TODO: Remove when we can conclude with certainty it is no longer needed.
     # To be validated on neo-preview2 compatible release

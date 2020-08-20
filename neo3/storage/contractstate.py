@@ -5,9 +5,9 @@ from neo3.contracts import manifest
 
 
 class ContractState(serialization.ISerializable, IClonable):
-    def __init__(self, script: bytes = None, _manifest: manifest.ContractManifest = None):
-        self.script = script if script else b''
-        self.manifest = _manifest if _manifest else manifest.ContractManifest()
+    def __init__(self, script: bytes, _manifest: manifest.ContractManifest):
+        self.script = script
+        self.manifest = _manifest
 
     def __len__(self):
         return utils.get_var_size(self.script) + len(self.manifest)
@@ -42,3 +42,7 @@ class ContractState(serialization.ISerializable, IClonable):
         intermediate_data = hashlib.sha256(self.script).digest()
         data = hashlib.new('ripemd160', intermediate_data).digest()
         return types.UInt160(data=data)
+
+    @classmethod
+    def _serializable_init(cls):
+        return cls(b'', manifest.ContractManifest())

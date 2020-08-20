@@ -1,8 +1,6 @@
 from __future__ import annotations
-import struct
 import abc
 from enum import IntEnum
-from typing import Tuple
 from events import Events  # type: ignore
 
 msgrouter = Events()
@@ -30,4 +28,15 @@ class IClonable(abc.ABC):
         """
 
     def from_replica(self, replica):
+        pass
+
+
+class IJson(abc.ABC):
+    @abc.abstractmethod
+    def to_json(self) -> dict:
+        pass
+
+    @classmethod
+    @abc.abstractmethod
+    def from_json(cls, json: dict):
         pass
