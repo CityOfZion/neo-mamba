@@ -101,7 +101,10 @@ jobs:
 workflows:
   main:
     jobs:
-      - setup-environment
+      - setup-environment:
+          matrix:
+            parameters:
+              python-version: [python37-executor, python38-executor]
       - type-checking:
           matrix:
             parameters:
