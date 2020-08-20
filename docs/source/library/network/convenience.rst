@@ -65,7 +65,7 @@ If you want the full syncing experience take a look at the :ref:`example <librar
 
 
 .. autoclass:: neo3.network.convenience.nodemanager.NodeManager
-   :members: start, shutdown, ADDR_QUERY_INTERVAL, MONITOR_HEIGHT_INTERVAL, POOL_CHECK_INTERVAL, MAX_NODE_POOL_ERROR, MAX_NODE_ERROR_COUNT, MAX_NODE_TIMEOUT_COUNT
+   :members: start, shutdown, ADDR_QUERY_INTERVAL, MONITOR_HEIGHT_INTERVAL, POOL_CHECK_INTERVAL, MAX_NODE_POOL_ERROR, MAX_NODE_ERROR_COUNT, MAX_NODE_TIMEOUT_COUNT, PING_INTERVAL
    :undoc-members:
    :show-inheritance:
 

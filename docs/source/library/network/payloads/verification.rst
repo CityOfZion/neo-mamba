@@ -18,7 +18,7 @@ To give this fine grained control NEO created so called `signers` and a set of v
 
 .. Note::
    
-   While multiple signer's can be attached to a transaction and thus multiple scopes can be set, only the first signer is looked at to determine the scope to use for :func:`CheckWitness()`.
+   While multiple signers can be attached to a transaction and thus multiple scopes can be set, only the first signer is looked at to determine the scope to use for :func:`CheckWitness()`.
 
 .. autoclass:: neo3.network.payloads.verification.Witness
    :members:

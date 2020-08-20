@@ -3,6 +3,16 @@ Changelog
 
 All notable changes to this project are documented in this file.
 
+[0.3] 2020-08-20
+----------------
+- Add Manifest and NEO Executale Format (NEF) support
+- Update Message format to include compressed data length
+- Change network payload for requesting headers
+- Change Cosigners to Signer and merge with Transaction
+- Refactor ISerializable such that subclasses have a self explanatory initialization methods
+- Update NodeManager to include a ping service to stay up to date faster
+
+
 [0.2] 2020-05-11
 ------------------
 - Fix setup.py for PIP versions >= 20
