@@ -14,6 +14,10 @@ In particular the following differences in behaviour can be expected when using 
 - Serialization of negative numbers can in certain cases return an extra byte.
 - Integer division instead of floating point division.
 
+.. note::
+
+   Will be replaced by a C-extension implementation in the next release.
+
 .. automodule:: neo3.core.types.biginteger
    :members:
    :undoc-members:

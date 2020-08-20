@@ -1,10 +1,12 @@
 .. _backends-howto:
 
-************************************
-  Adding new backend support HOWTO
-************************************
+****************************
+  Adding new backend support
+****************************
 
 :Author: Erik van den Brink
 
 Introduction
 ============
+
+TBD
