@@ -1,5 +1,5 @@
 """The setup script."""
-from setuptools import setup, find_packages
+from setuptools import setup, find_namespace_packages
 from setuptools.command.install import install
 from setuptools.command.develop import develop
 from contextlib import suppress
@@ -78,7 +78,7 @@ setup(
     maintainer="Erik van den Brink",
     maintainer_email='erik@coz.io',
     url='https://github.com/CityOfZion/neo-mamba',
-    packages=find_packages(include=['neo3']),
+    packages=find_namespace_packages(exclude=['build', 'build.*', 'venv', 'venv.*']),
     include_package_data=True,
     install_requires=reqs,
     license="MIT license",
