@@ -48,7 +48,7 @@ separate repositories but be included here by default (e.g. virtual machine impl
 - Core (Released)
 - Network (Released)
 - Storage (Released)
-- Virtual Machine (In test, not publicly released)
+- Virtual Machine (Released)
 - Smart contracts (`In development <https://github.com/CityOfZion/neo-mamba/commits/feature-smart-contracts>`_)
 
 FAQ
