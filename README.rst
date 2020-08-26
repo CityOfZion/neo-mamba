@@ -1,4 +1,4 @@
-.. image:: https://raw.githubusercontent.com/CityOfZion/visual-identity/develop/_CoZ%20Branding/_Logo/_Logo%20icon/_PNG%20200x178px/CoZ_Icon_DARKBLUE_200x178px.png
+.. image:: https://raw.githubusercontent.com/CityOfZion/neo-mamba/master/logo.png
     :alt: CoZ logo
 
 neo-mamba
