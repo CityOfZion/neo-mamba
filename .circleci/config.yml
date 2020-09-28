@@ -21,7 +21,7 @@ jobs:
           command: |
             python -m venv venv
             source venv/bin/activate
-            pip install -e .
+            pip install -e . --no-cache-dir
       - persist_to_workspace:
           root: ~/
           paths: project/*
