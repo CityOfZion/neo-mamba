@@ -65,14 +65,14 @@ class ContractGroup(IJson):
 
 class ContractPermission(IJson):
     """
-    An object describing a single set of outgoing call restrictions for a 'System.Contract.Call' SYSCALL.
+    Describes a single set of outgoing call restrictions for a 'System.Contract.Call' SYSCALL.
     It describes what other smart contracts the executing contract is allowed to call and what exact methods on the
     other contract are allowed to be called. This is enforced during runtime.
 
     Example:
         Contract A (the executing contract) wants to call method "x" on Contract B. The runtime will query the manifest
         of Contract A and ask if this is allowed. The Manifest will search through its permissions (a list of
-        ContractPermission objects) and ask if this "is_allowed(target_contract, target_method)".
+        ContractPermission objects) and ask if it "is_allowed(target_contract, target_method)".
     """
     def __init__(self, contract: contracts.ContractPermissionDescriptor, methods: WildcardContainer):
         self.contract = contract
@@ -260,7 +260,7 @@ class ContractManifest(serialization.ISerializable, IJson):
 
     def __init__(self, contract_hash: types.UInt160 = types.UInt160.zero()):
         """
-        Creates a default contract manifest if not arguments are supplied.
+        Creates a default contract manifest if no arguments are supplied.
 
         A default contract is not Payable and has no storage as configured by its features.
         It may not be called by any other contracts
@@ -331,6 +331,7 @@ class ContractManifest(serialization.ISerializable, IJson):
 
     def _deserialize_from_json(self, json: dict) -> None:
         self.abi = contracts.ContractABI.from_json(json['abi'])
+        self.contract_hash = self.abi.contract_hash
         self.groups = list(map(lambda g: ContractGroup.from_json(g), json['groups']))
         self.features = ContractFeatures.NO_PROPERTY
         if json['features']['storage']:

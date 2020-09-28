@@ -468,6 +468,9 @@ class EllipticCurve:
         def __len__(self):
             return self.Size()
 
+        def __hash__(self):
+            return hash(self.x.value + self.y.value)
+
         def iszero(self):
             return self.x.iszero() and self.y.iszero()
 

@@ -3,7 +3,7 @@ import abc
 import hashlib
 from typing import List, Callable, Dict, Set
 from neo3 import contracts, vm
-from neo3.core import types, utils
+from neo3.core import types, utils, to_script_hash
 from enum import IntFlag
 
 
@@ -45,8 +45,13 @@ class NativeContract:
     _id: int = -1
     _service_name: str = "override me"
 
+    #: A list of all native contracts in the system
+    _contracts: List[NativeContract] = []
+    #: A dictionary for accessing a native contract by its hash
+    _contract_hashes: Dict[types.UInt160, NativeContract] = {}
+
     def __init__(self):
-        self._contracts: List[NativeContract] = []
+
         self._methods: Dict[str, ContractMethodMetadata] = {}
         self._neo = None  # TODO: NeoToken()
         self._gas = None  # TODO: GasToken()
@@ -54,7 +59,7 @@ class NativeContract:
         self._service_hash: int = int.from_bytes(hashlib.sha256(self._service_name.encode()).digest()[:4],
                                                  'little', signed=False)
         self._script: bytes = vm.ScriptBuilder().emit_syscall(self._service_hash).to_array()
-        self._hash: types.UInt160 = utils.script_hash_from_bytes(self._script)
+        self._hash: types.UInt160 = to_script_hash(self._script)
         self._manifest: contracts.ContractManifest = contracts.ContractManifest(contract_hash=self._hash)
         self._manifest.abi.methods = []
         self._manifest.safe_methods = contracts.WildcardContainer()
@@ -164,3 +169,7 @@ class NativeContract:
     def invoke(self, engine: contracts.ApplicationEngine):
         # TODO: implement
         pass
+
+    @staticmethod
+    def is_native(hash_: types.UInt160) -> bool:
+        return hash_ in NativeContract._contract_hashes

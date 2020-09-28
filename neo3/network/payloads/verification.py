@@ -24,7 +24,7 @@ class Signer(serialization.ISerializable):
         self.account = account
         #: payloads.WitnessScope: The configured validation scope.
         self.scope = scope if scope else payloads.WitnessScope.FEE_ONLY
-        #: List[types.UInt160]: Whitelist of contract hashes if used with
+        #: List[types.UInt160]: Whitelist of contract script hashes if used with
         #: :const:`~neo3.network.payloads.verification.WitnessScope.CUSTOM_CONTRACTS`.
         self.allowed_contracts = allowed_contracts if allowed_contracts else []
         #: List[cryptography.EllipticCurve.ECPoint]: Whitelist of public keys if used with

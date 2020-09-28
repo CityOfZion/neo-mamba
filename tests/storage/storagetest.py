@@ -348,6 +348,10 @@ class AbstractContractStorageTest(abc.ABC, unittest.TestCase):
     def db_factory(self):
         """ Implement to return an instance of your DB """
 
+    def shortDescription(self):
+        # disable docstring printing in test runner
+        return None
+
     def setUp(self) -> None:
         self.db = self.db_factory()
         self.contract1 = storage.ContractState(b'\x01\x02', manifest.ContractManifest())

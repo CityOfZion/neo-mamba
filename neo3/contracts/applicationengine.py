@@ -1,18 +1,29 @@
 from __future__ import annotations
 from neo3 import contracts, storage, vm
-from neo3.core import types, cryptography, IInteroperable
+from neo3.network import payloads
+from neo3.core import types, cryptography, IInteroperable, serialization, to_script_hash
 from neo3.contracts import interop
-from typing import Any, Callable, Dict, cast, List
+from typing import Any, Callable, Dict, cast, List, Tuple
 import hashlib
+import enum
 
 
 class ApplicationEngine(vm.ExecutionEngine):
-    GAS_FREE = 0
     _interop_calls: Dict[int, interop.InteropDescriptor] = {}
+    #: Amount of free GAS added to the engine.
+    GAS_FREE = 0
+    #: Maximum length of event names for "System.Runtime.Notify" SYSCALLs.
+    MAX_EVENT_SIZE = 32
+    #: Maximum messasge length for "System.Runtime.Log" SYSCALLs.
+    MAX_NOTIFICATION_SIZE = 1024
+    #: Maximum size of the smart contract script.
+    MAX_CONTRACT_LENGTH = 1024 * 1024
+    #: Multiplier for determining the costs of storing the contract including its manifest.
+    STORAGE_PRICE = 100000
 
     def __init__(self,
                  trigger: contracts.TriggerType,
-                 container: Any,
+                 container: payloads.IVerifiable,
                  snapshot: storage.Snapshot,
                  gas: int,
                  test_mode: bool = False
@@ -20,14 +31,26 @@ class ApplicationEngine(vm.ExecutionEngine):
         # Do not use super() version, see
         # https://pybind11.readthedocs.io/en/master/advanced/classes.html#overriding-virtual-functions-in-python
         vm.ExecutionEngine.__init__(self)
+        #: A ledger snapshot to use for syscalls such as "System.Blockchain.GetHeight".
         self.snapshot = snapshot
+        #: The trigger to run the engine with.
         self.trigger = trigger
+        #: A flag to toggle infinite gas
         self.is_test_mode = test_mode
+
         self.script_container = container
+        #: Gas available for consumption by the engine while executing its script.
         self.gas_amount = self.GAS_FREE + gas
+        #: The amount of gas used for executing its script.
         self.gas_consumed = 0
+        self._invocation_counter: Dict[types.UInt160, int] = {}
+        #: Notifications (Notify SYSCALLs) that occured while executing the script.
+        self.notifications: List[Tuple[payloads.IVerifiable, types.UInt160, bytes, vm.ArrayStackItem]] = []
 
     def _convert(self, stack_item, class_type):
+        """
+        convert VM type to native
+        """
         if class_type in [vm.StackItem, vm.PointerStackItem, vm.ArrayStackItem, vm.InteropStackItem]:
             return stack_item
         elif class_type in [int, vm.BigInteger]:
@@ -40,6 +63,8 @@ class ApplicationEngine(vm.ExecutionEngine):
             return types.UInt160(data=stack_item.to_array())
         elif class_type == types.UInt256:
             return types.UInt256(data=stack_item.to_array())
+        elif class_type == str:
+            return stack_item.to_array().decode()
         elif class_type == cryptography.EllipticCurve.ECPoint:
             return cryptography.EllipticCurve.ECPoint.deserialize_from_bytes(stack_item.to_array())
         elif hasattr(class_type, '__origin__') and class_type.__origin__ == list:
@@ -48,32 +73,64 @@ class ApplicationEngine(vm.ExecutionEngine):
             for e in stack_item:
                 array.append(self._convert(e, element_type))
             return array
+        elif issubclass(class_type, enum.Enum):
+            return class_type(int(stack_item))
         else:
             raise ValueError(f"Unknown class type, don't know how to convert: {class_type}")
 
     def _native_to_stackitem(self, value, native_type):
+        """
+        Convert native type to VM type
+
+        Note: order of checking matters.
+        e.g. a Transaction should be treated as IInteropable, while its also ISerializable
+        """
         if isinstance(value, vm.StackItem):
             return value
-        if native_type in [int, vm.BigInteger]:
-            return vm.IntegerStackItem(value)
-        elif native_type == type(None):
+        if native_type == type(None):
             return vm.NullStackItem()
+        elif native_type in [int, vm.BigInteger]:
+            return vm.IntegerStackItem(value)
         elif issubclass(native_type, IInteroperable):
             value_ = cast(IInteroperable, value)
             return value_.to_stack_item(self.reference_counter)
+        elif issubclass(native_type, serialization.ISerializable):
+            value_ = cast(serialization.ISerializable, value)
+            return vm.ByteStringStackItem(value_.to_array())
         elif native_type in [bytes, bytearray]:
             return vm.ByteStringStackItem(value)
         elif native_type == str:
             return vm.ByteStringStackItem(bytes(value, 'utf-8'))
         elif native_type == bool:
             return vm.BooleanStackItem(value)
+        elif issubclass(native_type, (enum.IntFlag, enum.IntEnum)):
+            return self._native_to_stackitem(value.value, int)
 
-    def add_gas(self, amount: int):
+    def add_gas(self, amount: int) -> None:
+        """
+        Increase the gas consumed value of the engine.
+        Args:
+            amount: value to increase with.
+
+        Raise:
+            ValueError: if the new gas consumed value exceeds the availe gas amount
+        """
         self.gas_consumed += amount
-        if not self.is_test_mode and self.gas_consumed > self.gas_consumed:
+        if not self.is_test_mode and self.gas_consumed > self.gas_amount:
             raise ValueError("Insufficient GAS")
 
-    def on_syscall(self, method_id: int):
+    def on_syscall(self, method_id: int) -> None:
+        """
+        Handle interop syscalls.
+
+        Args:
+            method_id: unique syscall identifier.
+
+        Raise:
+            KeyError: if `method_id` is syscall that is not registered with the engine.
+            ValueError: if the requested syscall handler is called with the wrong call flags.
+            ValueError: if engine stack parameter to native type conversion fails
+        """
         descriptor = interop.InteropService.get_descriptor(method_id)
         if descriptor is None:
             raise KeyError(f"Requested interop {method_id} is not valid")
@@ -85,7 +142,14 @@ class ApplicationEngine(vm.ExecutionEngine):
 
         parameters = []
         for class_type in descriptor.parameters:
-            parameters.append(self._convert(self.pop(), class_type))
+            try:
+                item = self.pop()
+                parameters.append(self._convert(item, class_type))
+            except IndexError:
+                raise ValueError("Failed to pop parameter from stack")
+            except Exception:
+                raise ValueError(f"Failed to convert parameter stack item '{item}' to type '{class_type}'")
+
         if len(parameters) > 0:
             return_value = descriptor.handler(self, *parameters)
         else:
@@ -93,6 +157,59 @@ class ApplicationEngine(vm.ExecutionEngine):
         if descriptor.has_return_value:
             self.push(self._native_to_stackitem(return_value, type(return_value)))
 
-    def invoke_syscall_by_name(self, method: str):
-        method_num = int.from_bytes(hashlib.sha256(method.encode()).digest()[:4], 'little', signed=False)
-        return self.on_syscall(method_num)
+    def invoke_syscall_by_name(self, method: str) -> Any:
+        """
+        Helper function to call `on_syscall` using the syscall name.
+
+        Args:
+            method: full qualified syscall name. e.g. "System.Runtime.Platform"
+
+        Returns: the result of the syscall handler. e.g. for "System.Runtime.Platform" returns "NEO"
+        """
+        return self.on_syscall(contracts.syscall_name_to_int(method))
+
+    @property
+    def current_scripthash(self) -> types.UInt160:
+        """
+        Get the script hash of the current executing smart contract
+
+        Note: a smart contract can call other smart contracts.
+        """
+        return to_script_hash(self.current_context.script._value)
+
+    @property
+    def calling_scripthash(self) -> types.UInt160:
+        """
+        Get the script hash of the smart contract that called the current executing smart contract.
+
+        Note: a smart contract can call other smart contracts.
+
+        Raises:
+            ValueError: if the current executing contract has not been called by another contract.
+        """
+        if len(self.current_context.calling_script) == 0:
+            raise ValueError("Cannot retrieve calling script_hash - current context has not yet been called")
+        return to_script_hash(self.current_context.calling_script._value)
+
+    @property
+    def entry_scripthash(self) -> types.UInt160:
+        """
+        Get the script hash of the first smart contract loaded into the engine
+
+        Note: a smart contract can call other smart contracts.
+        """
+        return to_script_hash(self.entry_context.script._value)
+
+    def get_invocation_counter(self) -> int:
+        """
+        Get the number of times the current contract has been called during this execute() run.
+
+        Note: the counter increases with every "System.Contract.Call" or "System.Contract.CallEx" SYSCALL
+
+        Raises:
+            ValueError: if the contract has not been called.
+        """
+        counter = self._invocation_counter.get(self.current_scripthash, None)
+        if counter is None:
+            raise ValueError(f"Failed to get invocation counter for the current context: {self.current_scripthash}")
+        return counter

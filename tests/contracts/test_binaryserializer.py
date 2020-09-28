@@ -3,6 +3,10 @@ from neo3 import vm, contracts
 
 
 class BinarySerializerTestCase(unittest.TestCase):
+    def shortDescription(self):
+        # disable docstring printing in test runner
+        return None
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.reference_counter = vm.ReferenceCounter()

@@ -1,6 +1,7 @@
 from __future__ import annotations
 import abc
 from neo3 import storage
+from neo3.network import payloads
 
 
 class Snapshot:
@@ -10,6 +11,7 @@ class Snapshot:
         self._storage_cache: storage.CachedStorageAccess = None
         self._tx_cache: storage.CachedTXAccess = None
         self._block_height_cache: storage.AttributeCache = None
+        self.persisting_block: payloads.Block = None
 
     @property
     def blocks(self):

@@ -83,56 +83,47 @@ class BigIntegerTestCase(TestCase):
         result = b1 / b2
         self.assertEqual(-127326, result)
 
-    def test_big_integer_float(self):
-        b1 = BigInteger(5505.001)
-        b2 = BigInteger(55055.999)
-
-        b3 = b1 + b2
-
-        self.assertIsInstance(b3, BigInteger)
-        self.assertEqual(60560, b3)
-
     def test_big_integer_to_bytearray(self):
         b1 = BigInteger(8972340892734890723)
-        ba = b1.to_bytes()
+        ba = b1.to_array()
 
-        integer = BigInteger.frombytes(ba)
+        integer = BigInteger(ba)
         self.assertEqual(8972340892734890723, integer)
 
         b2 = BigInteger(-100)
-        b2ba = b2.to_bytes()
-        integer2 = BigInteger.frombytes(b2ba)
+        b2ba = b2.to_array()
+        integer2 = BigInteger(b2ba)
         self.assertEqual(-100, integer2)
 
         b3 = BigInteger(128)
-        b3ba = b3.to_bytearray()
+        b3ba = b3.to_array()
         self.assertEqual(b'\x80\x00', b3ba)
 
         b4 = BigInteger(0)
-        b4ba = b4.to_bytearray()
+        b4ba = b4.to_array()
         self.assertEqual(b'\x00', b4ba)
 
         b5 = BigInteger(-146)
-        b5ba = b5.to_bytearray()
+        b5ba = b5.to_array()
         self.assertEqual(b'\x6e\xff', b5ba)
 
         b6 = BigInteger(-48335248028225339427907476932896373492484053930)
-        b6ba = b6.to_bytearray()
+        b6ba = b6.to_array()
         self.assertEqual(20, len(b6ba))
 
         b7 = BigInteger(-399990000)
-        b7ba = b7.to_bytearray()
+        b7ba = b7.to_array()
         self.assertEqual(b'\x10\xa3\x28\xe8', b7ba)
 
         b8 = BigInteger(-65023)
-        b8ba = b8.to_bytearray()
+        b8ba = b8.to_array()
         self.assertEqual(b'\x01\x02\xff', b8ba)
 
     def test_big_integer_frombytes(self):
         b1 = BigInteger(8972340892734890723)
-        ba = b1.to_bytearray()
+        ba = b1.to_array()
 
-        b2 = BigInteger.frombytes(ba)
+        b2 = BigInteger(ba)
         self.assertEqual(b1, b2)
         self.assertTrue(b1 == b2)
 
@@ -157,7 +148,7 @@ class BigIntegerTestCase(TestCase):
         b2 = BigInteger(14954691977398614017)
         self.assertEqual(-3100049211437790421, b1 % b2)
 
-        b3 = BigInteger.frombytes(b'+K\x05\xbe\xaai\xfa\xd4')
+        b3 = BigInteger(b'+K\x05\xbe\xaai\xfa\xd4')
         self.assertEqual(b3, b1 % b2)
 
     def test_dunder_methods(self):

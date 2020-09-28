@@ -24,6 +24,7 @@ class Blockchain(convenience._Singleton):
         with self.backend.get_snapshotview() as snapshot:
             snapshot.block_height = block.index
             snapshot.blocks.put(block)
+            snapshot.persisting_block = block
 
             for tx in block.transactions:
                 tx.block_height = block.index

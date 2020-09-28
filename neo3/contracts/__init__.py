@@ -1,3 +1,5 @@
+from __future__ import annotations
+import hashlib
 from .contracttypes import (TriggerType)
 from .descriptor import (ContractPermissionDescriptor)
 from .manifest import (ContractGroup,
@@ -18,6 +20,11 @@ from .jsonserializer import (NEOJson, JSONSerializer)
 from .native import NativeContract, CallFlags
 from .applicationengine import ApplicationEngine
 
+
+def syscall_name_to_int(name: str) -> int:
+    return int.from_bytes(hashlib.sha256(name.encode()).digest()[:4], 'little', signed=False)
+
+
 __all__ = ['ContractParameterType',
            'TriggerType',
            'ContractMethodDescriptor',
@@ -29,4 +36,5 @@ __all__ = ['ContractParameterType',
            'JSONSerializer',
            'NativeContract',
            'CallFlags',
-           'ApplicationEngine']
+           'ApplicationEngine',
+           'syscall_name_to_int']

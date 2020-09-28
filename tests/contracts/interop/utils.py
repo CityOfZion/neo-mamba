@@ -8,7 +8,7 @@ def syscall_name_to_int(name: str) -> int:
     return int.from_bytes(hashlib.sha256(name.encode()).digest()[:4], 'little', signed=False)
 
 
-def test_engine(has_container=False, has_snapshot=False):
+def test_engine(has_container=False, has_snapshot=False, default_script=True):
     tx = payloads.Transaction._serializable_init()
 
     # this little hack basically nullifies the singleton behaviour and ensures we create
@@ -25,22 +25,27 @@ def test_engine(has_container=False, has_snapshot=False):
     else:
         engine = contracts.ApplicationEngine(contracts.TriggerType.APPLICATION, None, None, 0, test_mode=True)
 
-    engine.load_script(vm.Script(b'\x40'))  # OpCode::RET
+    if default_script:
+        engine.load_script(vm.Script(b'\x40'))  # OpCode::RET
     return engine
 
 
-def test_block(with_index=1):
+def test_tx(with_block_height=1) -> payloads.Transaction:
     tx = payloads.Transaction(version=0,
                               nonce=123,
                               system_fee=456,
                               network_fee=789,
                               valid_until_block=1,
                               attributes=[],
-                              signers=[],
+                              signers=[payloads.Signer(types.UInt160.from_string("f782c7fbb2eef6afe629b96c0d53fb525eda64ce"))],
                               script=b'\x01',
                               witnesses=[])
-    tx.block_height = with_index
+    tx.block_height = with_block_height
+    return tx
 
+
+def test_block(with_index=1) -> payloads.Block:
+    tx = test_tx(with_index)
     block1 = payloads.Block(version=0,
                             prev_hash=types.UInt256.from_string(
                                 "f782c7fbb2eef6afe629b96c0d53fb525eda64ce5345057caf975ac3c2b9ae0a"),

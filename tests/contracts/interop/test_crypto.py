@@ -37,6 +37,10 @@ class TestVerifiable(payloads.IVerifiable):
 
 
 class CryptoInteropTestCase(unittest.TestCase):
+    def shortDescription(self):
+        # disable docstring printing in test runner
+        return None
+
     def test_ripemd160_interop_type(self):
         """
         using var script = new ScriptBuilder();

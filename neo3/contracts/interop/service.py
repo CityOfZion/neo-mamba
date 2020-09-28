@@ -1,8 +1,8 @@
 from __future__ import annotations
 import hashlib
 import inspect
-from neo3 import vm, contracts, storage
-from typing import Dict, Callable, Union, Optional, List
+from neo3 import contracts
+from typing import Dict, Callable, Optional, List
 
 
 class InteropDescriptor:
