@@ -1,8 +1,8 @@
 import abc
 import unittest
 from neo3.core import types
-from neo3.network import payloads
 from neo3 import storage
+from neo3.network import payloads
 from neo3.contracts import manifest
 from contextlib import suppress
 from copy import deepcopy
@@ -1024,7 +1024,6 @@ class AbstractStorageStorageTest(abc.ABC, unittest.TestCase):
         clone_view.storages.put(clone_key, clone_item)
         all_pairs = list(clone_view.storages.find(self.contract2_hash, b'\x03'))
         self.assertEqual(3, len(all_pairs))
-
 
     def test_find_extra(self):
         """

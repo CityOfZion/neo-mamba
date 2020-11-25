@@ -1,7 +1,6 @@
 from __future__ import annotations
 from collections import deque
 from neo3 import vm, contracts
-from neo3.network import payloads
 from neo3.core import cryptography, IInteroperable, types, msgrouter, to_script_hash
 from neo3.contracts.interop import register
 from typing import cast, List, Deque
@@ -45,39 +44,6 @@ def get_entryscripthash(engine: contracts.ApplicationEngine) -> types.UInt160:
     return engine.entry_scripthash
 
 
-def checkwitness(engine: contracts.ApplicationEngine, hash_: types.UInt160) -> bool:
-    if isinstance(engine.script_container, payloads.Transaction):
-        tx = engine.script_container
-        for s in tx.signers:
-            if s.account == hash_:
-                signer = s
-                break
-        else:
-            return False
-
-        if signer.scope == payloads.WitnessScope.GLOBAL:
-            return True
-
-        if payloads.WitnessScope.CALLED_BY_ENTRY in signer.scope:
-            if engine.calling_scripthash == engine.entry_scripthash:
-                return True
-
-        if payloads.WitnessScope.CUSTOM_CONTRACTS in signer.scope:
-            if engine.current_scripthash in signer.allowed_contracts:
-                return True
-
-        if payloads.WitnessScope.CUSTOM_GROUPS in signer.scope:
-            contract = engine.snapshot.contracts.get(engine.calling_scripthash)
-            group_keys = set(map(lambda g: g.public_key, contract.manifest.groups))
-            if any(group_keys.intersection(signer.allowed_groups)):
-                return True
-        return False
-
-    # for other IVerifiable types like Block
-    hashes_for_verifying = engine.script_container.get_script_hashes_for_verifying(engine.snapshot)
-    return hash_ in hashes_for_verifying
-
-
 @register("System.Runtime.CheckWitness", 30000, contracts.native.CallFlags.ALLOW_STATES, True, [bytes])
 def do_checkwitness(engine: contracts.ApplicationEngine, data: bytes) -> bool:
     if len(data) == 20:
@@ -90,7 +56,7 @@ def do_checkwitness(engine: contracts.ApplicationEngine, data: bytes) -> bool:
     else:
         raise ValueError("Supplied CheckWitness data is not a valid hash")
 
-    return checkwitness(engine, hash_)
+    return engine.checkwitness(hash_)
 
 
 @register("System.Runtime.GetInvocationCounter", 400, contracts.native.CallFlags.NONE, True)

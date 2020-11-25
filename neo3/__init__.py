@@ -1,7 +1,10 @@
 import logging
 import json
 import importlib
+import binascii
+from typing import List
 from types import SimpleNamespace
+from neo3.core import cryptography
 
 version = '0.2'
 
@@ -45,7 +48,9 @@ class Settings(IndexableNamespace):
     default_settings = {
         'network': {
             'magic': None,
-            'seedlist': []
+            'seedlist': [],
+            'validators_count': 0,
+            'standby_committee': []
         },
         'storage': {
             'use_default': True,
@@ -101,6 +106,17 @@ class Settings(IndexableNamespace):
             else:
                 where.__dict__.update({k: v})
             self._convert(where[k].__dict__, where[k].__dict__)
+
+    @property
+    def standby_committee(self) -> List[cryptography.EllipticCurve.ECPoint]:
+        points = []
+        for p in self.network.standby_committee:
+            points.append(cryptography.EllipticCurve.ECPoint.deserialize_from_bytes(binascii.unhexlify(p)))
+        return points
+
+    @property
+    def standby_validators(self) -> List[cryptography.EllipticCurve.ECPoint]:
+        return self.standby_committee[:self.network.validators_count]
 
     @property
     def database(self):

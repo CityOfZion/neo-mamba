@@ -6,10 +6,14 @@ from .ping import PingPayload
 from .verification import Witness, WitnessScope, Signer, IVerifiable
 from .consensus import ConsensusData, ConsensusPayload
 from .transaction import Transaction, TransactionAttribute, TransactionAttributeType
-from .block import Header, Block, MerkleBlockPayload, HeadersPayload, TrimmedBlock, GetBlocksPayload, \
-    GetBlockByIndexPayload
+from .block import (Header,
+                    Block,
+                    MerkleBlockPayload,
+                    HeadersPayload,
+                    TrimmedBlock,
+                    GetBlocksPayload,
+                    GetBlockByIndexPayload)
 from .filter import FilterAddPayload, FilterLoadPayload
-
 
 __all__ = ['EmptyPayload', 'InventoryPayload', 'InventoryType', 'VersionPayload', 'NetworkAddress',
            'AddrPayload', 'PingPayload', 'Witness', 'WitnessScope', 'Header', 'Block', 'MerkleBlockPayload',

@@ -5,7 +5,6 @@ from typing import List
 from neo3 import vm
 from neo3.core import Size as s, serialization, types, utils, cryptography as crypto, IClonable, IInteroperable
 from neo3.network import payloads
-from neo3.contracts import interop
 from bitarray import bitarray  # type: ignore
 from copy import deepcopy
 

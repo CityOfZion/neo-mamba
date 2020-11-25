@@ -1,8 +1,9 @@
 from __future__ import annotations
-from typing import List, Optional
+import enum
+from typing import List, Optional, Type
 from enum import IntEnum
-from neo3.core import types, IJson
-from neo3 import contracts
+from neo3.core import types, IJson, IInteroperable, serialization
+from neo3 import contracts, vm
 
 
 class ContractParameterType(IntEnum):
@@ -19,6 +20,31 @@ class ContractParameterType(IntEnum):
     MAP = 0x22,
     INTEROP_INTERFACE = 0x30,
     VOID = 0xff
+
+    @classmethod
+    def from_type(cls, class_type: Type[object]) -> ContractParameterType:
+        if class_type is None:
+            return ContractParameterType.VOID
+        elif class_type in [bool, vm.BooleanStackItem]:
+            return ContractParameterType.BOOLEAN
+        elif class_type in [int, vm.BigInteger]:
+            return ContractParameterType.INTEGER
+        elif class_type in [bytes, bytearray, vm.BufferStackItem, vm.ByteStringStackItem]:
+            return ContractParameterType.BYTEARRAY
+        elif issubclass(class_type, serialization.ISerializable):
+            return ContractParameterType.BYTEARRAY
+        elif class_type == str:
+            return ContractParameterType.STRING
+        elif class_type == vm.MapStackItem:
+            return ContractParameterType.MAP
+        elif class_type in [vm.ArrayStackItem, vm.StructStackItem, list]:
+            return ContractParameterType.ARRAY
+        elif issubclass(class_type, IInteroperable):
+            return ContractParameterType.ARRAY
+        elif issubclass(class_type, enum.Enum):
+            return ContractParameterType.INTEGER
+        else:
+            return ContractParameterType.ANY
 
 
 class ContractParameterDefinition(IJson):

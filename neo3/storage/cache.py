@@ -342,10 +342,26 @@ class CachedStorageAccess(CachedAccess):
         """
         Store the value under the given key.
 
+        Raises:
+            ValueError: if the key already exists.
+
         Args:
             key: identifier to store the value under.
             value: the value to be persisted.
         """
+        super(CachedStorageAccess, self)._put(key, value)
+
+    def update(self, key: storage.StorageKey, value: storage.StorageItem) -> None:
+        """
+        Update the value under the given key.
+
+        This is a convenience function which first deletes the old data and then puts the new data
+
+        Args:
+            key: identifier to store the value under.
+            value: the value to be persisted.
+        """
+        super(CachedStorageAccess, self)._delete(key)
         super(CachedStorageAccess, self)._put(key, value)
 
     def get(self, key: storage.StorageKey, read_only=False) -> storage.StorageItem:

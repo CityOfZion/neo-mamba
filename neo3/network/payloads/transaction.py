@@ -278,7 +278,7 @@ class Transaction(payloads.IVerifiable, payloads.IInventory, IInteroperable):
         array.append([tx_hash, version, nonce, sender, system_fee, network_fee, valid_until, script])
         return array
 
-    def get_script_hashes_for_verifying(self, snapshot: storage.Snapshot) -> List[types.UInt160]:
+    def get_script_hashes_for_verifying(self, _: storage.Snapshot) -> List[types.UInt160]:
         return list(map(lambda signer: signer.account, self.signers))
 
     # TODO: implement Verify methods once we have Snapshot support

@@ -1,7 +1,5 @@
 import unittest
 from neo3 import vm
-from neo3 import contracts
-from neo3.contracts import interop
 from .utils import test_engine
 
 

@@ -31,18 +31,18 @@ class IClonable(abc.ABC):
         """
 
     def from_replica(self, replica):
-        pass
+        """ shallow copy from a replica object """
 
 
 class IJson(abc.ABC):
     @abc.abstractmethod
     def to_json(self) -> dict:
-        pass
+        """ convert object into json """
 
     @classmethod
     @abc.abstractmethod
     def from_json(cls, json: dict):
-        pass
+        """ create object from JSON """
 
 
 class IInteroperable(abc.ABC):
@@ -50,7 +50,7 @@ class IInteroperable(abc.ABC):
     def to_stack_item(self, reference_counter: vm.ReferenceCounter) -> vm.StackItem:
         """ Convert object to a virtual machine stack item"""
 
-    def from_stack_item(self) -> None:
+    def from_stack_item(self, stack_item: vm.StackItem) -> None:
         """ Convert a stack item into an object"""
         raise ValueError(f"{self.__class__.__name__} cannot be converted to a stack item")
 

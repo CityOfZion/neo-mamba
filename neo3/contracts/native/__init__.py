@@ -1,5 +1,8 @@
-from .nativecontract import (NativeContract, CallFlags)
+from .nativecontract import (NativeContract, CallFlags, PolicyContract, NeoToken, GasToken)
 
 __all__ = ['NativeContract',
-           'CallFlags'
+           'CallFlags',
+           'PolicyContract',
+           'NeoToken',
+           'GasToken'
            ]

@@ -4,7 +4,7 @@ from neo3.network import payloads
 from neo3.contracts import syscall_name_to_int
 from neo3.contracts.interop.contract import contract_call_internal
 from neo3.core import to_script_hash, types, cryptography
-from .utils import test_engine, test_block, test_tx
+from .utils import test_engine
 from copy import deepcopy
 
 """
@@ -129,7 +129,6 @@ raw_contract3_manifest = {
 contract3_nef = contracts.NEF.deserialize_from_bytes(raw_contract3_nef)
 contract3_manifest = contracts.ContractManifest.from_json(raw_contract3_manifest)
 
-# print(list(map(lambda b: b, contract3_nef.to_array())))
 
 class RuntimeInteropTestCase(unittest.TestCase):
     def shortDescription(self):

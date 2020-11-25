@@ -4,6 +4,7 @@ from neo3.core import serialization, IClonable, utils, types, IInteroperable
 from neo3.core.serialization import BinaryReader, BinaryWriter
 from neo3.contracts import manifest
 from neo3 import vm, contracts
+from copy import deepcopy
 
 
 class ContractState(serialization.ISerializable, IClonable, IInteroperable):
@@ -45,7 +46,7 @@ class ContractState(serialization.ISerializable, IClonable, IInteroperable):
         self.manifest = replica.manifest
 
     def clone(self):
-        return ContractState(self.script, self.manifest)
+        return ContractState(self.script, deepcopy(self.manifest))
 
     def script_hash(self) -> types.UInt160:
         """ Get the script hash."""

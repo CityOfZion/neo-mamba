@@ -1166,6 +1166,19 @@ class TransactionTestCase(unittest.TestCase):
         tx = payloads.Transaction._serializable_init()
         self.assertEqual(456, tx.protocol_magic)
 
+    def test_scripthashes_for_verifying(self):
+        tx = payloads.Transaction._serializable_init()
+
+        account1 = types.UInt160.from_string("d7678dd97c000be3f33e9362e673101bac4ca654")
+        account2 = types.UInt160.zero()
+        signer1 = payloads.Signer(account=account1, scope=payloads.WitnessScope.FEE_ONLY)
+        signer2 = payloads.Signer(account=account2, scope=payloads.WitnessScope.FEE_ONLY)
+
+        tx.signers = [signer1, signer2]
+
+        hashes = tx.get_script_hashes_for_verifying(None)
+        self.assertEqual([account1, account2], hashes)
+
 
 class VersionTestCase(unittest.TestCase):
     @classmethod

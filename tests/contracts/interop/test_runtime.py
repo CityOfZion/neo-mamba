@@ -6,9 +6,9 @@ from neo3 import vm, contracts, storage
 from neo3.core.serialization import BinaryReader, BinaryWriter
 from neo3.network import payloads
 from neo3.contracts import syscall_name_to_int
-from neo3.contracts.interop.runtime import checkwitness, _validate_state_item_limits
+from neo3.contracts.interop.runtime import _validate_state_item_limits
 from neo3.core import to_script_hash, types, cryptography, serialization, msgrouter
-from .utils import test_engine, test_block, test_tx
+from .utils import test_engine, test_block, test_tx, TestIVerifiable
 
 
 class TestIVerifiable(payloads.IVerifiable):
@@ -163,12 +163,12 @@ class RuntimeInteropTestCase(unittest.TestCase):
         engine.script_container = tx
 
         bad_hash = types.UInt160.zero()
-        self.assertFalse(checkwitness(engine, bad_hash))
+        self.assertFalse(engine.checkwitness(bad_hash))
 
         # if scope is GLOBAL then checkwitness should always return true
         good_hash = tx.sender
         tx.signers[0].scope = payloads.WitnessScope.GLOBAL
-        self.assertTrue(checkwitness(engine, good_hash))
+        self.assertTrue(engine.checkwitness(good_hash))
 
     def test_checkwitness_helper_custom_contracts(self):
         engine = test_engine(has_snapshot=True, default_script=False)
@@ -184,11 +184,11 @@ class RuntimeInteropTestCase(unittest.TestCase):
         tx.signers[0].scope = payloads.WitnessScope.CUSTOM_CONTRACTS
         tx.signers[0].allowed_contracts = [to_script_hash(caller_script)]
 
-        self.assertTrue(checkwitness(engine, tx.sender))
+        self.assertTrue(engine.checkwitness(tx.sender))
 
         # now check it fails if the hash is not in the allowed_contracts_list
         tx.signers[0].allowed_contracts = [types.UInt160.zero()]
-        self.assertFalse(checkwitness(engine, tx.sender))
+        self.assertFalse(engine.checkwitness(tx.sender))
 
     def test_checkwitness_custom_groups(self):
         """
@@ -301,10 +301,10 @@ class RuntimeInteropTestCase(unittest.TestCase):
     def test_checkwitness_helper_other_verifiable(self):
         engine = test_engine(has_snapshot=True, has_container=False, default_script=False)
         engine.script_container = TestIVerifiable()
-        self.assertFalse(checkwitness(engine, types.UInt160(b'\x01' * 20)))
+        self.assertFalse(engine.checkwitness(types.UInt160(b'\x01' * 20)))
 
         # our test verifiable has 1 verifiable with a UInt160.zero() hash
-        self.assertTrue(checkwitness(engine, types.UInt160.zero()))
+        self.assertTrue(engine.checkwitness(types.UInt160.zero()))
 
     def test_checkwitness_with_public_key(self):
         kp = cryptography.KeyPair(b'\x01' * 32)

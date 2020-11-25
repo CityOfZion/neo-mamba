@@ -1,7 +1,8 @@
 import hashlib
+from typing import List
 from neo3.network import payloads
-from neo3.core import types
-from neo3 import vm, contracts, blockchain
+from neo3.core import types, serialization
+from neo3 import vm, contracts, blockchain, storage
 
 
 def syscall_name_to_int(name: str) -> int:
@@ -57,3 +58,27 @@ def test_block(with_index=1) -> payloads.Block:
                             transactions=[tx])
     block1.rebuild_merkle_root()
     return block1
+
+
+class TestIVerifiable(payloads.IVerifiable):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.script_hashes = [types.UInt160.zero()]
+
+    def serialize(self, writer: serialization.BinaryWriter) -> None:
+        pass
+
+    def deserialize(self, reader: serialization.BinaryReader) -> None:
+        pass
+
+    def __len__(self):
+        pass
+
+    def serialize_unsigned(self, writer: serialization.BinaryWriter) -> None:
+        pass
+
+    def deserialize_unsigned(self, reader: serialization.BinaryReader) -> None:
+        pass
+
+    def get_script_hashes_for_verifying(self, snapshot: storage.Snapshot) -> List[types.UInt160]:
+        return self.script_hashes

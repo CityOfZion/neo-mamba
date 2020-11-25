@@ -7,7 +7,7 @@ from contextlib import suppress
 from copy import deepcopy
 
 level_db_supported = False
-with suppress(ModuleNotFoundError):
+with suppress(ModuleNotFoundError, ImportError):
     import plyvel  # type: ignore
     level_db_supported = True
 

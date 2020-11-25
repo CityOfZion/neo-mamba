@@ -1,13 +1,11 @@
 import unittest
 import binascii
 from typing import List
-from unittest import mock
 from neo3 import vm, storage, settings
 from neo3.core import types, serialization, cryptography
 from neo3.core.serialization import BinaryReader, BinaryWriter
 from neo3.network import payloads
-from neo3.contracts import manifest
-from .utils import test_engine, test_block, syscall_name_to_int
+from .utils import test_engine, syscall_name_to_int
 from neo3.contracts.interop.crypto import _check_multisig
 
 
