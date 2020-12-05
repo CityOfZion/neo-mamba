@@ -1,5 +1,6 @@
 from __future__ import annotations
 import hashlib
+import json
 from neo3.core import serialization, IClonable, utils, types, IInteroperable
 from neo3.core.serialization import BinaryReader, BinaryWriter
 from neo3.contracts import manifest
@@ -24,6 +25,9 @@ class ContractState(serialization.ISerializable, IClonable, IInteroperable):
             return False
         return True
 
+    def __deepcopy__(self, memodict={}):
+        return ContractState.deserialize_from_bytes(self.to_array())
+
     @property
     def has_storage(self) -> bool:
         return contracts.ContractFeatures.HAS_STORAGE in self.manifest.features
@@ -46,7 +50,9 @@ class ContractState(serialization.ISerializable, IClonable, IInteroperable):
         self.manifest = replica.manifest
 
     def clone(self):
+
         return ContractState(self.script, deepcopy(self.manifest))
+        # return ContractState(self.script, contracts.ContractManifest.deserialize_from_bytes(self.manifest.to_array()))
 
     def script_hash(self) -> types.UInt160:
         """ Get the script hash."""
@@ -57,9 +63,10 @@ class ContractState(serialization.ISerializable, IClonable, IInteroperable):
     def to_stack_item(self, reference_counter: vm.ReferenceCounter) -> vm.StackItem:
         array = vm.ArrayStackItem(reference_counter)
         script = vm.ByteStringStackItem(self.script)
+        manifest = vm.ByteStringStackItem(str(self.manifest))
         has_storage = vm.BooleanStackItem(self.has_storage)
         is_payable = vm.BooleanStackItem(self.is_payable)
-        array.append([script, has_storage, is_payable])
+        array.append([script, manifest, has_storage, is_payable])
         return array
 
     @classmethod

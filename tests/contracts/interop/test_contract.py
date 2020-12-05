@@ -1,10 +1,11 @@
 import unittest
+import json
 from neo3 import vm, contracts, storage
 from neo3.network import payloads
 from neo3.contracts import syscall_name_to_int
 from neo3.contracts.interop.contract import contract_call_internal
 from neo3.core import to_script_hash, types, cryptography
-from .utils import test_engine
+from .utils import test_engine, test_block
 from copy import deepcopy
 
 """
@@ -149,7 +150,7 @@ class RuntimeInteropTestCase(unittest.TestCase):
         # script len 0
         engine = test_engine(has_snapshot=True)
         invalid_script = b''
-        engine.push(vm.ByteStringStackItem(hello_world_manifest.to_array()))
+        engine.push(vm.ByteStringStackItem(str(hello_world_manifest).encode()))
         engine.push(vm.ByteStringStackItem(invalid_script))
         with self.assertRaises(ValueError) as context:
             engine.invoke_syscall_by_name("System.Contract.Create")
@@ -157,7 +158,7 @@ class RuntimeInteropTestCase(unittest.TestCase):
 
         # script too long
         invalid_script = b'\x00' * (engine.MAX_CONTRACT_LENGTH + 1)
-        engine.push(vm.ByteStringStackItem(hello_world_manifest.to_array()))
+        engine.push(vm.ByteStringStackItem(str(hello_world_manifest).encode()))
         engine.push(vm.ByteStringStackItem(invalid_script))
         with self.assertRaises(ValueError) as context:
             engine.invoke_syscall_by_name("System.Contract.Create")
@@ -182,7 +183,7 @@ class RuntimeInteropTestCase(unittest.TestCase):
     def test_contract_create_ok(self):
         engine = test_engine(has_snapshot=True)
         sb = vm.ScriptBuilder()
-        sb.emit_push(hello_world_manifest.to_array())
+        sb.emit_push(str(hello_world_manifest).encode())
         sb.emit_push(hello_world_nef.script)
         sb.emit_syscall(syscall_name_to_int("System.Contract.Create"))
         engine.load_script(vm.Script(sb.to_array()))
@@ -192,8 +193,9 @@ class RuntimeInteropTestCase(unittest.TestCase):
         item = engine.result_stack.pop()
         # returns a serialized contract state
         self.assertEqual(hello_world_nef.script, item[0].to_array())
-        self.assertEqual(contracts.ContractFeatures.HAS_STORAGE in hello_world_manifest.features, item[1])
-        self.assertEqual(contracts.ContractFeatures.PAYABLE in hello_world_manifest.features, item[2])
+        self.assertEqual(hello_world_manifest, contracts.ContractManifest.from_json(json.loads(item[1].to_array())))
+        self.assertEqual(contracts.ContractFeatures.HAS_STORAGE in hello_world_manifest.features, item[2])
+        self.assertEqual(contracts.ContractFeatures.PAYABLE in hello_world_manifest.features, item[3])
         return engine
 
     def test_contract_create_already_exits(self):
@@ -203,7 +205,7 @@ class RuntimeInteropTestCase(unittest.TestCase):
         contract = storage.ContractState(hello_world_nef.script, hello_world_manifest)
         engine.snapshot.contracts.put(contract)
         # now try to create a contract
-        engine.push(vm.ByteStringStackItem(hello_world_manifest.to_array()))
+        engine.push(vm.ByteStringStackItem(str(hello_world_manifest).encode()))
         engine.push(vm.ByteStringStackItem(hello_world_nef.script))
         with self.assertRaises(ValueError) as context:
             engine.invoke_syscall_by_name("System.Contract.Create")
@@ -214,7 +216,7 @@ class RuntimeInteropTestCase(unittest.TestCase):
         manifest_copy = deepcopy(hello_world_manifest)
         # invalidate the associated contract hash
         manifest_copy.abi.contract_hash = types.UInt160.zero()
-        engine.push(vm.ByteStringStackItem(manifest_copy.to_array()))
+        engine.push(vm.ByteStringStackItem(str(manifest_copy).encode()))
         engine.push(vm.ByteStringStackItem(hello_world_nef.script))
         with self.assertRaises(ValueError) as context:
             engine.invoke_syscall_by_name("System.Contract.Create")
@@ -265,7 +267,7 @@ class RuntimeInteropTestCase(unittest.TestCase):
         # we load the old contract as script to properly setup "engine.current_scripthash"
         engine.load_script(vm.Script(contract.script))
         # next we push the necessary items on the stack before calling the update function
-        engine.push(vm.ByteStringStackItem(bye_world_manifest.to_array()))
+        engine.push(vm.ByteStringStackItem(str(bye_world_manifest).encode()))
         engine.push(vm.ByteStringStackItem(bye_world_nef.script))
         engine.invoke_syscall_by_name("System.Contract.Update")
 
@@ -353,7 +355,7 @@ class RuntimeInteropTestCase(unittest.TestCase):
         engine.load_script(vm.Script(contract_old.script))
         # next we push the necessary items on the stack before calling the update function
         bad_manifest = contract_old.manifest
-        engine.push(vm.ByteStringStackItem(bad_manifest.to_array()))
+        engine.push(vm.ByteStringStackItem(str(bad_manifest).encode()))
         engine.push(vm.ByteStringStackItem(bye_world_nef.script))
 
         with self.assertRaises(ValueError) as context:
@@ -379,7 +381,7 @@ class RuntimeInteropTestCase(unittest.TestCase):
         # we take the matching manifest and change it to have no storage
         bad_manifest = deepcopy(bye_world_manifest)
         bad_manifest.features &= ~contracts.ContractFeatures.HAS_STORAGE
-        engine.push(vm.ByteStringStackItem(bad_manifest.to_array()))
+        engine.push(vm.ByteStringStackItem(str(bad_manifest).encode()))
         engine.push(vm.ByteStringStackItem(bye_world_nef.script))
 
         with self.assertRaises(ValueError) as context:
@@ -423,9 +425,6 @@ class RuntimeInteropTestCase(unittest.TestCase):
 
         target_contract = storage.ContractState(contract3_nef.script, contract3_manifest)
         engine.snapshot.contracts.put(target_contract)
-        with self.assertRaises(ValueError) as context:
-            contract_call_internal(engine, target_contract.script_hash(), "valid_method", vm.ArrayStackItem(engine.reference_counter), contracts.native.CallFlags)
-        self.assertEqual("[System.Contract.Call] Current contract is not deployed", str(context.exception))
 
         # modify the manifest of the current executing contract to only allow to call 1 specific method on other contracts
         new_current_manifest = deepcopy(hello_world_manifest)
@@ -434,7 +433,6 @@ class RuntimeInteropTestCase(unittest.TestCase):
             contracts.WildcardContainer(['method_aaaa'])  # allowing to call the listed method only
         )]
         new_current_contract = storage.ContractState(hello_world_nef.script, new_current_manifest)
-        # engine.snapshot.contracts.delete(new_current_contract.script_hash())
         engine.snapshot.contracts.put(new_current_contract)
         with self.assertRaises(ValueError) as context:
             contract_call_internal(engine, target_contract.script_hash(), "invalid_method", vm.ArrayStackItem(engine.reference_counter), contracts.native.CallFlags)

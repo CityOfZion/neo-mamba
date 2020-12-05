@@ -1,4 +1,5 @@
 from __future__ import annotations
+import json
 from neo3 import vm, contracts, storage
 from neo3.network import payloads
 from neo3.core import cryptography, types, to_script_hash
@@ -22,7 +23,7 @@ def contract_create(engine: contracts.ApplicationEngine, script: bytes, manifest
     if contract is not None:
         raise ValueError("Contract already exists")
 
-    contract = storage.ContractState(script, contracts.ContractManifest.deserialize_from_bytes(manifest))
+    contract = storage.ContractState(script, contracts.ContractManifest.from_json(json.loads(manifest.decode())))
     if not contract.manifest.is_valid(hash_):
         raise ValueError("Error: manifest does not match with script")
 
@@ -57,7 +58,7 @@ def contract_update(engine: contracts.ApplicationEngine, script: bytes, manifest
     if manifest_len == 0 or manifest_len > contracts.ContractManifest.MAX_LENGTH:
         raise ValueError(f"Invalid manifest length: {manifest_len}")
 
-    contract.manifest = contracts.ContractManifest.deserialize_from_bytes(manifest)
+    contract.manifest = contracts.ContractManifest.from_json(json.loads(manifest.decode()))
     if not contract.manifest.is_valid(contract.script_hash()):
         raise ValueError("Error: manifest does not match with script")
     if (not contract.has_storage
@@ -93,16 +94,13 @@ def contract_call_internal(engine: contracts.ApplicationEngine,
         raise ValueError("[System.Contract.Call] Can't find target contract")
 
     current_contract = engine.snapshot.contracts.try_get(engine.current_scripthash)
-    if current_contract is None:
-        raise ValueError("[System.Contract.Call] Current contract is not deployed")
-
-    if not current_contract.manifest.can_call(target_contract.manifest, method):
+    if current_contract and not current_contract.manifest.can_call(target_contract.manifest, method):
         raise ValueError(f"[System.Contract.Call] Not allowed to call target method '{method}' according to manifest")
 
     counter = engine._invocation_counter.get(target_contract.script_hash(), 0)
     engine._invocation_counter.update({target_contract.script_hash(): counter + 1})
 
-    # TODO: GetInvocationState(CurrentContext).NeedCheckReturnValue = true;
+    engine._get_invocation_state(engine.current_context).check_return_value = True
 
     state = engine.current_context
     calling_flags = state.call_flags

@@ -5,6 +5,7 @@ from neo3.core import types
 from neo3.core import Size as s, utils
 from neo3.core import serialization
 import abc
+from .verification import IVerifiable
 
 
 class InventoryType(IntEnum):
@@ -65,7 +66,7 @@ class InventoryPayload(serialization.ISerializable):
         return cls(InventoryType.BLOCK, [])
 
 
-class IInventory(abc.ABC):
+class IInventory(IVerifiable):
     @abc.abstractmethod
     def hash(self) -> types.UInt256:
         """"""

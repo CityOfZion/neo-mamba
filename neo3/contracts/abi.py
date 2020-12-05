@@ -194,6 +194,9 @@ class ContractMethodDescriptor(ContractEventDescriptor, IJson):
             return_type=contracts.ContractParameterType[json['returntype'].upper()]
         )
 
+    def __repr__(self):
+        return f"<{self.__class__.__name__} at {hex(id(self))}> {self.name}"
+
 
 class ContractABI(IJson):
     """

@@ -1,4 +1,5 @@
 import unittest
+import json
 from neo3 import vm, storage
 from neo3.contracts import manifest
 from .utils import test_engine, test_block
@@ -165,7 +166,8 @@ class BlockchainInteropTestCase(unittest.TestCase):
         engine.invoke_syscall_by_name("System.Blockchain.GetContract")
         item = engine.pop()
         self.assertIsInstance(item, vm.ArrayStackItem)
-        self.assertEqual(len(item), 3)
+        self.assertEqual(len(item), 4)
         self.assertEqual(contract.script, item[0].to_array())
-        self.assertEqual(contract.has_storage, item[1].to_boolean())
-        self.assertEqual(contract.is_payable, item[2].to_boolean())
+        self.assertEqual(contract.manifest, manifest.ContractManifest.from_json(json.loads(item[1].to_array())))
+        self.assertEqual(contract.has_storage, item[2].to_boolean())
+        self.assertEqual(contract.is_payable, item[3].to_boolean())

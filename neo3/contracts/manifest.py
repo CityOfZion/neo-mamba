@@ -311,6 +311,9 @@ class ContractManifest(serialization.ISerializable, IJson):
                 and self.safe_methods == other.safe_methods
                 and self.extra == other.extra)
 
+    def __str__(self):
+        return str(json.dumps(self.to_json(), separators=(',', ':')))
+
     def serialize(self, writer: BinaryWriter) -> None:
         """
         Serialize the object into a binary stream.

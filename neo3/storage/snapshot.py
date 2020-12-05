@@ -73,6 +73,7 @@ class CloneSnapshot(Snapshot):
         self._storage_cache = snapshot.storages.create_snapshot()
         self._tx_cache = snapshot.transactions.create_snapshot()
         self._block_height_cache = snapshot._block_height_cache.create_snapshot()
+        self.persisting_block = snapshot.persisting_block
 
     def commit(self):
         super(CloneSnapshot, self).commit()

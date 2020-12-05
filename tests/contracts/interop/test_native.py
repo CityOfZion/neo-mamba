@@ -1,6 +1,7 @@
 import unittest
-from collections import namedtuple
 import binascii
+from unittest import mock
+from collections import namedtuple
 from neo3 import vm, contracts, storage, settings, cryptography
 from neo3.core import types, to_script_hash, msgrouter
 from neo3.network import message
@@ -410,7 +411,9 @@ class Nep5TestCase(unittest.TestCase):
         engine.trigger = contracts.TriggerType.SYSTEM
         # update the TX signer account to point to our validator or the token burn() (part of on persist)
         # will fail because it can't find an account with balance
-        engine.snapshot.persisting_block.transactions[0]._sender = self.validator_account
+        mock_signer = mock.MagicMock()
+        mock_signer.account = self.validator_account
+        engine.snapshot.persisting_block.transactions[0].signers = [mock_signer]
         # our consensus_data is not setup in a realistic way, so we have to correct for that here
         # or we fail to get the account of primary consensus node
         engine.snapshot.persisting_block.consensus_data.primary_index = settings.network.validators_count - 1

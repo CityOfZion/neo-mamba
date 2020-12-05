@@ -300,8 +300,8 @@ class AbstractBlockStorageTest(abc.ABC, unittest.TestCase):
         blocks = list(clone_view.blocks.all())
         self.assertEqual(3, len(blocks))
         self.assertEqual(2, len(list(snapshot_view.blocks.all())))
-        self.assertEqual(self.block2, blocks[0])
-        self.assertEqual(block3, blocks[1])
+        self.assertEqual(block3, blocks[0])
+        self.assertEqual(self.block2, blocks[1])
         self.assertEqual(self.block1, blocks[2])
 
     def test_snapshot_bestblockheight(self):

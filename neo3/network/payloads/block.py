@@ -2,14 +2,15 @@ from __future__ import annotations
 import hashlib
 from typing import List
 
-from neo3 import vm
+from neo3 import vm, storage, settings
 from neo3.core import Size as s, serialization, types, utils, cryptography as crypto, IClonable, IInteroperable
 from neo3.network import payloads
 from bitarray import bitarray  # type: ignore
 from copy import deepcopy
+from .verification import IVerifiable
 
 
-class _BlockBase(serialization.ISerializable):
+class _BlockBase(IVerifiable):
     def __init__(self,
                  version: int,
                  prev_hash: types.UInt256,
@@ -79,10 +80,19 @@ class _BlockBase(serialization.ISerializable):
         Get a unique block identifier based on the unsigned data portion of the object.
         """
         with serialization.BinaryWriter() as bw:
+            bw.write_uint32(settings.network.magic)
             self.serialize_unsigned(bw)
             data_to_hash = bytearray(bw._stream.getvalue())
             data = hashlib.sha256(hashlib.sha256(data_to_hash).digest()).digest()
             return types.UInt256(data=data)
+
+    def get_script_hashes_for_verifying(self, snapshot: storage.Snapshot) -> List[types.UInt160]:
+        if self.prev_hash == types.UInt256.zero():
+            return [self.witness.script_hash()]
+        prev_block = snapshot.blocks.try_get(self.prev_hash, read_only=True)
+        if prev_block is None:
+            raise ValueError("Can't get next_consensus hash from previous block. Block does not exist")
+        return [prev_block.next_consensus]
 
 
 class Header(_BlockBase):

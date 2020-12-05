@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import List, Callable, Dict, Tuple, Iterator, Any, cast
 from neo3 import contracts, vm, storage, blockchain, settings
-from neo3.core import types, to_script_hash, serialization, cryptography, msgrouter
+from neo3.core import types, to_script_hash, serialization, cryptography, msgrouter, Size as s
 from neo3.network import message, convenience
 from enum import IntFlag
 
@@ -65,6 +65,7 @@ class NativeContract(convenience._Singleton):
                                        0,
                                        list,
                                        safe_method=True)
+        self._register_contract_method(self.service_name, "name", 0, return_type=str, safe_method=True)
         if self._id != NativeContract._id:
             self._contracts.update({self._service_name: self})
             self._contract_hashes.update({self._script_hash: self})
@@ -603,6 +604,12 @@ class Nep5Token(NativeContract):
                                        add_engine=True,
                                        safe_method=False)
         self._register_contract_method(self.symbol, "symbol", 0, return_type=str, safe_method=True)
+        self._register_contract_method(self.on_persist,
+                                       "onPersist",
+                                       0,
+                                       return_type=None,
+                                       add_engine=True,
+                                       safe_method=False)
 
     def symbol(self) -> str:
         """ Token symbol. """
@@ -755,7 +762,7 @@ class Nep5Token(NativeContract):
             return False
 
         contract_state_to = engine.snapshot.contracts.try_get(account_to, read_only=True)
-        if contract_state_to is None or not contract_state_to.is_payable:
+        if contract_state_to and not contract_state_to.is_payable:
             return False
 
         storage_key_from = storage.StorageKey(self.script_hash, self._PREFIX_ACCOUNT + account_from.to_array())
@@ -815,6 +822,19 @@ class NeoTokenStorageState(storage.Nep5StorageState):
             b'\x00')
         self.balance_height: int = 0
 
+    def __len__(self):
+        return super(NeoTokenStorageState, self).__len__() + len(self.vote_to) + s.uint32
+
+    def serialize(self, writer: serialization.BinaryWriter) -> None:
+        super(NeoTokenStorageState, self).serialize(writer)
+        writer.write_serializable(self.vote_to)
+        writer.write_uint32(self.balance_height)
+
+    def deserialize(self, reader: serialization.BinaryReader) -> None:
+        super(NeoTokenStorageState, self).deserialize(reader)
+        self.vote_to = reader.read_serializable(cryptography.EllipticCurve.ECPoint)
+        self.balance_height = reader.read_uint32()
+
 
 class _CandidateState(serialization.ISerializable):
     """
@@ -856,6 +876,36 @@ class NeoToken(Nep5Token):
         super(NeoToken, self).init()
         # singleton init, similar to __init__ but called only once
         self.total_amount = self.factor * 100_000_000
+
+        self._register_contract_method(self.register_candidate,
+                                       "registerCandidate",
+                                       5000000,
+                                       parameter_types=[cryptography.EllipticCurve.ECPoint],
+                                       parameter_names=["public_key"],
+                                       return_type=bool,
+                                       add_snapshot=False,
+                                       add_engine=True,
+                                       safe_method=False)
+
+        self._register_contract_method(self.register_candidate,
+                                       "unregisterCandidate",
+                                       5000000,
+                                       parameter_types=[cryptography.EllipticCurve.ECPoint],
+                                       parameter_names=["public_key"],
+                                       return_type=bool,
+                                       add_snapshot=False,
+                                       add_engine=True,
+                                       safe_method=False)
+
+        self._register_contract_method(self.vote,
+                                       "vote",
+                                       500000000,
+                                       parameter_types=[types.UInt160, cryptography.EllipticCurve.ECPoint],
+                                       parameter_names=["account", "public_key"],
+                                       return_type=bool,
+                                       add_snapshot=False,
+                                       add_engine=True,
+                                       safe_method=False)
 
     def _initialize(self, engine: contracts.ApplicationEngine) -> None:
         # NEO's native contract initialize. Is called upon contract deploy
@@ -974,7 +1024,6 @@ class NeoToken(Nep5Token):
         storage_item = engine.snapshot.storages.try_get(storage_key_account, read_only=False)
         if storage_item is None:
             return False
-
         account_state = self._state.deserialize_from_bytes(storage_item.value)
 
         storage_key_candidate = storage.StorageKey(self.script_hash, self._PREFIX_CANDIDATE + vote_to.to_array())
@@ -993,8 +1042,23 @@ class NeoToken(Nep5Token):
             new_value = old_value + account_state.balance
             si_voters_count.value = new_value.to_array()
 
-        # TODO: finish vote implementation
-        return False
+        if not account_state.vote_to.iszero():
+            sk_validator = storage.StorageKey(self.script_hash,
+                                              self._PREFIX_CANDIDATE + account_state.vote_to.to_array())
+            si_validator = engine.snapshot.storages.get(sk_validator, read_only=False)
+            validator_state = _CandidateState.deserialize_from_bytes(si_validator.value)
+            validator_state.votes -= account_state.balance
+            si_validator.value = validator_state.to_array()
+            if not validator_state.registered and validator_state.votes == 0:
+                engine.snapshot.storages.delete(sk_validator)
+
+        account_state.vote_to = vote_to
+        storage_item.value = account_state.to_array()
+
+        candidate_state.votes += account_state.balance
+        storage_item_candidate.value = candidate_state.to_array()
+
+        return True
 
     def _get_candidates(self,
                         engine: contracts.ApplicationEngine) -> \
@@ -1004,7 +1068,9 @@ class NeoToken(Nep5Token):
         for k, v in storage_results:
             candidate = _CandidateState.deserialize_from_bytes(v.value)
             if candidate.registered:
-                results.append((cryptography.EllipticCurve.ECPoint.deserialize_from_bytes(k.key), candidate.votes))
+                # take of the prefix
+                point = cryptography.EllipticCurve.ECPoint.deserialize_from_bytes(k.key[1:])
+                results.append((point, candidate.votes))
         return iter(results)
 
     def get_candidates(self, engine: contracts.ApplicationEngine) -> None:
@@ -1037,9 +1103,9 @@ class NeoToken(Nep5Token):
 
     def _get_committee_members(self, engine: contracts.ApplicationEngine) -> List[cryptography.EllipticCurve.ECPoint]:
         storage_key = storage.StorageKey(self.script_hash, self._PREFIX_VOTERS_COUNT)
-        storage_item = engine.snapshot.storages.get(storage_key)
+        storage_item = engine.snapshot.storages.get(storage_key, read_only=True)
         voters_count = int(vm.BigInteger(storage_item.value))
-        voter_turnout = voters_count / self.total_amount
+        voter_turnout = voters_count / float(self.total_amount)
         if voter_turnout < 0.2:
             return settings.standby_committee
         candidates = list(self._get_candidates(engine))
@@ -1053,7 +1119,8 @@ class NeoToken(Nep5Token):
 
     def get_next_block_validators(self, snapshot: storage.Snapshot) -> List[cryptography.EllipticCurve.ECPoint]:
         storage_item = snapshot.storages.try_get(
-            storage.StorageKey(self.script_hash, self._PREFIX_NEXT_VALIDATORS)
+            storage.StorageKey(self.script_hash, self._PREFIX_NEXT_VALIDATORS),
+            read_only=True
         )
         if storage_item is None:
             return settings.standby_validators

@@ -30,6 +30,7 @@ class Trackable:
 class CachedAccess:
     def __init__(self, db):
         self._dictionary = {}
+        self._changeset = set()
         self._db = db
         self._internal_get = None
         self._internal_try_get = None
@@ -60,6 +61,7 @@ class CachedAccess:
             trackable = Trackable(key, value, TrackState.CHANGED)
 
         self._dictionary.update({key: trackable})
+        self._changeset.add(key)
 
     def _get(self, key, read_only=False):
         """
@@ -82,6 +84,9 @@ class CachedAccess:
 
         if self._dictionary[key].state == TrackState.NONE:
             self._dictionary[key].state = TrackState.CHANGED
+            self._changeset.add(key)
+        if self._dictionary[key].state == TrackState.DELETED:
+            self._dictionary[key].state = TrackState.CHANGED
         return value
 
     def _delete(self, key) -> None:
@@ -95,14 +100,17 @@ class CachedAccess:
         if trackable is not None:
             if trackable.state == TrackState.ADDED:
                 self._dictionary.pop(key)
+                self._changeset.remove(key)
             else:
                 trackable.state = TrackState.DELETED
+                self._changeset.add(key)
         else:
             item = self._internal_try_get(key)
             if item is None:
                 return
 
             self._dictionary.update({key: Trackable(key, item, TrackState.DELETED)})
+            self._changeset.add(key)
 
     @abc.abstractmethod
     def commit(self):
@@ -111,6 +119,10 @@ class CachedAccess:
     @abc.abstractmethod
     def create_snapshot(self):
         """ Deep copy. """
+
+    def get_changeset(self):
+        for key in self._changeset:
+            yield self._dictionary[key]
 
 
 class AttributeCache:
@@ -213,12 +225,12 @@ class CachedBlockAccess(CachedAccess):
         except KeyError:
             return None
 
-    def try_get_by_height(self, height, read_only=False) -> Optional[payloads.Block]:
+    def try_get_by_height(self, height: int, read_only=False) -> Optional[payloads.Block]:
         """
-        Try to retrieve a block.
+        Try to retrieve a block by its height.
 
         Args:
-            hash: block hash.
+            height: block index.
             read_only: set to True to safeguard against return value modifications being persisted when committing.
         """
         block_hash = self._height_hash_mapping.get(height, None)
@@ -361,8 +373,11 @@ class CachedStorageAccess(CachedAccess):
             key: identifier to store the value under.
             value: the value to be persisted.
         """
-        super(CachedStorageAccess, self)._delete(key)
-        super(CachedStorageAccess, self)._put(key, value)
+        item = self.try_get(key)
+        if item:
+            item.value = value.value
+        else:
+            super(CachedStorageAccess, self)._put(key, value)
 
     def get(self, key: storage.StorageKey, read_only=False) -> storage.StorageItem:
         """
@@ -559,7 +574,7 @@ class CloneBlockCache(CachedBlockAccess):
         """
         Persist changes to the parent snapshot.
         """
-        for trackable in self._dictionary.values():  # trackable.item: payloads.Block
+        for trackable in self.get_changeset():  # trackable.item: payloads.Block
             if trackable.state == TrackState.ADDED:
                 self.inner_cache.put(trackable.item)
             elif trackable.state == TrackState.CHANGED:
@@ -571,6 +586,7 @@ class CloneBlockCache(CachedBlockAccess):
                     item.from_replica(trackable.item)
             elif trackable.state == TrackState.DELETED:
                 self.inner_cache.delete(trackable.item.hash())
+        self._changeset.clear()
 
 
 class CloneContractCache(CachedContractAccess):
@@ -597,7 +613,7 @@ class CloneContractCache(CachedContractAccess):
         """
         Persist changes to the parent snapshot.
         """
-        for trackable in self._dictionary.values():  # trackable.item: storage.ContractState
+        for trackable in self.get_changeset():  # trackable.item: storage.ContractState
             if trackable.state == TrackState.ADDED:
                 self.inner_cache.put(trackable.item)
             elif trackable.state == TrackState.CHANGED:
@@ -606,6 +622,7 @@ class CloneContractCache(CachedContractAccess):
                     item.from_replica(trackable.item)
             elif trackable.state == TrackState.DELETED:
                 self.inner_cache.delete(trackable.item.script_hash())
+        self._changeset.clear()
 
 
 class CloneStorageCache(CachedStorageAccess):
@@ -636,15 +653,18 @@ class CloneStorageCache(CachedStorageAccess):
         """
         Persist changes to the parent snapshot.
         """
-        for trackable in self._dictionary.values():
+        for trackable in self.get_changeset():
             if trackable.state == TrackState.ADDED:
                 self.inner_cache.put(trackable.key, trackable.item)
+                trackable.state = storage.TrackState.NONE
             elif trackable.state == TrackState.CHANGED:
                 item = self.inner_cache.try_get(trackable.key, read_only=False)
                 if item:
                     item.from_replica(trackable.item)
+                    trackable.state = storage.TrackState.NONE
             elif trackable.state == TrackState.DELETED:
                 self.inner_cache.delete(trackable.key)
+        self._changeset.clear()
 
 
 class CloneTXCache(CachedTXAccess):
@@ -671,7 +691,7 @@ class CloneTXCache(CachedTXAccess):
         """
         Persist changes to the parent snapshot.
         """
-        for trackable in self._dictionary.values():  # trackable.item: payloads.Transaction
+        for trackable in self.get_changeset():  # trackable.item: payloads.Transaction
             if trackable.state == TrackState.ADDED:
                 self.inner_cache.put(trackable.item)
             elif trackable.state == TrackState.CHANGED:
@@ -687,6 +707,7 @@ class CloneTXCache(CachedTXAccess):
                     item.from_replica(trackable.item)
             elif trackable.state == TrackState.DELETED:
                 self.inner_cache.delete(trackable.item.hash())
+        self._changeset.clear()
 
 
 class CloneAttributeCache(AttributeCache):

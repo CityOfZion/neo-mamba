@@ -3,12 +3,14 @@ from neo3 import contracts, storage, vm
 from neo3.network import payloads
 from neo3.core import types, cryptography, IInteroperable, serialization, to_script_hash
 from neo3.contracts import interop
-from typing import Any, Dict, cast, List, Tuple, Type, Union
+from typing import Any, Dict, cast, List, Tuple, Type, Optional, Callable
 import enum
+from dataclasses import dataclass
 
 
 class ApplicationEngine(vm.ExecutionEngine):
     _interop_calls: Dict[int, interop.InteropDescriptor] = {}
+    _invocation_states: Dict[vm.ExecutionContext, InvocationState] = {}
     #: Amount of free GAS added to the engine.
     GAS_FREE = 0
     #: Maximum length of event names for "System.Runtime.Notify" SYSCALLs.
@@ -19,6 +21,38 @@ class ApplicationEngine(vm.ExecutionEngine):
     MAX_CONTRACT_LENGTH = 1024 * 1024
     #: Multiplier for determining the costs of storing the contract including its manifest.
     STORAGE_PRICE = 100000
+
+    @dataclass
+    class InvocationState:
+        return_type: type = None  # type: ignore
+        callback: Optional[Callable] = None
+        check_return_value: bool = False
+
+    def __init__(self,
+                 trigger: contracts.TriggerType,
+                 container: payloads.IVerifiable,
+                 snapshot: storage.Snapshot,
+                 gas: int,
+                 test_mode: bool = False
+                 ):
+        # Do not use super() version, see
+        # https://pybind11.readthedocs.io/en/master/advanced/classes.html#overriding-virtual-functions-in-python
+        vm.ExecutionEngine.__init__(self)
+        #: A ledger snapshot to use for syscalls such as "System.Blockchain.GetHeight".
+        self.snapshot = snapshot
+        #: The trigger to run the engine with.
+        self.trigger = trigger
+        #: A flag to toggle infinite gas
+        self.is_test_mode = test_mode
+
+        self.script_container = container
+        #: Gas available for consumption by the engine while executing its script.
+        self.gas_amount = self.GAS_FREE + gas
+        #: The amount of gas used for executing its script.
+        self.gas_consumed = 0
+        self._invocation_counter: Dict[types.UInt160, int] = {}
+        #: Notifications (Notify SYSCALLs) that occured while executing the script.
+        self.notifications: List[Tuple[payloads.IVerifiable, types.UInt160, bytes, vm.ArrayStackItem]] = []
 
     def checkwitness(self, hash_: types.UInt160) -> bool:
         """
@@ -54,32 +88,6 @@ class ApplicationEngine(vm.ExecutionEngine):
         # for other IVerifiable types like Block
         hashes_for_verifying = self.script_container.get_script_hashes_for_verifying(self.snapshot)
         return hash_ in hashes_for_verifying
-
-    def __init__(self,
-                 trigger: contracts.TriggerType,
-                 container: payloads.IVerifiable,
-                 snapshot: storage.Snapshot,
-                 gas: int,
-                 test_mode: bool = False
-                 ):
-        # Do not use super() version, see
-        # https://pybind11.readthedocs.io/en/master/advanced/classes.html#overriding-virtual-functions-in-python
-        vm.ExecutionEngine.__init__(self)
-        #: A ledger snapshot to use for syscalls such as "System.Blockchain.GetHeight".
-        self.snapshot = snapshot
-        #: The trigger to run the engine with.
-        self.trigger = trigger
-        #: A flag to toggle infinite gas
-        self.is_test_mode = test_mode
-
-        self.script_container = container
-        #: Gas available for consumption by the engine while executing its script.
-        self.gas_amount = self.GAS_FREE + gas
-        #: The amount of gas used for executing its script.
-        self.gas_consumed = 0
-        self._invocation_counter: Dict[types.UInt160, int] = {}
-        #: Notifications (Notify SYSCALLs) that occured while executing the script.
-        self.notifications: List[Tuple[payloads.IVerifiable, types.UInt160, bytes, vm.ArrayStackItem]] = []
 
     def _stackitem_to_native(self, stack_item: vm.StackItem, target_type: Type[object]):
         # checks for type annotations like `List[bytes]` (similar to byte[][] in C#)
@@ -165,6 +173,13 @@ class ApplicationEngine(vm.ExecutionEngine):
             return self._native_to_stackitem(value.value, int)
         else:
             return vm.StackItem.from_interface(value)
+
+    def _get_invocation_state(self, context: vm.ExecutionContext) -> InvocationState:
+        state = self._invocation_states.get(context, None)
+        if state is None:
+            state = self.InvocationState()
+            self._invocation_states.update({context: state})
+        return state
 
     def add_gas(self, amount: int) -> None:
         """
@@ -277,3 +292,218 @@ class ApplicationEngine(vm.ExecutionEngine):
         if counter is None:
             raise ValueError(f"Failed to get invocation counter for the current context: {self.current_scripthash}")
         return counter
+
+    def context_unloaded(self, context: vm.ExecutionContext):
+        # Do not use super() version, see
+        # https://pybind11.readthedocs.io/en/master/advanced/classes.html#overriding-virtual-functions-in-python
+        vm.ExecutionEngine.context_unloaded(self, context)
+        if self.uncaught_exception is not None:
+            return
+        if len(self._invocation_states) == 0:
+            return
+        try:
+            state = self._invocation_states.pop(self.current_context)
+        except KeyError:
+            return
+        if state.check_return_value:
+            eval_stack_len = len(context.evaluation_stack)
+            if eval_stack_len == 0:
+                self.push(vm.NullStackItem())
+            elif eval_stack_len > 1:
+                raise SystemError("Invalid evaluation stack state")
+
+        if state.callback is None:
+            return
+        # TODO: implementation Action/DynamicInvoke part of callback logic
+
+    def pre_execute_instruction(self):
+        if self.current_context.ip < len(self.current_context.script):
+            self.add_gas(opcode_prices.get(self.current_context.current_instruction().opcode))
+
+
+opcode_prices: Dict[vm.OpCode, int] = {
+    vm.OpCode.PUSHINT8: 30,
+    vm.OpCode.PUSHINT16: 30,
+    vm.OpCode.PUSHINT32: 30,
+    vm.OpCode.PUSHINT64: 30,
+    vm.OpCode.PUSHINT128: 120,
+    vm.OpCode.PUSHINT256: 120,
+    vm.OpCode.PUSHA: 120,
+    vm.OpCode.PUSHNULL: 30,
+    vm.OpCode.PUSHDATA1: 180,
+    vm.OpCode.PUSHDATA2: 13000,
+    vm.OpCode.PUSHDATA4: 110000,
+    vm.OpCode.PUSHM1: 30,
+    vm.OpCode.PUSH0: 30,
+    vm.OpCode.PUSH1: 30,
+    vm.OpCode.PUSH2: 30,
+    vm.OpCode.PUSH3: 30,
+    vm.OpCode.PUSH4: 30,
+    vm.OpCode.PUSH5: 30,
+    vm.OpCode.PUSH6: 30,
+    vm.OpCode.PUSH7: 30,
+    vm.OpCode.PUSH8: 30,
+    vm.OpCode.PUSH9: 30,
+    vm.OpCode.PUSH10: 30,
+    vm.OpCode.PUSH11: 30,
+    vm.OpCode.PUSH12: 30,
+    vm.OpCode.PUSH13: 30,
+    vm.OpCode.PUSH14: 30,
+    vm.OpCode.PUSH15: 30,
+    vm.OpCode.PUSH16: 30,
+    vm.OpCode.NOP: 30,
+    vm.OpCode.JMP: 70,
+    vm.OpCode.JMP_L: 70,
+    vm.OpCode.JMPIF: 70,
+    vm.OpCode.JMPIF_L: 70,
+    vm.OpCode.JMPIFNOT: 70,
+    vm.OpCode.JMPIFNOT_L: 70,
+    vm.OpCode.JMPEQ: 70,
+    vm.OpCode.JMPEQ_L: 70,
+    vm.OpCode.JMPNE: 70,
+    vm.OpCode.JMPNE_L: 70,
+    vm.OpCode.JMPGT: 70,
+    vm.OpCode.JMPGT_L: 70,
+    vm.OpCode.JMPGE: 70,
+    vm.OpCode.JMPGE_L: 70,
+    vm.OpCode.JMPLT: 70,
+    vm.OpCode.JMPLT_L: 70,
+    vm.OpCode.JMPLE: 70,
+    vm.OpCode.JMPLE_L: 70,
+    vm.OpCode.CALL: 22000,
+    vm.OpCode.CALL_L: 22000,
+    vm.OpCode.CALLA: 22000,
+    vm.OpCode.ABORT: 30,
+    vm.OpCode.ASSERT: 30,
+    vm.OpCode.THROW: 22000,
+    vm.OpCode.TRY: 100,
+    vm.OpCode.TRY_L: 100,
+    vm.OpCode.ENDTRY: 100,
+    vm.OpCode.ENDTRY_L: 100,
+    vm.OpCode.ENDFINALLY: 100,
+    vm.OpCode.RET: 0,
+    vm.OpCode.SYSCALL: 0,
+    vm.OpCode.DEPTH: 60,
+    vm.OpCode.DROP: 60,
+    vm.OpCode.NIP: 60,
+    vm.OpCode.XDROP: 400,
+    vm.OpCode.CLEAR: 400,
+    vm.OpCode.DUP: 60,
+    vm.OpCode.OVER: 60,
+    vm.OpCode.PICK: 60,
+    vm.OpCode.TUCK: 60,
+    vm.OpCode.SWAP: 60,
+    vm.OpCode.ROT: 60,
+    vm.OpCode.ROLL: 400,
+    vm.OpCode.REVERSE3: 60,
+    vm.OpCode.REVERSE4: 60,
+    vm.OpCode.REVERSEN: 400,
+    vm.OpCode.INITSSLOT: 400,
+    vm.OpCode.INITSLOT: 800,
+    vm.OpCode.LDSFLD0: 60,
+    vm.OpCode.LDSFLD1: 60,
+    vm.OpCode.LDSFLD2: 60,
+    vm.OpCode.LDSFLD3: 60,
+    vm.OpCode.LDSFLD4: 60,
+    vm.OpCode.LDSFLD5: 60,
+    vm.OpCode.LDSFLD6: 60,
+    vm.OpCode.LDSFLD: 60,
+    vm.OpCode.STSFLD0: 60,
+    vm.OpCode.STSFLD1: 60,
+    vm.OpCode.STSFLD2: 60,
+    vm.OpCode.STSFLD3: 60,
+    vm.OpCode.STSFLD4: 60,
+    vm.OpCode.STSFLD5: 60,
+    vm.OpCode.STSFLD6: 60,
+    vm.OpCode.STSFLD: 60,
+    vm.OpCode.LDLOC0: 60,
+    vm.OpCode.LDLOC1: 60,
+    vm.OpCode.LDLOC2: 60,
+    vm.OpCode.LDLOC3: 60,
+    vm.OpCode.LDLOC4: 60,
+    vm.OpCode.LDLOC5: 60,
+    vm.OpCode.LDLOC6: 60,
+    vm.OpCode.LDLOC: 60,
+    vm.OpCode.STLOC0: 60,
+    vm.OpCode.STLOC1: 60,
+    vm.OpCode.STLOC2: 60,
+    vm.OpCode.STLOC3: 60,
+    vm.OpCode.STLOC4: 60,
+    vm.OpCode.STLOC5: 60,
+    vm.OpCode.STLOC6: 60,
+    vm.OpCode.STLOC: 60,
+    vm.OpCode.LDARG0: 60,
+    vm.OpCode.LDARG1: 60,
+    vm.OpCode.LDARG2: 60,
+    vm.OpCode.LDARG3: 60,
+    vm.OpCode.LDARG4: 60,
+    vm.OpCode.LDARG5: 60,
+    vm.OpCode.LDARG6: 60,
+    vm.OpCode.LDARG: 60,
+    vm.OpCode.STARG0: 60,
+    vm.OpCode.STARG1: 60,
+    vm.OpCode.STARG2: 60,
+    vm.OpCode.STARG3: 60,
+    vm.OpCode.STARG4: 60,
+    vm.OpCode.STARG5: 60,
+    vm.OpCode.STARG6: 60,
+    vm.OpCode.STARG: 60,
+    vm.OpCode.NEWBUFFER: 80000,
+    vm.OpCode.MEMCPY: 80000,
+    vm.OpCode.CAT: 80000,
+    vm.OpCode.SUBSTR: 80000,
+    vm.OpCode.LEFT: 80000,
+    vm.OpCode.RIGHT: 80000,
+    vm.OpCode.INVERT: 100,
+    vm.OpCode.AND: 200,
+    vm.OpCode.OR: 200,
+    vm.OpCode.XOR: 200,
+    vm.OpCode.EQUAL: 200,
+    vm.OpCode.NOTEQUAL: 200,
+    vm.OpCode.SIGN: 100,
+    vm.OpCode.ABS: 100,
+    vm.OpCode.NEGATE: 100,
+    vm.OpCode.INC: 100,
+    vm.OpCode.DEC: 100,
+    vm.OpCode.ADD: 200,
+    vm.OpCode.SUB: 200,
+    vm.OpCode.MUL: 300,
+    vm.OpCode.DIV: 300,
+    vm.OpCode.MOD: 300,
+    vm.OpCode.SHL: 300,
+    vm.OpCode.SHR: 300,
+    vm.OpCode.NOT: 100,
+    vm.OpCode.BOOLAND: 200,
+    vm.OpCode.BOOLOR: 200,
+    vm.OpCode.NZ: 100,
+    vm.OpCode.NUMEQUAL: 200,
+    vm.OpCode.NUMNOTEQUAL: 200,
+    vm.OpCode.LT: 200,
+    vm.OpCode.LE: 200,
+    vm.OpCode.GT: 200,
+    vm.OpCode.GE: 200,
+    vm.OpCode.MIN: 200,
+    vm.OpCode.MAX: 200,
+    vm.OpCode.WITHIN: 200,
+    vm.OpCode.PACK: 7000,
+    vm.OpCode.UNPACK: 7000,
+    vm.OpCode.NEWARRAY0: 400,
+    vm.OpCode.NEWARRAY: 15000,
+    vm.OpCode.NEWARRAY_T: 15000,
+    vm.OpCode.NEWSTRUCT0: 400,
+    vm.OpCode.NEWSTRUCT: 15000,
+    vm.OpCode.NEWMAP: 200,
+    vm.OpCode.SIZE: 150,
+    vm.OpCode.HASKEY: 270000,
+    vm.OpCode.KEYS: 500,
+    vm.OpCode.VALUES: 7000,
+    vm.OpCode.PICKITEM: 270000,
+    vm.OpCode.APPEND: 15000,
+    vm.OpCode.SETITEM: 270000,
+    vm.OpCode.REVERSEITEMS: 500,
+    vm.OpCode.REMOVE: 500,
+    vm.OpCode.CLEARITEMS: 400,
+    vm.OpCode.ISNULL: 60,
+    vm.OpCode.ISTYPE: 60,
+    vm.OpCode.CONVERT: 80000,
+}

@@ -1,8 +1,10 @@
 import asynctest
 import asyncio
 from neo3.network import convenience, node
-from neo3 import network_logger
+from neo3 import network_logger, blockchain
+from neo3.core import msgrouter
 from datetime import datetime
+
 
 class SyncManagerUtilitiesTestCase(asynctest.TestCase):
     @classmethod
@@ -94,7 +96,7 @@ class SyncManagerSyncBlocksTestCase(asynctest.TestCase):
         # - the connected nodes best_height can only fill 1 of the spots
         # expected result: 1 flight added
 
-        self.syncmgr.block_cache = (self.syncmgr.BLOCK_MAX_CACHE_SIZE-2) * [None]
+        self.syncmgr.block_cache = (self.syncmgr.BLOCK_MAX_CACHE_SIZE - 2) * [None]
         mock_node = node.NeoNode(protocol=object())
         mock_node.best_height = 2
         mock_node.request_block_data = asynctest.CoroutineMock()
@@ -165,10 +167,10 @@ class SyncManagerCheckTimeoutTestCase(asynctest.TestCase):
         request_info.mark_failed_node.assert_called_with(node1_id)
         # both nodes had a flight that timed out
         nodemgr_increase_timeout_count.assert_has_calls([asynctest.mock.call(node1_id),
-                                                        asynctest.mock.call(node2_id)],
+                                                         asynctest.mock.call(node2_id)],
                                                         any_order=True)
         # the first time we call it we no longer have any connected nodes, so we can't request from anyone anymore
-        self.assertEqual(-3 , result)
+        self.assertEqual(-3, result)
 
         # now we "connect" a new node
         mock_node = node.NeoNode(protocol=object())
@@ -262,6 +264,7 @@ class SyncManagerVarious(asynctest.TestCase):
         self.assertEqual(1, len(self.syncmgr.block_cache))
 
     async def test_persist_blocks(self):
+
         fake_block1 = asynctest.MagicMock()
         fake_block1.index = 1
         fake_block2 = asynctest.MagicMock()
@@ -269,14 +272,15 @@ class SyncManagerVarious(asynctest.TestCase):
 
         # inserting out of order on purpose to also validate sorting
         self.syncmgr.block_cache = [fake_block2, fake_block1]
-        mocked_result = asynctest.CoroutineMock()
+
+        mocked_result = asynctest.Mock()
         with asynctest.patch.object(self.syncmgr.ledger, 'persist', side_effect=mocked_result):
             await self.syncmgr.persist_blocks()
 
         # test that we persisted the blocks in order
-        mocked_result.assert_has_awaits([asynctest.mock.call(fake_block1),
-                                         asynctest.mock.call(fake_block2)],
-                                        any_order=False)
+        mocked_result.assert_has_calls([asynctest.mock.call(fake_block1),
+                                        asynctest.mock.call(fake_block2)],
+                                       any_order=False)
 
         # now test with an exception happening during persist
         self.syncmgr.block_cache = [fake_block2, fake_block1]
@@ -288,10 +292,10 @@ class SyncManagerVarious(asynctest.TestCase):
 
         # test that we don't persist if we're starting to shutdown
         self.syncmgr.shutting_down = True
-        mocked_result = asynctest.CoroutineMock()
+        mocked_result = asynctest.Mock()
         with asynctest.patch.object(self.syncmgr.ledger, 'persist', side_effect=mocked_result):
             await self.syncmgr.persist_blocks()
-        mocked_result.assert_not_awaited()
+        mocked_result.assert_not_called()
 
 
 class SyncManagerTimedTestCase(asynctest.ClockedTestCase):
@@ -304,6 +308,7 @@ class SyncManagerTimedTestCase(asynctest.ClockedTestCase):
 
     async def test_utility_run_in_loop(self):
         counter = 0
+
         async def coro():
             nonlocal counter
             counter += 1

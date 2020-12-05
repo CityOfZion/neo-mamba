@@ -75,7 +75,7 @@ class TransactionAttribute(serialization.ISerializable):
         """ Deserialize the remaining attributes """
 
 
-class Transaction(payloads.IVerifiable, payloads.IInventory, IInteroperable):
+class Transaction(payloads.IInventory, IInteroperable):
     """
     Data to be executed by the NEO virtual machine.
     """
@@ -105,9 +105,6 @@ class Transaction(payloads.IVerifiable, payloads.IInventory, IInteroperable):
         self.attributes = attributes if attributes else []
         #: A list of authorities used by the :func:`ChecKWitness` smart contract system call.
         self.signers = signers if signers else []
-        #: Script hash of the first signing authority
-        self._sender = self.signers[0].account if len(self.signers) > 0 else types.UInt160.zero()
-
         self.script = script if script else b''
         #: A list of signing authorities used to validate the transaction.
         self.witnesses = witnesses if witnesses else []
@@ -168,9 +165,7 @@ class Transaction(payloads.IVerifiable, payloads.IInventory, IInteroperable):
 
     @property
     def sender(self) -> types.UInt160:
-        if len(self.signers) == 0:
-            raise ValueError("Invalid transaction - signers can't be empty")
-        return self._sender
+        return self.signers[0].account if len(self.signers) > 0 else types.UInt160.zero()
 
     @property
     def inventory_type(self) -> payloads.InventoryType:

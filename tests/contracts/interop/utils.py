@@ -16,7 +16,7 @@ def test_engine(has_container=False, has_snapshot=False, default_script=True):
     # a new instance every time we call it. This in turn gives us a clean backend/snapshot
     blockchain.Blockchain.__it__ = None
 
-    snapshot = blockchain.Blockchain().currentSnapshot
+    snapshot = blockchain.Blockchain(store_genesis_block=False).currentSnapshot
     if has_container and has_snapshot:
         engine = contracts.ApplicationEngine(contracts.TriggerType.APPLICATION, tx, snapshot, 0, test_mode=True)
     elif has_container:

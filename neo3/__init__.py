@@ -45,12 +45,13 @@ class IndexableNamespace(SimpleNamespace):
 
 class Settings(IndexableNamespace):
     db = None
+    _cached_standby_committee = None
     default_settings = {
         'network': {
-            'magic': None,
+            'magic': 5195086,
             'seedlist': [],
-            'validators_count': 0,
-            'standby_committee': []
+            'validators_count': 1,
+            'standby_committee': ['02158c4a4810fa2a6a12f7d33d835680429e1a68ae61161c5b3fbc98c7f1f17765']
         },
         'storage': {
             'use_default': True,
@@ -109,10 +110,12 @@ class Settings(IndexableNamespace):
 
     @property
     def standby_committee(self) -> List[cryptography.EllipticCurve.ECPoint]:
-        points = []
-        for p in self.network.standby_committee:
-            points.append(cryptography.EllipticCurve.ECPoint.deserialize_from_bytes(binascii.unhexlify(p)))
-        return points
+        if self._cached_standby_committee is None:
+            points = []
+            for p in self.network.standby_committee:
+                points.append(cryptography.EllipticCurve.ECPoint.deserialize_from_bytes(binascii.unhexlify(p)))
+            self._cached_standby_committee = points
+        return self._cached_standby_committee
 
     @property
     def standby_validators(self) -> List[cryptography.EllipticCurve.ECPoint]:

@@ -516,7 +516,7 @@ class EllipticCurve:
 
         def serialize(self, writer: serialization.BinaryWriter, compress=True):
             if self == self.curve.Infinity:
-                writer.write_uint8(b'\x00')
+                writer.write_bytes(b'\x00')
             else:
                 byt = self.encode_point(compressed=compress)
                 writer.write_bytes(byt)
