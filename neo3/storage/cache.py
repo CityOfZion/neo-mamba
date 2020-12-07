@@ -2,7 +2,7 @@ from __future__ import annotations
 import abc
 from copy import deepcopy
 from enum import Enum, auto
-from typing import Optional, Iterator, Tuple, TypeVar, Any
+from typing import Optional, Iterator, Tuple, TypeVar, Any, List
 from neo3.core import types, serialization
 from neo3.network import payloads
 from neo3 import storage
@@ -574,9 +574,11 @@ class CloneBlockCache(CachedBlockAccess):
         """
         Persist changes to the parent snapshot.
         """
+        keys_to_delete: List[types.UInt256] = []
         for trackable in self.get_changeset():  # trackable.item: payloads.Block
             if trackable.state == TrackState.ADDED:
                 self.inner_cache.put(trackable.item)
+                trackable.state = storage.TrackState.NONE
             elif trackable.state == TrackState.CHANGED:
                 # This one is kind of useless unless we augment Block with additional attributes (like done with
                 # Transaction) and the IDBImplementation class calls are updated to serialize_special(). Otherwise, any
@@ -584,8 +586,13 @@ class CloneBlockCache(CachedBlockAccess):
                 item = self.inner_cache.try_get(trackable.item.hash(), read_only=False)
                 if item:
                     item.from_replica(trackable.item)
+                trackable.state = storage.TrackState.NONE
             elif trackable.state == TrackState.DELETED:
                 self.inner_cache.delete(trackable.item.hash())
+                keys_to_delete.append(trackable.key)
+        for key in keys_to_delete:
+            with suppress(KeyError):
+                self._dictionary.pop(key)
         self._changeset.clear()
 
 
@@ -613,15 +620,22 @@ class CloneContractCache(CachedContractAccess):
         """
         Persist changes to the parent snapshot.
         """
+        keys_to_delete: List[types.UInt160] = []
         for trackable in self.get_changeset():  # trackable.item: storage.ContractState
             if trackable.state == TrackState.ADDED:
                 self.inner_cache.put(trackable.item)
+                trackable.state = storage.TrackState.NONE
             elif trackable.state == TrackState.CHANGED:
                 item = self.inner_cache.try_get(trackable.item.script_hash(), read_only=False)
                 if item:
                     item.from_replica(trackable.item)
+                trackable.state = storage.TrackState.NONE
             elif trackable.state == TrackState.DELETED:
                 self.inner_cache.delete(trackable.item.script_hash())
+                keys_to_delete.append(trackable.key)
+        for key in keys_to_delete:
+            with suppress(KeyError):
+                self._dictionary.pop(key)
         self._changeset.clear()
 
 
@@ -653,6 +667,7 @@ class CloneStorageCache(CachedStorageAccess):
         """
         Persist changes to the parent snapshot.
         """
+        keys_to_delete: List[storage.StorageKey] = []
         for trackable in self.get_changeset():
             if trackable.state == TrackState.ADDED:
                 self.inner_cache.put(trackable.key, trackable.item)
@@ -664,6 +679,10 @@ class CloneStorageCache(CachedStorageAccess):
                     trackable.state = storage.TrackState.NONE
             elif trackable.state == TrackState.DELETED:
                 self.inner_cache.delete(trackable.key)
+                keys_to_delete.append(trackable.key)
+        for key in keys_to_delete:
+            with suppress(KeyError):
+                self._dictionary.pop(key)
         self._changeset.clear()
 
 
@@ -691,9 +710,11 @@ class CloneTXCache(CachedTXAccess):
         """
         Persist changes to the parent snapshot.
         """
+        keys_to_delete: List[types.UInt256] = []
         for trackable in self.get_changeset():  # trackable.item: payloads.Transaction
             if trackable.state == TrackState.ADDED:
                 self.inner_cache.put(trackable.item)
+                trackable.state = storage.TrackState.NONE
             elif trackable.state == TrackState.CHANGED:
                 # Note that any changes to TX attributes that are serialized changes the hash and thus we won't find it
                 # anymore in the cache.
@@ -705,8 +726,13 @@ class CloneTXCache(CachedTXAccess):
                 item = self.inner_cache.try_get(trackable.item.hash(), read_only=False)
                 if item:
                     item.from_replica(trackable.item)
+                trackable.state = storage.TrackState.NONE
             elif trackable.state == TrackState.DELETED:
                 self.inner_cache.delete(trackable.item.hash())
+                keys_to_delete.append(trackable.key)
+        for key in keys_to_delete:
+            with suppress(KeyError):
+                self._dictionary.pop(key)
         self._changeset.clear()
 
 
