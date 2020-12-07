@@ -196,7 +196,7 @@ class Transaction(payloads.IInventory, IInteroperable):
 
     def serialize_special(self, writer: serialization.BinaryWriter) -> None:
         self.serialize(writer)
-        writer.write_uint8(self.vm_state)
+        writer.write_uint8(int(self.vm_state))
         writer.write_uint32(self.block_height)
 
     def deserialize(self, reader: serialization.BinaryReader) -> None:

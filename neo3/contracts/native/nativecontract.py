@@ -780,6 +780,7 @@ class Nep5Token(NativeContract):
 
             if account_from == account_to:
                 self.on_balance_changing(engine, account_from, state_from, vm.BigInteger.zero())
+                storage_item_from.value = state_from.to_array()
             else:
                 self.on_balance_changing(engine, account_from, state_from, -amount)
                 if state_from.balance == amount:
