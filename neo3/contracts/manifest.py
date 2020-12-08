@@ -337,6 +337,7 @@ class ContractManifest(serialization.ISerializable, IJson):
         self.contract_hash = self.abi.contract_hash
         self.groups = list(map(lambda g: ContractGroup.from_json(g), json['groups']))
         self.features = ContractFeatures.NO_PROPERTY
+        self.supported_standards = json['supportedstandards']
         if json['features']['storage']:
             self.features |= ContractFeatures.HAS_STORAGE
         if json['features']['payable']:
