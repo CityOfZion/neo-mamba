@@ -26,6 +26,8 @@ class ContractParameterType(IntEnum):
             return "ByteArray"
         elif self == ContractParameterType.INTEROP_INTERFACE:
             return "InteropInterface"
+        elif self == ContractParameterType.PUBLICKEY:
+            return "PublicKey"
         else:
             return self.name.title()
 
