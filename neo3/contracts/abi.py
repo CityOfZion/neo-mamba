@@ -21,6 +21,14 @@ class ContractParameterType(IntEnum):
     INTEROP_INTERFACE = 0x30,
     VOID = 0xff
 
+    def PascalCase(self):
+        if self == ContractParameterType.BYTEARRAY:
+            return "ByteArray"
+        elif self == ContractParameterType.INTEROP_INTERFACE:
+            return "InteropInterface"
+        else:
+            return self.name.title()
+
     @classmethod
     def from_type(cls, class_type: Type[object]) -> ContractParameterType:
         if class_type is None:
@@ -71,7 +79,7 @@ class ContractParameterDefinition(IJson):
         """
         json = {
             "name": self.name,
-            "type": self.type.name.title()
+            "type": self.type.PascalCase()
         }
         return json
 
@@ -172,7 +180,7 @@ class ContractMethodDescriptor(ContractEventDescriptor, IJson):
         json = super(ContractMethodDescriptor, self).to_json()
         json.update({
             "offset": self.offset,
-            "returntype": self.return_type.name.title()
+            "returntype": self.return_type.PascalCase()
         })
         return json
 
