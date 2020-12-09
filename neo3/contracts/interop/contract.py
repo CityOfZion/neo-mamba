@@ -1,6 +1,6 @@
 from __future__ import annotations
 import json
-from neo3 import vm, contracts, storage
+from neo3 import vm, contracts, storage, settings, blockchain
 from neo3.network import payloads
 from neo3.core import cryptography, types, to_script_hash
 from neo3.contracts.interop import register
@@ -52,10 +52,23 @@ def contract_update(engine: contracts.ApplicationEngine, script: bytes, manifest
     if hash_ == engine.current_scripthash or engine.snapshot.contracts.try_get(hash_) is not None:
         raise ValueError("Nothing to update")
 
+    old_contract_has_storage = contract.has_storage
     contract = storage.ContractState(script, contract.manifest)
     contract.manifest.abi.contract_hash = hash_
 
     engine.snapshot.contracts.put(contract)
+
+    # migrate storage to new contract hash
+    with blockchain.Blockchain().backend.get_snapshotview() as snapshot:
+        if old_contract_has_storage:
+            for key, value in snapshot.storages.find(engine.current_scripthash, b''):  # type: storage.StorageKey, storage.StorageItem
+                # delete the old storage
+                snapshot.storages.delete(key)
+                # update key to new contract hash
+                key.contract = contract.script_hash()
+                # now persist all data under new contract key
+                snapshot.storages.put(key, value)
+        snapshot.commit()
     engine.snapshot.contracts.delete(engine.current_scripthash)
 
     if manifest_len == 0 or manifest_len > contracts.ContractManifest.MAX_LENGTH:

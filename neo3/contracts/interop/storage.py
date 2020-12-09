@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import Optional
 from neo3 import contracts, storage
+from neo3.core import types
 from neo3.contracts.interop import register, IIterator, StorageIterator
 
 MAX_STORAGE_KEY_SIZE = 64
@@ -13,7 +14,7 @@ def get_context(engine: contracts.ApplicationEngine) -> storage.StorageContext:
     contract = engine.snapshot.contracts.try_get(engine.current_scripthash)
     if not contract.has_storage:
         raise ValueError("Cannot get context for smart contract without storage")
-    return storage.StorageContext(contract.script_hash(), False)
+    return storage.StorageContext(engine.current_scripthash, False)
 
 
 @register("System.Storage.GetReadOnlyContext", 400, contracts.native.CallFlags.ALLOW_STATES, False, [])
@@ -36,7 +37,7 @@ def context_as_read_only(engine: contracts.ApplicationEngine,
           [storage.StorageContext, bytes])
 def storage_get(engine: contracts.ApplicationEngine, context: storage.StorageContext, key: bytes) -> Optional[bytes]:
     storage_key = storage.StorageKey(context.script_hash, key)
-    item = engine.snapshot.storages.try_get(storage_key)
+    item = engine.snapshot.storages.try_get(storage_key, read_only=True)
     if item is not None:
         return item.value
     return None
