@@ -4,7 +4,8 @@ from datetime import datetime, timezone
 from neo3 import contracts, storage, settings, vm
 from neo3.core import cryptography, types, to_script_hash, msgrouter
 from neo3.network import payloads, convenience
-# from .audit import Audit
+from .audit import Audit
+import sys
 
 
 class Blockchain(convenience._Singleton):
@@ -82,8 +83,11 @@ class Blockchain(convenience._Singleton):
             snapshot.block_height = block.index
             snapshot.blocks.put(block)
             snapshot.persisting_block = block
-            # audit = Audit(block)
+            audit = Audit(block)
 
+            # if block.index == 127240:
+                #     asfasdf = 1
+                # sys.exit(-1)
             if block.index > 0:
                 engine = contracts.ApplicationEngine(contracts.TriggerType.SYSTEM,
                                                      None, snapshot, 0, True)  # type: ignore
@@ -103,14 +107,14 @@ class Blockchain(convenience._Singleton):
                                                      tx.system_fee)
                 engine.load_script(vm.Script(tx.script))
                 state = engine.execute()
-                # audit.add_tx(tx, engine)
+                audit.add_tx(tx, engine)
                 if state == vm.VMState.HALT:
                     cloned_snapshot.commit()
                 else:
                     cloned_snapshot = snapshot.clone()
 
-            # if block.index > 0:
-            #     audit.commit(snapshot)
+            if block.index > 0:
+                audit.commit(snapshot)
             snapshot.commit()
             self._current_snapshot = snapshot
         msgrouter.on_block_persisted(block)

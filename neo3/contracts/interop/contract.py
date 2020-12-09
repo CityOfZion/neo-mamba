@@ -36,7 +36,10 @@ def contract_update(engine: contracts.ApplicationEngine, script: bytes, manifest
     script_len = len(script)
     manifest_len = len(manifest)
 
-    engine.add_gas(engine.STORAGE_PRICE * (script_len + manifest_len))
+    # TODO: In preview 4 revert back to
+    # engine.add_gas(engine.STORAGE_PRICE * (script_len + manifest_len))
+    # They made a mistake in their storage price calculation logic where manifest size is never taken into account
+    engine.add_gas(engine.STORAGE_PRICE * script_len)
 
     contract = engine.snapshot.contracts.try_get(engine.current_scripthash, read_only=True)
     if contract is None:
