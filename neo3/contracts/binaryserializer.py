@@ -41,14 +41,14 @@ class BinarySerializer:
                 elif item_type in [vm.IntegerStackItem, vm.ByteStringStackItem, vm.BufferStackItem]:
                     writer.write_var_bytes(item.to_array())
                 elif item_type in [vm.ArrayStackItem, vm.StructStackItem]:
-                    if item in serialized:
+                    if any(map(lambda i: id(i) == id(item), serialized)):
                         raise ValueError("Item already exists")
                     serialized.append(item)
                     writer.write_var_int(len(item))  # type: ignore
                     for element in reversed(item):  # type: ignore
                         unserialized.append(element)
                 elif item_type == vm.MapStackItem:
-                    if item in serialized:
+                    if any(map(lambda i: id(i) == id(item), serialized)):
                         raise ValueError("Item already exists")
                     serialized.append(item)
                     writer.write_var_int(len(item))  # type: ignore
