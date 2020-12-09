@@ -61,7 +61,7 @@ def contract_update(engine: contracts.ApplicationEngine, script: bytes, manifest
     # migrate storage to new contract hash
     with blockchain.Blockchain().backend.get_snapshotview() as snapshot:
         if old_contract_has_storage:
-            for key, value in snapshot.storages.find(engine.current_scripthash, b''):  # type: storage.StorageKey, storage.StorageItem
+            for key, value in snapshot.storages.find(engine.current_scripthash, b''):
                 # delete the old storage
                 snapshot.storages.delete(key)
                 # update key to new contract hash

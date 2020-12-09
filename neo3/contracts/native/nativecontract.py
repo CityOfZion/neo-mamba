@@ -774,6 +774,7 @@ class Nep5Token(NativeContract):
         state_from = self._state.deserialize_from_bytes(storage_item_from.value)
         if amount == vm.BigInteger.zero():
             self.on_balance_changing(engine, account_from, state_from, amount)
+            storage_item_from.value = state_from.to_array()
         else:
             if state_from.balance < amount:
                 return False
