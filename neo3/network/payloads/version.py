@@ -1,7 +1,6 @@
 from __future__ import annotations
 import datetime
-import random
-from typing import List, Type
+from typing import List
 from neo3.core import Size as s, serialization, utils
 from neo3.network import capabilities
 from neo3 import settings

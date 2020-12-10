@@ -1,6 +1,7 @@
 from __future__ import annotations
 import abc
 from neo3 import storage
+from neo3.network import payloads
 
 
 class Snapshot:
@@ -10,6 +11,7 @@ class Snapshot:
         self._storage_cache: storage.CachedStorageAccess = None
         self._tx_cache: storage.CachedTXAccess = None
         self._block_height_cache: storage.AttributeCache = None
+        self.persisting_block: payloads.Block = None
 
     @property
     def blocks(self):
@@ -71,6 +73,7 @@ class CloneSnapshot(Snapshot):
         self._storage_cache = snapshot.storages.create_snapshot()
         self._tx_cache = snapshot.transactions.create_snapshot()
         self._block_height_cache = snapshot._block_height_cache.create_snapshot()
+        self.persisting_block = snapshot.persisting_block
 
     def commit(self):
         super(CloneSnapshot, self).commit()

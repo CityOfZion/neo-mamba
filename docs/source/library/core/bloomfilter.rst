@@ -1,9 +1,9 @@
 :mod:`bloomfilter` --- A NEO specific bloomfilter implementation
 ================================================================
 
-While 3rd party bloom filter implementations exist on PyPi, they unfortunately do not comply with the NEO implementation.
+While ready to install 3rd party bloom filter implementations exist on PyPi, they unfortunately do not comply with the NEO implementation.
 
-Bloomfilters can be broadcasted over the network and thus there is a need to have identical results.
+Bloomfilter's can be broadcasted over the network and thus there is a need to have identical results.
 
 
 .. automodule:: neo3.core.cryptography.bloomfilter

@@ -15,4 +15,4 @@ The NEO 3.x system makes heavy use of a small handful of complex data types whic
 
 .. data:: BigInteger
 
-   A class inherited from the build-in `int <https://docs.python.org/3/library/functions.html#int>`_ type with modified serialization, division and modulo behaviour to match the C# reference implementation. See :mod:`~neo3.core.types.biginteger.BigInteger`.
+   A full port of the C# reference implementation implemented as a C-extension. See :ref:`BigInteger <library-vm-biginteger>`.

@@ -3,10 +3,10 @@ import hashlib
 import abc
 from enum import Enum
 from typing import List
-from neo3.core import Size as s, serialization, utils, types
+from neo3.core import Size as s, serialization, utils, types, IInteroperable
 from neo3.network import payloads
 from neo3.vm import VMState
-from neo3 import settings
+from neo3 import settings, vm, storage
 
 
 class TransactionAttributeType(Enum):
@@ -75,7 +75,7 @@ class TransactionAttribute(serialization.ISerializable):
         """ Deserialize the remaining attributes """
 
 
-class Transaction(serialization.ISerializable, payloads.IInventory):
+class Transaction(payloads.IInventory, IInteroperable):
     """
     Data to be executed by the NEO virtual machine.
     """
@@ -105,9 +105,6 @@ class Transaction(serialization.ISerializable, payloads.IInventory):
         self.attributes = attributes if attributes else []
         #: A list of authorities used by the :func:`ChecKWitness` smart contract system call.
         self.signers = signers if signers else []
-        #: Script hash of the first signing authority
-        self._sender = self.signers[0].account if len(self.signers) > 0 else types.UInt160.zero()
-
         self.script = script if script else b''
         #: A list of signing authorities used to validate the transaction.
         self.witnesses = witnesses if witnesses else []
@@ -168,9 +165,7 @@ class Transaction(serialization.ISerializable, payloads.IInventory):
 
     @property
     def sender(self) -> types.UInt160:
-        if len(self.signers) == 0:
-            raise ValueError("Invalid transaction - signers can't be empty")
-        return self._sender
+        return self.signers[0].account if len(self.signers) > 0 else types.UInt160.zero()
 
     @property
     def inventory_type(self) -> payloads.InventoryType:
@@ -201,7 +196,7 @@ class Transaction(serialization.ISerializable, payloads.IInventory):
 
     def serialize_special(self, writer: serialization.BinaryWriter) -> None:
         self.serialize(writer)
-        writer.write_uint8(self.vm_state)
+        writer.write_uint8(int(self.vm_state))
         writer.write_uint32(self.block_height)
 
     def deserialize(self, reader: serialization.BinaryReader) -> None:
@@ -252,7 +247,10 @@ class Transaction(serialization.ISerializable, payloads.IInventory):
         """
         return self.network_fee // len(self)
 
-    def from_replica(self, replica):
+    def from_replica(self, replica) -> None:
+        """
+        Shallow copy attributes from a reference object.
+        """
         self.version = replica.version
         self.nonce = replica.nonce
         self.system_fee = replica.system_fee
@@ -264,6 +262,28 @@ class Transaction(serialization.ISerializable, payloads.IInventory):
         self.witnesses = replica.witnesses
         self.block_height = replica.block_height
         self.vm_state = replica.vm_state
+
+    def to_stack_item(self, reference_counter: vm.ReferenceCounter) -> vm.StackItem:
+        """
+        Convert self to a VM stack item.
+
+        Args:
+            reference_counter: ExecutionEngine reference counter
+        """
+        array = vm.ArrayStackItem(reference_counter)
+        tx_hash = vm.ByteStringStackItem(self.hash().to_array())
+        version = vm.IntegerStackItem(self.version)
+        nonce = vm.IntegerStackItem(self.nonce)
+        sender = vm.ByteStringStackItem(self.sender.to_array())
+        system_fee = vm.IntegerStackItem(self.system_fee)
+        network_fee = vm.IntegerStackItem(self.network_fee)
+        valid_until = vm.IntegerStackItem(self.valid_until_block)
+        script = vm.ByteStringStackItem(self.script)
+        array.append([tx_hash, version, nonce, sender, system_fee, network_fee, valid_until, script])
+        return array
+
+    def get_script_hashes_for_verifying(self, _: storage.Snapshot) -> List[types.UInt160]:
+        return list(map(lambda signer: signer.account, self.signers))
 
     # TODO: implement Verify methods once we have Snapshot support
 

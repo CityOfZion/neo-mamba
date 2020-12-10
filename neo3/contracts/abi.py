@@ -1,25 +1,60 @@
 from __future__ import annotations
-import warnings
-from typing import List
+import enum
+from typing import List, Optional, Type
 from enum import IntEnum
-from neo3.core import types, IJson
-from neo3 import contracts
+from neo3.core import types, IJson, IInteroperable, serialization
+from neo3 import contracts, vm
 
 
 class ContractParameterType(IntEnum):
-    SIGNATURE = 0x00,
-    BOOLEAN = 0x01,
-    INTEGER = 0x02,
-    HASH160 = 0x03,
-    HASH256 = 0x04,
-    BYTEARRAY = 0x05,
-    PUBLICKEY = 0x06,
-    STRING = 0x07,
-    ARRAY = 0x10,
-    MAP = 0x12,
-    INTEROP_INTERFACE = 0xf0,
-    ANY = 0xfe,
+    ANY = 0x00,
+    BOOLEAN = 0x10,
+    INTEGER = 0x11,
+    BYTEARRAY = 0x12,
+    STRING = 0x13,
+    HASH160 = 0x14,
+    HASH256 = 0x15,
+    PUBLICKEY = 0x16,
+    SIGNATURE = 0x17,
+    ARRAY = 0x20,
+    MAP = 0x22,
+    INTEROP_INTERFACE = 0x30,
     VOID = 0xff
+
+    def PascalCase(self) -> str:
+        if self == ContractParameterType.BYTEARRAY:
+            return "ByteArray"
+        elif self == ContractParameterType.INTEROP_INTERFACE:
+            return "InteropInterface"
+        elif self == ContractParameterType.PUBLICKEY:
+            return "PublicKey"
+        else:
+            return self.name.title()
+
+    @classmethod
+    def from_type(cls, class_type: Type[object]) -> ContractParameterType:
+        if class_type is None:
+            return ContractParameterType.VOID
+        elif class_type in [bool, vm.BooleanStackItem]:
+            return ContractParameterType.BOOLEAN
+        elif class_type in [int, vm.BigInteger]:
+            return ContractParameterType.INTEGER
+        elif class_type in [bytes, bytearray, vm.BufferStackItem, vm.ByteStringStackItem]:
+            return ContractParameterType.BYTEARRAY
+        elif issubclass(class_type, serialization.ISerializable):
+            return ContractParameterType.BYTEARRAY
+        elif class_type == str:
+            return ContractParameterType.STRING
+        elif class_type == vm.MapStackItem:
+            return ContractParameterType.MAP
+        elif class_type in [vm.ArrayStackItem, vm.StructStackItem, list]:
+            return ContractParameterType.ARRAY
+        elif issubclass(class_type, IInteroperable):
+            return ContractParameterType.ARRAY
+        elif issubclass(class_type, enum.Enum):
+            return ContractParameterType.INTEGER
+        else:
+            return ContractParameterType.ANY
 
 
 class ContractParameterDefinition(IJson):
@@ -46,7 +81,7 @@ class ContractParameterDefinition(IJson):
         """
         json = {
             "name": self.name,
-            "type": self.type.name.title()
+            "type": self.type.PascalCase()
         }
         return json
 
@@ -118,15 +153,18 @@ class ContractMethodDescriptor(ContractEventDescriptor, IJson):
     A description of a callable method on a contract.
     """
     def __init__(self, name: str,
+                 offset: int,
                  parameters: List[ContractParameterDefinition],
                  return_type: contracts.ContractParameterType):
         """
         Args:
             name: the human readable identifier of the method.
+            offset: script offset
             parameters: the list of parameters the method takes.
             return_type: the type of the returned value.
         """
         super(ContractMethodDescriptor, self).__init__(name, parameters)
+        self.offset = offset
         self.return_type = return_type
 
     def __eq__(self, other):
@@ -134,24 +172,8 @@ class ContractMethodDescriptor(ContractEventDescriptor, IJson):
             return False
         return (self.name == other.name
                 and self.parameters == other.parameters
+                and self.offset == other.offset
                 and self.return_type == other.return_type)
-
-    @classmethod
-    def default_entrypoint(cls) -> ContractMethodDescriptor:
-        """
-        Create an entry point accepting an operation and a list of arguments.
-
-        Note: deprecated post neo3-preview2.
-        """
-        warnings.warn("Will be deprecated post neo3-preview2", PendingDeprecationWarning)
-        return cls(
-            "Main",
-            [
-                ContractParameterDefinition("operation", contracts.ContractParameterType.STRING),
-                ContractParameterDefinition("args", contracts.ContractParameterType.ARRAY)
-            ],
-            contracts.ContractParameterType.ANY
-        )
 
     def to_json(self) -> dict:
         """
@@ -159,7 +181,8 @@ class ContractMethodDescriptor(ContractEventDescriptor, IJson):
         """
         json = super(ContractMethodDescriptor, self).to_json()
         json.update({
-            "returnType": self.return_type.name.title()
+            "offset": self.offset,
+            "returntype": self.return_type.PascalCase()
         })
         return json
 
@@ -176,9 +199,13 @@ class ContractMethodDescriptor(ContractEventDescriptor, IJson):
         """
         return cls(
             name=json['name'],
+            offset=json['offset'],
             parameters=list(map(lambda p: contracts.ContractParameterDefinition.from_json(p), json['parameters'])),
-            return_type=contracts.ContractParameterType[json['returnType'].upper()]
+            return_type=contracts.ContractParameterType[json['returntype'].upper()]
         )
+
+    def __repr__(self):
+        return f"<{self.__class__.__name__} at {hex(id(self))}> {self.name}"
 
 
 class ContractABI(IJson):
@@ -188,7 +215,6 @@ class ContractABI(IJson):
     """
     def __init__(self,
                  contract_hash: types.UInt160,
-                 entry_point: contracts.ContractMethodDescriptor,
                  methods: List[contracts.ContractMethodDescriptor],
                  events: List[contracts.ContractEventDescriptor]):
         """
@@ -196,12 +222,10 @@ class ContractABI(IJson):
         Args:
             contract_hash: the result of performing RIPEMD160(SHA256(vm_script)), where vm_script is the smart contract
             byte code.
-            entry_point: Obsolete after preview 2.
             methods: the available methods in the contract.
             events: the various events that can be broad casted by the contract.
         """
         self.contract_hash = contract_hash
-        self.entry_point = entry_point
         self.methods = methods
         self.events = events
 
@@ -209,9 +233,21 @@ class ContractABI(IJson):
         if not isinstance(other, type(self)):
             return False
         return (self.contract_hash == other.contract_hash
-                and self.entry_point == other.entry_point
                 and self.methods == other.methods
                 and self.events == other.events)
+
+    def get_method(self, name) -> Optional[contracts.ContractMethodDescriptor]:
+        """
+        Return the ContractMethodDescriptor matching the name or None otherwise.
+
+        Args:
+            name: the name of the method to return.
+        """
+        for m in self.methods:
+            if m.name == name:
+                return m
+        else:
+            return None
 
     def to_json(self) -> dict:
         """
@@ -219,7 +255,6 @@ class ContractABI(IJson):
         """
         json = {
             "hash": '0x' + str(self.contract_hash),
-            "entryPoint": self.entry_point.to_json(),
             "methods": list(map(lambda m: m.to_json(), self.methods)),
             "events": list(map(lambda e: e.to_json(), self.events))
         }
@@ -238,7 +273,6 @@ class ContractABI(IJson):
         """
         return cls(
             contract_hash=types.UInt160.from_string(json['hash'][2:]),
-            entry_point=contracts.ContractMethodDescriptor.from_json(json['entryPoint']),
             methods=list(map(lambda m: contracts.ContractMethodDescriptor.from_json(m), json['methods'])),
             events=list(map(lambda e: contracts.ContractEventDescriptor.from_json(e), json['events'])),
         )

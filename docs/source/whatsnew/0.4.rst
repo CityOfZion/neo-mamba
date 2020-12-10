@@ -1,0 +1,35 @@
+.. _whatsnew-v04:
+
+*****************************
+  What's New in neo-mamba 0.4
+*****************************
+
+:Author: Erik van den Brink
+
+Smart contracts and Node capabilities
+=====================================
+
+This is a huge release adding the interoperability layer, which in combination with the virtual machine allows for processing smart contracts on the blockchain.
+Together with the expanded Blockchain class one can now run a basic node. See `basic_node.py` in the `examples` folder.
+
+There is one small part of the interoperability layer that was not implemented, which are the "callback" syscalls.
+This feature was expected to not yet be used and Testnet showed it isn't. It will be added to the Preview 4 compatible release.
+
+Audit results
+=============
+Now that we can tie together the core, storage, network and smart contract layers we have the possibility to audit `neo-mamba`,
+and so we did. The audit has been performed using the Preview 3 testnet made available by NEO. The audit validated the
+processing of every block and transaction looking at the system fees, network fees, virtual machine gas consumption,
+final execution state per transaction, result stack contents and every single storage modification made.
+
+We're proud to say
+that for all 562380 blocks available at the time of performing the audit we produce identical results as the official client.
+
+
+No external documentation updates
+=================================
+As we are catching up to a moving target we have to spend our limited resources wisely. The decision has been made to currently
+not expand the external available documentation (available `here <https://docs.coz.io/neo3/mamba/index.html>`_) and update them once
+the code has been updated to be Preview 4 compatible. Preview 4 should be close to a MainNet release and thus fewer big core changes
+are expected from that point forward. Have no fear, we still added doc strings and typing to the code, you just have to
+look a bit closer :-)

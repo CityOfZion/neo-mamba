@@ -1,8 +1,8 @@
 import abc
 import unittest
 from neo3.core import types
-from neo3.network import payloads
 from neo3 import storage
+from neo3.network import payloads
 from neo3.contracts import manifest
 from contextlib import suppress
 from copy import deepcopy
@@ -300,8 +300,8 @@ class AbstractBlockStorageTest(abc.ABC, unittest.TestCase):
         blocks = list(clone_view.blocks.all())
         self.assertEqual(3, len(blocks))
         self.assertEqual(2, len(list(snapshot_view.blocks.all())))
-        self.assertEqual(self.block2, blocks[0])
-        self.assertEqual(block3, blocks[1])
+        self.assertEqual(block3, blocks[0])
+        self.assertEqual(self.block2, blocks[1])
         self.assertEqual(self.block1, blocks[2])
 
     def test_snapshot_bestblockheight(self):
@@ -347,6 +347,10 @@ class AbstractContractStorageTest(abc.ABC, unittest.TestCase):
     @abc.abstractmethod
     def db_factory(self):
         """ Implement to return an instance of your DB """
+
+    def shortDescription(self):
+        # disable docstring printing in test runner
+        return None
 
     def setUp(self) -> None:
         self.db = self.db_factory()
@@ -1020,7 +1024,6 @@ class AbstractStorageStorageTest(abc.ABC, unittest.TestCase):
         clone_view.storages.put(clone_key, clone_item)
         all_pairs = list(clone_view.storages.find(self.contract2_hash, b'\x03'))
         self.assertEqual(3, len(all_pairs))
-
 
     def test_find_extra(self):
         """

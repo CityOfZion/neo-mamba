@@ -33,14 +33,15 @@ class ContractGroup(IJson):
         """
         return cryptography.verify_signature(contract_hash.to_array(),
                                              self.signature,
-                                             self.public_key.encode_point(False))
+                                             self.public_key.encode_point(False),
+                                             cryptography.ECCCurve.NISTP256)
 
     def to_json(self) -> dict:
         """
         Convert object into JSON representation.
         """
         json = {
-            'pubKey': str(self.public_key),
+            'pubkey': str(self.public_key),
             'signature': base64.b64encode(self.signature).decode()
         }
         return json
@@ -57,21 +58,21 @@ class ContractGroup(IJson):
             KeyError: if the data supplied does not contain the necessary keys.
         """
         return cls(
-            public_key=cryptography.EllipticCurve.ECPoint.deserialize_from_bytes(binascii.unhexlify(json['pubKey'])),
+            public_key=cryptography.EllipticCurve.ECPoint.deserialize_from_bytes(binascii.unhexlify(json['pubkey'])),
             signature=base64.b64decode(json['signature'].encode('utf8'))
         )
 
 
 class ContractPermission(IJson):
     """
-    An object describing a single set of outgoing call restrictions for a 'System.Contract.Call' SYSCALL.
+    Describes a single set of outgoing call restrictions for a 'System.Contract.Call' SYSCALL.
     It describes what other smart contracts the executing contract is allowed to call and what exact methods on the
     other contract are allowed to be called. This is enforced during runtime.
 
     Example:
         Contract A (the executing contract) wants to call method "x" on Contract B. The runtime will query the manifest
         of Contract A and ask if this is allowed. The Manifest will search through its permissions (a list of
-        ContractPermission objects) and ask if this "is_allowed(target_contract, target_method)".
+        ContractPermission objects) and ask if it "is_allowed(target_contract, target_method)".
     """
     def __init__(self, contract: contracts.ContractPermissionDescriptor, methods: WildcardContainer):
         self.contract = contract
@@ -255,7 +256,7 @@ class ContractManifest(serialization.ISerializable, IJson):
     https://github.com/neo-project/proposals/blob/3e492ad05d9de97abb6524fb9a73714e2cdc5461/nep-15.mediawiki
     """
     #: The maximum byte size after serialization to be considered valid a valid contract.
-    MAX_LENGTH = 2048
+    MAX_LENGTH = 4096
 
     def __init__(self, contract_hash: types.UInt160 = types.UInt160.zero()):
         """
@@ -274,11 +275,13 @@ class ContractManifest(serialization.ISerializable, IJson):
         #: Features describe what contract abilities are available. TODO: link to contract features
         self.features: ContractFeatures = ContractFeatures.NO_PROPERTY
 
+        #: The list of NEP standards supported e.g. "NEP-3"
+        self.supported_standards: List[str] = []
+
         #: For technical details of ABI, please refer to NEP-14: NeoContract ABI.
         #: https://github.com/neo-project/proposals/blob/d1f4e9e1a67d22a5755c45595121f80b0971ea64/nep-14.mediawiki
         self.abi: contracts.ContractABI = contracts.ContractABI(
             contract_hash=contract_hash,
-            entry_point=contracts.ContractMethodDescriptor.default_entrypoint(),
             events=[],
             methods=[]
         )
@@ -291,7 +294,7 @@ class ContractManifest(serialization.ISerializable, IJson):
         # Update trusts/safe_methods with outcome of https://github.com/neo-project/neo/issues/1664
         # Unfortunately we have to add this nonsense logic or we get deviating VM results.
         self.trusts = WildcardContainer()  # for UInt160 types
-        self.safe_methods = WildcardContainer()  # for string types
+        self.safe_methods: WildcardContainer = WildcardContainer()  # for string types
         self.extra = None
 
     def __len__(self):
@@ -308,6 +311,9 @@ class ContractManifest(serialization.ISerializable, IJson):
                 and self.safe_methods == other.safe_methods
                 and self.extra == other.extra)
 
+    def __str__(self):
+        return str(json.dumps(self.to_json(), separators=(',', ':')))
+
     def serialize(self, writer: BinaryWriter) -> None:
         """
         Serialize the object into a binary stream.
@@ -315,7 +321,7 @@ class ContractManifest(serialization.ISerializable, IJson):
         Args:
             writer: instance.
         """
-        writer.write_var_string(json.dumps(self.to_json()).replace(' ', ''))
+        writer.write_var_string(json.dumps(self.to_json(), separators=(',', ':')))
 
     def deserialize(self, reader: BinaryReader) -> None:
         """
@@ -328,8 +334,10 @@ class ContractManifest(serialization.ISerializable, IJson):
 
     def _deserialize_from_json(self, json: dict) -> None:
         self.abi = contracts.ContractABI.from_json(json['abi'])
+        self.contract_hash = self.abi.contract_hash
         self.groups = list(map(lambda g: ContractGroup.from_json(g), json['groups']))
         self.features = ContractFeatures.NO_PROPERTY
+        self.supported_standards = json['supportedstandards']
         if json['features']['storage']:
             self.features |= ContractFeatures.HAS_STORAGE
         if json['features']['payable']:
@@ -341,7 +349,7 @@ class ContractManifest(serialization.ISerializable, IJson):
             lambda t: types.UInt160.from_string(t))
 
         # converting json key/value back to default WildcardContainer format
-        self.safe_methods = WildcardContainer.from_json({'wildcard': json['safeMethods']})
+        self.safe_methods = WildcardContainer.from_json({'wildcard': json['safemethods']})
         self.extra = json['extra']
 
     def to_json(self) -> dict:
@@ -355,10 +363,11 @@ class ContractManifest(serialization.ISerializable, IJson):
                 "storage": contracts.ContractFeatures.HAS_STORAGE in self.features,
                 "payable": contracts.ContractFeatures.PAYABLE in self.features,
             },
+            "supportedstandards": self.supported_standards,
             "abi": self.abi.to_json(),
             "permissions": list(map(lambda p: p.to_json(), self.permissions)),
             "trusts": trusts,
-            "safeMethods": self.safe_methods.to_json()['wildcard'],
+            "safemethods": self.safe_methods.to_json()['wildcard'],
             "extra": self.extra
         }
         return json

@@ -1,9 +1,12 @@
 import logging
 import json
 import importlib
+import binascii
+from typing import List
 from types import SimpleNamespace
+from neo3.core import cryptography
 
-version = '0.3'
+version = '0.4'
 
 core_logger = logging.getLogger('neo3.core')
 network_logger = logging.getLogger('neo3.network')
@@ -42,10 +45,13 @@ class IndexableNamespace(SimpleNamespace):
 
 class Settings(IndexableNamespace):
     db = None
+    _cached_standby_committee = None
     default_settings = {
         'network': {
-            'magic': None,
-            'seedlist': []
+            'magic': 5195086,
+            'seedlist': [],
+            'validators_count': 1,
+            'standby_committee': ['02158c4a4810fa2a6a12f7d33d835680429e1a68ae61161c5b3fbc98c7f1f17765']
         },
         'storage': {
             'use_default': True,
@@ -101,6 +107,19 @@ class Settings(IndexableNamespace):
             else:
                 where.__dict__.update({k: v})
             self._convert(where[k].__dict__, where[k].__dict__)
+
+    @property
+    def standby_committee(self) -> List[cryptography.EllipticCurve.ECPoint]:
+        if self._cached_standby_committee is None:
+            points = []
+            for p in self.network.standby_committee:
+                points.append(cryptography.EllipticCurve.ECPoint.deserialize_from_bytes(binascii.unhexlify(p)))
+            self._cached_standby_committee = points
+        return self._cached_standby_committee
+
+    @property
+    def standby_validators(self) -> List[cryptography.EllipticCurve.ECPoint]:
+        return self.standby_committee[:self.network.validators_count]
 
     @property
     def database(self):

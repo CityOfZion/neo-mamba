@@ -61,6 +61,10 @@ class MerkleTreeTestCase(unittest.TestCase):
         self.assertEqual(True, m.root.left_child.is_leaf())
 
 class BloomFilterTestCase(unittest.TestCase):
+    def shortDescription(self):
+        # disable docstring printing in test runner
+        return None
+
     def test_seed_building(self):
         filter = crypto.BloomFilter(m=7, k=10, ntweak=123456)
         # these values have been captured by creating a BloomFilter in C# and reading the seed values through debugging

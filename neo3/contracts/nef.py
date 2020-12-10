@@ -1,6 +1,6 @@
 from __future__ import annotations
 import hashlib
-from typing import Tuple, Optional
+from typing import Tuple
 from neo3.core import serialization, types, Size as s, utils
 
 
@@ -39,12 +39,24 @@ class Version(serialization.ISerializable):
         return s.uint32 + s.uint32 + s.uint32 + s.uint32
 
     def serialize(self, writer: serialization.BinaryWriter) -> None:
+        """
+        Serialize the object into a binary stream.
+
+        Args:
+            writer: instance.
+        """
         writer.write_int32(self.major)
         writer.write_int32(self.minor)
         writer.write_int32(self.build)
         writer.write_int32(self.revision)
 
     def deserialize(self, reader: serialization.BinaryReader) -> None:
+        """
+        Deserialize the object from a binary stream.
+
+        Args:
+            reader: instance.
+        """
         self.major = reader.read_int32()
         self.minor = reader.read_int32()
         self.build = reader.read_int32()
@@ -103,6 +115,15 @@ class Version(serialization.ISerializable):
 
 class NEF(serialization.ISerializable):
     def __init__(self, compiler_name: str = None, version: Version = None, script: bytes = None):
+        """
+        Create a Neo Executable Format file.
+
+        Args:
+            compiler_name: human readable name of the compiler used to create the script data. Automatically limited to
+            32 bytes
+            version: compiler version information
+            script: a byte array of raw VM opcodes.
+        """
         self.magic = 0x3346454E
         if compiler_name is None:
             self.compiler = 'unknown'
@@ -133,6 +154,12 @@ class NEF(serialization.ISerializable):
                 and self.checksum == other.checksum)
 
     def serialize(self, writer: serialization.BinaryWriter) -> None:
+        """
+        Serialize the object into a binary stream.
+
+        Args:
+            writer: instance.
+        """
         writer.write_uint32(self.magic)
         writer.write_bytes(self.compiler.encode('utf-8'))
         writer.write_bytes(self.version.to_array())
@@ -141,6 +168,12 @@ class NEF(serialization.ISerializable):
         writer.write_var_bytes(self.script)
 
     def deserialize(self, reader: serialization.BinaryReader) -> None:
+        """
+        Deserialize the object from a binary stream.
+
+        Args:
+            reader: instance.
+        """
         self.magic = reader.read_uint32()
         self.compiler = reader.read_bytes(32).decode('utf-8')
         self.version = Version.deserialize_from_bytes(reader.read_bytes(16))
@@ -154,12 +187,18 @@ class NEF(serialization.ISerializable):
             raise ValueError("Deserialization error - invalid script_hash")
 
     def compute_checksum(self) -> bytes:
+        """
+        Compute the checksum of the NEF file.
+        """
         data = (self.magic.to_bytes(4, 'little')
                 + self.compiler.encode('utf-8')
                 + self.version.to_array()
                 + self.script_hash.to_array())
-        return hashlib.sha256(data).digest()[:4]
+        return hashlib.sha256(hashlib.sha256(data).digest()).digest()[:4]
 
     def compute_script_hash(self) -> types.UInt160:
+        """
+        Compute the script hash over the NEF script member.
+        """
         hash = hashlib.new('ripemd160', hashlib.sha256(self.script).digest()).digest()
         return types.UInt160(data=hash)

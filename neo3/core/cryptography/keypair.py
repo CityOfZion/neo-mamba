@@ -6,7 +6,7 @@ import bitcoin  # type: ignore
 class KeyPair:
     def __init__(self, private_key: bytes):
         self.private_key = private_key
-        self.public_key = None
+        self.public_key: cryptography.EllipticCurve.ECPoint = None
 
         bitcoin.change_curve(
             115792089210356248762697446949407573530086143415290314195533631308867097853951,

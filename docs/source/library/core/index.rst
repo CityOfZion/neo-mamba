@@ -9,11 +9,8 @@ The core package holds the modules that can be expected to be used widely in all
 .. toctree::
    :maxdepth: 2
 
-   biginteger
    bloomfilter
    ecc
    merkletree
    serialization
    uint
-   
-   
