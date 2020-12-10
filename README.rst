@@ -19,6 +19,8 @@ It is a work in progress and thus you can expect that not all parts of the block
 
 Please report any issues on `Github <https://github.com/CityOfZion/neo-mamba/issues>`_ or submit ideas how to improve the SDK.
 
+Also check out our Python smart contract compiler `Boa <https://github.com/CityOfZion/neo3-boa>`_ !
+
 Quick install
 -------------
 ::
@@ -49,7 +51,8 @@ separate repositories but be included here by default (e.g. virtual machine impl
 - Network (v0.1)
 - Storage (v0.1)
 - Virtual Machine
-- Smart contracts
+- Smart contracts (v0.4)
+
 
 FAQ
 ---

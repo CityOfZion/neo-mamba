@@ -1,0 +1,15 @@
+.. _whatsnew-v03:
+
+*****************************
+  What's New in neo-mamba 0.3
+*****************************
+
+:Author: Erik van den Brink
+
+Preview 3 compatibility
+=======================
+
+The release updates the existing components to be compatible with `NEO v3.0.0-preview3 <https://github.com/neo-project/neo/releases/tag/v3.0.0-preview3>`_. The affected areas are again mostly network related. The executable smart contract format (NEF) and associated contract manifest classes have been added.
+
+.. warning:: This release is not backwards compatible.
+
