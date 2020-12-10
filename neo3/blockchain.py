@@ -4,8 +4,6 @@ from datetime import datetime, timezone
 from neo3 import contracts, storage, settings, vm
 from neo3.core import cryptography, types, to_script_hash, msgrouter
 from neo3.network import payloads, convenience
-from .audit import Audit
-import sys
 
 
 class Blockchain(convenience._Singleton):
