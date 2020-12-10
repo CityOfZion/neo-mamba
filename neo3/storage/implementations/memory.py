@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Iterator, Tuple, Dict
+from typing import Iterator, Tuple, Dict, List
 from neo3 import storage
 from neo3.core import types
 from neo3.network import payloads
@@ -257,13 +257,21 @@ class MemoryDBCachedBlockAccess(storage.CachedBlockAccess):
         self._batch = batch
 
     def commit(self) -> None:
+        keys_to_delete: List[types.UInt256] = []
         for trackable in self._dictionary.values():  # trackable.item: payloads.Block
             if trackable.state == storage.TrackState.ADDED:
                 self._db._internal_block_put(trackable.item, self._batch)
+                trackable.state = storage.TrackState.NONE
             elif trackable.state == storage.TrackState.CHANGED:
                 self._db._internal_block_update(trackable.item, self._batch)
+                trackable.state = storage.TrackState.NONE
             elif trackable.state == storage.TrackState.DELETED:
                 self._db._internal_block_delete(trackable.item.hash(), self._batch)
+                keys_to_delete.append(trackable.key)
+        for key in keys_to_delete:
+            with suppress(KeyError):
+                self._dictionary.pop(key)
+        self._changeset.clear()
 
     def create_snapshot(self):
         return storage.CloneBlockCache(self._db, self)
@@ -275,13 +283,21 @@ class MemoryDBCachedContractAccess(storage.CachedContractAccess):
         self._batch = batch
 
     def commit(self) -> None:
-        for trackable in self._dictionary.values():  # trackable.item: storage.ContractState
+        keys_to_delete: List[types.UInt160] = []
+        for trackable in self.get_changeset():  # trackable.item: storage.ContractState
             if trackable.state == storage.TrackState.ADDED:
                 self._db._internal_contract_put(trackable.item, self._batch)
+                trackable.state = storage.TrackState.NONE
             elif trackable.state == storage.TrackState.CHANGED:
                 self._db._internal_contract_update(trackable.item, self._batch)
+                trackable.state = storage.TrackState.NONE
             elif trackable.state == storage.TrackState.DELETED:
                 self._db._internal_contract_delete(trackable.item.script_hash(), self._batch)
+                keys_to_delete.append(trackable.key)
+        for key in keys_to_delete:
+            with suppress(KeyError):
+                self._dictionary.pop(key)
+        self._changeset.clear()
 
     def create_snapshot(self):
         return storage.CloneContractCache(self._db, self)
@@ -293,13 +309,21 @@ class MemoryDBCachedStorageAccess(storage.CachedStorageAccess):
         self._batch = batch
 
     def commit(self) -> None:
-        for trackable in self._dictionary.values():
+        keys_to_delete: List[storage.StorageKey] = []
+        for trackable in self.get_changeset():
             if trackable.state == storage.TrackState.ADDED:
                 self._db._internal_storage_put(trackable.key, trackable.item, self._batch)
+                trackable.state = storage.TrackState.NONE
             elif trackable.state == storage.TrackState.CHANGED:
                 self._db._internal_storage_update(trackable.key, trackable.item, self._batch)
+                trackable.state = storage.TrackState.NONE
             elif trackable.state == storage.TrackState.DELETED:
                 self._db._internal_storage_delete(trackable.key, self._batch)
+                keys_to_delete.append(trackable.key)
+        for key in keys_to_delete:
+            with suppress(KeyError):
+                self._dictionary.pop(key)
+        self._changeset.clear()
 
     def create_snapshot(self):
         return storage.CloneStorageCache(self._db, self)
@@ -311,13 +335,21 @@ class MemoryDBCachedTXAccess(storage.CachedTXAccess):
         self._batch = batch
 
     def commit(self) -> None:
+        keys_to_delete: List[types.UInt256] = []
         for trackable in self._dictionary.values():  # trackable.item: payloads.Transaction
             if trackable.state == storage.TrackState.ADDED:
                 self._db._internal_transaction_put(trackable.item, self._batch)
+                trackable.state = storage.TrackState.NONE
             elif trackable.state == storage.TrackState.CHANGED:
                 self._db._internal_transaction_update(trackable.item, self._batch)
+                trackable.state = storage.TrackState.NONE
             elif trackable.state == storage.TrackState.DELETED:
                 self._db._internal_transaction_delete(trackable.item.hash(), self._batch)
+                keys_to_delete.append(trackable.key)
+        for key in keys_to_delete:
+            with suppress(KeyError):
+                self._dictionary.pop(key)
+        self._changeset.clear()
 
     def create_snapshot(self):
         return storage.CloneTXCache(self._db, self)

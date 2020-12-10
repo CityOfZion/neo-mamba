@@ -587,24 +587,20 @@ class HeaderTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         """
-        Neo.IO.Json.JObject json = new Neo.IO.Json.JObject
+        Header h = new Header
         {
-            ["version"] = 0,
-            ["previousblockhash"] = "a400ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff01",
-            ["merkleroot"] = "a400ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff02",
-            ["time"] = 0,
-            ["index"] = 123,
-            ["nextconsensus"] = "AUNSizuErA3dv1a2ag2ozvikkQS7hhPY1X",
-            ["witnesses"] = new Neo.IO.Json.JArray
+            Version = 0,
+            PrevHash = UInt256.Parse("a400ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff01"),
+            MerkleRoot = UInt256.Parse("a400ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff02"),
+            Timestamp = 0,
+            Index = 123,
+            NextConsensus = UInt160.Parse("0xe239c7228fa6b46cc0cf43623b2f934301d0b4f7"),
+            Witness = new Witness
             {
-                new Neo.IO.Json.JObject {
-                    ["invocation"] = "0102",
-                    ["verification"] = "0304"
-                }
+                InvocationScript = new byte[] { 0x1, 0x2},
+                VerificationScript = new byte[] { 0x3, 0x4}
             }
         };
-
-        Header h = Header.FromJson(json);
         Console.WriteLine(h.Hash);
         Console.WriteLine(h.Size);
         Console.WriteLine($"b\'{BitConverter.ToString(h.ToArray()).Replace("-", "")}\'");
@@ -614,8 +610,7 @@ class HeaderTestCase(unittest.TestCase):
         merkleroot = types.UInt256.from_string("a400ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff02")
         timestamp = 0
         index = 123
-        addr_data = base58.b58decode_check('AUNSizuErA3dv1a2ag2ozvikkQS7hhPY1X')[1:]
-        next_consensus = types.UInt160(data=addr_data)
+        next_consensus = types.UInt160.from_string("e239c7228fa6b46cc0cf43623b2f934301d0b4f7")
         witness = payloads.Witness(invocation_script=b'\x01\x02', verification_script=b'\x03\x04')
 
         cls.header = payloads.Header(version, previous_hash, timestamp, index, next_consensus, witness, merkleroot)
@@ -623,13 +618,13 @@ class HeaderTestCase(unittest.TestCase):
     def test_len_and_hash(self):
         # captured from C#, see setUpClass() for the capture code
         expected_len = 108
-        expected_hash = types.UInt256.from_string('e2804b76df4494861a294bf5f2cf1d99666f8d8cadf1409f2922234d921a93da')
+        expected_hash = types.UInt256.from_string('8672a4dbd51bb911d1988d633f539ccf05e46cf614160be15472b9ae10e43a88')
         self.assertEqual(expected_len, len(self.header))
         self.assertEqual(expected_hash, self.header.hash())
 
     def test_serialization(self):
         # captured from C#, see setUpClass() for the capture code
-        expected_data = binascii.unhexlify(b'0000000001FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A402FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A400000000000000007B0000008A2B438EACA8B4B2AB6B4524B5A69A45D920C3510102010202030400')
+        expected_data = binascii.unhexlify(b'0000000001FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A402FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A400000000000000007B000000F7B4D00143932F3B6243CFC06CB4A68F22C739E20102010202030400')
         self.assertEqual(expected_data, self.header.to_array())
 
     def test_deserialization(self):
@@ -1149,9 +1144,7 @@ class TransactionTestCase(unittest.TestCase):
 
         tx = deepcopy(self.tx)
         tx.signers = []
-        with self.assertRaises(ValueError) as context:
-            tx.sender
-        self.assertEqual("Invalid transaction - signers can't be empty", str(context.exception))
+        self.assertEqual(types.UInt160.zero(), tx.sender)
 
     def test_protocol_magic(self):
         # test proper initialization
@@ -1165,6 +1158,19 @@ class TransactionTestCase(unittest.TestCase):
         settings.network.magic = 456
         tx = payloads.Transaction._serializable_init()
         self.assertEqual(456, tx.protocol_magic)
+
+    def test_scripthashes_for_verifying(self):
+        tx = payloads.Transaction._serializable_init()
+
+        account1 = types.UInt160.from_string("d7678dd97c000be3f33e9362e673101bac4ca654")
+        account2 = types.UInt160.zero()
+        signer1 = payloads.Signer(account=account1, scope=payloads.WitnessScope.FEE_ONLY)
+        signer2 = payloads.Signer(account=account2, scope=payloads.WitnessScope.FEE_ONLY)
+
+        tx.signers = [signer1, signer2]
+
+        hashes = tx.get_script_hashes_for_verifying(None)
+        self.assertEqual([account1, account2], hashes)
 
 
 class VersionTestCase(unittest.TestCase):

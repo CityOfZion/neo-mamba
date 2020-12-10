@@ -25,7 +25,7 @@ class VarSizeTestCase(unittest.TestCase):
         self.assertEqual(1, utils.get_var_size(0xFC))
         self.assertEqual(3, utils.get_var_size(0xFD))
         self.assertEqual(3, utils.get_var_size(0xFFFF))
-        self.assertEqual(5, utils.get_var_size(0xFFFF+1))
+        self.assertEqual(5, utils.get_var_size(0xFFFF + 1))
 
     def test_varsize_string(self):
         input = "abc"
@@ -49,7 +49,7 @@ class VarSizeTestCase(unittest.TestCase):
         self.assertEqual(1, utils.get_var_size(iterable))
 
         iterable = b'\x01\x02'
-        self.assertEqual(1+len(iterable), utils.get_var_size(iterable))
+        self.assertEqual(1 + len(iterable), utils.get_var_size(iterable))
 
         iterable = [DummySerializable(), DummySerializable()]
         fixed_dummy_size = 2

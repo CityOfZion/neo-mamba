@@ -207,7 +207,8 @@ class SyncManager(convenience._Singleton):
                 except IndexError:
                     # cache empty
                     break
-                await self.ledger.persist(block)
+                msgrouter.on_block_persist(block)
+                self.ledger.persist(block)
                 await asyncio.sleep(0)
         except Exception as e:
             logger.debug(f"Unexpected exception happened while processing the block cache: {traceback.format_exc()}")

@@ -3,6 +3,10 @@ Changelog
 
 All notable changes to this project are documented in this file.
 
+[0.4] 2020-12-10
+----------------
+- Add interoperability layer (too many changes to mention)
+
 [0.3] 2020-08-20
 ----------------
 - Add Manifest and NEO Executale Format (NEF) support

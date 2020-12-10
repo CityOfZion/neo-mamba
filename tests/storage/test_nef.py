@@ -155,7 +155,7 @@ class NEFTestCase(unittest.TestCase):
         Console.WriteLine(nef.ToArray().ToHexString());
         Console.WriteLine(nef.Size);
         """
-        cls.expected = binascii.unhexlify(b'4e4546336e656f332d626f6120627920434f5a2e696f0000000000000000000000000000010000000200000003000000040000009bc4860bb936abf262d7a51f74b4304833fee3b204f92d6a03010203')
+        cls.expected = binascii.unhexlify(b'4e4546336e656f332d626f6120627920434f5a2e696f0000000000000000000000000000010000000200000003000000040000009bc4860bb936abf262d7a51f74b4304833fee3b2b70c644203010203')
         cls.expected_length = 80
         version = contracts.Version(1,2,3,4)
         compiler = "neo3-boa by COZ.io"

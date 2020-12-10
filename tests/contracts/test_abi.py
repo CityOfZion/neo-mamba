@@ -73,34 +73,26 @@ class ContractMethodDescriptorTestCase(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.parameters = [contracts.ContractParameterDefinition("param", contracts.ContractParameterType.STRING)]
         cls.expected = {"name": "MainMethod",
+                        "offset": 0,
                         "parameters": [cls.parameters[0].to_json()],
-                        "returnType": "Boolean"}
-
-    def test_default_entry_point(self):
-        cmd = contracts.ContractMethodDescriptor.default_entrypoint()
-        self.assertEqual("Main", cmd.name)
-        self.assertEqual(2, len(cmd.parameters))
-        param1_from_json = contracts.ContractParameterDefinition.from_json({'name': 'operation', 'type': 'String'})
-        self.assertEqual(param1_from_json, cmd.parameters[0])
-        param2_from_json = contracts.ContractParameterDefinition.from_json({'name': 'args', 'type': 'Array'})
-        self.assertEqual(param2_from_json, cmd.parameters[1])
-        self.assertEqual(contracts.ContractParameterType.ANY, cmd.return_type)
+                        "returntype": "Boolean"}
 
     def test_to_json(self):
-        cmd = contracts.ContractMethodDescriptor("MainMethod", self.parameters, contracts.ContractParameterType.BOOLEAN)
+        cmd = contracts.ContractMethodDescriptor("MainMethod", 0, self.parameters, contracts.ContractParameterType.BOOLEAN)
         self.assertEqual(self.expected, cmd.to_json())
 
     def test_from_json(self):
         cmd = contracts.ContractMethodDescriptor.from_json(self.expected)
         self.assertEqual("MainMethod", cmd.name)
         self.assertEqual(self.parameters, cmd.parameters)
+        self.assertEqual(0, cmd.offset)
         self.assertEqual(contracts.ContractParameterType.BOOLEAN, cmd.return_type)
 
         with self.assertRaises(KeyError) as context:
             json_without_return_type = self.expected.copy()
-            json_without_return_type.pop('returnType')
+            json_without_return_type.pop('returntype')
             contracts.ContractMethodDescriptor.from_json(json_without_return_type)
-        self.assertIn('returnType', str(context.exception))
+        self.assertIn('returntype', str(context.exception))
 
     def test_eq(self):
         cmd = contracts.ContractMethodDescriptor.from_json(self.expected)
@@ -113,10 +105,11 @@ class AbiTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         """
-        var entry_point = ContractMethodDescriptor.DefaultEntryPoint;
         var methods = new ContractMethodDescriptor[]
         {
-            new ContractMethodDescriptor {Name = "main_entry",
+            new ContractMethodDescriptor {
+                Name = "main_entry",
+                Offset = 0,
                 Parameters = new ContractParameterDefinition[0],
                 ReturnType = ContractParameterType.Integer}
         };
@@ -127,15 +120,14 @@ class AbiTestCase(unittest.TestCase):
         var abi = new ContractAbi()
         {
             Hash = UInt160.Zero,
-            EntryPoint = entry_point,
             Methods = methods,
             Events = events
         };
         Console.WriteLine(abi.ToJson());
         """
-        cls.entry_point = contracts.ContractMethodDescriptor.default_entrypoint()
         cls.method1 = contracts.ContractMethodDescriptor(
             name="main_entry",
+            offset=0,
             parameters=[],
             return_type=contracts.ContractParameterType.INTEGER
         )
@@ -146,12 +138,11 @@ class AbiTestCase(unittest.TestCase):
         )
         cls.events = [cls.event]
         # captured from C#
-        cls.expected_json = {"hash": "0x0000000000000000000000000000000000000000","entryPoint":{"name":"Main","parameters":[{"name":"operation","type":"String"},{"name":"args","type":"Array"}],"returnType":"Any"},"methods":[{"name":"main_entry","parameters":[],"returnType":"Integer"}],"events":[{"name":"main_event","parameters":[]}]}
+        cls.expected_json = {"hash":"0x0000000000000000000000000000000000000000","methods":[{"name":"main_entry","parameters":[],"offset":0,"returntype":"Integer"}],"events":[{"name":"main_event","parameters":[]}]}
 
     def test_to_json(self):
         abi = contracts.ContractABI(
             contract_hash=types.UInt160.zero(),
-            entry_point=self.entry_point,
             methods=self.methods,
             events=self.events
         )
@@ -162,10 +153,19 @@ class AbiTestCase(unittest.TestCase):
         # if "test_to_json" passes, then we know we can use our defined class
         # attributes to validate the from_json() results
         abi = contracts.ContractABI.from_json(self.expected_json)
-        self.assertEqual(self.entry_point, abi.entry_point)
+        self.assertEqual(self.methods, abi.methods)
+        self.assertEqual(self.events, abi.events)
 
     def test_eq(self):
         abi = contracts.ContractABI.from_json(self.expected_json)
         abi2 = contracts.ContractABI.from_json(self.expected_json)
         self.assertFalse(abi == object())
         self.assertTrue(abi == abi2)
+
+    def test_get_method(self):
+        abi = contracts.ContractABI.from_json(self.expected_json)
+        self.assertIsNone(abi.get_method("bad_method"))
+        method = abi.get_method("main_entry")
+        self.assertIsInstance(method, contracts.ContractMethodDescriptor)
+        self.assertEqual("main_entry", method.name)
+

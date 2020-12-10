@@ -1,4 +1,4 @@
-.. image:: https://raw.githubusercontent.com/CityOfZion/neo-mamba/master/logo.png
+.. image:: https://raw.githubusercontent.com/CityOfZion/visual-identity/develop/_CoZ%20Branding/_Logo/_Logo%20icon/_PNG%20200x178px/CoZ_Icon_DARKBLUE_200x178px.png
     :alt: CoZ logo
 
 neo-mamba
@@ -19,6 +19,8 @@ It is a work in progress and thus you can expect that not all parts of the block
 
 Please report any issues on `Github <https://github.com/CityOfZion/neo-mamba/issues>`_ or submit ideas how to improve the SDK.
 
+Also check out our Python smart contract compiler `Boa <https://github.com/CityOfZion/neo3-boa>`_ !
+
 Quick install
 -------------
 ::
@@ -34,7 +36,7 @@ or
   pip install wheel -e .
 
 
-For full documentation including more elaborate installation instructions go to `<https://docs.coz.io/neo3/mamba/index.html>`_.
+For full documentation including more elaborate install instructions go to `<https://docs.coz.io/neo3/mamba/index.html>`_.
 
 Roadmap
 -------
@@ -45,11 +47,12 @@ separate repositories but be included here by default (e.g. virtual machine impl
 .. image:: https://raw.githubusercontent.com/CityOfZion/neo-mamba/master/docs/source/library/images/SDK_overview.png
     :alt: SDK overview
 
-- Core (Released)
-- Network (Released)
-- Storage (Released)
-- Virtual Machine (Released)
-- Smart contracts (`In development <https://github.com/CityOfZion/neo-mamba/commits/feature-smart-contracts>`_)
+- Core (v0.1)
+- Network (v0.1)
+- Storage (v0.1)
+- Virtual Machine
+- Smart contracts (v0.4)
+
 
 FAQ
 ---

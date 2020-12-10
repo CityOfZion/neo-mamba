@@ -439,3 +439,9 @@ class RawTXAccess:
         """
         for tx in self._db._internal_transaction_all():
             yield tx
+
+
+class StorageContext:
+    def __init__(self, script_hash: types.UInt160, is_read_only: bool):
+        self.script_hash = script_hash
+        self.is_read_only = is_read_only

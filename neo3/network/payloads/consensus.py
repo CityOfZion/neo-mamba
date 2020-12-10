@@ -1,9 +1,10 @@
 from __future__ import annotations
 import hashlib
 from enum import IntEnum
-from neo3.core import Size as s, serialization, utils, types
+from neo3.core import Size as s, serialization, utils, types, to_script_hash
 from neo3.network import payloads
-from typing import TypeVar
+from neo3 import contracts, storage
+from typing import TypeVar, List
 
 ConsensusMessage_t = TypeVar('ConsensusMessage_t', bound='ConsensusMessage')
 
@@ -57,7 +58,7 @@ class ConsensusMessage(serialization.ISerializable):
         return cls(ConsensusMessageType.CHANGE_VIEW)
 
 
-class ConsensusPayload(serialization.ISerializable, payloads.IInventory):
+class ConsensusPayload(payloads.IInventory):
     def __init__(self, version: int,
                  prev_hash: types.UInt256,
                  block_index: int,
@@ -137,6 +138,14 @@ class ConsensusPayload(serialization.ISerializable, payloads.IInventory):
         self.block_index = reader.read_uint32()
         self.validator_index = reader.read_uint16()
         self.data = reader.read_var_bytes()
+
+    def get_script_hashes_for_verifying(self, snapshot: storage.Snapshot) -> List[types.UInt160]:
+        validators = contracts.NeoToken().get_next_block_validators(snapshot)
+        if len(validators) < self.validator_index:
+            raise ValueError("Validator index is out of range")
+        return [to_script_hash(
+            contracts.Contract.create_signature_redeemscript(validators[self.validator_index])
+        )]
 
     @classmethod
     def _serializable_init(cls):

@@ -2,7 +2,7 @@ from __future__ import annotations
 import asyncio
 import traceback
 from datetime import datetime
-from neo3.network import encode_base62, message, payloads, capabilities, protocol as protocol
+from neo3.network import encode_base62, message, payloads, capabilities, protocol as protocol, relaycache
 from neo3.network.ipfilter import ipfilter
 from neo3.network.convenience import nodeweight
 from neo3 import network_logger as logger, settings, blockchain
@@ -302,7 +302,16 @@ class NeoNode:
         Args:
             msg:
         """
-        pass
+        payload = cast(payloads.InventoryPayload, msg.payload)
+        for h in payload.hashes:
+            item = relaycache.RelayCache().try_get(h)
+            if item is None:
+                # for the time being we only support data retrieval for our own relays
+                continue
+            if payload.type == payloads.InventoryType.TX:
+                m = message.Message(msg_type=message.MessageType.TRANSACTION,
+                                    payload=item)
+                self._create_task_with_cleanup(self.send_message(m))
 
     def handler_getheaders(self, msg: message.Message) -> None:
         """

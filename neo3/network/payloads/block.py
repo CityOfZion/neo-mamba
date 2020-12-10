@@ -1,13 +1,16 @@
 from __future__ import annotations
 import hashlib
 from typing import List
-from neo3.core import Size as s, serialization, types, utils, cryptography as crypto, IClonable
+
+from neo3 import vm, storage, settings
+from neo3.core import Size as s, serialization, types, utils, cryptography as crypto, IClonable, IInteroperable
 from neo3.network import payloads
 from bitarray import bitarray  # type: ignore
 from copy import deepcopy
+from .verification import IVerifiable
 
 
-class _BlockBase(serialization.ISerializable):
+class _BlockBase(IVerifiable):
     def __init__(self,
                  version: int,
                  prev_hash: types.UInt256,
@@ -77,10 +80,19 @@ class _BlockBase(serialization.ISerializable):
         Get a unique block identifier based on the unsigned data portion of the object.
         """
         with serialization.BinaryWriter() as bw:
+            bw.write_uint32(settings.network.magic)
             self.serialize_unsigned(bw)
             data_to_hash = bytearray(bw._stream.getvalue())
             data = hashlib.sha256(hashlib.sha256(data_to_hash).digest()).digest()
             return types.UInt256(data=data)
+
+    def get_script_hashes_for_verifying(self, snapshot: storage.Snapshot) -> List[types.UInt160]:
+        if self.prev_hash == types.UInt256.zero():
+            return [self.witness.script_hash()]
+        prev_block = snapshot.blocks.try_get(self.prev_hash, read_only=True)
+        if prev_block is None:
+            raise ValueError("Can't get next_consensus hash from previous block. Block does not exist")
+        return [prev_block.next_consensus]
 
 
 class Header(_BlockBase):
@@ -150,7 +162,7 @@ class Header(_BlockBase):
                    payloads.Witness(b'', b''))
 
 
-class Block(_BlockBase, payloads.IInventory):
+class Block(_BlockBase, payloads.IInventory, IInteroperable):
     """
     The famous Block. I transfer chain state.
     """
@@ -274,6 +286,9 @@ class Block(_BlockBase, payloads.IInventory):
         return crypto.MerkleTree.compute_root(hashes)
 
     def from_replica(self, replica: Block) -> None:
+        """
+        Shallow copy attributes from a reference object.
+        """
         self.version = replica.version
         self.prev_hash = replica.prev_hash
         self.merkle_root = replica.merkle_root
@@ -283,6 +298,25 @@ class Block(_BlockBase, payloads.IInventory):
         self.witness = replica.witness
         self.consensus_data = replica.consensus_data
         self.transactions = replica.transactions
+
+    def to_stack_item(self, reference_counter: vm.ReferenceCounter) -> vm.StackItem:
+        """
+        Convert self to a VM stack item.
+
+        Args:
+            reference_counter: ExecutionEngine reference counter
+        """
+        array = vm.ArrayStackItem(reference_counter)
+        block_hash = vm.ByteStringStackItem(self.hash().to_array())
+        version = vm.IntegerStackItem(self.version)
+        prev_hash = vm.ByteStringStackItem(self.prev_hash.to_array())
+        merkle_root = vm.ByteStringStackItem(self.merkle_root.to_array())
+        timestamp = vm.IntegerStackItem(self.timestamp)
+        index = vm.IntegerStackItem(self.index)
+        next_consensus = vm.ByteStringStackItem(self.next_consensus.to_array())
+        tx_len = vm.IntegerStackItem(len(self.transactions))
+        array.append([block_hash, version, prev_hash, merkle_root, timestamp, index, next_consensus, tx_len])
+        return array
 
     @classmethod
     def _serializable_init(cls):
