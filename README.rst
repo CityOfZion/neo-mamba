@@ -36,7 +36,7 @@ or
   pip install wheel -e .
 
 
-For full documentation including more elaborate install instructions go to `<https://coz.io/docs/>`_.
+For full documentation including more elaborate install instructions go to `<https://docs.coz.io/neo3/mamba/index.html>`_.
 
 Roadmap
 -------
