@@ -7,6 +7,11 @@ from contextlib import suppress
 
 
 class RelayCache(convenience._Singleton):
+    """
+    A cache holding transactions broadcasted to the network to be included in a block.
+
+    Will be accessed in response to a GETDATA network payload.
+    """
     def init(self):
         self.cache: Dict[types.UInt256, payloads.inventory.IInventory] = dict()
         msgrouter.on_block_persisted += self.update_cache_for_block_persist

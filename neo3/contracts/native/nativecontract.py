@@ -20,6 +20,10 @@ class CallFlags(IntFlag):
 
 
 class _ContractMethodMetadata:
+    """
+    Internal helper class containing meta data that helps in translating VM Stack Items to the arguments types of the
+     handling function. Applies to native contracts only.
+    """
     def __init__(self, handler: Callable[..., None],
                  price: int,
                  required_flags: CallFlags,
@@ -249,7 +253,7 @@ class NativeContract(convenience._Singleton):
 
     def on_persist(self, engine: contracts.ApplicationEngine) -> None:
         """
-        Called by Blockchain class when persisting a block.
+        Called by the Blockchain class when persisting a block.
         It will trigger the minting of GAS and updating of the NextValidators in storage
 
         Should not be called manually.
@@ -817,23 +821,23 @@ class Nep5Token(NativeContract):
         return ["NEP-5"]
 
 
-class NeoTokenStorageState(storage.Nep5StorageState):
+class _NeoTokenStorageState(storage.Nep5StorageState):
     def __init__(self):
-        super(NeoTokenStorageState, self).__init__()
+        super(_NeoTokenStorageState, self).__init__()
         self.vote_to: cryptography.EllipticCurve.ECPoint = cryptography.EllipticCurve.ECPoint.deserialize_from_bytes(
             b'\x00')
         self.balance_height: int = 0
 
     def __len__(self):
-        return super(NeoTokenStorageState, self).__len__() + len(self.vote_to) + s.uint32
+        return super(_NeoTokenStorageState, self).__len__() + len(self.vote_to) + s.uint32
 
     def serialize(self, writer: serialization.BinaryWriter) -> None:
-        super(NeoTokenStorageState, self).serialize(writer)
+        super(_NeoTokenStorageState, self).serialize(writer)
         writer.write_serializable(self.vote_to)
         writer.write_uint32(self.balance_height)
 
     def deserialize(self, reader: serialization.BinaryReader) -> None:
-        super(NeoTokenStorageState, self).deserialize(reader)
+        super(_NeoTokenStorageState, self).deserialize(reader)
         self.vote_to = reader.read_serializable(cryptography.EllipticCurve.ECPoint)
         self.balance_height = reader.read_uint32()
 
@@ -867,7 +871,7 @@ class NeoToken(Nep5Token):
     _PREFIX_CANDIDATE = b'\x21'
     _PREFIX_VOTERS_COUNT = b'\x01'
     _symbol = "neo"
-    _state = NeoTokenStorageState
+    _state = _NeoTokenStorageState
 
     #: The GAS bonus generation amount per NEO hold per block.
     GAS_BONUS_GENERATION_AMOUNT = [6, 5, 4, 3, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
@@ -980,6 +984,16 @@ class NeoToken(Nep5Token):
     def register_candidate(self,
                            engine: contracts.ApplicationEngine,
                            public_key: cryptography.EllipticCurve.ECPoint) -> bool:
+        """
+        Register a candidate for consensus node election.
+
+        Args:
+            engine: Application engine instance
+            public_key: the candidate's public key
+
+        Returns:
+            True is succesfully registered. False otherwise.
+        """
         script_hash = to_script_hash(contracts.Contract.create_signature_redeemscript(public_key))
         if not engine.checkwitness(script_hash):
             return False
@@ -999,6 +1013,16 @@ class NeoToken(Nep5Token):
     def unregister_candidate(self,
                              engine: contracts.ApplicationEngine,
                              public_key: cryptography.EllipticCurve.ECPoint) -> bool:
+        """
+        Remove a candidate from the consensus node candidate list.
+        Args:
+            engine: Application engine instance
+            public_key: the candidate's public key
+
+        Returns:
+            True is succesfully removed. False otherwise.
+
+        """
         script_hash = to_script_hash(contracts.Contract.create_signature_redeemscript(public_key))
         if not engine.checkwitness(script_hash):
             return False
@@ -1019,6 +1043,16 @@ class NeoToken(Nep5Token):
              engine: contracts.ApplicationEngine,
              account: types.UInt160,
              vote_to: cryptography.EllipticCurve.ECPoint) -> bool:
+        """
+        Vote on a consensus candidate
+        Args:
+            engine: Application engine instance.
+            account: source account to take voting balance from
+            vote_to: candidate public key
+
+        Returns:
+            True is vote registered succesfully. False otherwise.
+        """
         if not engine.checkwitness(account):
             return False
 
@@ -1132,7 +1166,7 @@ class NeoToken(Nep5Token):
     def _distribute_gas(self,
                         engine: contracts.ApplicationEngine,
                         account: types.UInt160,
-                        state: NeoTokenStorageState) -> None:
+                        state: _NeoTokenStorageState) -> None:
         gas = self._calculate_bonus(state.balance, state.balance_height, engine.snapshot.persisting_block.index)
         state.balance_height = engine.snapshot.persisting_block.index
         GasToken().mint(engine, account, gas)

@@ -286,6 +286,9 @@ class Block(_BlockBase, payloads.IInventory, IInteroperable):
         return crypto.MerkleTree.compute_root(hashes)
 
     def from_replica(self, replica: Block) -> None:
+        """
+        Shallow copy attributes from a reference object.
+        """
         self.version = replica.version
         self.prev_hash = replica.prev_hash
         self.merkle_root = replica.merkle_root
@@ -297,6 +300,12 @@ class Block(_BlockBase, payloads.IInventory, IInteroperable):
         self.transactions = replica.transactions
 
     def to_stack_item(self, reference_counter: vm.ReferenceCounter) -> vm.StackItem:
+        """
+        Convert self to a VM stack item.
+
+        Args:
+            reference_counter: ExecutionEngine reference counter
+        """
         array = vm.ArrayStackItem(reference_counter)
         block_hash = vm.ByteStringStackItem(self.hash().to_array())
         version = vm.IntegerStackItem(self.version)

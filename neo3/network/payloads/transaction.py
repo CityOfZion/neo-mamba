@@ -247,7 +247,10 @@ class Transaction(payloads.IInventory, IInteroperable):
         """
         return self.network_fee // len(self)
 
-    def from_replica(self, replica):
+    def from_replica(self, replica) -> None:
+        """
+        Shallow copy attributes from a reference object.
+        """
         self.version = replica.version
         self.nonce = replica.nonce
         self.system_fee = replica.system_fee
@@ -261,6 +264,12 @@ class Transaction(payloads.IInventory, IInteroperable):
         self.vm_state = replica.vm_state
 
     def to_stack_item(self, reference_counter: vm.ReferenceCounter) -> vm.StackItem:
+        """
+        Convert self to a VM stack item.
+
+        Args:
+            reference_counter: ExecutionEngine reference counter
+        """
         array = vm.ArrayStackItem(reference_counter)
         tx_hash = vm.ByteStringStackItem(self.hash().to_array())
         version = vm.IntegerStackItem(self.version)

@@ -21,7 +21,7 @@ class ContractParameterType(IntEnum):
     INTEROP_INTERFACE = 0x30,
     VOID = 0xff
 
-    def PascalCase(self):
+    def PascalCase(self) -> str:
         if self == ContractParameterType.BYTEARRAY:
             return "ByteArray"
         elif self == ContractParameterType.INTEROP_INTERFACE:

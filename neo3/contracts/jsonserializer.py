@@ -156,6 +156,9 @@ class JSONSerializer:
 
     @staticmethod
     def deserialize(json_data: JObject, reference_counter: vm.ReferenceCounter = None) -> vm.StackItem:
+        """
+        Deserialize JSON into a virtual machine stack item
+        """
         t = type(json_data)
         if t == dict:
             json_data = cast(dict, json_data)
