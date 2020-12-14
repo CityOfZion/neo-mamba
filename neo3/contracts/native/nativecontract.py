@@ -636,12 +636,11 @@ class Nep5Token(NativeContract):
 
         if storage_item is None:
             storage_item = storage.StorageItem(self._state().to_array())
+            engine.snapshot.storages.put(storage_key, storage_item)
 
-        state = self._state.deserialize_from_bytes(storage_item.value)
+        state = self._state.from_storage(storage_item)
         self.on_balance_changing(engine, account, state, amount)
         state.balance += amount
-        storage_item.value = state.to_array()
-        engine.snapshot.storages.update(storage_key, storage_item)
 
         storage_key = storage.StorageKey(self.script_hash, self._PREFIX_TOTAL_SUPPLY)
         storage_item = engine.snapshot.storages.try_get(storage_key, read_only=False)
@@ -672,7 +671,7 @@ class Nep5Token(NativeContract):
         storage_key = storage.StorageKey(self.script_hash, self._PREFIX_ACCOUNT + account.to_array())
         storage_item = engine.snapshot.storages.get(storage_key, read_only=False)
 
-        state = self._state.deserialize_from_bytes(storage_item.value)
+        state = self._state.from_storage(storage_item)
         if state.balance < amount:
             raise ValueError(f"Insufficient balance. Requesting to burn {amount}, available {state.balance}")
 
@@ -681,7 +680,6 @@ class Nep5Token(NativeContract):
             engine.snapshot.storages.delete(storage_key)
         else:
             state.balance -= amount
-            storage_item.value = state.to_array()
             engine.snapshot.storages.update(storage_key, storage_item)
 
         storage_key = storage.StorageKey(self.script_hash, self._PREFIX_TOTAL_SUPPLY)
@@ -775,25 +773,21 @@ class Nep5Token(NativeContract):
         if storage_item_from is None:
             return False
 
-        state_from = self._state.deserialize_from_bytes(storage_item_from.value)
+        state_from = self._state.from_storage(storage_item_from)
         if amount == vm.BigInteger.zero():
             self.on_balance_changing(engine, account_from, state_from, amount)
-            storage_item_from.value = state_from.to_array()
         else:
             if state_from.balance < amount:
                 return False
 
             if account_from == account_to:
                 self.on_balance_changing(engine, account_from, state_from, vm.BigInteger.zero())
-                storage_item_from.value = state_from.to_array()
             else:
                 self.on_balance_changing(engine, account_from, state_from, -amount)
                 if state_from.balance == amount:
                     engine.snapshot.storages.delete(storage_key_from)
                 else:
                     state_from.balance -= amount
-                    storage_item_from.value = state_from.to_array()
-                    engine.snapshot.storages.update(storage_key_from, storage_item_from)
 
                 storage_key_to = storage.StorageKey(self.script_hash, self._PREFIX_ACCOUNT + account_to.to_array())
                 storage_item_to = engine.snapshot.storages.try_get(storage_key_to, read_only=False)
@@ -822,44 +816,108 @@ class Nep5Token(NativeContract):
 
 
 class _NeoTokenStorageState(storage.Nep5StorageState):
+    """
+    Helper class for storing voting and bonus GAS state
+
+    Use the from_storage() method if you're working with a DB snapshot and intend to modify the state values.
+    It will ensure that the cache is updated automatically.
+    """
+
     def __init__(self):
         super(_NeoTokenStorageState, self).__init__()
-        self.vote_to: cryptography.EllipticCurve.ECPoint = cryptography.EllipticCurve.ECPoint.deserialize_from_bytes(
+        self._vote_to: cryptography.EllipticCurve.ECPoint = cryptography.EllipticCurve.ECPoint.deserialize_from_bytes(
             b'\x00')
-        self.balance_height: int = 0
+        self._balance_height: int = 0
+        self._storage_item = storage.StorageItem(b'')
 
     def __len__(self):
         return super(_NeoTokenStorageState, self).__len__() + len(self.vote_to) + s.uint32
 
+    @classmethod
+    def from_storage(cls, storage_item: storage.StorageItem):
+        state = cls()
+        state._storage_item = storage_item
+        with serialization.BinaryReader(storage_item.value) as reader:
+            state.deserialize(reader)
+        return state
+
+    @property
+    def balance_height(self) -> int:
+        return self._balance_height
+
+    @balance_height.setter
+    def balance_height(self, value: int) -> None:
+        self._balance_height = value
+        self._storage_item.value = self.to_array()
+
+    @property
+    def vote_to(self) -> cryptography.EllipticCurve.ECPoint:
+        return self._vote_to
+
+    @vote_to.setter
+    def vote_to(self, public_key: cryptography.EllipticCurve.ECPoint) -> None:
+        self._vote_to = public_key
+        self._storage_item.value = self.to_array()
+
     def serialize(self, writer: serialization.BinaryWriter) -> None:
         super(_NeoTokenStorageState, self).serialize(writer)
-        writer.write_serializable(self.vote_to)
-        writer.write_uint32(self.balance_height)
+        writer.write_serializable(self._vote_to)
+        writer.write_uint32(self._balance_height)
 
     def deserialize(self, reader: serialization.BinaryReader) -> None:
         super(_NeoTokenStorageState, self).deserialize(reader)
-        self.vote_to = reader.read_serializable(cryptography.EllipticCurve.ECPoint)
-        self.balance_height = reader.read_uint32()
+        self._vote_to = reader.read_serializable(cryptography.EllipticCurve.ECPoint)
+        self._balance_height = reader.read_uint32()
 
 
 class _CandidateState(serialization.ISerializable):
     """
     Helper class for storing consensus candidates and their votes
+
+    Use the from_storage() method if you're working with a DB snapshot and intend to modify the state values.
+    It will ensure that the cache is updated automatically.
     """
     def __init__(self):
-        self.registered = True
-        self.votes = vm.BigInteger.zero()
+        self._registered = True
+        self._votes = vm.BigInteger.zero()
+        self._storage_item = storage.StorageItem(b'')
 
     def __len__(self):
-        return 1 + len(self.votes.to_array())
+        return 1 + len(self._votes.to_array())
+
+    @classmethod
+    def from_storage(cls, storage_item: storage.StorageItem):
+        state = cls()
+        state._storage_item = storage_item
+        with serialization.BinaryReader(storage_item.value) as reader:
+            state.deserialize(reader)
+        return state
+
+    @property
+    def registered(self) -> bool:
+        return self._registered
+
+    @registered.setter
+    def registered(self, value: bool) -> None:
+        self._registered = value
+        self._storage_item.value = self.to_array()
+
+    @property
+    def votes(self) -> vm.BigInteger:
+        return self._votes
+
+    @votes.setter
+    def votes(self, value) -> None:
+        self._votes = value
+        self._storage_item.value = self.to_array()
 
     def serialize(self, writer: serialization.BinaryWriter) -> None:
-        writer.write_bool(self.registered)
-        writer.write_var_bytes(self.votes.to_array())
+        writer.write_bool(self._registered)
+        writer.write_var_bytes(self._votes.to_array())
 
     def deserialize(self, reader: serialization.BinaryReader) -> None:
-        self.registered = reader.read_bool()
-        self.votes = vm.BigInteger(reader.read_var_bytes())
+        self._registered = reader.read_bool()
+        self._votes = vm.BigInteger(reader.read_var_bytes())
 
 
 class NeoToken(Nep5Token):
@@ -937,9 +995,8 @@ class NeoToken(Nep5Token):
         if not state.vote_to.iszero():
             sk_candidate = storage.StorageKey(self.script_hash, self._PREFIX_CANDIDATE + state.vote_to.to_array())
             si_candidate = engine.snapshot.storages.get(sk_candidate, read_only=False)
-            candidate_state = _CandidateState.deserialize_from_bytes(si_candidate.value)
+            candidate_state = _CandidateState.from_storage(si_candidate)
             candidate_state.votes += amount
-            si_candidate.value = candidate_state.to_array()
 
             sk_voters_count = storage.StorageKey(self.script_hash, self._PREFIX_VOTERS_COUNT)
             si_voters_count = engine.snapshot.storages.get(sk_voters_count, read_only=False)
@@ -1006,7 +1063,7 @@ class NeoToken(Nep5Token):
             storage_item = storage.StorageItem(state.to_array())
             engine.snapshot.storages.put(storage_key, storage_item)
         else:
-            state = _CandidateState.deserialize_from_bytes(storage_item.value)
+            state = _CandidateState.from_storage(storage_item)
             state.registered = True
         return True
 
@@ -1032,7 +1089,7 @@ class NeoToken(Nep5Token):
         if storage_item is None:
             return True
         else:
-            state = _CandidateState.deserialize_from_bytes(storage_item.value)
+            state = _CandidateState.from_storage(storage_item)
             if state.votes == vm.BigInteger.zero():
                 engine.snapshot.storages.delete(storage_key)
             else:
@@ -1060,13 +1117,14 @@ class NeoToken(Nep5Token):
         storage_item = engine.snapshot.storages.try_get(storage_key_account, read_only=False)
         if storage_item is None:
             return False
-        account_state = self._state.deserialize_from_bytes(storage_item.value)
+        account_state = self._state.from_storage(storage_item)
 
         storage_key_candidate = storage.StorageKey(self.script_hash, self._PREFIX_CANDIDATE + vote_to.to_array())
         storage_item_candidate = engine.snapshot.storages.try_get(storage_key_candidate, read_only=False)
         if storage_key_candidate is None:
             return False
-        candidate_state = _CandidateState.deserialize_from_bytes(storage_item_candidate.value)
+
+        candidate_state = _CandidateState.from_storage(storage_item_candidate)
         if not candidate_state.registered:
             return False
 
@@ -1082,17 +1140,14 @@ class NeoToken(Nep5Token):
             sk_validator = storage.StorageKey(self.script_hash,
                                               self._PREFIX_CANDIDATE + account_state.vote_to.to_array())
             si_validator = engine.snapshot.storages.get(sk_validator, read_only=False)
-            validator_state = _CandidateState.deserialize_from_bytes(si_validator.value)
+            validator_state = _CandidateState.from_storage(si_validator)
             validator_state.votes -= account_state.balance
-            si_validator.value = validator_state.to_array()
+
             if not validator_state.registered and validator_state.votes == 0:
                 engine.snapshot.storages.delete(sk_validator)
 
         account_state.vote_to = vote_to
-        storage_item.value = account_state.to_array()
-
         candidate_state.votes += account_state.balance
-        storage_item_candidate.value = candidate_state.to_array()
 
         return True
 
