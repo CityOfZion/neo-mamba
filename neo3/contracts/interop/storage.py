@@ -11,7 +11,7 @@ MAX_STORAGE_VALUE_SIZE = 65535
 
 @register("System.Storage.GetContext", 400, contracts.native.CallFlags.ALLOW_STATES, False, [])
 def get_context(engine: contracts.ApplicationEngine) -> storage.StorageContext:
-    contract = engine.snapshot.contracts.try_get(engine.current_scripthash)
+    contract = engine.snapshot.contracts.try_get(engine.current_scripthash, read_only=True)
     if not contract.has_storage:
         raise ValueError("Cannot get context for smart contract without storage")
     return storage.StorageContext(engine.current_scripthash, False)
@@ -19,7 +19,7 @@ def get_context(engine: contracts.ApplicationEngine) -> storage.StorageContext:
 
 @register("System.Storage.GetReadOnlyContext", 400, contracts.native.CallFlags.ALLOW_STATES, False, [])
 def get_read_only_context(engine: contracts.ApplicationEngine) -> storage.StorageContext:
-    contract = engine.snapshot.contracts.try_get(engine.current_scripthash)
+    contract = engine.snapshot.contracts.try_get(engine.current_scripthash, read_only=True)
     if not contract.has_storage:
         raise ValueError("Cannot get context for smart contract without storage")
     return storage.StorageContext(contract.script_hash(), True)
