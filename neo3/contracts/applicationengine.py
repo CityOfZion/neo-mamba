@@ -8,7 +8,7 @@ import enum
 from dataclasses import dataclass
 
 
-class ApplicationEngine(vm.ExecutionEngine):
+class ApplicationEngine(vm.ApplicationEngineCpp):
     _interop_calls: Dict[int, interop.InteropDescriptor] = {}
     _invocation_states: Dict[vm.ExecutionContext, InvocationState] = {}
     #: Amount of free GAS added to the engine.
@@ -37,7 +37,7 @@ class ApplicationEngine(vm.ExecutionEngine):
                  ):
         # Do not use super() version, see
         # https://pybind11.readthedocs.io/en/master/advanced/classes.html#overriding-virtual-functions-in-python
-        vm.ExecutionEngine.__init__(self)
+        vm.ApplicationEngineCpp.__init__(self, test_mode)
         #: A ledger snapshot to use for syscalls such as "System.Blockchain.GetHeight".
         self.snapshot = snapshot
         #: The trigger to run the engine with.
@@ -48,8 +48,6 @@ class ApplicationEngine(vm.ExecutionEngine):
         self.script_container = container
         #: Gas available for consumption by the engine while executing its script.
         self.gas_amount = self.GAS_FREE + gas
-        #: The amount of gas used for executing its script.
-        self.gas_consumed = 0
         self._invocation_counter: Dict[types.UInt160, int] = {}
         #: Notifications (Notify SYSCALLs) that occured while executing the script.
         self.notifications: List[Tuple[payloads.IVerifiable, types.UInt160, bytes, vm.ArrayStackItem]] = []
@@ -181,19 +179,6 @@ class ApplicationEngine(vm.ExecutionEngine):
             self._invocation_states.update({context: state})
         return state
 
-    def add_gas(self, amount: int) -> None:
-        """
-        Increase the gas consumed value of the engine.
-        Args:
-            amount: value to increase with.
-
-        Raise:
-            ValueError: if the new gas consumed value exceeds the availe gas amount
-        """
-        self.gas_consumed += amount
-        if not self.is_test_mode and self.gas_consumed > self.gas_amount:
-            raise ValueError("Insufficient GAS")
-
     def on_syscall(self, method_id: int) -> Any:
         """
         Handle interop syscalls.
@@ -315,195 +300,3 @@ class ApplicationEngine(vm.ExecutionEngine):
         if state.callback is None:
             return
         # TODO: implementation Action/DynamicInvoke part of callback logic
-
-    def pre_execute_instruction(self):
-        if self.current_context.ip < len(self.current_context.script):
-            self.add_gas(opcode_prices.get(self.current_context.current_instruction().opcode))
-
-
-opcode_prices: Dict[vm.OpCode, int] = {
-    vm.OpCode.PUSHINT8: 30,
-    vm.OpCode.PUSHINT16: 30,
-    vm.OpCode.PUSHINT32: 30,
-    vm.OpCode.PUSHINT64: 30,
-    vm.OpCode.PUSHINT128: 120,
-    vm.OpCode.PUSHINT256: 120,
-    vm.OpCode.PUSHA: 120,
-    vm.OpCode.PUSHNULL: 30,
-    vm.OpCode.PUSHDATA1: 180,
-    vm.OpCode.PUSHDATA2: 13000,
-    vm.OpCode.PUSHDATA4: 110000,
-    vm.OpCode.PUSHM1: 30,
-    vm.OpCode.PUSH0: 30,
-    vm.OpCode.PUSH1: 30,
-    vm.OpCode.PUSH2: 30,
-    vm.OpCode.PUSH3: 30,
-    vm.OpCode.PUSH4: 30,
-    vm.OpCode.PUSH5: 30,
-    vm.OpCode.PUSH6: 30,
-    vm.OpCode.PUSH7: 30,
-    vm.OpCode.PUSH8: 30,
-    vm.OpCode.PUSH9: 30,
-    vm.OpCode.PUSH10: 30,
-    vm.OpCode.PUSH11: 30,
-    vm.OpCode.PUSH12: 30,
-    vm.OpCode.PUSH13: 30,
-    vm.OpCode.PUSH14: 30,
-    vm.OpCode.PUSH15: 30,
-    vm.OpCode.PUSH16: 30,
-    vm.OpCode.NOP: 30,
-    vm.OpCode.JMP: 70,
-    vm.OpCode.JMP_L: 70,
-    vm.OpCode.JMPIF: 70,
-    vm.OpCode.JMPIF_L: 70,
-    vm.OpCode.JMPIFNOT: 70,
-    vm.OpCode.JMPIFNOT_L: 70,
-    vm.OpCode.JMPEQ: 70,
-    vm.OpCode.JMPEQ_L: 70,
-    vm.OpCode.JMPNE: 70,
-    vm.OpCode.JMPNE_L: 70,
-    vm.OpCode.JMPGT: 70,
-    vm.OpCode.JMPGT_L: 70,
-    vm.OpCode.JMPGE: 70,
-    vm.OpCode.JMPGE_L: 70,
-    vm.OpCode.JMPLT: 70,
-    vm.OpCode.JMPLT_L: 70,
-    vm.OpCode.JMPLE: 70,
-    vm.OpCode.JMPLE_L: 70,
-    vm.OpCode.CALL: 22000,
-    vm.OpCode.CALL_L: 22000,
-    vm.OpCode.CALLA: 22000,
-    vm.OpCode.ABORT: 30,
-    vm.OpCode.ASSERT: 30,
-    vm.OpCode.THROW: 22000,
-    vm.OpCode.TRY: 100,
-    vm.OpCode.TRY_L: 100,
-    vm.OpCode.ENDTRY: 100,
-    vm.OpCode.ENDTRY_L: 100,
-    vm.OpCode.ENDFINALLY: 100,
-    vm.OpCode.RET: 0,
-    vm.OpCode.SYSCALL: 0,
-    vm.OpCode.DEPTH: 60,
-    vm.OpCode.DROP: 60,
-    vm.OpCode.NIP: 60,
-    vm.OpCode.XDROP: 400,
-    vm.OpCode.CLEAR: 400,
-    vm.OpCode.DUP: 60,
-    vm.OpCode.OVER: 60,
-    vm.OpCode.PICK: 60,
-    vm.OpCode.TUCK: 60,
-    vm.OpCode.SWAP: 60,
-    vm.OpCode.ROT: 60,
-    vm.OpCode.ROLL: 400,
-    vm.OpCode.REVERSE3: 60,
-    vm.OpCode.REVERSE4: 60,
-    vm.OpCode.REVERSEN: 400,
-    vm.OpCode.INITSSLOT: 400,
-    vm.OpCode.INITSLOT: 800,
-    vm.OpCode.LDSFLD0: 60,
-    vm.OpCode.LDSFLD1: 60,
-    vm.OpCode.LDSFLD2: 60,
-    vm.OpCode.LDSFLD3: 60,
-    vm.OpCode.LDSFLD4: 60,
-    vm.OpCode.LDSFLD5: 60,
-    vm.OpCode.LDSFLD6: 60,
-    vm.OpCode.LDSFLD: 60,
-    vm.OpCode.STSFLD0: 60,
-    vm.OpCode.STSFLD1: 60,
-    vm.OpCode.STSFLD2: 60,
-    vm.OpCode.STSFLD3: 60,
-    vm.OpCode.STSFLD4: 60,
-    vm.OpCode.STSFLD5: 60,
-    vm.OpCode.STSFLD6: 60,
-    vm.OpCode.STSFLD: 60,
-    vm.OpCode.LDLOC0: 60,
-    vm.OpCode.LDLOC1: 60,
-    vm.OpCode.LDLOC2: 60,
-    vm.OpCode.LDLOC3: 60,
-    vm.OpCode.LDLOC4: 60,
-    vm.OpCode.LDLOC5: 60,
-    vm.OpCode.LDLOC6: 60,
-    vm.OpCode.LDLOC: 60,
-    vm.OpCode.STLOC0: 60,
-    vm.OpCode.STLOC1: 60,
-    vm.OpCode.STLOC2: 60,
-    vm.OpCode.STLOC3: 60,
-    vm.OpCode.STLOC4: 60,
-    vm.OpCode.STLOC5: 60,
-    vm.OpCode.STLOC6: 60,
-    vm.OpCode.STLOC: 60,
-    vm.OpCode.LDARG0: 60,
-    vm.OpCode.LDARG1: 60,
-    vm.OpCode.LDARG2: 60,
-    vm.OpCode.LDARG3: 60,
-    vm.OpCode.LDARG4: 60,
-    vm.OpCode.LDARG5: 60,
-    vm.OpCode.LDARG6: 60,
-    vm.OpCode.LDARG: 60,
-    vm.OpCode.STARG0: 60,
-    vm.OpCode.STARG1: 60,
-    vm.OpCode.STARG2: 60,
-    vm.OpCode.STARG3: 60,
-    vm.OpCode.STARG4: 60,
-    vm.OpCode.STARG5: 60,
-    vm.OpCode.STARG6: 60,
-    vm.OpCode.STARG: 60,
-    vm.OpCode.NEWBUFFER: 80000,
-    vm.OpCode.MEMCPY: 80000,
-    vm.OpCode.CAT: 80000,
-    vm.OpCode.SUBSTR: 80000,
-    vm.OpCode.LEFT: 80000,
-    vm.OpCode.RIGHT: 80000,
-    vm.OpCode.INVERT: 100,
-    vm.OpCode.AND: 200,
-    vm.OpCode.OR: 200,
-    vm.OpCode.XOR: 200,
-    vm.OpCode.EQUAL: 200,
-    vm.OpCode.NOTEQUAL: 200,
-    vm.OpCode.SIGN: 100,
-    vm.OpCode.ABS: 100,
-    vm.OpCode.NEGATE: 100,
-    vm.OpCode.INC: 100,
-    vm.OpCode.DEC: 100,
-    vm.OpCode.ADD: 200,
-    vm.OpCode.SUB: 200,
-    vm.OpCode.MUL: 300,
-    vm.OpCode.DIV: 300,
-    vm.OpCode.MOD: 300,
-    vm.OpCode.SHL: 300,
-    vm.OpCode.SHR: 300,
-    vm.OpCode.NOT: 100,
-    vm.OpCode.BOOLAND: 200,
-    vm.OpCode.BOOLOR: 200,
-    vm.OpCode.NZ: 100,
-    vm.OpCode.NUMEQUAL: 200,
-    vm.OpCode.NUMNOTEQUAL: 200,
-    vm.OpCode.LT: 200,
-    vm.OpCode.LE: 200,
-    vm.OpCode.GT: 200,
-    vm.OpCode.GE: 200,
-    vm.OpCode.MIN: 200,
-    vm.OpCode.MAX: 200,
-    vm.OpCode.WITHIN: 200,
-    vm.OpCode.PACK: 7000,
-    vm.OpCode.UNPACK: 7000,
-    vm.OpCode.NEWARRAY0: 400,
-    vm.OpCode.NEWARRAY: 15000,
-    vm.OpCode.NEWARRAY_T: 15000,
-    vm.OpCode.NEWSTRUCT0: 400,
-    vm.OpCode.NEWSTRUCT: 15000,
-    vm.OpCode.NEWMAP: 200,
-    vm.OpCode.SIZE: 150,
-    vm.OpCode.HASKEY: 270000,
-    vm.OpCode.KEYS: 500,
-    vm.OpCode.VALUES: 7000,
-    vm.OpCode.PICKITEM: 270000,
-    vm.OpCode.APPEND: 15000,
-    vm.OpCode.SETITEM: 270000,
-    vm.OpCode.REVERSEITEMS: 500,
-    vm.OpCode.REMOVE: 500,
-    vm.OpCode.CLEARITEMS: 400,
-    vm.OpCode.ISNULL: 60,
-    vm.OpCode.ISTYPE: 60,
-    vm.OpCode.CONVERT: 80000,
-}
