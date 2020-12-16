@@ -16,8 +16,6 @@ class Blockchain(convenience._Singleton):
         self.genesis_block.rebuild_merkle_root()
 
         sb = vm.ScriptBuilder()
-        # do not change the order of contracts. GAS must be called first.
-        # This allows for a on_persist() performance speed up
         for c in [contracts.GasToken(), contracts.NeoToken()]:
             sb.emit_contract_call(c.script_hash, "onPersist")  # type: ignore
             sb.emit(vm.OpCode.DROP)
