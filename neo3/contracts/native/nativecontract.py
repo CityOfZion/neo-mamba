@@ -920,6 +920,40 @@ class _CandidateState(serialization.ISerializable):
         self._votes = vm.BigInteger(reader.read_var_bytes())
 
 
+class _ValidatorsState(serialization.ISerializable):
+
+    def __init__(self, snapshot: storage.Snapshot, validators: List[cryptography.EllipticCurve.ECPoint]):
+        self._snapshot = snapshot
+        self._validators: List[cryptography.EllipticCurve.ECPoint] = validators
+        self._storage_key = storage.StorageKey(NeoToken().script_hash, NeoToken()._PREFIX_NEXT_VALIDATORS)
+
+        with serialization.BinaryWriter() as bw:
+            bw.write_serializable_list(validators)
+            self._storage_item = storage.StorageItem(bw.to_array())
+            snapshot.storages.update(self._storage_key, self._storage_item)
+
+    def __len__(self):
+        return sum(map(len, self._validators))
+
+    @property
+    def validators(self) -> List[cryptography.EllipticCurve.ECPoint]:
+        return self._validators
+
+    def update(self, snapshot: storage.Snapshot, validators: List[cryptography.EllipticCurve.ECPoint]) -> None:
+        self._validators = validators
+        self._snapshot = snapshot
+        with serialization.BinaryWriter() as br:
+            br.write_serializable_list(validators)
+            self._storage_item.value = br.to_array()
+        self._snapshot.storages.update(self._storage_key, self._storage_item)
+
+    def serialize(self, writer: serialization.BinaryWriter) -> None:
+        writer.write_serializable_list(self._validators)
+
+    def deserialize(self, reader: serialization.BinaryReader) -> None:
+        self._validators = reader.read_serializable_list(cryptography.EllipticCurve.ECPoint)
+
+
 class NeoToken(Nep5Token):
     _id: int = -1
     _service_name = "NEO"
@@ -970,6 +1004,7 @@ class NeoToken(Nep5Token):
                                        add_snapshot=False,
                                        add_engine=True,
                                        safe_method=False)
+        self._validators_state = None
 
     def _initialize(self, engine: contracts.ApplicationEngine) -> None:
         # NEO's native contract initialize. Is called upon contract deploy
@@ -1005,19 +1040,11 @@ class NeoToken(Nep5Token):
 
     def on_persist(self, engine: contracts.ApplicationEngine) -> None:
         super(NeoToken, self).on_persist(engine)
-        storage_key = storage.StorageKey(self.script_hash, self._PREFIX_NEXT_VALIDATORS)
-        storage_item = engine.snapshot.storages.try_get(storage_key, read_only=False)
-
         validators = self.get_validators(engine)
-        with serialization.BinaryWriter() as bw:
-            bw.write_serializable_list(validators)
-            serialized_validators = bw.to_array()
 
-        if storage_item is None:
-            storage_item = storage.StorageItem(serialized_validators)
-            engine.snapshot.storages.put(storage_key, storage_item)
-        else:
-            storage_item.value = serialized_validators
+        if self._validators_state is None:
+            self._validators_state = _ValidatorsState(engine.snapshot, validators)
+        self._validators_state.update(engine.snapshot, validators)
 
     def unclaimed_gas(self, snapshot: storage.Snapshot, account: types.UInt160, end: int) -> vm.BigInteger:
         """
@@ -1209,14 +1236,17 @@ class NeoToken(Nep5Token):
         return public_keys[:len(settings.standby_committee)]
 
     def get_next_block_validators(self, snapshot: storage.Snapshot) -> List[cryptography.EllipticCurve.ECPoint]:
-        storage_item = snapshot.storages.try_get(
-            storage.StorageKey(self.script_hash, self._PREFIX_NEXT_VALIDATORS),
-            read_only=True
-        )
-        if storage_item is None:
-            return settings.standby_validators
-        with serialization.BinaryReader(storage_item.value) as br:
-            return br.read_serializable_list(cryptography.EllipticCurve.ECPoint)
+        if self._validators_state:
+            return self._validators_state.validators
+        else:
+            storage_item = snapshot.storages.try_get(
+                storage.StorageKey(self.script_hash, self._PREFIX_NEXT_VALIDATORS),
+                read_only=True
+            )
+            if storage_item is None:
+                return settings.standby_validators
+            with serialization.BinaryReader(storage_item.value) as br:
+                return br.read_serializable_list(cryptography.EllipticCurve.ECPoint)
 
     def _distribute_gas(self,
                         engine: contracts.ApplicationEngine,
