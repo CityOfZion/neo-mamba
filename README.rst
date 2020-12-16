@@ -35,6 +35,13 @@ or
   cd neo-mamba
   pip install wheel -e .
 
+Ensure you have PIP >= 19.3
+
+::
+
+   pip install --upgrade "pip>=19.3"
+
+
 
 For full documentation including more elaborate install instructions go to `<https://docs.coz.io/neo3/mamba/index.html>`_.
 

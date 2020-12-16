@@ -1,7 +1,7 @@
 from __future__ import annotations
 import base64
 import binascii
-import json
+import orjson as json
 from typing import List, Callable
 from enum import IntFlag
 from neo3 import contracts
@@ -312,7 +312,7 @@ class ContractManifest(serialization.ISerializable, IJson):
                 and self.extra == other.extra)
 
     def __str__(self):
-        return str(json.dumps(self.to_json(), separators=(',', ':')))
+        return json.dumps(self.to_json()).decode()
 
     def serialize(self, writer: BinaryWriter) -> None:
         """
@@ -321,7 +321,7 @@ class ContractManifest(serialization.ISerializable, IJson):
         Args:
             writer: instance.
         """
-        writer.write_var_string(json.dumps(self.to_json(), separators=(',', ':')))
+        writer.write_var_string(json.dumps(self.to_json()).decode())
 
     def deserialize(self, reader: BinaryReader) -> None:
         """
