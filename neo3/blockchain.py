@@ -36,7 +36,7 @@ class Blockchain(convenience._Singleton):
         return self.currentSnapshot.block_height
 
     @staticmethod
-    def get_consensus_address(validators: List[cryptography.EllipticCurve.ECPoint]) -> types.UInt160:
+    def get_consensus_address(validators: List[cryptography.ECPoint]) -> types.UInt160:
         script = contracts.Contract.create_multisig_redeemscript(
             len(validators) - (len(validators) - 1) // 3,
             validators

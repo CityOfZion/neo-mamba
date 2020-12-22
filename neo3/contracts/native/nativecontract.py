@@ -825,7 +825,7 @@ class _NeoTokenStorageState(storage.Nep5StorageState):
 
     def __init__(self):
         super(_NeoTokenStorageState, self).__init__()
-        self._vote_to: cryptography.EllipticCurve.ECPoint = cryptography.EllipticCurve.ECPoint.deserialize_from_bytes(
+        self._vote_to: cryptography.ECPoint = cryptography.ECPoint.deserialize_from_bytes(
             b'\x00')
         self._balance_height: int = 0
         self._storage_item = storage.StorageItem(b'')
@@ -851,11 +851,11 @@ class _NeoTokenStorageState(storage.Nep5StorageState):
         self._storage_item.value = self.to_array()
 
     @property
-    def vote_to(self) -> cryptography.EllipticCurve.ECPoint:
+    def vote_to(self) -> cryptography.ECPoint:
         return self._vote_to
 
     @vote_to.setter
-    def vote_to(self, public_key: cryptography.EllipticCurve.ECPoint) -> None:
+    def vote_to(self, public_key: cryptography.ECPoint) -> None:
         self._vote_to = public_key
         self._storage_item.value = self.to_array()
 
@@ -866,7 +866,7 @@ class _NeoTokenStorageState(storage.Nep5StorageState):
 
     def deserialize(self, reader: serialization.BinaryReader) -> None:
         super(_NeoTokenStorageState, self).deserialize(reader)
-        self._vote_to = reader.read_serializable(cryptography.EllipticCurve.ECPoint)
+        self._vote_to = reader.read_serializable(cryptography.ECPoint)  # type: ignore
         self._balance_height = reader.read_uint32()
 
 
@@ -922,9 +922,9 @@ class _CandidateState(serialization.ISerializable):
 
 class _ValidatorsState(serialization.ISerializable):
 
-    def __init__(self, snapshot: storage.Snapshot, validators: List[cryptography.EllipticCurve.ECPoint]):
+    def __init__(self, snapshot: storage.Snapshot, validators: List[cryptography.ECPoint]):
         self._snapshot = snapshot
-        self._validators: List[cryptography.EllipticCurve.ECPoint] = validators
+        self._validators: List[cryptography.ECPoint] = validators
         self._storage_key = storage.StorageKey(NeoToken().script_hash, NeoToken()._PREFIX_NEXT_VALIDATORS)
 
         with serialization.BinaryWriter() as bw:
@@ -936,10 +936,10 @@ class _ValidatorsState(serialization.ISerializable):
         return sum(map(len, self._validators))
 
     @property
-    def validators(self) -> List[cryptography.EllipticCurve.ECPoint]:
+    def validators(self) -> List[cryptography.ECPoint]:
         return self._validators
 
-    def update(self, snapshot: storage.Snapshot, validators: List[cryptography.EllipticCurve.ECPoint]) -> None:
+    def update(self, snapshot: storage.Snapshot, validators: List[cryptography.ECPoint]) -> None:
         self._validators = validators
         self._snapshot = snapshot
         with serialization.BinaryWriter() as br:
@@ -951,7 +951,7 @@ class _ValidatorsState(serialization.ISerializable):
         writer.write_serializable_list(self._validators)
 
     def deserialize(self, reader: serialization.BinaryReader) -> None:
-        self._validators = reader.read_serializable_list(cryptography.EllipticCurve.ECPoint)
+        self._validators = reader.read_serializable_list(cryptography.ECPoint)  # type: ignore
 
 
 class NeoToken(Nep5Token):
@@ -978,7 +978,7 @@ class NeoToken(Nep5Token):
         self._register_contract_method(self.register_candidate,
                                        "registerCandidate",
                                        5000000,
-                                       parameter_types=[cryptography.EllipticCurve.ECPoint],
+                                       parameter_types=[cryptography.ECPoint],
                                        parameter_names=["public_key"],
                                        return_type=bool,
                                        add_snapshot=False,
@@ -988,7 +988,7 @@ class NeoToken(Nep5Token):
         self._register_contract_method(self.register_candidate,
                                        "unregisterCandidate",
                                        5000000,
-                                       parameter_types=[cryptography.EllipticCurve.ECPoint],
+                                       parameter_types=[cryptography.ECPoint],
                                        parameter_names=["public_key"],
                                        return_type=bool,
                                        add_snapshot=False,
@@ -998,7 +998,7 @@ class NeoToken(Nep5Token):
         self._register_contract_method(self.vote,
                                        "vote",
                                        500000000,
-                                       parameter_types=[types.UInt160, cryptography.EllipticCurve.ECPoint],
+                                       parameter_types=[types.UInt160, cryptography.ECPoint],
                                        parameter_names=["account", "public_key"],
                                        return_type=bool,
                                        add_snapshot=False,
@@ -1027,7 +1027,7 @@ class NeoToken(Nep5Token):
         if amount == vm.BigInteger.zero():
             return
 
-        if not state.vote_to.iszero():
+        if not state.vote_to.is_zero():
             sk_candidate = storage.StorageKey(self.script_hash, self._PREFIX_CANDIDATE + state.vote_to.to_array())
             si_candidate = engine.snapshot.storages.get(sk_candidate, read_only=False)
             candidate_state = _CandidateState.from_storage(si_candidate)
@@ -1067,7 +1067,7 @@ class NeoToken(Nep5Token):
 
     def register_candidate(self,
                            engine: contracts.ApplicationEngine,
-                           public_key: cryptography.EllipticCurve.ECPoint) -> bool:
+                           public_key: cryptography.ECPoint) -> bool:
         """
         Register a candidate for consensus node election.
 
@@ -1096,7 +1096,7 @@ class NeoToken(Nep5Token):
 
     def unregister_candidate(self,
                              engine: contracts.ApplicationEngine,
-                             public_key: cryptography.EllipticCurve.ECPoint) -> bool:
+                             public_key: cryptography.ECPoint) -> bool:
         """
         Remove a candidate from the consensus node candidate list.
         Args:
@@ -1126,7 +1126,7 @@ class NeoToken(Nep5Token):
     def vote(self,
              engine: contracts.ApplicationEngine,
              account: types.UInt160,
-             vote_to: cryptography.EllipticCurve.ECPoint) -> bool:
+             vote_to: cryptography.ECPoint) -> bool:
         """
         Vote on a consensus candidate
         Args:
@@ -1155,7 +1155,7 @@ class NeoToken(Nep5Token):
         if not candidate_state.registered:
             return False
 
-        if account_state.vote_to.iszero():
+        if account_state.vote_to.is_zero():
             sk_voters_count = storage.StorageKey(self.script_hash, self._PREFIX_VOTERS_COUNT)
             si_voters_count = engine.snapshot.storages.get(sk_voters_count, read_only=False)
 
@@ -1163,7 +1163,7 @@ class NeoToken(Nep5Token):
             new_value = old_value + account_state.balance
             si_voters_count.value = new_value.to_array()
 
-        if not account_state.vote_to.iszero():
+        if not account_state.vote_to.is_zero():
             sk_validator = storage.StorageKey(self.script_hash,
                                               self._PREFIX_CANDIDATE + account_state.vote_to.to_array())
             si_validator = engine.snapshot.storages.get(sk_validator, read_only=False)
@@ -1180,14 +1180,14 @@ class NeoToken(Nep5Token):
 
     def _get_candidates(self,
                         engine: contracts.ApplicationEngine) -> \
-            Iterator[Tuple[cryptography.EllipticCurve.ECPoint, vm.BigInteger]]:
+            Iterator[Tuple[cryptography.ECPoint, vm.BigInteger]]:
         storage_results = list(engine.snapshot.storages.find(self.script_hash, self._PREFIX_CANDIDATE))
         results = []
         for k, v in storage_results:
             candidate = _CandidateState.deserialize_from_bytes(v.value)
             if candidate.registered:
                 # take of the prefix
-                point = cryptography.EllipticCurve.ECPoint.deserialize_from_bytes(k.key[1:])
+                point = cryptography.ECPoint.deserialize_from_bytes(k.key[1:])
                 results.append((point, candidate.votes))
         return iter(results)
 
@@ -1200,13 +1200,13 @@ class NeoToken(Nep5Token):
             array.append(struct)
         engine.push(array)
 
-    def get_validators(self, engine: contracts.ApplicationEngine) -> List[cryptography.EllipticCurve.ECPoint]:
+    def get_validators(self, engine: contracts.ApplicationEngine) -> List[cryptography.ECPoint]:
         keys = self._get_committee_members(engine)
         keys = keys[:settings.network.validators_count]
         keys.sort()
         return keys
 
-    def get_comittee(self, engine: contracts.ApplicationEngine) -> List[cryptography.EllipticCurve.ECPoint]:
+    def get_comittee(self, engine: contracts.ApplicationEngine) -> List[cryptography.ECPoint]:
         keys = self._get_committee_members(engine)
         keys.sort()
         return keys
@@ -1219,7 +1219,7 @@ class NeoToken(Nep5Token):
                 comittees)
         )
 
-    def _get_committee_members(self, engine: contracts.ApplicationEngine) -> List[cryptography.EllipticCurve.ECPoint]:
+    def _get_committee_members(self, engine: contracts.ApplicationEngine) -> List[cryptography.ECPoint]:
         storage_key = storage.StorageKey(self.script_hash, self._PREFIX_VOTERS_COUNT)
         storage_item = engine.snapshot.storages.get(storage_key, read_only=True)
         voters_count = int(vm.BigInteger(storage_item.value))
@@ -1235,7 +1235,7 @@ class NeoToken(Nep5Token):
         public_keys = list(map(lambda c: c[0], candidates))
         return public_keys[:len(settings.standby_committee)]
 
-    def get_next_block_validators(self, snapshot: storage.Snapshot) -> List[cryptography.EllipticCurve.ECPoint]:
+    def get_next_block_validators(self, snapshot: storage.Snapshot) -> List[cryptography.ECPoint]:
         if self._validators_state:
             return self._validators_state.validators
         else:
@@ -1246,7 +1246,7 @@ class NeoToken(Nep5Token):
             if storage_item is None:
                 return settings.standby_validators
             with serialization.BinaryReader(storage_item.value) as br:
-                return br.read_serializable_list(cryptography.EllipticCurve.ECPoint)
+                return br.read_serializable_list(cryptography.ECPoint)
 
     def _distribute_gas(self,
                         engine: contracts.ApplicationEngine,
