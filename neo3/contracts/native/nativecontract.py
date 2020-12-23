@@ -964,6 +964,8 @@ class NeoToken(Nep5Token):
     _PREFIX_VOTERS_COUNT = b'\x01'
     _symbol = "neo"
     _state = _NeoTokenStorageState
+    _candidates_dirty = True
+    _candidates: List[Tuple[cryptography.ECPoint, vm.BigInteger]] = []
 
     #: The GAS bonus generation amount per NEO hold per block.
     GAS_BONUS_GENERATION_AMOUNT = [6, 5, 4, 3, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
@@ -1032,6 +1034,7 @@ class NeoToken(Nep5Token):
             si_candidate = engine.snapshot.storages.get(sk_candidate, read_only=False)
             candidate_state = _CandidateState.from_storage(si_candidate)
             candidate_state.votes += amount
+            self._candidates_dirty = True
 
             sk_voters_count = storage.StorageKey(self.script_hash, self._PREFIX_VOTERS_COUNT)
             si_voters_count = engine.snapshot.storages.get(sk_voters_count, read_only=False)
@@ -1092,6 +1095,7 @@ class NeoToken(Nep5Token):
         else:
             state = _CandidateState.from_storage(storage_item)
             state.registered = True
+        self._candidates_dirty = True
         return True
 
     def unregister_candidate(self,
@@ -1121,6 +1125,7 @@ class NeoToken(Nep5Token):
                 engine.snapshot.storages.delete(storage_key)
             else:
                 state.registered = False
+        self._candidates_dirty = True
         return True
 
     def vote(self,
@@ -1175,21 +1180,25 @@ class NeoToken(Nep5Token):
 
         account_state.vote_to = vote_to
         candidate_state.votes += account_state.balance
+        self._candidates_dirty = True
 
         return True
 
     def _get_candidates(self,
                         engine: contracts.ApplicationEngine) -> \
             Iterator[Tuple[cryptography.ECPoint, vm.BigInteger]]:
-        storage_results = list(engine.snapshot.storages.find(self.script_hash, self._PREFIX_CANDIDATE))
-        results = []
-        for k, v in storage_results:
-            candidate = _CandidateState.deserialize_from_bytes(v.value)
-            if candidate.registered:
-                # take of the prefix
-                point = cryptography.ECPoint.deserialize_from_bytes(k.key[1:])
-                results.append((point, candidate.votes))
-        return iter(results)
+        if self._candidates_dirty:
+            storage_results = list(engine.snapshot.storages.find(self.script_hash, self._PREFIX_CANDIDATE))
+            self._candidates = []
+            for k, v in storage_results:
+                candidate = _CandidateState.deserialize_from_bytes(v.value)
+                if candidate.registered:
+                    # take of the CANDIDATE prefix
+                    point = cryptography.ECPoint.deserialize_from_bytes(k.key[1:])
+                    self._candidates.append((point, candidate.votes))
+            self._candidates_dirty = False
+
+        return iter(self._candidates)
 
     def get_candidates(self, engine: contracts.ApplicationEngine) -> None:
         array = vm.ArrayStackItem(engine.reference_counter)

@@ -1,14 +1,18 @@
 from __future__ import annotations
 from neo3.core import serialization
-from neo3crypto import ECPoint as _ECPointCpp, ECCCurve, ECCException, sign as ecdsa_sign, verify as ecdsa_verify  # type: ignore
+from neo3crypto import (ECPoint as _ECPointCpp,  # type: ignore
+                        ECCCurve,
+                        ECCException,
+                        sign as ecdsa_sign,
+                        verify as ecdsa_verify)
 from typing import Type, Union, Any
 import os
 import binascii
 
 
 # mypy workaround
-type_ECPoint = type(_ECPointCpp) # type: Any
-type_Serializable = type(serialization.ISerializable) # type: Any
+type_ECPoint = type(_ECPointCpp)  # type: Any
+type_Serializable = type(serialization.ISerializable)  # type: Any
 
 
 class SerializableECPointMeta(type_ECPoint, type_Serializable):
