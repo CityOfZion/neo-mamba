@@ -105,11 +105,11 @@ def contract_call_internal(engine: contracts.ApplicationEngine,
     if method.startswith('_'):
         raise ValueError("[System.Contract.Call] Method not allowed to start with _")
 
-    target_contract = engine.snapshot.contracts.try_get(contract_hash)
+    target_contract = engine.snapshot.contracts.try_get(contract_hash, read_only=True)
     if target_contract is None:
         raise ValueError("[System.Contract.Call] Can't find target contract")
 
-    current_contract = engine.snapshot.contracts.try_get(engine.current_scripthash)
+    current_contract = engine.snapshot.contracts.try_get(engine.current_scripthash, read_only=True)
     if current_contract and not current_contract.manifest.can_call(target_contract.manifest, method):
         raise ValueError(f"[System.Contract.Call] Not allowed to call target method '{method}' according to manifest")
 
@@ -192,7 +192,7 @@ def get_callflags(engine: contracts.ApplicationEngine) -> contracts.native.CallF
 
 
 @register("System.Contract.CreateStandardAccount", 10000, contracts.native.CallFlags.NONE, True,
-          [cryptography.EllipticCurve.ECPoint])
+          [cryptography.ECPoint])
 def contract_create_standard_account(engine: contracts.ApplicationEngine,
-                                     public_key: cryptography.EllipticCurve.ECPoint) -> types.UInt160:
+                                     public_key: cryptography.ECPoint) -> types.UInt160:
     return to_script_hash(contracts.Contract.create_signature_redeemscript(public_key))

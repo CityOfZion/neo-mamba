@@ -21,6 +21,7 @@ jobs:
           command: |
             python -m venv venv
             source venv/bin/activate
+            pip install --upgrade "pip>=19.3"
             pip install -e . --no-cache-dir
       - persist_to_workspace:
           root: ~/

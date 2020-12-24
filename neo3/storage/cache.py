@@ -269,7 +269,16 @@ class CachedBlockAccess(CachedAccess):
         return None
 
 
+# It is currently unclear why these do not persist when they're class attributes to CachedContractAccess
+# Keeping them here for the time being
+_gas_token_contract_state = None
+_neo_token_contract_state = None
+
+
 class CachedContractAccess(CachedAccess):
+    _gas_token_script_hash = types.UInt160.from_string("668e0c1f9d7b70a99dd9e06eadd4c784d641afbc")
+    _neo_token_script_hash = types.UInt160.from_string("de5f57d430d3dece511cf975a8d37848cb9e0525")
+
     def __init__(self, db):
         super(CachedContractAccess, self).__init__(db)
         self._internal_get = self._db._internal_contract_get
@@ -299,6 +308,15 @@ class CachedContractAccess(CachedAccess):
         Raises:
             KeyError: if the item is not found.
         """
+        global _gas_token_contract_state, _neo_token_contract_state
+        if script_hash == self._gas_token_script_hash:
+            if _gas_token_contract_state is None:
+                _gas_token_contract_state = super(CachedContractAccess, self)._get(script_hash, read_only)
+            return _gas_token_contract_state
+        elif script_hash == self._neo_token_script_hash:
+            if _neo_token_contract_state is None:
+                _neo_token_contract_state = super(CachedContractAccess, self)._get(script_hash, read_only)
+            return _neo_token_contract_state
         return super(CachedContractAccess, self)._get(script_hash, read_only)
 
     def try_get(self, script_hash: types.UInt160, read_only=False) -> Optional[storage.ContractState]:

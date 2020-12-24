@@ -109,16 +109,16 @@ class Settings(IndexableNamespace):
             self._convert(where[k].__dict__, where[k].__dict__)
 
     @property
-    def standby_committee(self) -> List[cryptography.EllipticCurve.ECPoint]:
+    def standby_committee(self) -> List[cryptography.ECPoint]:
         if self._cached_standby_committee is None:
             points = []
             for p in self.network.standby_committee:
-                points.append(cryptography.EllipticCurve.ECPoint.deserialize_from_bytes(binascii.unhexlify(p)))
+                points.append(cryptography.ECPoint.deserialize_from_bytes(binascii.unhexlify(p)))
             self._cached_standby_committee = points
         return self._cached_standby_committee
 
     @property
-    def standby_validators(self) -> List[cryptography.EllipticCurve.ECPoint]:
+    def standby_validators(self) -> List[cryptography.ECPoint]:
         return self.standby_committee[:self.network.validators_count]
 
     @property

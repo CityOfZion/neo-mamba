@@ -19,25 +19,10 @@ class UIntBaseTest(TestCase):
         self.assertEqual(len(x._data), 2)
         self.assertEqual(x._data, b'\x00\x00')
 
-    def test_valid_data(self):
-        x = UIntBase(num_bytes=2, data=b'aabb')
-        # test for proper conversion to raw bytes
-        self.assertEqual(len(x._data), 2)
-        self.assertNotEqual(len(x._data), 4)
-
-        x = UIntBase(num_bytes=3, data=bytearray.fromhex('aabbcc'))
-        self.assertEqual(len(x._data), 3)
-        self.assertNotEqual(len(x._data), 6)
-
     def test_valid_rawbytes_data(self):
         x = UIntBase(num_bytes=2, data=b'\xaa\xbb')
         self.assertEqual(len(x._data), 2)
         self.assertNotEqual(len(x._data), 4)
-
-    def test_invalid_data_type(self):
-        with self.assertRaises(TypeError) as context:
-            x = UIntBase(num_bytes=2, data='abc')
-        self.assertTrue("Invalid data type" in str(context.exception))
 
     def test_raw_data_that_can_be_decoded(self):
         """
@@ -49,7 +34,7 @@ class UIntBaseTest(TestCase):
 
     def test_data_length_mistmatch(self):
         with self.assertRaises(ValueError) as context:
-            x = UIntBase(num_bytes=2, data=b'aa')  # 2 != 1
+            x = UIntBase(num_bytes=2, data=b'a')  # 2 != 1
         self.assertTrue("Invalid UInt: data length" in str(context.exception))
 
     def test_size(self):
@@ -121,6 +106,7 @@ class UIntBaseTest(TestCase):
         self.assertTrue(z > x)
         self.assertTrue(x <= xx)
         self.assertTrue(x >= xx)
+
 
 class UInt160_and_256Test(TestCase):
     def test_zero(self):

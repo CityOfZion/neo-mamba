@@ -40,7 +40,7 @@ def verify_with_ECDSA_Secp256r1(engine: contracts.ApplicationEngine,
                                 public_key: bytes,
                                 signature: bytes) -> bool:
     value = stackitem_to_hash_data(engine, stack_item)
-    return cryptography.verify_signature(value, signature, public_key, cryptography.ECCCurve.NISTP256)
+    return cryptography.verify_signature(value, signature, public_key, cryptography.ECCCurve.SECP256R1)
 
 
 @register("Neo.Crypto.VerifyWithECDsaSecp256k1", 1000000, contracts.native.CallFlags.NONE, True,
@@ -50,7 +50,7 @@ def verify_with_ECDSA_Secp256k1(engine: contracts.ApplicationEngine,
                                 public_key: bytes,
                                 signature: bytes) -> bool:
     value = stackitem_to_hash_data(engine, stack_item)
-    return cryptography.verify_signature(value, signature, public_key, cryptography.ECCCurve.SECPK256k1)
+    return cryptography.verify_signature(value, signature, public_key, cryptography.ECCCurve.SECP256K1)
 
 
 def _check_multisig(engine: contracts.ApplicationEngine,
@@ -81,7 +81,7 @@ def _check_multisig(engine: contracts.ApplicationEngine,
 
             if len_sigs - i > len_pub_keys - j:
                 return False
-    except Exception:
+    except cryptography.ECCException as e:
         return False
     return True
 
@@ -92,7 +92,7 @@ def check_multisig_with_ECDSA_Secp256r1(engine: contracts.ApplicationEngine,
                                         stack_item: vm.StackItem,
                                         public_keys: List[bytes],
                                         signatures: List[bytes]) -> bool:
-    return _check_multisig(engine, stack_item, public_keys, signatures, cryptography.ECCCurve.NISTP256)
+    return _check_multisig(engine, stack_item, public_keys, signatures, cryptography.ECCCurve.SECP256R1)
 
 
 @register("Neo.Crypto.CheckMultisigWithECDsaSecp256k1", 0, contracts.native.CallFlags.NONE, True,
@@ -101,4 +101,4 @@ def check_multisig_with_ECDSA_Secp256k1(engine: contracts.ApplicationEngine,
                                         stack_item: vm.StackItem,
                                         public_keys: List[bytes],
                                         signatures: List[bytes]) -> bool:
-    return _check_multisig(engine, stack_item, public_keys, signatures, cryptography.ECCCurve.SECPK256k1)
+    return _check_multisig(engine, stack_item, public_keys, signatures, cryptography.ECCCurve.SECP256K1)
