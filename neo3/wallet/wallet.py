@@ -11,67 +11,33 @@ from neo3.wallet.account import Account
 from neo3.wallet.scrypt_parameters import ScryptParameters
 
 
-def encode_scrypt_parameters(scrypt_parameters):
-    if isinstance(scrypt_parameters, ScryptParameters):
-        return {'n': scrypt_parameters.n, 'r': scrypt_parameters.r, 'p': scrypt_parameters.p,
-                'length': scrypt_parameters.length}
-    else:
-        type_name = scrypt_parameters.__class__.__name__
-        raise TypeError(f"Object of type '{type_name}' is not JSON serializable")
-
-
-# A sample schema, like what we'd get from json.load()
-schema = {
-    "type": "object",
-    "properties": {
-        "path": {"type": "string"},
-        "name": {"type": "string"},
-        "scrypt": {"$ref": "#/$defs/scrypt_parameters"},
-        "accounts": {
-            "type": "array",
-            "items": {"$ref": "#/$defs/account"},
-            "minItems": 0,
-        },
-        "extra": {"type": ["object", "null"],
-                  "properties": {},
-                  "additionalProperties": True
-                  },
-    },
-    "required": ["path", "name", "scrypt", "accounts", "extra"],
-    "$defs": {
-        "account": {
-            "type": "object",
-            "properties": {
-                "address": {"type": "string"},
-                "label": {"type": "string"},
-                "is_default": {"type": "boolean"},
-                "lock": {"type": "boolean"},
-                "key": {"type": "string"},
-                "contract": {"type": ""},
-                "extra": {"type": ["object", "null"],
-                          "properties": {},
-                          "additionalProperties": True}
-            },
-            "required": ["address", "label", "is_default", "lock", "key", "contract", "extra"]
-
-        },
-        "scrypt_parameters": {
-            "type": "object",
-            "properties": {
-                "n": {"type": "integer"},
-                "r": {"type": "integer"},
-                "p": {"type": "integer"},
-                "length": {"type": "integer"}
-            },
-            "required": ["n", "r", "p"]
-        }
-    }
-}
-
-
 class Wallet(IJson):
 
     _wallet_version = '3.0'
+
+    # A sample schema, like what we'd get from json.load()
+    json_schema = {
+        "type": "object",
+        "properties": {
+            "path": {"type": "string"},
+            "name": {"type": "string"},
+            "scrypt": {"$ref": "#/$defs/scrypt_parameters"},
+            "accounts": {
+                "type": "array",
+                "items": {"$ref": "#/$defs/account"},
+                "minItems": 0,
+            },
+            "extra": {"type": ["object", "null"],
+                      "properties": {},
+                      "additionalProperties": True
+                      },
+        },
+        "required": ["path", "name", "scrypt", "accounts", "extra"],
+        "$defs": {
+            "account": Account.json_schema,
+            "scrypt_parameters": ScryptParameters.json_schema
+        }
+    }
 
     def __init__(self,
                  path: str,
@@ -150,23 +116,20 @@ class Wallet(IJson):
         Save a wallet as a JSON.
         """
         with open(self.path, 'w') as json_file:
-            json.dump(self.to_json(), json_file, default=encode_scrypt_parameters)
+            json.dump(self.to_json(), json_file, indent=4)
 
     def to_json(self) -> dict:
         """
         Convert object into JSON representation.
         """
-
-        json = {
+        return {
             'path': self.path,
             'name': self.name,
             'version': self.version,
-            'scrypt': self.scrypt,
-            'accounts': self.accounts,
+            'scrypt': self.scrypt.to_json(),
+            'accounts': [account.to_json() for account in self.accounts],
             'extra': self.extra
         }
-
-        return json
 
     @classmethod
     def from_json(cls, json: dict) -> Wallet:
@@ -180,7 +143,7 @@ class Wallet(IJson):
             KeyError: if the data supplied does not contain the necessary key.
             ValueError: if the 'version' property is under 3.0 or is not a valid string.
         """
-        validate(json, schema=schema)
+        validate(json, schema=cls.json_schema)
         try:
             if float(json['version']) < 3.0:
                 raise ValueError("Format error - invalid 'version'")
@@ -190,9 +153,6 @@ class Wallet(IJson):
         return cls(path=json['path'],
                    name=json['name'],
                    version=json['version'],
-                   scrypt=ScryptParameters(json['scrypt']['n'],
-                                           json['scrypt']['r'],
-                                           json['scrypt']['p'],
-                                           json['scrypt']['length']),
-                   accounts=json['accounts'],
+                   scrypt=ScryptParameters.from_json(json['scrypt']),
+                   accounts=[Account.from_json(json_account) for json_account in json['accounts']],
                    extra=json['extra'])
