@@ -55,6 +55,7 @@ class WalletCreationTestCase(unittest.TestCase):
 
         with open('wallet_save.json') as json_file:
             data = json.load(json_file)
+
         self.assertEqual(data['name'], test_wallet.name)
         self.assertEqual(data['version'], test_wallet.version)
         self.assertEqual(data['scrypt']['n'], test_wallet.scrypt.n)
@@ -104,6 +105,23 @@ class WalletCreationTestCase(unittest.TestCase):
 
         # it shouldn't persist the wallet
         self.assertFalse(os.path.isfile(default_path))
+
+    def test_wallet_from_json(self):
+        password = '123'
+
+        new_wallet = nep6.NEP6DiskWallet.default()
+        test_account = wallet.Account.create_new(password)
+        new_wallet.accounts.append(test_account)
+        new_wallet._default_account = test_account
+
+        json_wallet = new_wallet.to_json()
+
+        test_wallet = Wallet.from_json(json_wallet, password='123')
+        self.assertEqual(new_wallet.name, test_wallet.name)
+        self.assertEqual('3.0', test_wallet.version)
+        self.assertEqual(1, len(test_wallet.accounts))
+        self.assertEqual(test_account, test_wallet.accounts[0])
+        self.assertEqual(test_wallet._default_account, test_wallet.accounts[0])
 
     def test_wallet_account_new(self):
         password = 'abcabc'
