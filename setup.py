@@ -70,7 +70,7 @@ else:
 setup(
     name='neo-mamba',
     python_requires='>=3.7',
-    version='0.4',
+    version='0.4.1',
     description="Python SDK for the NEO 3 blockchain",
     long_description=readme,
     author="Erik van den Brink",
