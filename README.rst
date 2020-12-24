@@ -35,6 +35,13 @@ or
   cd neo-mamba
   pip install wheel -e .
 
+Ensure you have PIP >= 19.3
+
+::
+
+   pip install --upgrade "pip>=19.3"
+
+
 
 For full documentation including more elaborate install instructions go to `<https://docs.coz.io/neo3/mamba/index.html>`_.
 
@@ -53,6 +60,17 @@ separate repositories but be included here by default (e.g. virtual machine impl
 - Virtual Machine
 - Smart contracts (v0.4)
 
+Up next: Preview 4 parity
+
+Performance
+-----------
+`neo-mamba` syncs the network over 2 times faster than the official client `neo-cli <https://github.com/neo-project/neo-node>`_.
+
+Performance was measured by letting each client sync the Preview 3 TestNet from an offline file up to block height 562379.
+Syncing was done without verifying the block witnesses (``--noverify`` flag in ``neo-cli``). Each client used LevelDB as
+storage backend, with no other additional plugins running. Each client was synced separately with no additional resource
+usage on the system. The test was performed on Ubuntu Linux 18.04 (as DOTNET's ECC on OSX is very slow) on a i5-4670K with
+16 GB ram.
 
 FAQ
 ---

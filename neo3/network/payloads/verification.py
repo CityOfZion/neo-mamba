@@ -19,7 +19,7 @@ class Signer(serialization.ISerializable):
     def __init__(self, account: types.UInt160,
                  scope: payloads.WitnessScope = None,
                  allowed_contracts: List[types.UInt160] = None,
-                 allowed_groups: List[cryptography.EllipticCurve.ECPoint] = None):
+                 allowed_groups: List[cryptography.ECPoint] = None):
         #: The TX sender.
         self.account = account
         #: payloads.WitnessScope: The configured validation scope.
@@ -27,7 +27,7 @@ class Signer(serialization.ISerializable):
         #: List[types.UInt160]: Whitelist of contract script hashes if used with
         #: :const:`~neo3.network.payloads.verification.WitnessScope.CUSTOM_CONTRACTS`.
         self.allowed_contracts = allowed_contracts if allowed_contracts else []
-        #: List[cryptography.EllipticCurve.ECPoint]: Whitelist of public keys if used with
+        #: List[cryptography.ECPoint]: Whitelist of public keys if used with
         #: :const:`~neo3.network.payloads.verification.WitnessScope.CUSTOM_GROUPS`.
         self.allowed_groups = allowed_groups if allowed_groups else []
 
@@ -84,7 +84,7 @@ class Signer(serialization.ISerializable):
             self.allowed_contracts = reader.read_serializable_list(types.UInt160)
 
         if payloads.WitnessScope.CUSTOM_GROUPS in self.scope:
-            self.allowed_groups = reader.read_serializable_list(cryptography.EllipticCurve.ECPoint,
+            self.allowed_groups = reader.read_serializable_list(cryptography.ECPoint,  # type: ignore
                                                                 max=self.MAX_SUB_ITEMS)
 
     @classmethod

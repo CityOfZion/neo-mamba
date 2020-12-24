@@ -45,24 +45,49 @@ class StorageItem(serialization.ISerializable, IClonable):
 
 
 class Nep5StorageState(IInteroperable, serialization.ISerializable):
+    """
+    Helper class for NEP5 balance state
+
+    Use the from_storage() method if you're working with a DB snapshot and intend to modify the state values.
+    It will ensure that the cache is updated automatically.
+    """
+
     def __init__(self):
         super(Nep5StorageState, self).__init__()
-        self.balance: vm.BigInteger = vm.BigInteger.zero()
+        self._balance: vm.BigInteger = vm.BigInteger.zero()
+        self._storage_item = StorageItem(b'')
 
     def __len__(self):
-        return len(self.balance.to_array())
+        return len(self._balance.to_array())
+
+    @classmethod
+    def from_storage(cls, storage_item: StorageItem):
+        state = cls()
+        state._storage_item = storage_item
+        with serialization.BinaryReader(storage_item.value) as reader:
+            state.deserialize(reader)
+        return state
+
+    @property
+    def balance(self) -> vm.BigInteger:
+        return self._balance
+
+    @balance.setter
+    def balance(self, value: vm.BigInteger) -> None:
+        self._balance = value
+        self._storage_item.value = self.to_array()
 
     def serialize(self, writer: BinaryWriter) -> None:
-        writer.write_var_bytes(self.balance.to_array())
+        writer.write_var_bytes(self._balance.to_array())
 
     def deserialize(self, reader: BinaryReader) -> None:
-        self.balance = vm.BigInteger(reader.read_var_bytes())
+        self._balance = vm.BigInteger(reader.read_var_bytes())
 
     def to_stack_item(self, reference_counter: vm.ReferenceCounter) -> vm.StackItem:
         s = vm.StructStackItem(reference_counter)
-        s.append(vm.IntegerStackItem(self.balance))
+        s.append(vm.IntegerStackItem(self._balance))
         return s
 
     def from_stack_item(self, stack_item: vm.StackItem) -> None:
         si = cast(vm.StructStackItem, stack_item)
-        self.balance = si[0].to_biginteger()
+        self._balance = si[0].to_biginteger()

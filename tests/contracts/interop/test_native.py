@@ -83,7 +83,7 @@ class TestNativeContract(unittest.TestCase):
     def setUpClass(cls) -> None:
         settings.network.standby_committee = ['02158c4a4810fa2a6a12f7d33d835680429e1a68ae61161c5b3fbc98c7f1f17765']
         settings.network.validators_count = 1
-        cls.validator_public_key = cryptography.EllipticCurve.ECPoint.deserialize_from_bytes(
+        cls.validator_public_key = cryptography.ECPoint.deserialize_from_bytes(
             binascii.unhexlify(settings.network.standby_committee[0])
         )
         cls.validator_account = to_script_hash(
@@ -299,7 +299,7 @@ class Nep5TestCase(unittest.TestCase):
     def setUpClass(cls) -> None:
         settings.network.standby_committee = ['02158c4a4810fa2a6a12f7d33d835680429e1a68ae61161c5b3fbc98c7f1f17765']
         settings.network.validators_count = 1
-        cls.validator_public_key = cryptography.EllipticCurve.ECPoint.deserialize_from_bytes(
+        cls.validator_public_key = cryptography.ECPoint.deserialize_from_bytes(
             binascii.unhexlify(settings.network.standby_committee[0])
         )
         cls.validator_account = to_script_hash(

@@ -17,28 +17,10 @@ class _UIntBase(serialization.ISerializable):
         super(_UIntBase, self).__init__()
 
         if data is None:
-            self._data = bytearray(num_bytes)
+            self._data = bytes(num_bytes)
 
         else:
-            if isinstance(data, bytes):
-                # make sure it's mutable for string representation
-                self._data = bytearray(data)
-            elif isinstance(data, bytearray):
-                self._data = data
-            else:
-                raise TypeError(f"Invalid data type {type(data)}. Expecting bytes or bytearray")
-
-            # now make sure the sequence is hex escaped
-            try:
-                self._data = bytearray(binascii.unhexlify(self._data.decode()))
-            except UnicodeDecodeError:
-                # decode() fails most of the time if data is already hex escaped.
-                # In that case there is nothing to be done.
-                pass
-            except binascii.Error:
-                # however in some cases like bytes.fromhex('1122') decoding passes,
-                # but binascii fails because it was actually already escaped. Still nothing to be done.
-                pass
+            self._data = data
 
             if len(self._data) != num_bytes:
                 raise ValueError(f"Invalid UInt: data length {len(self._data)} != specified num_bytes {num_bytes}")
@@ -172,7 +154,7 @@ class UInt160(_UIntBase):
         Returns:
             An instance initialized to zero.
         """
-        return cls(data=bytearray(20))
+        return cls(data=bytes(20))
 
     def serialize(self, writer: serialization.BinaryWriter) -> None:
         """
@@ -190,7 +172,7 @@ class UInt160(_UIntBase):
         Args:
             reader: instance.
         """
-        self._data = bytearray(reader.read_bytes(self._BYTE_LEN))
+        self._data = bytes(reader.read_bytes(self._BYTE_LEN))
 
 
 class UInt256(_UIntBase):
@@ -248,7 +230,7 @@ class UInt256(_UIntBase):
             An instance initialized to zero.
         """
 
-        return cls(data=bytearray(cls._BYTE_LEN))
+        return cls(data=bytes(cls._BYTE_LEN))
 
     def serialize(self, writer: serialization.BinaryWriter) -> None:
         """
@@ -266,4 +248,4 @@ class UInt256(_UIntBase):
         Args:
             reader: instance.
         """
-        self._data = bytearray(reader.read_bytes(self._BYTE_LEN))
+        self._data = bytes(reader.read_bytes(self._BYTE_LEN))

@@ -1,10 +1,10 @@
 import unittest
 import binascii
 from typing import List
+from neo3.network import payloads
 from neo3 import vm, storage, settings
 from neo3.core import types, serialization, cryptography
 from neo3.core.serialization import BinaryReader, BinaryWriter
-from neo3.network import payloads
 from .utils import test_engine, syscall_name_to_int
 from neo3.contracts.interop.crypto import _check_multisig
 
@@ -195,6 +195,11 @@ class CryptoInteropTestCase(unittest.TestCase):
         priv_key = b'\x02' + b'\x00' * 30 + b'\x01'
         sig = cryptography.sign(message, priv_key)
 
+        # from ecdsa import VerifyingKey, SigningKey, curves as ecdsa_curves
+        # import hashlib
+        # sk = SigningKey.from_string(priv_key, curve=ecdsa_curves.NIST256p, hashfunc=hashlib.sha256)
+        # sig = sk.sign(message, hashfunc=hashlib.sha256)
+
         kp = cryptography.KeyPair(priv_key)
 
         sb = vm.ScriptBuilder()
@@ -224,7 +229,7 @@ class CryptoInteropTestCase(unittest.TestCase):
         message = b'hello'
         signature = binascii.unhexlify(b'5331be791532d157df5b5620620d938bcb622ad02c81cfc184c460efdad18e695480d77440c511e9ad02ea30d773cb54e88f8cbb069644aefa283957085f38b5')
         public_key = binascii.unhexlify(b'03ea01cb94bdaf0cd1c01b159d474f9604f4af35a3e2196f6bdfdb33b2aa4961fa')
-        self.assertTrue(cryptography.verify_signature(message, signature, public_key, cryptography.ECCCurve.SECPK256k1))
+        self.assertTrue(cryptography.verify_signature(message, signature, public_key, cryptography.ECCCurve.SECP256K1))
 
         sb = vm.ScriptBuilder()
         sb.emit_push(signature)
@@ -265,19 +270,19 @@ class CryptoInteropTestCase(unittest.TestCase):
         signatures = []
 
         with self.assertRaises(ValueError) as context:
-            _check_multisig(engine, message, public_keys, signatures, cryptography.ECCCurve.NISTP256)
+            _check_multisig(engine, message, public_keys, signatures, cryptography.ECCCurve.SECP256R1)
         self.assertEqual("No signatures supplied", str(context.exception))
 
         public_keys = []
         signatures = [object()]
         with self.assertRaises(ValueError) as context:
-            _check_multisig(engine, message, public_keys, signatures, cryptography.ECCCurve.NISTP256)
+            _check_multisig(engine, message, public_keys, signatures, cryptography.ECCCurve.SECP256R1)
         self.assertEqual("No public keys supplied", str(context.exception))
 
         public_keys = [object()]
         signatures = [object(), object()]
         with self.assertRaises(ValueError) as context:
-            _check_multisig(engine, message, public_keys, signatures, cryptography.ECCCurve.NISTP256)
+            _check_multisig(engine, message, public_keys, signatures, cryptography.ECCCurve.SECP256R1)
         self.assertEqual("Verification requires 2 public keys, got only 1", str(context.exception))
 
     def test_multisig_verify_helper_verification(self):
@@ -292,31 +297,31 @@ class CryptoInteropTestCase(unittest.TestCase):
         self.assertTrue(cryptography.verify_signature(message.to_array(),
                                                       sig1,
                                                       kp1.public_key.encode_point(False),
-                                                      cryptography.ECCCurve.NISTP256))
+                                                      cryptography.ECCCurve.SECP256R1))
         self.assertTrue(cryptography.verify_signature(message.to_array(),
                                                       sig2,
                                                       kp2.public_key.encode_point(False),
-                                                      cryptography.ECCCurve.NISTP256))
+                                                      cryptography.ECCCurve.SECP256R1))
 
         # first do a check on regular data (meaning; check sig1 with pub_key1, sig2 with pub_key2)
         public_keys = [kp1.public_key.encode_point(False), kp2.public_key.encode_point(False)]
         signatures = [sig1, sig2]
-        self.assertTrue(_check_multisig(engine, message, public_keys, signatures, cryptography.ECCCurve.NISTP256))
+        self.assertTrue(_check_multisig(engine, message, public_keys, signatures, cryptography.ECCCurve.SECP256R1))
 
         # same as previous, but supplying the keys out of order
         public_keys = [kp2.public_key.encode_point(False), kp1.public_key.encode_point(False)]
         signatures = [sig1, sig2]
-        self.assertFalse(_check_multisig(engine, message, public_keys, signatures, cryptography.ECCCurve.NISTP256))
+        self.assertFalse(_check_multisig(engine, message, public_keys, signatures, cryptography.ECCCurve.SECP256R1))
 
         # now validate it will try all available public keys for a given signature (for 1-of-2, 3-of-5 like contracts)
         public_keys = [kp2.public_key.encode_point(False), kp1.public_key.encode_point(False)]
         signatures = [sig1]
-        self.assertTrue(_check_multisig(engine, message, public_keys, signatures, cryptography.ECCCurve.NISTP256))
+        self.assertTrue(_check_multisig(engine, message, public_keys, signatures, cryptography.ECCCurve.SECP256R1))
 
         # test handling an exception caused by an invalid public key
         public_keys = [b'']
         signatures = [sig1]
-        self.assertFalse(_check_multisig(engine, message, public_keys, signatures, cryptography.ECCCurve.NISTP256))
+        self.assertFalse(_check_multisig(engine, message, public_keys, signatures, cryptography.ECCCurve.SECP256R1))
 
     def test_check_multisig_with_ECDSA_Secp256r1(self):
         engine = test_engine()
