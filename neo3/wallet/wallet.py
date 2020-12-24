@@ -61,6 +61,7 @@ class Wallet(IJson):
                  version: str = _wallet_version,
                  scrypt: Optional[ScryptParameters] = None,
                  accounts: List[Account] = None,
+                 default_account: Optional[Account] = None,
                  extra: Optional[Dict[Any, Any]] = None):
         """
         Args:
@@ -75,10 +76,73 @@ class Wallet(IJson):
         self.name = name
         self.version = version
         self.scrypt = scrypt if scrypt else ScryptParameters()
+
+        if accounts is None:
+            accounts = []
+
+        if default_account is not None and default_account not in accounts:
+            # default account must be in the account list
+            accounts.append(default_account)
+        elif default_account is None and len(accounts) > 0:
+            # if no account is defined as default, the first will be considered the default account
+            default_account = accounts[0]
+
         self.accounts = accounts if accounts is not None else []
+        self._default_account: Optional[Account] = default_account
         self.extra = extra
 
-    def save(self) -> None:
+    def account_new(self, password: str, label: str = None, is_default=False) -> Account:
+        account = Account(password=password,
+                          watch_only=False,
+                          label=label
+                          )
+
+        self.account_add(account, is_default)
+        return account
+
+    def account_add(self, account: Account, is_default=False) -> bool:
+        # true if ok, false if duplicate (any other possible reasons? otherwise we need to throw exceptions)
+        if account in self.accounts:
+            return False
+
+        if account.label is not None and self._get_account_by_label(account.label) is not None:
+            raise ValueError("Label is already used by an account '{0}'", account.label)
+
+        # if first account, also set to default
+        if is_default or len(self.accounts) == 0:
+            self._default_account = account
+
+        self.accounts.append(account)
+        return True
+
+    def account_delete(self, account: Account) -> bool:
+        # return success or not
+        if account not in self.accounts:
+            return False
+
+        self.accounts.remove(account)
+        if account == self._default_account:
+            # if it was the default account, select a new one
+            # first by default
+            self._default_account = self.accounts[0] if len(self.accounts) > 0 else None
+
+        return True
+
+    def account_delete_by_label(self, label: str) -> bool:
+        # return success or not
+        account = self._get_account_by_label(label)
+
+        if account is None:
+            # account with that label was not found
+            return False
+
+        return self.account_delete(account)
+
+    def _get_account_by_label(self, label: str) -> Optional[Account]:
+        # returns the account with given label. None if the account is not found
+        return next((acc for acc in self.accounts if acc.label == label), None)
+
+    def save(self):
         """
         Saves the wallet.
 

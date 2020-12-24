@@ -103,3 +103,140 @@ class WalletCreationTestCase(unittest.TestCase):
 
         # it shouldn't persist the wallet
         self.assertFalse(os.path.isfile(default_path))
+
+    def test_wallet_account_new(self):
+        password = 'abcabc'
+        wallet = nep6.NEP6DiskWallet.default()
+        self.assertEqual(0, len(wallet.accounts))
+
+        # create account without label
+        account = wallet.account_new(password)
+        self.assertEqual(1, len(wallet.accounts))
+        self.assertEqual(None, account.label)
+        self.assertEqual(wallet._default_account, account)
+
+        # create account with label
+        label = 'New Account'
+        account = wallet.account_new(password, label)
+        self.assertEqual(2, len(wallet.accounts))
+        self.assertEqual(label, account.label)
+        self.assertNotEqual(wallet._default_account, account)
+
+        # create account with duplicated label
+        with self.assertRaises(ValueError):
+            # label already used
+            wallet.account_new(password, label)
+
+        # create account and set as default
+        label = 'Other Account'
+        account = wallet.account_new(password, label, is_default=True)
+        self.assertEqual(3, len(wallet.accounts))
+        self.assertEqual(label, account.label)
+        self.assertEqual(wallet._default_account, account)
+
+    def test_wallet_account_add(self):
+        password = 'abcabc'
+        test_wallet = nep6.NEP6DiskWallet.default()
+        self.assertEqual(0, len(test_wallet.accounts))
+
+        label = 'New Account'
+        account_1 = wallet.Account(password=password)
+        account_2 = wallet.Account(password=password,
+                                   label=label)
+        account_3 = wallet.Account(password=password)
+        account_4 = wallet.Account(password=password,
+                                   label=label)
+
+        # add account, first account is set as default
+        success = test_wallet.account_add(account_1)
+        self.assertTrue(success)
+        self.assertEqual(1, len(test_wallet.accounts))
+        self.assertEqual(test_wallet._default_account, account_1)
+
+        # add account
+        success = test_wallet.account_add(account_2)
+        self.assertTrue(success)
+        self.assertEqual(2, len(test_wallet.accounts))
+        self.assertNotEqual(test_wallet._default_account, account_2)
+
+        # add account already added
+        success = test_wallet.account_add(account_2)
+        self.assertFalse(success)
+
+        # add account and set it as default
+        success = test_wallet.account_add(account_3, is_default=True)
+        self.assertTrue(success)
+        self.assertEqual(3, len(test_wallet.accounts))
+        self.assertEqual(test_wallet._default_account, account_3)
+
+        # add account with duplicated label
+        with self.assertRaises(ValueError):
+            # label already used
+            test_wallet.account_add(account_4)
+
+    def test_wallet_account_delete(self):
+        password = 'abcabc'
+        account_1 = wallet.Account(password=password)
+        account_2 = wallet.Account(password=password)
+        account_3 = wallet.Account(password=password)
+
+        test_wallet = nep6.NEP6DiskWallet.default()
+        test_wallet.account_add(account_1)
+        test_wallet.account_add(account_2)
+        test_wallet.account_add(account_3)
+
+        self.assertEqual(account_1, test_wallet._default_account)
+
+        # delete account that is not default
+        success = test_wallet.account_delete(account_2)
+        self.assertTrue(success)
+        self.assertEqual(account_1, test_wallet._default_account)
+
+        # delete account not included
+        success = test_wallet.account_delete(account_2)
+        self.assertFalse(success)
+
+        # delete account default, with other existing
+        success = test_wallet.account_delete(account_1)
+        self.assertTrue(success)
+        self.assertNotEqual(account_1, test_wallet._default_account)
+        self.assertEqual(account_3, test_wallet._default_account)
+
+        # delete account default and it's the only existing account
+        success = test_wallet.account_delete(account_3)
+        self.assertTrue(success)
+        self.assertIsNone(test_wallet._default_account)
+
+    def test_wallet_account_delete_by_label(self):
+        label_1 = 'Account 1'
+        label_2 = 'Account 2'
+        label_not_used = 'Account 3'
+
+        password = '123123'
+        account_1 = wallet.Account(password=password,
+                                   label=label_1)
+        account_2 = wallet.Account(password=password,
+                                   label=label_2)
+        account_3 = wallet.Account(password=password)
+
+        test_wallet = nep6.NEP6DiskWallet.default()
+        test_wallet.account_add(account_1)
+        test_wallet.account_add(account_2)
+        test_wallet.account_add(account_3)
+
+        self.assertEqual(account_1, test_wallet._default_account)
+
+        # delete by label when account is not the default
+        success = test_wallet.account_delete_by_label(label_2)
+        self.assertTrue(success)
+        self.assertEqual(account_1, test_wallet._default_account)
+
+        # delete label not included
+        success = test_wallet.account_delete_by_label(label_not_used)
+        self.assertFalse(success)
+
+        # delete by label when account is default
+        success = test_wallet.account_delete_by_label(label_1)
+        self.assertTrue(success)
+        self.assertNotEqual(account_1, test_wallet._default_account)
+        self.assertEqual(account_3, test_wallet._default_account)
