@@ -10,7 +10,7 @@ class ContractPermissionDescriptor(IJson):
     See Also: ContractManifest.
     """
     def __init__(self, contract_hash: types.UInt160 = None,
-                 group: cryptography.EllipticCurve.ECPoint = None):
+                 group: cryptography.ECPoint = None):
         """
         Create a contract hash or group based restriction. Mutually exclusive.
         Supply no arguments to create a wildcard permission descriptor.
@@ -18,7 +18,7 @@ class ContractPermissionDescriptor(IJson):
         Raises:
             ValueError: if both contract hash and group arguments are supplied.
         """
-        if contract_hash and group:
+        if contract_hash is not None and group is not None:
             raise ValueError("Maximum 1 argument can be supplied")
         self.contract_hash = contract_hash
         self.group = group
@@ -80,7 +80,7 @@ class ContractPermissionDescriptor(IJson):
         if len(value) == 40:
             return cls(contract_hash=types.UInt160.from_string(value))
         if len(value) == 66:
-            ecpoint = cryptography.EllipticCurve.ECPoint.deserialize_from_bytes(binascii.unhexlify(value))
+            ecpoint = cryptography.ECPoint.deserialize_from_bytes(binascii.unhexlify(value))
             return cls(group=ecpoint)
         if value == '*':
             return cls()  # no args == wildcard

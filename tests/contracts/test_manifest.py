@@ -31,7 +31,7 @@ class ContractGroupTestCase(unittest.TestCase):
         var cg = new ContractGroup() { PubKey = kp.PublicKey, Signature = bad_signature};
         Console.Write(cg.ToJson());
         """
-        bad_signature = b'\x00' * 32
+        bad_signature = b'\x00' * 64
         cg = contracts.ContractGroup(self.keypair.public_key, bad_signature)
         self.assertFalse(cg.is_valid(types.UInt160.zero()))
 
@@ -98,7 +98,7 @@ class ContractPermissionTestCase(unittest.TestCase):
         self.assertTrue(cp.is_allowed(mock_manifest, "dummy_method"))
 
         # now modify the manifest to have a different `groups` attribute such that validation fails
-        public_key = cryptography.EllipticCurve.ECPoint.deserialize_from_bytes(b'\x00')  # ECPoint.Infinity
+        public_key = cryptography.ECPoint.deserialize_from_bytes(b'\x00')  # ECPoint.Infinity
         mock_manifest.groups = [contracts.ContractGroup(public_key, signature)]
         self.assertFalse(cp.is_allowed(mock_manifest, "dummy_method"))
 
@@ -289,7 +289,7 @@ class ManifestTestCase(unittest.TestCase):
         # now try to add a malicious group member (meaning; the member did not actually sign the ABI)
         private_key = b'\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
         keypair = cryptography.KeyPair(private_key)
-        bad_signature = bytearray(32)
+        bad_signature = bytes(64)
         cm.groups = [contracts.ContractGroup(keypair.public_key,bad_signature)]
         # this time validation should fail
         self.assertFalse(cm.is_valid(types.UInt160.zero()))

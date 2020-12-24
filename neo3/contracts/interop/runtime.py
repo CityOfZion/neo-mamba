@@ -50,7 +50,7 @@ def do_checkwitness(engine: contracts.ApplicationEngine, data: bytes) -> bool:
         hash_ = types.UInt160(data)
     elif len(data) == 33:
         redeemscript = contracts.Contract.create_signature_redeemscript(
-            cryptography.EllipticCurve.ECPoint.deserialize_from_bytes(data)
+            cryptography.ECPoint.deserialize_from_bytes(data)
         )
         hash_ = to_script_hash(redeemscript)
     else:

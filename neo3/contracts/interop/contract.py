@@ -192,7 +192,7 @@ def get_callflags(engine: contracts.ApplicationEngine) -> contracts.native.CallF
 
 
 @register("System.Contract.CreateStandardAccount", 10000, contracts.native.CallFlags.NONE, True,
-          [cryptography.EllipticCurve.ECPoint])
+          [cryptography.ECPoint])
 def contract_create_standard_account(engine: contracts.ApplicationEngine,
-                                     public_key: cryptography.EllipticCurve.ECPoint) -> types.UInt160:
+                                     public_key: cryptography.ECPoint) -> types.UInt160:
     return to_script_hash(contracts.Contract.create_signature_redeemscript(public_key))

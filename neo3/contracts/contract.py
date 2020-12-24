@@ -20,7 +20,7 @@ class Contract:
         return self._script_hash
 
     @classmethod
-    def create_multisig_contract(cls, m: int, public_keys: List[cryptography.EllipticCurve.ECPoint]) -> Contract:
+    def create_multisig_contract(cls, m: int, public_keys: List[cryptography.ECPoint]) -> Contract:
         """
         Create a multi-signature contract requiring `m` signatures from the list `public_keys`.
 
@@ -32,7 +32,7 @@ class Contract:
                    parameter_list=[contracts.ContractParameterType.SIGNATURE] * m)
 
     @staticmethod
-    def create_multisig_redeemscript(m: int, public_keys: List[cryptography.EllipticCurve.ECPoint]) -> bytes:
+    def create_multisig_redeemscript(m: int, public_keys: List[cryptography.ECPoint]) -> bytes:
         """
         Create a multi-signature redeem script requiring `m` signatures from the list `public_keys`.
 
@@ -70,7 +70,7 @@ class Contract:
         return sb.to_array()
 
     @classmethod
-    def create_signature_contract(cls, public_key: cryptography.EllipticCurve.ECPoint) -> Contract:
+    def create_signature_contract(cls, public_key: cryptography.ECPoint) -> Contract:
         """
         Create a signature contract.
 
@@ -83,7 +83,7 @@ class Contract:
         return cls(cls.create_signature_redeemscript(public_key), [contracts.ContractParameterType.SIGNATURE])
 
     @staticmethod
-    def create_signature_redeemscript(public_key: cryptography.EllipticCurve.ECPoint) -> bytes:
+    def create_signature_redeemscript(public_key: cryptography.ECPoint) -> bytes:
         """
         Create a single signature redeem script.
 

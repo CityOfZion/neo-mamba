@@ -50,9 +50,7 @@ class ContractState(serialization.ISerializable, IClonable, IInteroperable):
         self.manifest = replica.manifest
 
     def clone(self):
-
         return ContractState(self.script, deepcopy(self.manifest))
-        # return ContractState(self.script, contracts.ContractManifest.deserialize_from_bytes(self.manifest.to_array()))
 
     def script_hash(self) -> types.UInt160:
         """ Get the script hash."""

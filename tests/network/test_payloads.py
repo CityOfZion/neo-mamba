@@ -403,8 +403,7 @@ class SignerTestCase(unittest.TestCase):
         cls.signer = payloads.Signer(types.UInt160.from_string("d7678dd97c000be3f33e9362e673101bac4ca654"))
         cls.signer.scope = payloads.WitnessScope.CUSTOM_CONTRACTS | payloads.WitnessScope.CUSTOM_GROUPS
         cls.signer.allowed_contracts = [types.UInt160.from_string("5b7074e873973a6ed3708862f219a6fbf4d1c411")]
-        ecdsa = crypto.ECDSA.decode_secp256r1("026241e7e26b38bb7154b8ad49458b97fb1c4797443dc921c5ca5774f511a2bbfc")
-        point = ecdsa.G  # type: crypto.EllipticCurve.ECPoint
+        point = crypto.ECPoint(binascii.unhexlify("026241e7e26b38bb7154b8ad49458b97fb1c4797443dc921c5ca5774f511a2bbfc"), crypto.ECCCurve.SECP256R1, True)
         cls.signer.allowed_groups = [point]
 
     def test_len(self):

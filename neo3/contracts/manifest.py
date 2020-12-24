@@ -15,7 +15,7 @@ class ContractGroup(IJson):
 
     See Also: ContractManifest.
     """
-    def __init__(self, public_key: cryptography.EllipticCurve.ECPoint, signature: bytes):
+    def __init__(self, public_key: cryptography.ECPoint, signature: bytes):
         self.public_key = public_key
         self.signature = signature
 
@@ -34,7 +34,7 @@ class ContractGroup(IJson):
         return cryptography.verify_signature(contract_hash.to_array(),
                                              self.signature,
                                              self.public_key.encode_point(False),
-                                             cryptography.ECCCurve.NISTP256)
+                                             cryptography.ECCCurve.SECP256R1)
 
     def to_json(self) -> dict:
         """
@@ -58,7 +58,7 @@ class ContractGroup(IJson):
             KeyError: if the data supplied does not contain the necessary keys.
         """
         return cls(
-            public_key=cryptography.EllipticCurve.ECPoint.deserialize_from_bytes(binascii.unhexlify(json['pubkey'])),
+            public_key=cryptography.ECPoint.deserialize_from_bytes(binascii.unhexlify(json['pubkey'])),
             signature=base64.b64decode(json['signature'].encode('utf8'))
         )
 

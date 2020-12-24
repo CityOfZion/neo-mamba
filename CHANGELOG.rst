@@ -3,13 +3,23 @@ Changelog
 
 All notable changes to this project are documented in this file.
 
+[0.4.1] 2020-12-23
+------------------
+- Cache candidates
+- Cache NEO/GAS contract state
+- Drop pure ECC library for own native
+- Drop build-in JSON for faster JSON library
+- Cache validators
+- Moved ``pre_execute_instruction()`` inside partial native ``ApplicationEngine``
+- Reduced ``UInt`` types initialization overhead
+
 [0.4] 2020-12-10
 ----------------
 - Add interoperability layer (too many changes to mention)
 
 [0.3] 2020-08-20
 ----------------
-- Add Manifest and NEO Executale Format (NEF) support
+- Add Manifest and NEO Executable Format (NEF) support
 - Update Message format to include compressed data length
 - Change network payload for requesting headers
 - Change Cosigners to Signer and merge with Transaction

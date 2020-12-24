@@ -132,8 +132,8 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
             return types.UInt256(data=stack_item.to_array())
         elif class_type == str:
             return stack_item.to_array().decode()
-        elif class_type == cryptography.EllipticCurve.ECPoint:
-            return cryptography.EllipticCurve.ECPoint.deserialize_from_bytes(stack_item.to_array())
+        elif class_type == cryptography.ECPoint:
+            return cryptography.ECPoint.deserialize_from_bytes(stack_item.to_array())
         elif issubclass(class_type, enum.Enum):
             stack_item = cast(vm.IntegerStackItem, stack_item)
             # mypy seems to have trouble understanding types that support __int__
