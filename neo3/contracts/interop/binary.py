@@ -1,5 +1,6 @@
 from __future__ import annotations
 import base64
+import base58  # type: ignore
 from neo3 import vm, contracts
 from neo3.contracts.interop import register
 
@@ -25,3 +26,31 @@ def base64_encode(engine: contracts.ApplicationEngine, data: bytes) -> str:
 @register("System.Binary.Base64Decode", 100000, contracts.native.CallFlags.NONE, True, [bytes])
 def base64_decode(engine: contracts.ApplicationEngine, data: bytes) -> bytes:
     return base64.b64decode(data)
+
+
+@register("System.Binary.Base58Encode", 100000, contracts.native.CallFlags.NONE, True, [bytes])
+def base58_encode(engine: contracts.ApplicationEngine, data: bytes) -> str:
+    return base58.b58encode(data).decode()
+
+
+@register("System.Binary.Base58Decode", 100000, contracts.native.CallFlags.NONE, True, [bytes])
+def base58_decode(engine: contracts.ApplicationEngine, data: bytes) -> bytes:
+    return base58.b58decode(data)
+
+
+@register("System.Binary.Itoa", 100000, contracts.native.CallFlags.NONE, True, [vm.BigInteger, int])
+def do_itoa(engine: contracts.ApplicationEngine, value: vm.BigInteger, base: int) -> str:
+    if base == 10:
+        return str(value)
+    elif base == 16:
+        return hex(int(value))[2:]
+    else:
+        raise ValueError("Invalid base specified")
+
+
+@register("System.Binary.Atoi", 100000, contracts.native.CallFlags.NONE, True, [str, int])
+def do_atoi(engine: contracts.ApplicationEngine, value: str, base: int) -> int:
+    if base != 10 and base != 16:
+        raise ValueError("Invalid base specified")
+    else:
+        return int(value, base)
