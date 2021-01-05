@@ -149,25 +149,3 @@ class BlockchainInteropTestCase(unittest.TestCase):
         item = engine.pop()
         self.assertIsInstance(item, vm.IntegerStackItem)
         self.assertEqual(str(vm.BigInteger(1)), str(item.to_biginteger()))
-
-    def test_get_contract(self):
-        engine = test_engine(has_container=True, has_snapshot=True)
-        bad_contract_hash_bytes = b'\x01' * 20
-        engine.push(vm.ByteStringStackItem(bad_contract_hash_bytes))
-        engine.invoke_syscall_by_name("System.Blockchain.GetContract")
-        item = engine.pop()
-        self.assertIsInstance(item, vm.NullStackItem)
-
-        # now get a valid contract
-        # first put one in storage
-        contract = storage.ContractState(b'\x01\x02', manifest.ContractManifest())
-        engine.snapshot.contracts.put(contract)
-        engine.push(vm.ByteStringStackItem(contract.script_hash().to_array()))
-        engine.invoke_syscall_by_name("System.Blockchain.GetContract")
-        item = engine.pop()
-        self.assertIsInstance(item, vm.ArrayStackItem)
-        self.assertEqual(len(item), 4)
-        self.assertEqual(contract.script, item[0].to_array())
-        self.assertEqual(contract.manifest, manifest.ContractManifest.from_json(json.loads(item[1].to_array())))
-        self.assertEqual(contract.has_storage, item[2].to_boolean())
-        self.assertEqual(contract.is_payable, item[3].to_boolean())

@@ -80,8 +80,3 @@ def blockchain_get_transaction_height(engine: contracts.ApplicationEngine, tx_ha
         return -1
     else:
         return tx.block_height
-
-
-@register("System.Blockchain.GetContract", 1000000, contracts.native.CallFlags.ALLOW_STATES, True, [types.UInt160])
-def blockchain_get_contract(engine: contracts.ApplicationEngine, contract_hash: types.UInt160) -> storage.ContractState:
-    return engine.snapshot.contracts.try_get(contract_hash)
