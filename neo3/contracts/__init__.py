@@ -13,7 +13,7 @@ from .abi import (ContractParameterType,
                   ContractEventDescriptor,
                   ContractParameterDefinition,
                   ContractABI)
-from .nef import (NEF, Version)
+from .nef import NEF
 from .contract import Contract
 from .binaryserializer import BinarySerializer
 from .jsonserializer import (NEOJson, JSONSerializer)
