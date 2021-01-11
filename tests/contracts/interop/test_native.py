@@ -141,7 +141,7 @@ class TestPolicyContract(unittest.TestCase):
         self.assertEqual("Policy", contracts.PolicyContract.service_name())
         self.assertEqual([], policy.supported_standards())
 
-    def test_policy_get_max_tx_per_block(self):
+    def test_policy_defaul_get_max_tx_per_block(self):
         engine = test_native_contract(contracts.PolicyContract().script_hash, "getMaxTransactionsPerBlock")
         engine.execute()
         self.assertEqual(vm.VMState.HALT, engine.state)
@@ -149,7 +149,7 @@ class TestPolicyContract(unittest.TestCase):
         item = engine.result_stack.pop()
         self.assertEqual(vm.IntegerStackItem(512), item)
 
-    def test_policy_get_max_block_size(self):
+    def test_policy_default_get_max_block_size(self):
         engine = test_native_contract(contracts.PolicyContract().script_hash, "getMaxBlockSize")
         engine.execute()
         self.assertEqual(vm.VMState.HALT, engine.state)
@@ -157,7 +157,7 @@ class TestPolicyContract(unittest.TestCase):
         item = engine.result_stack.pop()
         self.assertEqual(vm.IntegerStackItem(262144), item)
 
-    def test_policy_get_max_block_system_fee(self):
+    def test_policy_default_get_max_block_system_fee(self):
         engine = test_native_contract(contracts.PolicyContract().script_hash, "getMaxBlockSystemFee")
         engine.execute()
         self.assertEqual(vm.VMState.HALT, engine.state)
@@ -165,7 +165,7 @@ class TestPolicyContract(unittest.TestCase):
         item = engine.result_stack.pop()
         self.assertEqual(vm.IntegerStackItem(900000000000), item)
 
-    def test_policy_get_fee_per_byte(self):
+    def test_policy_default_get_fee_per_byte(self):
         engine = test_native_contract(contracts.PolicyContract().script_hash, "getFeePerByte")
         engine.execute()
         self.assertEqual(vm.VMState.HALT, engine.state)

@@ -362,29 +362,6 @@ class PolicyContract(NativeContract):
         addr = NeoToken().get_committee_address(engine)
         return engine.checkwitness(addr)
 
-    def _initialize(self, engine: contracts.ApplicationEngine) -> None:
-        # values are stored in signed format, little endian order
-        engine.snapshot.storages.put(
-            storage.StorageKey(self.script_hash, self._PREFIX_MAX_BLOCK_SIZE),
-            storage.StorageItem(b'\x00\x00\x04\x00')  # 1024u * 256u
-        )
-        engine.snapshot.storages.put(
-            storage.StorageKey(self.script_hash, self._PREFIX_MAX_TRANSACTIONS_PER_BLOCK),
-            storage.StorageItem(b'\x00\x02\x00\x00')  # 512u
-        )
-        engine.snapshot.storages.put(
-            storage.StorageKey(self.script_hash, self._PREFIX_MAX_BLOCK_SYSTEM_FEE),
-            storage.StorageItem(b'\x00\x28\x2e\x8c\xd1\x00\x00\x00')  # 9000 * GAS.Factor
-        )
-        engine.snapshot.storages.put(
-            storage.StorageKey(self.script_hash, self._PREFIX_FEE_PER_BYTE),
-            storage.StorageItem(b'\xe8\x03\x00\x00\x00\x00\x00\x00')  # 1000L
-        )
-        engine.snapshot.storages.put(
-            storage.StorageKey(self.script_hash, self._PREFIX_BLOCKED_ACCOUNTS),
-            storage.StorageItem(b'\x00')
-        )
-
     def get_max_block_size(self, snapshot: storage.Snapshot) -> int:
         """
         Retrieve the configured maximum size of a Block.
@@ -392,9 +369,12 @@ class PolicyContract(NativeContract):
         Returns:
             int: maximum number of bytes.
         """
-        data = snapshot.storages.get(
-            storage.StorageKey(self.script_hash, self._PREFIX_MAX_BLOCK_SIZE)
+        data = snapshot.storages.try_get(
+            storage.StorageKey(self.script_hash, self._PREFIX_MAX_BLOCK_SIZE),
+            read_only=True
         )
+        if data is None:
+            return 1024 * 256
         return int.from_bytes(data.value, 'little', signed=True)
 
     def get_max_transactions_per_block(self, snapshot: storage.Snapshot) -> int:
@@ -404,9 +384,12 @@ class PolicyContract(NativeContract):
         Returns:
             int: maximum number of transaction.
         """
-        data = snapshot.storages.get(
-            storage.StorageKey(self.script_hash, self._PREFIX_MAX_TRANSACTIONS_PER_BLOCK)
+        data = snapshot.storages.try_get(
+            storage.StorageKey(self.script_hash, self._PREFIX_MAX_TRANSACTIONS_PER_BLOCK),
+            read_only=True
         )
+        if data is None:
+            return 512
         return int.from_bytes(data.value, 'little', signed=True)
 
     def get_max_block_system_fee(self, snapshot: storage.Snapshot) -> int:
@@ -416,9 +399,13 @@ class PolicyContract(NativeContract):
         Returns:
             int: maximum system fee.
         """
-        data = snapshot.storages.get(
-            storage.StorageKey(self.script_hash, self._PREFIX_MAX_BLOCK_SYSTEM_FEE)
+        data = snapshot.storages.try_get(
+            storage.StorageKey(self.script_hash, self._PREFIX_MAX_BLOCK_SYSTEM_FEE),
+            read_only=True
         )
+        if data is None:
+            x = GasToken().factor * 9000
+            return int(x)
         return int.from_bytes(data.value, 'little', signed=True)
 
     def get_fee_per_byte(self, snapshot: storage.Snapshot) -> int:
@@ -428,9 +415,12 @@ class PolicyContract(NativeContract):
         Returns:
             int: maximum fee.
         """
-        data = snapshot.storages.get(
-            storage.StorageKey(self.script_hash, self._PREFIX_FEE_PER_BYTE)
+        data = snapshot.storages.try_get(
+            storage.StorageKey(self.script_hash, self._PREFIX_FEE_PER_BYTE),
+            read_only=True
         )
+        if data is None:
+            return 1000
         return int.from_bytes(data.value, 'little', signed=True)
 
     def get_blocked_accounts(self, snapshot: storage.Snapshot) -> List[types.UInt160]:
@@ -443,9 +433,12 @@ class PolicyContract(NativeContract):
             A list of blocked accounts hashes
         """
 
-        si = snapshot.storages.get(
-            storage.StorageKey(self.script_hash, self._PREFIX_BLOCKED_ACCOUNTS)
+        si = snapshot.storages.try_get(
+            storage.StorageKey(self.script_hash, self._PREFIX_BLOCKED_ACCOUNTS),
+            read_only=True
         )
+        if si is None:
+            return []
         with serialization.BinaryReader(si.value) as br:
             return br.read_serializable_list(types.UInt160)
 
@@ -459,10 +452,14 @@ class PolicyContract(NativeContract):
         if value >= message.Message.PAYLOAD_MAX_SIZE:
             return False
 
-        storage_item = engine.snapshot.storages.get(
-            storage.StorageKey(self.script_hash, self._PREFIX_MAX_BLOCK_SIZE),
+        storage_key = storage.StorageKey(self.script_hash, self._PREFIX_MAX_BLOCK_SIZE)
+        storage_item = engine.snapshot.storages.try_get(
+            storage_key,
             read_only=False
         )
+        if storage_item is None:
+            storage_item = storage.StorageItem(b'')
+            engine.snapshot.storages.update(storage_key, storage_item)
         storage_item.value = value.to_bytes((value.bit_length() + 7) // 8, 'little', signed=True)
         return True
 
@@ -473,10 +470,14 @@ class PolicyContract(NativeContract):
         if not self._check_committees(engine):
             return False
 
-        storage_item = engine.snapshot.storages.get(
-            storage.StorageKey(self.script_hash, self._PREFIX_MAX_TRANSACTIONS_PER_BLOCK),
+        storage_key = storage.StorageKey(self.script_hash, self._PREFIX_MAX_TRANSACTIONS_PER_BLOCK)
+        storage_item = engine.snapshot.storages.try_get(
+            storage_key,
             read_only=False
         )
+        if storage_item is None:
+            storage_item = storage.StorageItem(b'')
+            engine.snapshot.storages.update(storage_key, storage_item)
 
         storage_item.value = value.to_bytes((value.bit_length() + 7) // 8, 'little', signed=True)
         return True
@@ -492,10 +493,14 @@ class PolicyContract(NativeContract):
         if value <= 4007600:
             return False
 
-        storage_item = engine.snapshot.storages.get(
-            storage.StorageKey(self.script_hash, self._PREFIX_MAX_BLOCK_SYSTEM_FEE),
+        storage_key = storage.StorageKey(self.script_hash, self._PREFIX_MAX_BLOCK_SYSTEM_FEE)
+        storage_item = engine.snapshot.storages.try_get(
+            storage_key,
             read_only=False
         )
+        if storage_item is None:
+            storage_item = storage.StorageItem(b'')
+            engine.snapshot.storages.update(storage_key, storage_item)
 
         storage_item.value = value.to_bytes((value.bit_length() + 7) // 8, 'little', signed=True)
         return True
@@ -507,10 +512,15 @@ class PolicyContract(NativeContract):
         if not self._check_committees(engine):
             return False
 
-        storage_item = engine.snapshot.storages.get(
-            storage.StorageKey(self.script_hash, self._PREFIX_FEE_PER_BYTE),
+        storage_key = storage.StorageKey(self.script_hash, self._PREFIX_FEE_PER_BYTE)
+        storage_item = engine.snapshot.storages.try_get(
+            storage_key,
             read_only=False
         )
+        if storage_item is None:
+            storage_item = storage.StorageItem(b'')
+            engine.snapshot.storages.update(storage_key, storage_item)
+
         storage_item.value = value.to_bytes((value.bit_length() + 7) // 8, 'little', signed=True)
         return True
 
@@ -522,7 +532,10 @@ class PolicyContract(NativeContract):
             return False
         storage_key = storage.StorageKey(self.script_hash,
                                          self._PREFIX_BLOCKED_ACCOUNTS)
-        storage_item = engine.snapshot.storages.get(storage_key, read_only=False)
+        storage_item = engine.snapshot.storages.try_get(storage_key, read_only=False)
+        if storage_item is None:
+            storage_item = storage.StorageItem(b'\x00')
+            engine.snapshot.storages.update(storage_key, storage_item)
 
         with serialization.BinaryReader(storage_item.value) as br:
             accounts = br.read_serializable_list(types.UInt160)
@@ -542,7 +555,10 @@ class PolicyContract(NativeContract):
             return False
         storage_key = storage.StorageKey(self.script_hash,
                                          self._PREFIX_BLOCKED_ACCOUNTS)
-        storage_item = engine.snapshot.storages.get(storage_key, read_only=False)
+        storage_item = engine.snapshot.storages.try_get(storage_key, read_only=False)
+        if storage_item is None:
+            storage_item = storage.StorageItem(b'\x00')
+            engine.snapshot.storages.update(storage_key, storage_item)
 
         with serialization.BinaryReader(storage_item.value) as br:
             accounts = br.read_serializable_list(types.UInt160)
