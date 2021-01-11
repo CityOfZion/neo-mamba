@@ -44,7 +44,7 @@ def get_entryscripthash(engine: contracts.ApplicationEngine) -> types.UInt160:
     return engine.entry_scripthash
 
 
-@register("System.Runtime.CheckWitness", 30000, contracts.native.CallFlags.ALLOW_STATES, True, [bytes])
+@register("System.Runtime.CheckWitness", 30000, contracts.native.CallFlags.NONE, True, [bytes])
 def do_checkwitness(engine: contracts.ApplicationEngine, data: bytes) -> bool:
     if len(data) == 20:
         hash_ = types.UInt160(data)

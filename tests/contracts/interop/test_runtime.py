@@ -299,7 +299,7 @@ class RuntimeInteropTestCase(unittest.TestCase):
         self.assertTrue(item.to_boolean())
 
     def test_checkwitness_helper_other_verifiable(self):
-        engine = test_engine(has_snapshot=True, has_container=False, default_script=False)
+        engine = test_engine(has_snapshot=True, has_container=False, default_script=True)
         engine.script_container = TestIVerifiable()
         self.assertFalse(engine.checkwitness(types.UInt160(b'\x01' * 20)))
 

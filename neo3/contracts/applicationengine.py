@@ -77,11 +77,19 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
                     return True
 
             if payloads.WitnessScope.CUSTOM_GROUPS in signer.scope:
+                if contracts.native.CallFlags.ALLOW_STATES not in \
+                        contracts.native.CallFlags(self.current_context.call_flags):
+                    raise ValueError("Context requires callflags ALLOW_STATES")
+
                 contract = self.snapshot.contracts.get(self.calling_scripthash)
                 group_keys = set(map(lambda g: g.public_key, contract.manifest.groups))
                 if any(group_keys.intersection(signer.allowed_groups)):
                     return True
             return False
+
+        if contracts.native.CallFlags.ALLOW_STATES not in \
+                contracts.native.CallFlags(self.current_context.call_flags):
+            raise ValueError("Context requires callflags ALLOW_STATES")
 
         # for other IVerifiable types like Block
         hashes_for_verifying = self.script_container.get_script_hashes_for_verifying(self.snapshot)
