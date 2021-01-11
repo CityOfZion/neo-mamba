@@ -171,7 +171,7 @@ def contract_callex(engine: contracts.ApplicationEngine,
     contract_call_internal(engine, contract_hash, method, args, flags)
 
 
-@register("System.Contract.IsStandard", 30000, contracts.native.CallFlags.NONE, True, [types.UInt160])
+@register("System.Contract.IsStandard", 30000, contracts.native.CallFlags.ALLOW_STATES, True, [types.UInt160])
 def contract_is_standard(engine: contracts.ApplicationEngine, hash_: types.UInt160) -> bool:
     contract = engine.snapshot.contracts.try_get(hash_)
     if contract:
