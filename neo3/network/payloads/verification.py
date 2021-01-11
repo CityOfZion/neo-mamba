@@ -23,7 +23,7 @@ class Signer(serialization.ISerializable):
         #: The TX sender.
         self.account = account
         #: payloads.WitnessScope: The configured validation scope.
-        self.scope = scope if scope else payloads.WitnessScope.FEE_ONLY
+        self.scope = scope if scope else payloads.WitnessScope.NONE
         #: List[types.UInt160]: Whitelist of contract script hashes if used with
         #: :const:`~neo3.network.payloads.verification.WitnessScope.CUSTOM_CONTRACTS`.
         self.allowed_contracts = allowed_contracts if allowed_contracts else []
@@ -142,8 +142,8 @@ class WitnessScope(IntFlag):
     """
     Determine the rules for a smart contract :func:`CheckWitness()` sys call.
     """
-    #: Special case only valid for the first signer in the transaction, a.k.a the sender
-    FEE_ONLY = 0x0
+    #: No Contract was witnessed. Only sign the transaction.
+    NONE = 0x0
     #: Allow the witness if the current calling script hash equals the entry script hash into the virtual machine.
     #: Using this prevents passing :func:`CheckWitness()` in a smart contract called via another smart contract.
     CALLED_BY_ENTRY = 0x01

@@ -66,7 +66,7 @@ class Blockchain(convenience._Singleton):
                 valid_until_block=0,
                 signers=[payloads.Signer(
                     account=to_script_hash(b'\x11'),
-                    scope=payloads.WitnessScope.FEE_ONLY
+                    scope=payloads.WitnessScope.NONE
                 )],
                 witnesses=[payloads.Witness(
                     invocation_script=b'',

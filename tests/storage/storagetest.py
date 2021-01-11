@@ -32,7 +32,7 @@ class AbstractBlockStorageTest(abc.ABC, unittest.TestCase):
     def setUp(self) -> None:
         self.db = self.db_factory()
         signer = payloads.Signer(account=types.UInt160.from_string("d7678dd97c000be3f33e9362e673101bac4ca654"),
-                                 scope=payloads.WitnessScope.FEE_ONLY)
+                                 scope=payloads.WitnessScope.NONE)
         tx = payloads.Transaction(version=0,
                                   nonce=123,
                                   system_fee=456,

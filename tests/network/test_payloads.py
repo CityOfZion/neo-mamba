@@ -989,7 +989,7 @@ class TransactionTestCase(unittest.TestCase):
         Console.WriteLine(tx.FeePerByte);
         """
         signer = payloads.Signer(account=types.UInt160.from_string("d7678dd97c000be3f33e9362e673101bac4ca654"),
-                                   scope=payloads.WitnessScope.FEE_ONLY)
+                                 scope=payloads.WitnessScope.NONE)
 
         witness = payloads.Witness(invocation_script=b'', verification_script=b'\x55')
 
@@ -1077,13 +1077,6 @@ class TransactionTestCase(unittest.TestCase):
             payloads.Transaction.deserialize_from_bytes(tx.to_array())
         self.assertEqual("Deserialization error - signers can't be empty", str(context.exception))
 
-    def test_deserialization_multiple_feeonly_in_signers_list_error(self):
-        tx = deepcopy(self.tx)
-        tx.signers.append(deepcopy(tx.signers[0]))
-        with self.assertRaises(ValueError) as context:
-            payloads.Transaction.deserialize_from_bytes(tx.to_array())
-        self.assertEqual("Deserialization error - only the first signer can be fee only", str(context.exception))
-
     def test_deserialization_duplicate_signer(self):
         tx = deepcopy(self.tx)
         tx.signers[0].scope = payloads.WitnessScope.GLOBAL
@@ -1163,8 +1156,8 @@ class TransactionTestCase(unittest.TestCase):
 
         account1 = types.UInt160.from_string("d7678dd97c000be3f33e9362e673101bac4ca654")
         account2 = types.UInt160.zero()
-        signer1 = payloads.Signer(account=account1, scope=payloads.WitnessScope.FEE_ONLY)
-        signer2 = payloads.Signer(account=account2, scope=payloads.WitnessScope.FEE_ONLY)
+        signer1 = payloads.Signer(account=account1, scope=payloads.WitnessScope.NONE)
+        signer2 = payloads.Signer(account=account2, scope=payloads.WitnessScope.NONE)
 
         tx.signers = [signer1, signer2]
 

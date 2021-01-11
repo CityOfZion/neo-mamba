@@ -359,7 +359,7 @@ class PolicyContract(NativeContract):
         return []
 
     def _check_committees(self, engine: contracts.ApplicationEngine) -> bool:
-        addr = NeoToken().get_committee_address(engine)
+        addr = NeoToken().get_committee_address(engine.snapshot)
         return engine.checkwitness(addr)
 
     def get_max_block_size(self, snapshot: storage.Snapshot) -> int:
@@ -1201,10 +1201,10 @@ class NeoToken(Nep5Token):
         return True
 
     def _get_candidates(self,
-                        engine: contracts.ApplicationEngine) -> \
+                        snapshot: storage.Snapshot) -> \
             Iterator[Tuple[cryptography.ECPoint, vm.BigInteger]]:
         if self._candidates_dirty:
-            storage_results = list(engine.snapshot.storages.find(self.script_hash, self._PREFIX_CANDIDATE))
+            storage_results = list(snapshot.storages.find(self.script_hash, self._PREFIX_CANDIDATE))
             self._candidates = []
             for k, v in storage_results:
                 candidate = _CandidateState.deserialize_from_bytes(v.value)
@@ -1218,7 +1218,7 @@ class NeoToken(Nep5Token):
 
     def get_candidates(self, engine: contracts.ApplicationEngine) -> None:
         array = vm.ArrayStackItem(engine.reference_counter)
-        for k, v in self._get_candidates(engine):
+        for k, v in self._get_candidates(engine.snapshot):
             struct = vm.StructStackItem(engine.reference_counter)
             struct.append(vm.ByteStringStackItem(k.to_array()))
             struct.append(vm.IntegerStackItem(v))
@@ -1226,32 +1226,32 @@ class NeoToken(Nep5Token):
         engine.push(array)
 
     def get_validators(self, engine: contracts.ApplicationEngine) -> List[cryptography.ECPoint]:
-        keys = self._get_committee_members(engine)
+        keys = self._get_committee_members(engine.snapshot)
         keys = keys[:settings.network.validators_count]
         keys.sort()
         return keys
 
-    def get_comittee(self, engine: contracts.ApplicationEngine) -> List[cryptography.ECPoint]:
-        keys = self._get_committee_members(engine)
+    def get_committee(self, snapshot: storage.Snapshot) -> List[cryptography.ECPoint]:
+        keys = self._get_committee_members(snapshot)
         keys.sort()
         return keys
 
-    def get_committee_address(self, engine: contracts.ApplicationEngine) -> types.UInt160:
-        comittees = self.get_comittee(engine)
+    def get_committee_address(self, snapshot: storage.Snapshot) -> types.UInt160:
+        comittees = self.get_committee(snapshot)
         return to_script_hash(
             contracts.Contract.create_multisig_redeemscript(
                 len(comittees) - (len(comittees) - 1) // 2,
                 comittees)
         )
 
-    def _get_committee_members(self, engine: contracts.ApplicationEngine) -> List[cryptography.ECPoint]:
+    def _get_committee_members(self, snapshot: storage.Snapshot) -> List[cryptography.ECPoint]:
         storage_key = storage.StorageKey(self.script_hash, self._PREFIX_VOTERS_COUNT)
-        storage_item = engine.snapshot.storages.get(storage_key, read_only=True)
+        storage_item = snapshot.storages.get(storage_key, read_only=True)
         voters_count = int(vm.BigInteger(storage_item.value))
         voter_turnout = voters_count / float(self.total_amount)
         if voter_turnout < 0.2:
             return settings.standby_committee
-        candidates = list(self._get_candidates(engine))
+        candidates = list(self._get_candidates(snapshot))
         if len(candidates) < len(settings.standby_committee):
             return settings.standby_committee
         # first sort by votes descending, then by ECPoint ascending

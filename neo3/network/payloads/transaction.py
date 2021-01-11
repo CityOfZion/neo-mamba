@@ -6,11 +6,11 @@ from typing import List
 from neo3.core import Size as s, serialization, utils, types, IInteroperable
 from neo3.network import payloads
 from neo3.vm import VMState
-from neo3 import settings, vm, storage
+from neo3 import settings, vm, storage, contracts
 
 
 class TransactionAttributeType(Enum):
-    pass
+    HIGH_PRIORITY = 1
 
 
 class TransactionAttribute(serialization.ISerializable):
@@ -73,6 +73,28 @@ class TransactionAttribute(serialization.ISerializable):
     @abc.abstractmethod
     def _deserialize_without_type(self, reader: serialization.BinaryReader) -> None:
         """ Deserialize the remaining attributes """
+
+    def verify(self, snapshot: storage.Snapshot, tx: Transaction) -> bool:
+        return True
+
+
+class HighPriorityAttribute(TransactionAttribute):
+    def __init__(self):
+        super(HighPriorityAttribute, self).__init__()
+        self.type_ = TransactionAttributeType.HIGH_PRIORITY
+
+    def verify(self, snapshot: storage.Snapshot, tx: Transaction) -> bool:
+        committee = contracts.NeoToken().get_committee_address(snapshot)
+        for signer in tx.signers:
+            if signer.account == committee:
+                return True
+        return False
+
+    def _serialize_without_type(self, writer: serialization.BinaryWriter) -> None:
+        pass
+
+    def _deserialize_without_type(self, reader: serialization.BinaryReader) -> None:
+        pass
 
 
 class Transaction(payloads.IInventory, IInteroperable):
@@ -296,8 +318,6 @@ class Transaction(payloads.IInventory, IInteroperable):
         values: List[payloads.Signer] = []
         for i in range(0, count):
             signer = reader.read_serializable(payloads.Signer)
-            if i > 0 and signer.scope == payloads.WitnessScope.FEE_ONLY:
-                raise ValueError("Deserialization error - only the first signer can be fee only")
             if signer in values:
                 raise ValueError("Deserialization error - duplicate signer")
             values.append(signer)
