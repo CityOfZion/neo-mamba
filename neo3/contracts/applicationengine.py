@@ -308,3 +308,13 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
         if state.callback is None:
             return
         # TODO: implementation Action/DynamicInvoke part of callback logic
+
+    def load_context(self, context: vm.ExecutionContext, check_return_value: bool = False):
+        if check_return_value:
+            self._get_invocation_state(self.current_context).check_return_value = True
+        super(ApplicationEngine, self).load_context(context)
+
+    def load_script_with_callflags(self, script, call_flags: contracts.native.CallFlags, initial_position=0):
+        context = super(ApplicationEngine, self).load_script(script, initial_position)
+        context.call_flags = int(call_flags)
+        return context

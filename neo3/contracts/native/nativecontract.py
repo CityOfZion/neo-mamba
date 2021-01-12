@@ -128,7 +128,7 @@ class NativeContract(convenience._Singleton):
         self._manifest.abi.methods.append(
             contracts.ContractMethodDescriptor(
                 name=func_name,
-                offset=-1,
+                offset=0,
                 return_type=contracts.ContractParameterType.from_type(return_type),
                 parameters=params
             )

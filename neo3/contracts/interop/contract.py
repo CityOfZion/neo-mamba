@@ -131,7 +131,7 @@ def contract_call_internal(engine: contracts.ApplicationEngine,
         raise ValueError(
             f"[System.Contract.Call] Invalid number of contract arguments. Expected {expected_len} actual {arg_len}")  # noqa
 
-    context_new = engine.load_script(vm.Script(target_contract.script))
+    context_new = engine.load_script(vm.Script(target_contract.script), contract_method_descriptor.offset)
     context_new.calling_script = state.script
     context_new.call_flags = flags & calling_flags
 
