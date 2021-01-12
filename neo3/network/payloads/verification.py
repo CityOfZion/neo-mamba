@@ -96,6 +96,7 @@ class Witness(serialization.ISerializable):
     """
     An executable verification script that validates a verifiable object like a transaction.
     """
+
     def __init__(self, invocation_script: bytes, verification_script: bytes):
         #: A set of VM instructions to setup the stack for verification.
         self.invocation_script = invocation_script
@@ -136,6 +137,17 @@ class Witness(serialization.ISerializable):
     @classmethod
     def _serializable_init(cls):
         return cls(b'', b'')
+
+    @property
+    def state_dependent(self):
+        return len(self.verification_script) == 0
+
+
+class WitnessFlag(IntFlag):
+    NONE = 0,
+    StateIndependent = 0b00000001,
+    StateDependent = 0b00000010,
+    All = StateIndependent | StateDependent
 
 
 class WitnessScope(IntFlag):
