@@ -140,7 +140,7 @@ class BlockTestCase(unittest.TestCase):
         b.Index = 1;
         b.NextConsensus = UInt160.Parse("0xd7678dd97c000be3f33e9362e673101bac4ca654");
         b.Witness = new Witness { InvocationScript = new byte[0], VerificationScript = new byte[] { 0x55 } };
-        b.ConsensusData = new ConsensusData { Nonce = 123, PrimaryIndex = 1 };
+        b.ConsensusData = new ConsensusData { Nonce = 123, PrimaryIndex = 0 };
         b.Transactions = new Transaction[] { tx };
         b.RebuildMerkleRoot();
 
@@ -165,7 +165,7 @@ class BlockTestCase(unittest.TestCase):
                                    index=1,
                                    next_consensus=types.UInt160.from_string("d7678dd97c000be3f33e9362e673101bac4ca654"),
                                    witness=payloads.Witness(invocation_script=b'', verification_script=b'\x55'),
-                                   consensus_data=payloads.ConsensusData(primary_index=1, nonce=123),
+                                   consensus_data=payloads.ConsensusData(primary_index=0, nonce=123),
                                    transactions=[cls.tx])
         cls.block.rebuild_merkle_root()
         cls.trimmed_block = cls.block.trim()
@@ -187,7 +187,7 @@ class BlockTestCase(unittest.TestCase):
 
     def test_serialization(self):
         # captured from C#, see setUpClass() for the capture code
-        expected_data = binascii.unhexlify("000000000AAEB9C2C35A97AF7C054553CE64DA5E52FB530D6CB929E6AFF6EEB2FBC782F72F9B61E3B410EF24D86B2BAFD9F2611AD8F43A9F7167FC58C3FCCC80BBFD40A67B000000000000000100000054A64CAC1B1073E662933EF3E30B007CD98D67D70100015502017B00000000000000007B000000C80100000000000015030000000000000100000001F7B4D00143932F3B6243CFC06CB4A68F22C739E20000010100")
+        expected_data = binascii.unhexlify("000000000AAEB9C2C35A97AF7C054553CE64DA5E52FB530D6CB929E6AFF6EEB2FBC782F749A149B5AEED7B7DBD753FE54F9FCC4A0B368221EF06F76DC4ABB0317972BEE07B000000000000000100000054A64CAC1B1073E662933EF3E30B007CD98D67D70100015502007B00000000000000007B000000C80100000000000015030000000000000100000001F7B4D00143932F3B6243CFC06CB4A68F22C739E20000010100")
         self.assertEqual(expected_data, self.block.to_array())
 
     def test_deserialization(self):
@@ -240,7 +240,7 @@ class BlockTestCase(unittest.TestCase):
         expected_len = 178
         self.assertEqual(expected_len, len(trimmed_block))
 
-        expected_data = binascii.unhexlify('000000000AAEB9C2C35A97AF7C054553CE64DA5E52FB530D6CB929E6AFF6EEB2FBC782F72F9B61E3B410EF24D86B2BAFD9F2611AD8F43A9F7167FC58C3FCCC80BBFD40A67B000000000000000100000054A64CAC1B1073E662933EF3E30B007CD98D67D70100015502FCAF61CDF5BEF2AB0FFAC66D846D14EDF06C84A0FD852264918E2F1E2E0A546CDBB73FBF82438E317ABA947D8853907AB259BDCEB8A5771AF394371492BD7D88017B00000000000000')
+        expected_data = binascii.unhexlify('000000000AAEB9C2C35A97AF7C054553CE64DA5E52FB530D6CB929E6AFF6EEB2FBC782F749A149B5AEED7B7DBD753FE54F9FCC4A0B368221EF06F76DC4ABB0317972BEE07B000000000000000100000054A64CAC1B1073E662933EF3E30B007CD98D67D70100015502CEBBAA303E74D5CAC6DF34823B7484B7760460295EC1E97845FDF138F9A87A62DBB73FBF82438E317ABA947D8853907AB259BDCEB8A5771AF394371492BD7D88007B00000000000000')
         self.assertEqual(expected_data, trimmed_block.to_array())
 
         deserialized_trimmed_block = payloads.TrimmedBlock.deserialize_from_bytes(trimmed_block.to_array())
@@ -284,27 +284,27 @@ class ConsensusDataTestCase(unittest.TestCase):
     def setUpClass(cls) -> None:
         """
         ConsensusData cd = new ConsensusData();
-        cd.PrimaryIndex = 123;
+        cd.PrimaryIndex = 0;
         cd.Nonce = 456;
         Console.WriteLine(cd.Size);
         Console.WriteLine(cd.Hash);
         Console.WriteLine($"b\'{BitConverter.ToString(cd.ToArray()).Replace("-", "")}\'");
         """
         cd = payloads.ConsensusData()
-        cd.primary_index = 123
+        cd.primary_index = 0
         cd.nonce = 456
         cls.consensus_data = cd
 
     def test_len_and_hash(self):
         # captured from C#, see setUpClass() for the capture code
         expected_len = 9
-        expected_hash = types.UInt256.from_string('57dc4108ec1762bea1a6d4bd59ffff3f5971d11840c486a70de49d73c4e83bbc')
+        expected_hash = types.UInt256.from_string('b616ce734d5d6bfb0c5b3c9fe890b29299f5338c1af9156342e4df9d5828a303')
         self.assertEqual(expected_len, len(self.consensus_data))
         self.assertEqual(expected_hash, self.consensus_data.hash())
 
     def test_serialization(self):
         # captured from C#, see setUpClass() for the capture code
-        expected_data = binascii.unhexlify(b'7BC801000000000000')
+        expected_data = binascii.unhexlify(b'00C801000000000000')
         self.assertEqual(expected_data, self.consensus_data.to_array())
 
     def test_deserialization(self):
@@ -323,7 +323,7 @@ class ConsensusPayloadTestCase(unittest.TestCase):
             Version = 1,
             PrevHash = UInt256.Parse("f782c7fbb2eef6afe629b96c0d53fb525eda64ce5345057caf975ac3c2b9ae0a"),
             BlockIndex = 2,
-            ValidatorIndex = 3,
+            ValidatorIndex = 0,
             Witness = new Witness
             {
                 InvocationScript = new byte[0],
@@ -344,21 +344,21 @@ class ConsensusPayloadTestCase(unittest.TestCase):
             version=1,
             prev_hash=types.UInt256.from_string("f782c7fbb2eef6afe629b96c0d53fb525eda64ce5345057caf975ac3c2b9ae0a"),
             block_index=2,
-            validator_index=3,
+            validator_index=0,
             data=b'\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00',
             witness=payloads.Witness(bytearray(), bytearray())
         )
 
     def test_len_and_hash(self):
         # captured from C#, see setUpClass() for the capture code
-        expected_len = 57
-        expected_hash = types.UInt256.from_string('0487ff07a2a5da13e5aec36a032d674fb0a08d198dc5e563c90a9f5211bcb537')
+        expected_len = 56
+        expected_hash = types.UInt256.from_string('534233410f85a5b5201bd36f0d0e4bf4cc706d0a5392d9f8ecc4f34b89ea9060')
         self.assertEqual(expected_len, len(self.payload))
         self.assertEqual(expected_hash, self.payload.hash())
 
     def test_serialization(self):
         # captured from C#, see setUpClass() for the capture code
-        expected_data = binascii.unhexlify(b'010000000AAEB9C2C35A97AF7C054553CE64DA5E52FB530D6CB929E6AFF6EEB2FBC782F70200000003000B0001000000000000000000010000')
+        expected_data = binascii.unhexlify(b'010000000AAEB9C2C35A97AF7C054553CE64DA5E52FB530D6CB929E6AFF6EEB2FBC782F702000000000B0001000000000000000000010000')
         self.assertEqual(expected_data, self.payload.to_array())
 
     def test_deserialization(self):

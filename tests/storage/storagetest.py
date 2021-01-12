@@ -49,7 +49,7 @@ class AbstractBlockStorageTest(abc.ABC, unittest.TestCase):
                                    index=1,
                                    next_consensus=types.UInt160.from_string("d7678dd97c000be3f33e9362e673101bac4ca654"),
                                    witness=payloads.Witness(invocation_script=b'', verification_script=b'\x55'),
-                                   consensus_data=payloads.ConsensusData(primary_index=1, nonce=123),
+                                   consensus_data=payloads.ConsensusData(primary_index=0, nonce=123),
                                    transactions=[tx])
         self.block1.rebuild_merkle_root()
         self.block1_hash = self.block1.hash()
@@ -300,9 +300,9 @@ class AbstractBlockStorageTest(abc.ABC, unittest.TestCase):
         blocks = list(clone_view.blocks.all())
         self.assertEqual(3, len(blocks))
         self.assertEqual(2, len(list(snapshot_view.blocks.all())))
-        self.assertEqual(block3, blocks[0])
-        self.assertEqual(self.block2, blocks[1])
-        self.assertEqual(self.block1, blocks[2])
+        self.assertEqual(self.block1, blocks[1])
+        self.assertEqual(self.block2, blocks[0])
+        self.assertEqual(block3, blocks[2])
 
     def test_snapshot_bestblockheight(self):
         snapshot_view = self.db.get_snapshotview()
