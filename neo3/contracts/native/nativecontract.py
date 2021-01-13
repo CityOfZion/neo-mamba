@@ -1191,8 +1191,16 @@ class NeoToken(Nep5Token):
 
     def on_persist(self, engine: contracts.ApplicationEngine) -> None:
         super(NeoToken, self).on_persist(engine)
-        validators = self.get_validators(engine)
 
+        # distribute GAS for committee
+        gas_per_block = self.get_gas_per_block(engine.snapshot)
+        committee = self._get_committee_members(engine.snapshot)
+        pubkey = committee[engine.snapshot.persisting_block.index % len(settings.standby_committee)]
+        account = to_script_hash(contracts.Contract.create_signature_redeemscript(pubkey))
+        GasToken().mint(engine, account, gas_per_block * self._COMMITTEE_REWARD_RATIO / 100)
+
+        # set next validators
+        validators = committee[:settings.network.validators_count]
         if self._validators_state is None:
             self._validators_state = _ValidatorsState(engine.snapshot, validators)
         self._validators_state.update(engine.snapshot, validators)
