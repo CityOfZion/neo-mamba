@@ -144,9 +144,9 @@ class Witness(serialization.ISerializable):
 
 
 class WitnessFlag(IntFlag):
-    NONE = 0,
-    StateIndependent = 0b00000001,
-    StateDependent = 0b00000010,
+    NONE = 0
+    StateIndependent = 0b00000001
+    StateDependent = 0b00000010
     All = StateIndependent | StateDependent
 
 

@@ -1,9 +1,10 @@
 from __future__ import annotations
-from typing import List, Callable, Dict, Tuple, Iterator, Any, cast
+from typing import List, Callable, Dict, Tuple, Iterator, Any, cast, NamedTuple
 from neo3 import contracts, vm, storage, blockchain, settings
 from neo3.core import types, to_script_hash, serialization, cryptography, msgrouter, Size as s
 from neo3.network import message, convenience
 from enum import IntFlag
+from collections import Sequence
 
 
 class CallFlags(IntFlag):
@@ -24,6 +25,7 @@ class _ContractMethodMetadata:
     Internal helper class containing meta data that helps in translating VM Stack Items to the arguments types of the
      handling function. Applies to native contracts only.
     """
+
     def __init__(self, handler: Callable[..., None],
                  price: int,
                  required_flags: CallFlags,
@@ -261,6 +263,10 @@ class NativeContract(convenience._Singleton):
         if engine.trigger != contracts.TriggerType.SYSTEM:
             raise SystemError("Invalid operation")
 
+    def _check_committee(self, engine: contracts.ApplicationEngine) -> bool:
+        addr = NeoToken().get_committee_address(engine.snapshot)
+        return engine.checkwitness(addr)
+
 
 class PolicyContract(NativeContract):
     _id: int = -3
@@ -358,10 +364,6 @@ class PolicyContract(NativeContract):
         """ The list of supported Neo Enhancement Proposals (NEP)."""
         return []
 
-    def _check_committees(self, engine: contracts.ApplicationEngine) -> bool:
-        addr = NeoToken().get_committee_address(engine.snapshot)
-        return engine.checkwitness(addr)
-
     def get_max_block_size(self, snapshot: storage.Snapshot) -> int:
         """
         Retrieve the configured maximum size of a Block.
@@ -446,7 +448,7 @@ class PolicyContract(NativeContract):
         """
         Should only be called through syscalls
         """
-        if not self._check_committees(engine):
+        if not self._check_committee(engine):
             return False
 
         if value >= message.Message.PAYLOAD_MAX_SIZE:
@@ -467,7 +469,7 @@ class PolicyContract(NativeContract):
         """
         Should only be called through syscalls
         """
-        if not self._check_committees(engine):
+        if not self._check_committee(engine):
             return False
 
         storage_key = storage.StorageKey(self.script_hash, self._PREFIX_MAX_TRANSACTIONS_PER_BLOCK)
@@ -486,7 +488,7 @@ class PolicyContract(NativeContract):
         """
         Should only be called through syscalls
         """
-        if not self._check_committees(engine):
+        if not self._check_committee(engine):
             return False
 
         # unknown magic value
@@ -509,7 +511,7 @@ class PolicyContract(NativeContract):
         """
         Should only be called through syscalls
         """
-        if not self._check_committees(engine):
+        if not self._check_committee(engine):
             return False
 
         storage_key = storage.StorageKey(self.script_hash, self._PREFIX_FEE_PER_BYTE)
@@ -528,7 +530,7 @@ class PolicyContract(NativeContract):
         """
         Should only be called through syscalls
         """
-        if not self._check_committees(engine):
+        if not self._check_committee(engine):
             return False
         storage_key = storage.StorageKey(self.script_hash,
                                          self._PREFIX_BLOCKED_ACCOUNTS)
@@ -551,7 +553,7 @@ class PolicyContract(NativeContract):
         """
         Should only be called through syscalls
         """
-        if not self._check_committees(engine):
+        if not self._check_committee(engine):
             return False
         storage_key = storage.StorageKey(self.script_hash,
                                          self._PREFIX_BLOCKED_ACCOUNTS)
@@ -893,6 +895,7 @@ class _CandidateState(serialization.ISerializable):
     Use the from_storage() method if you're working with a DB snapshot and intend to modify the state values.
     It will ensure that the cache is updated automatically.
     """
+
     def __init__(self):
         self._registered = True
         self._votes = vm.BigInteger.zero()
@@ -937,7 +940,6 @@ class _CandidateState(serialization.ISerializable):
 
 
 class _ValidatorsState(serialization.ISerializable):
-
     def __init__(self, snapshot: storage.Snapshot, validators: List[cryptography.ECPoint]):
         self._snapshot = snapshot
         self._validators: List[cryptography.ECPoint] = validators
@@ -970,6 +972,92 @@ class _ValidatorsState(serialization.ISerializable):
         self._validators = reader.read_serializable_list(cryptography.ECPoint)  # type: ignore
 
 
+class _GasRecord(serialization.ISerializable):
+    def __init__(self, index: int, gas_per_block: vm.BigInteger):
+        self._index = index
+        self._gas_per_block = gas_per_block
+        self._storage_item = storage.StorageItem(b'')
+
+    def __len__(self):
+        return s.uint32 + len(self._gas_per_block.to_array())
+
+    @property
+    def index(self):
+        return self._index
+
+    @index.setter
+    def index(self, value: int):
+        self._index = value
+        self._storage_item.value = self.to_array()
+
+    @property
+    def gas_per_block(self):
+        return self._gas_per_block
+
+    @gas_per_block.setter
+    def gas_per_block(self, value: vm.BigInteger) -> None:
+        self._gas_per_block = value
+        self._storage_item.value = self.to_array()
+
+    def serialize(self, writer: serialization.BinaryWriter) -> None:
+        writer.write_uint32(self._index)
+        writer.write_var_bytes(self._gas_per_block.to_array())
+
+    def deserialize(self, reader: serialization.BinaryReader) -> None:
+        self._index = reader.read_uint32()
+        self._gas_per_block = vm.BigInteger(reader.read_var_bytes())
+
+    @classmethod
+    def _serializable_init(cls):
+        return cls(0, vm.BigInteger.zero())
+
+
+class GasBonusState(serialization.ISerializable, Sequence):
+    def __init__(self, initial_record: _GasRecord = None):
+        self._storage_key = storage.StorageKey(NeoToken().script_hash, NeoToken()._PREFIX_GAS_PER_BLOCK)
+        self._records: List[_GasRecord] = [initial_record] if initial_record else []
+        self._storage_item = storage.StorageItem(b'')
+        self._iter = iter(self._records)
+
+    def __len__(self):
+        return len(self._records)
+
+    def __iter__(self):
+        self._iter = iter(self._records)
+        return self
+
+    def __next__(self) -> _GasRecord:
+        value = next(self._iter)
+        value._storage_item = self._storage_item
+        return value
+
+    def __getitem__(self, item):
+        return self._records.__getitem__(item)
+
+    def __setitem__(self, key, record: _GasRecord) -> None:
+        self._records[key] = record
+        self._storage_item.value = self.to_array()
+
+    @classmethod
+    def from_snapshot(cls, snapshot: storage.Snapshot):
+        record = cls()
+        record._storage_item = snapshot.storages.get(
+            storage.StorageKey(NeoToken().script_hash, NeoToken()._PREFIX_GAS_PER_BLOCK))
+        with serialization.BinaryReader(record._storage_item.value) as reader:
+            record.deserialize(reader)
+        return record
+
+    def append(self, record: _GasRecord) -> None:
+        self._records.append(record)
+        self._storage_item.value = self.to_array()
+
+    def serialize(self, writer: serialization.BinaryWriter) -> None:
+        writer.write_serializable_list(self._records)
+
+    def deserialize(self, reader: serialization.BinaryReader) -> None:
+        self._records = reader.read_serializable_list(_GasRecord)
+
+
 class NeoToken(Nep5Token):
     _id: int = -1
     _service_name = "NEO"
@@ -978,15 +1066,36 @@ class NeoToken(Nep5Token):
     _PREFIX_NEXT_VALIDATORS = b'\x0e'
     _PREFIX_CANDIDATE = b'\x21'
     _PREFIX_VOTERS_COUNT = b'\x01'
+    _PREFIX_GAS_PER_BLOCK = b'\x29'
+
+    _NEO_HOLDER_REWARD_RATIO = 10
+    _COMMITTEE_REWARD_RATIO = 5
+    _VOTER_REWARD_RATIO = 85
     _symbol = "neo"
     _state = _NeoTokenStorageState
     _candidates_dirty = True
     _candidates: List[Tuple[cryptography.ECPoint, vm.BigInteger]] = []
 
-    #: The GAS bonus generation amount per NEO hold per block.
-    GAS_BONUS_GENERATION_AMOUNT = [6, 5, 4, 3, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-    #: The number of blocks after which the GAS bonus generation amount decreases.
-    GAS_BONUS_DECREMENT_INTERVAL = 2000000
+    def _calculate_bonus(self, snapshot: storage.Snapshot, value: vm.BigInteger, start: int, end: int) -> vm.BigInteger:
+        if value == vm.BigInteger.zero() or start >= end:
+            return vm.BigInteger.zero()
+
+        if value.sign < 0:
+            raise ValueError("Can't calculate bonus over negative balance")
+
+        gas_bonus_state = GasBonusState.from_snapshot(snapshot)
+        gas_sum = 0
+        for pair in reversed(gas_bonus_state):  # type: _GasRecord
+            cur_idx = pair.index
+            if cur_idx >= end:
+                continue
+            if cur_idx > start:
+                gas_sum += pair.gas_per_block * (end - cur_idx)
+                end = cur_idx
+            else:
+                gas_sum += pair.gas_per_block * (end - start)
+                break
+        return value * gas_sum * self._NEO_HOLDER_REWARD_RATIO / 100 / self.total_amount
 
     def init(self):
         super(NeoToken, self).init()
@@ -1022,10 +1131,33 @@ class NeoToken(Nep5Token):
                                        add_snapshot=False,
                                        add_engine=True,
                                        safe_method=False)
+        self._register_contract_method(self._set_gas_per_block,
+                                       "setGasPerBlock",
+                                       5000000,
+                                       parameter_types=[vm.BigInteger],
+                                       parameter_names=["gas_per_block"],
+                                       return_type=bool,
+                                       add_engine=True,
+                                       add_snapshot=False,
+                                       safe_method=False
+                                       )
+        self._register_contract_method(self.get_gas_per_block,
+                                       "getGasPerBlock",
+                                       1000000,
+                                       return_type=vm.BigInteger,
+                                       add_snapshot=True,
+                                       add_engine=False,
+                                       safe_method=True
+                                       )
         self._validators_state = None
 
     def _initialize(self, engine: contracts.ApplicationEngine) -> None:
         # NEO's native contract initialize. Is called upon contract deploy
+        gas_bonus_state = GasBonusState(_GasRecord(0, GasToken().factor * 5))
+        engine.snapshot.storages.put(
+            storage.StorageKey(NeoToken().script_hash, NeoToken()._PREFIX_GAS_PER_BLOCK),
+            storage.StorageItem(gas_bonus_state.to_array())
+        )
         engine.snapshot.storages.put(
             storage.StorageKey(self.script_hash, self._PREFIX_VOTERS_COUNT),
             storage.StorageItem(b'\x00')
@@ -1082,7 +1214,7 @@ class NeoToken(Nep5Token):
         if storage_item is None:
             return vm.BigInteger.zero()
         state = self._state.deserialize_from_bytes(storage_item.value)
-        return self._calculate_bonus(state.balance, state.balance_height, end)
+        return self._calculate_bonus(snapshot, state.balance, state.balance_height, end)
 
     def register_candidate(self,
                            engine: contracts.ApplicationEngine,
@@ -1273,45 +1405,38 @@ class NeoToken(Nep5Token):
             with serialization.BinaryReader(storage_item.value) as br:
                 return br.read_serializable_list(cryptography.ECPoint)
 
+    def _set_gas_per_block(self, engine: contracts.ApplicationEngine, gas_per_block: vm.BigInteger) -> bool:
+        if gas_per_block > 0 or gas_per_block > 10 * self._gas.factor:
+            raise ValueError("new gas per block value exceeds limits")
+
+        if not self._check_committee(engine):
+            return False
+
+        index = engine.snapshot.persisting_block.index + 1
+        gas_bonus_state = GasBonusState.from_snapshot(engine.snapshot)
+        if gas_bonus_state[-1].index == index:
+            gas_bonus_state[-1] = _GasRecord(index, gas_per_block)
+        else:
+            gas_bonus_state.append(_GasRecord(index, gas_per_block))
+        return True
+
+    def get_gas_per_block(self, snapshot: storage.Snapshot) -> vm.BigInteger:
+        index = snapshot.persisting_block.index
+        gas_bonus_state = GasBonusState.from_snapshot(snapshot)
+        for record in reversed(gas_bonus_state):  # type: _GasRecord
+            if record.index <= index:
+                return record.gas_per_block
+        else:
+            raise ValueError
+
     def _distribute_gas(self,
                         engine: contracts.ApplicationEngine,
                         account: types.UInt160,
                         state: _NeoTokenStorageState) -> None:
-        gas = self._calculate_bonus(state.balance, state.balance_height, engine.snapshot.persisting_block.index)
+        gas = self._calculate_bonus(engine.snapshot, state.balance, state.balance_height,
+                                    engine.snapshot.persisting_block.index)
         state.balance_height = engine.snapshot.persisting_block.index
         GasToken().mint(engine, account, gas)
-
-    def _calculate_bonus(self, value: vm.BigInteger, start: int, end: int) -> vm.BigInteger:
-        if value == vm.BigInteger.zero() or start >= end:
-            return vm.BigInteger.zero()
-
-        if value.sign < 0:
-            raise ValueError("Can't calculate bonus over negative balance")
-
-        amount = vm.BigInteger.zero()
-        DECREMENT_INTERVAL = self.GAS_BONUS_DECREMENT_INTERVAL
-        GENERATION_AMOUNT = self.GAS_BONUS_GENERATION_AMOUNT
-        GENERATION_AMOUNT_LEN = len(GENERATION_AMOUNT)
-
-        ustart = start // DECREMENT_INTERVAL
-        if ustart < GENERATION_AMOUNT_LEN:
-            istart = start % DECREMENT_INTERVAL
-            uend = end // DECREMENT_INTERVAL
-            iend = end % DECREMENT_INTERVAL
-            if uend >= GENERATION_AMOUNT_LEN:
-                uend = GENERATION_AMOUNT_LEN
-                iend = 0
-            if iend == 0:
-                uend -= 1
-                iend = DECREMENT_INTERVAL
-
-            while ustart < uend:
-                amount += (DECREMENT_INTERVAL - istart) * GENERATION_AMOUNT[ustart]
-                ustart += 1
-                istart = 0
-            amount += (iend - istart) * GENERATION_AMOUNT[ustart]
-
-        return value * amount * GasToken().factor / self.total_amount
 
 
 class GasToken(Nep5Token):
