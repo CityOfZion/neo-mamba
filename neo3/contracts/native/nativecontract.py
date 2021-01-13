@@ -1444,6 +1444,9 @@ class NeoToken(Nep5Token):
                         engine: contracts.ApplicationEngine,
                         account: types.UInt160,
                         state: _NeoTokenStorageState) -> None:
+        if engine.snapshot.persisting_block is None:
+            return
+
         gas = self._calculate_bonus(engine.snapshot, state.balance, state.balance_height,
                                     engine.snapshot.persisting_block.index)
         state.balance_height = engine.snapshot.persisting_block.index
