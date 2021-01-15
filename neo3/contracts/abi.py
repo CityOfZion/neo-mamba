@@ -41,6 +41,8 @@ class ContractParameterType(IntEnum):
             return ContractParameterType.INTEGER
         elif class_type in [bytes, bytearray, vm.BufferStackItem, vm.ByteStringStackItem]:
             return ContractParameterType.BYTEARRAY
+        if hasattr(class_type, '__origin__') and class_type.__origin__ == list:  # type: ignore
+            return ContractParameterType.ARRAY
         elif issubclass(class_type, serialization.ISerializable):
             return ContractParameterType.BYTEARRAY
         elif class_type == str:

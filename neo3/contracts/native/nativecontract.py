@@ -263,6 +263,10 @@ class NativeContract(convenience._Singleton):
         if engine.trigger != contracts.TriggerType.SYSTEM:
             raise SystemError("Invalid operation")
 
+    def post_persist(self, engine: contracts.ApplicationEngine):
+        if engine.trigger != contracts.TriggerType.SYSTEM:
+            raise SystemError("Invalid operation")
+
     def _check_committee(self, engine: contracts.ApplicationEngine) -> bool:
         addr = NeoToken().get_committee_address(engine.snapshot)
         return engine.checkwitness(addr)
@@ -313,7 +317,7 @@ class PolicyContract(NativeContract):
         self._register_contract_method(self.get_blocked_accounts,
                                        "getBlockedAccounts",
                                        1000000,
-                                       return_type=int,
+                                       return_type=List[types.UInt160],
                                        safe_method=True,
                                        add_snapshot=True,
                                        )

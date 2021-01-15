@@ -318,3 +318,16 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
         context = super(ApplicationEngine, self).load_script(script, initial_position)
         context.call_flags = int(call_flags)
         return context
+
+    def call_from_native(self,
+                         on_complete: Optional[Callable],
+                         hash_: types.UInt160,
+                         method: str,
+                         args: List[vm.StackItem]) -> None:
+        state = self._get_invocation_state(self.current_context)
+        state.return_type = type(None)
+        state.callback = on_complete
+        contract_call_descriptor = self._interop_calls.get(contracts.syscall_name_to_int("System.Contract.Call"), None)
+        if contract_call_descriptor is None:
+            raise ValueError
+        contract_call_descriptor.handler(hash_, method, args)

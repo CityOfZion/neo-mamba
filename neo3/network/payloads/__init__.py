@@ -14,9 +14,10 @@ from .block import (Header,
                     GetBlocksPayload,
                     GetBlockByIndexPayload)
 from .filter import FilterAddPayload, FilterLoadPayload
+from .oracle import OracleReponseCode, OracleResponse
 
 __all__ = ['EmptyPayload', 'InventoryPayload', 'InventoryType', 'VersionPayload', 'NetworkAddress',
            'AddrPayload', 'PingPayload', 'Witness', 'WitnessScope', 'Header', 'Block', 'MerkleBlockPayload',
            'HeadersPayload', 'ConsensusData', 'ConsensusPayload', 'Transaction', 'TransactionAttribute',
            'TransactionAttributeType', 'Signer', 'GetBlocksPayload', 'GetBlockByIndexPayload', 'FilterAddPayload',
-           'FilterLoadPayload', 'TrimmedBlock', 'IVerifiable']
+           'FilterLoadPayload', 'TrimmedBlock', 'IVerifiable', 'OracleReponseCode', 'OracleReponseCode']

@@ -2,23 +2,27 @@ from __future__ import annotations
 import hashlib
 import abc
 from enum import Enum
-from typing import List
-from neo3.core import Size as s, serialization, utils, types, IInteroperable
+from typing import List, Optional, Type, TypeVar
+from neo3.core import Size as s, serialization, utils, types, IInteroperable, IJson
 from neo3.network import payloads
 from neo3.vm import VMState
 from neo3 import settings, vm, storage, contracts
 
 
 class TransactionAttributeType(Enum):
-    HIGH_PRIORITY = 1
+    HIGH_PRIORITY = 0x1
+    ORACLE_RESPONSE = 0x11
 
 
-class TransactionAttribute(serialization.ISerializable):
+TransactionAttribute_T = TypeVar('TransactionAttribute_T', bound='TransactionAttribute')
+
+
+class TransactionAttribute(serialization.ISerializable, IJson):
     """
     Attributes that can be attached to a Transaction.
     """
     def __init__(self):
-        self.type_ = None
+        self.type_: TransactionAttributeType = None
         self.allow_multiple = False
 
     def __len__(self):
@@ -63,7 +67,7 @@ class TransactionAttribute(serialization.ISerializable):
         """
         attribute_type = reader.read_uint8()
         for sub in TransactionAttribute.__subclasses__():
-            child = sub()  # type: ignore
+            child = sub._serializable_init()  # type: ignore
             if child.type_ == attribute_type:
                 child._deserialize_without_type(reader)
                 return child
@@ -76,6 +80,14 @@ class TransactionAttribute(serialization.ISerializable):
 
     def verify(self, snapshot: storage.Snapshot, tx: Transaction) -> bool:
         return True
+
+    def to_json(self) -> dict:
+        return {"type": self.type_}
+
+    @classmethod
+    def from_json(cls, json: dict):
+        c = cls()
+        c.type_ = TransactionAttributeType(json["type"])
 
 
 class HighPriorityAttribute(TransactionAttribute):
@@ -306,6 +318,14 @@ class Transaction(payloads.IInventory, IInteroperable):
 
     def get_script_hashes_for_verifying(self, _: storage.Snapshot) -> List[types.UInt160]:
         return list(map(lambda signer: signer.account, self.signers))
+
+    def try_get_attribute(self, needle: Type[TransactionAttribute_T]) -> \
+            Optional[TransactionAttribute_T]:
+        for attr in self.attributes:
+            if isinstance(attr, needle):
+                return attr
+        else:
+            return None
 
     # TODO: implement Verify methods once we have Snapshot support
 
