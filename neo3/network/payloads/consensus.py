@@ -78,6 +78,7 @@ class ConsensusPayload(payloads.IInventory):
 
     def hash(self) -> types.UInt256:
         with serialization.BinaryWriter() as bw:
+            bw.write_uint32(settings.network.magic)
             self.serialize_unsigned(bw)
             data_to_hash = bytearray(bw._stream.getvalue())
             data = hashlib.sha256(hashlib.sha256(data_to_hash).digest()).digest()

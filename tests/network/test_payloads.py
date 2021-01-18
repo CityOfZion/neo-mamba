@@ -352,7 +352,7 @@ class ConsensusPayloadTestCase(unittest.TestCase):
     def test_len_and_hash(self):
         # captured from C#, see setUpClass() for the capture code
         expected_len = 56
-        expected_hash = types.UInt256.from_string('534233410f85a5b5201bd36f0d0e4bf4cc706d0a5392d9f8ecc4f34b89ea9060')
+        expected_hash = types.UInt256.from_string('44d22b68b530cfc7f1c1586e7e516368227bffd95a912413af7ea424f5605633')
         self.assertEqual(expected_len, len(self.payload))
         self.assertEqual(expected_hash, self.payload.hash())
 
