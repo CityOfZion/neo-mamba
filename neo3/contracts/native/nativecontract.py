@@ -1119,7 +1119,7 @@ class NeoToken(Nep5Token):
                                        add_engine=True,
                                        safe_method=False)
 
-        self._register_contract_method(self.register_candidate,
+        self._register_contract_method(self.unregister_candidate,
                                        "unregisterCandidate",
                                        5000000,
                                        parameter_types=[cryptography.ECPoint],
@@ -1185,17 +1185,22 @@ class NeoToken(Nep5Token):
         if amount == vm.BigInteger.zero():
             return
 
-        if not state.vote_to.is_zero():
-            sk_candidate = storage.StorageKey(self.script_hash, self._PREFIX_CANDIDATE + state.vote_to.to_array())
-            si_candidate = engine.snapshot.storages.get(sk_candidate, read_only=False)
-            candidate_state = _CandidateState.from_storage(si_candidate)
-            candidate_state.votes += amount
-            self._candidates_dirty = True
+        if state.vote_to.is_zero():
+            return
 
-            sk_voters_count = storage.StorageKey(self.script_hash, self._PREFIX_VOTERS_COUNT)
-            si_voters_count = engine.snapshot.storages.get(sk_voters_count, read_only=False)
-            new_value = vm.BigInteger(si_voters_count.value) + amount
-            si_voters_count.value = new_value.to_array()
+        sk_voters_count = storage.StorageKey(self.script_hash, self._PREFIX_VOTERS_COUNT)
+        si_voters_count = engine.snapshot.storages.get(sk_voters_count, read_only=False)
+        new_value = vm.BigInteger(si_voters_count.value) + amount
+        si_voters_count.value = new_value.to_array()
+
+        sk_candidate = storage.StorageKey(self.script_hash, self._PREFIX_CANDIDATE + state.vote_to.to_array())
+        si_candidate = engine.snapshot.storages.get(sk_candidate, read_only=False)
+        candidate_state = _CandidateState.from_storage(si_candidate)
+        candidate_state.votes += amount
+        self._candidates_dirty = True
+
+        if not candidate_state.registered and candidate_state.votes == 0:
+            engine.snapshot.storages.delete(sk_candidate)
 
     def on_persist(self, engine: contracts.ApplicationEngine) -> None:
         super(NeoToken, self).on_persist(engine)
@@ -1286,10 +1291,10 @@ class NeoToken(Nep5Token):
             return True
         else:
             state = _CandidateState.from_storage(storage_item)
-            if state.votes == vm.BigInteger.zero():
+            state.registered = False
+            if state.votes == 0:
                 engine.snapshot.storages.delete(storage_key)
-            else:
-                state.registered = False
+
         self._candidates_dirty = True
         return True
 
