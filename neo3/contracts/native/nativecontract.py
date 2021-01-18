@@ -452,10 +452,10 @@ class PolicyContract(NativeContract):
         """
         Should only be called through syscalls
         """
-        if not self._check_committee(engine):
-            return False
-
         if value >= message.Message.PAYLOAD_MAX_SIZE:
+            raise ValueError("New blocksize exceeds PAYLOAD_MAX_SIZE")
+
+        if not self._check_committee(engine):
             return False
 
         storage_key = storage.StorageKey(self.script_hash, self._PREFIX_MAX_BLOCK_SIZE)
@@ -473,6 +473,9 @@ class PolicyContract(NativeContract):
         """
         Should only be called through syscalls
         """
+        if value > 0xFFFE:  # MaxTransactionsPerBlock
+            raise ValueError("New value exceeds MAX_TRANSACTIONS_PER_BLOCK")
+
         if not self._check_committee(engine):
             return False
 
@@ -492,11 +495,11 @@ class PolicyContract(NativeContract):
         """
         Should only be called through syscalls
         """
-        if not self._check_committee(engine):
-            return False
-
         # unknown magic value
         if value <= 4007600:
+            return False
+
+        if not self._check_committee(engine):
             return False
 
         storage_key = storage.StorageKey(self.script_hash, self._PREFIX_MAX_BLOCK_SYSTEM_FEE)
@@ -515,6 +518,9 @@ class PolicyContract(NativeContract):
         """
         Should only be called through syscalls
         """
+        if value < 0 or value > 100000000:
+            raise ValueError("New value exceeds FEE_PER_BYTE limits")
+
         if not self._check_committee(engine):
             return False
 

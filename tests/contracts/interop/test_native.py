@@ -250,7 +250,7 @@ class TestPolicyContract(unittest.TestCase):
         policy = contracts.PolicyContract()
         D = namedtuple('D', ['test_func', 'value', 'expected_return', 'storage_prefix'])
         testdata = [
-            D(policy._set_max_block_size, message.Message.PAYLOAD_MAX_SIZE, False, policy._PREFIX_MAX_BLOCK_SIZE),
+            D(policy._set_max_block_size, message.Message.PAYLOAD_MAX_SIZE +1, ValueError, policy._PREFIX_MAX_BLOCK_SIZE),
             D(policy._set_max_block_size, 123, True, policy._PREFIX_MAX_BLOCK_SIZE),
             D(policy._set_max_transactions_per_block, 123, True, policy._PREFIX_MAX_TRANSACTIONS_PER_BLOCK),
             D(policy._set_max_block_system_fee, 123, False, policy._PREFIX_MAX_BLOCK_SYSTEM_FEE),
@@ -271,11 +271,15 @@ class TestPolicyContract(unittest.TestCase):
         engine.script_container.script_hashes = [script_hash]
 
         for d in testdata:
-            self.assertEqual(d.expected_return, d.test_func(engine, d.value))
-            if d.expected_return is True:
-                item = engine.snapshot.storages.try_get(storage.StorageKey(policy.script_hash, d.storage_prefix))
-                self.assertIsNotNone(item)
-                self.assertEqual(d.value, int.from_bytes(item.value, 'little'))
+            if isinstance(d.expected_return, type) and issubclass(d.expected_return, Exception):
+                with self.assertRaises(d.expected_return):
+                    d.test_func(engine, d.value)
+            else:
+                self.assertEqual(d.expected_return, d.test_func(engine, d.value))
+                if d.expected_return is True:
+                    item = engine.snapshot.storages.try_get(storage.StorageKey(policy.script_hash, d.storage_prefix))
+                    self.assertIsNotNone(item)
+                    self.assertEqual(d.value, int.from_bytes(item.value, 'little'))
 
     def test_policy_setters_fail_without_signatures(self):
         # cover set functions where check_committee fails
@@ -286,10 +290,10 @@ class TestPolicyContract(unittest.TestCase):
         engine.invoke_syscall_by_name("Neo.Native.Deploy")
         engine.script_container = TestIVerifiable()
 
-        self.assertFalse(policy._set_max_block_size(engine, None))
-        self.assertFalse(policy._set_max_transactions_per_block(engine, None))
-        self.assertFalse(policy._set_max_block_system_fee(engine, None))
-        self.assertFalse(policy._set_fee_per_byte(engine, None))
+        self.assertFalse(policy._set_max_block_size(engine, 0))
+        self.assertFalse(policy._set_max_transactions_per_block(engine, 0))
+        self.assertFalse(policy._set_max_block_system_fee(engine, 0))
+        self.assertFalse(policy._set_fee_per_byte(engine, 0))
         self.assertFalse(policy._block_account(engine, None))
         self.assertFalse(policy._unblock_account(engine, None))
 
