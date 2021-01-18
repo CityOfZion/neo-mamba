@@ -1101,6 +1101,9 @@ class NeoToken(Nep5Token):
                 break
         return value * gas_sum * self._NEO_HOLDER_REWARD_RATIO / 100 / self.total_amount
 
+    def _should_refresh_committee(self, height: int) -> bool:
+        return height % (len(settings.standby_committee) + settings.network.validators_count) == 0
+
     def init(self):
         super(NeoToken, self).init()
         # singleton init, similar to __init__ but called only once
@@ -1198,8 +1201,9 @@ class NeoToken(Nep5Token):
         super(NeoToken, self).on_persist(engine)
 
         # set next validators
-        validators = self.get_validators(engine)
-        self._validators_state.update(engine.snapshot, validators)
+        if self._should_refresh_committee(engine.snapshot.block_height):
+            validators = self.get_validators(engine)
+            self._validators_state.update(engine.snapshot, validators)
 
     def post_persist(self, engine: contracts.ApplicationEngine):
         super(NeoToken, self).post_persist(engine)
