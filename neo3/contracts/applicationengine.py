@@ -6,6 +6,7 @@ from neo3.contracts import interop
 from typing import Any, Dict, cast, List, Tuple, Type, Optional, Callable
 import enum
 from dataclasses import dataclass
+from contextlib import suppress
 
 
 class ApplicationEngine(vm.ApplicationEngineCpp):
@@ -56,6 +57,10 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
         """
         Check if the hash is a valid witness for the engines script_container
         """
+        with suppress(ValueError):
+            if hash_ == self.calling_scripthash:
+                return True
+
         if isinstance(self.script_container, payloads.Transaction):
             tx = self.script_container
             for s in tx.signers:
