@@ -947,7 +947,7 @@ class _ValidatorsState(serialization.ISerializable):
     def __init__(self, snapshot: storage.Snapshot, validators: List[cryptography.ECPoint]):
         self._snapshot = snapshot
         self._validators: List[cryptography.ECPoint] = validators
-        self._storage_key = storage.StorageKey(NeoToken().script_hash, NeoToken()._PREFIX_NEXT_VALIDATORS)
+        self._storage_key = storage.StorageKey(NeoToken().script_hash, NeoToken()._PREFIX_COMMITTEE)
 
         with serialization.BinaryWriter() as bw:
             bw.write_serializable_list(validators)
@@ -1067,7 +1067,7 @@ class NeoToken(Nep5Token):
     _service_name = "NEO"
     _decimals: int = 0
 
-    _PREFIX_NEXT_VALIDATORS = b'\x0e'
+    _PREFIX_COMMITTEE = b'\x0e'
     _PREFIX_CANDIDATE = b'\x21'
     _PREFIX_VOTERS_COUNT = b'\x01'
     _PREFIX_GAS_PER_BLOCK = b'\x29'
