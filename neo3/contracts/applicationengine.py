@@ -9,6 +9,12 @@ from dataclasses import dataclass
 from contextlib import suppress
 
 
+class CheckReturnType(enum.IntEnum):
+    NONE = 0
+    ENSURE_IS_EMPTY = 1
+    ENSURE_NOT_EMPTY = 2
+
+
 class ApplicationEngine(vm.ApplicationEngineCpp):
     _interop_calls: Dict[int, interop.InteropDescriptor] = {}
     _invocation_states: Dict[vm.ExecutionContext, InvocationState] = {}
@@ -27,7 +33,7 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
     class InvocationState:
         return_type: type = None  # type: ignore
         callback: Optional[Callable] = None
-        check_return_value: bool = False
+        check_return_value: contracts.CheckReturnType = CheckReturnType.NONE
 
     def __init__(self,
                  trigger: contracts.TriggerType,
@@ -303,7 +309,10 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
             state = self._invocation_states.pop(self.current_context)
         except KeyError:
             return
-        if state.check_return_value:
+        if state.check_return_value == contracts.CheckReturnType.ENSURE_IS_EMPTY:
+            if len(context.evaluation_stack) != 0:
+                raise ValueError("Evaluation expected to be empty, but was not")
+        elif state.check_return_value == contracts.CheckReturnType.ENSURE_NOT_EMPTY:
             eval_stack_len = len(context.evaluation_stack)
             if eval_stack_len == 0:
                 self.push(vm.NullStackItem())
@@ -316,7 +325,8 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
 
     def load_context(self, context: vm.ExecutionContext, check_return_value: bool = False):
         if check_return_value:
-            self._get_invocation_state(self.current_context).check_return_value = True
+            self._get_invocation_state(self.current_context).check_return_value = \
+                contracts.CheckReturnType.ENSURE_NOT_EMPTY
         super(ApplicationEngine, self).load_context(context)
 
     def load_script_with_callflags(self, script, call_flags: contracts.native.CallFlags, initial_position=0):
