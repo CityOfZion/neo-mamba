@@ -1200,9 +1200,9 @@ class NeoToken(Nep5Token):
     def on_persist(self, engine: contracts.ApplicationEngine) -> None:
         super(NeoToken, self).on_persist(engine)
 
-        # set next validators
+        # set next committee
         if self._should_refresh_committee(engine.snapshot.block_height):
-            validators = self.get_validators(engine)
+            validators = self._get_committee_members(engine.snapshot)
             self._validators_state.update(engine.snapshot, validators)
 
     def post_persist(self, engine: contracts.ApplicationEngine):
