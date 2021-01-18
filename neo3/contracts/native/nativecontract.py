@@ -1153,18 +1153,19 @@ class NeoToken(Nep5Token):
                                        add_engine=False,
                                        safe_method=True
                                        )
-        self._validators_state = None
 
     def _initialize(self, engine: contracts.ApplicationEngine) -> None:
         # NEO's native contract initialize. Is called upon contract deploy
+        self._validators_state = _ValidatorsState(engine.snapshot, settings.standby_validators)
+        engine.snapshot.storages.put(
+            storage.StorageKey(self.script_hash, self._PREFIX_VOTERS_COUNT),
+            storage.StorageItem(b'\x00')
+        )
+
         gas_bonus_state = GasBonusState(_GasRecord(0, GasToken().factor * 5))
         engine.snapshot.storages.put(
             storage.StorageKey(NeoToken().script_hash, NeoToken()._PREFIX_GAS_PER_BLOCK),
             storage.StorageItem(gas_bonus_state.to_array())
-        )
-        engine.snapshot.storages.put(
-            storage.StorageKey(self.script_hash, self._PREFIX_VOTERS_COUNT),
-            storage.StorageItem(b'\x00')
         )
         self.mint(engine, blockchain.Blockchain().get_consensus_address(settings.standby_validators), self.total_amount)
 
@@ -1198,8 +1199,6 @@ class NeoToken(Nep5Token):
 
         # set next validators
         validators = self.get_validators(engine)
-        if self._validators_state is None:
-            self._validators_state = _ValidatorsState(engine.snapshot, validators)
         self._validators_state.update(engine.snapshot, validators)
 
     def post_persist(self, engine: contracts.ApplicationEngine):
@@ -1407,17 +1406,7 @@ class NeoToken(Nep5Token):
         return public_keys[:len(settings.standby_committee)]
 
     def get_next_block_validators(self, snapshot: storage.Snapshot) -> List[cryptography.ECPoint]:
-        if self._validators_state:
-            return self._validators_state.validators
-        else:
-            storage_item = snapshot.storages.try_get(
-                storage.StorageKey(self.script_hash, self._PREFIX_NEXT_VALIDATORS),
-                read_only=True
-            )
-            if storage_item is None:
-                return settings.standby_validators
-            with serialization.BinaryReader(storage_item.value) as br:
-                return br.read_serializable_list(cryptography.ECPoint)
+        return self._validators_state.validators
 
     def _set_gas_per_block(self, engine: contracts.ApplicationEngine, gas_per_block: vm.BigInteger) -> bool:
         if gas_per_block > 0 or gas_per_block > 10 * self._gas.factor:
