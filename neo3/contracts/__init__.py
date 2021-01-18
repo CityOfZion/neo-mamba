@@ -17,7 +17,7 @@ from .nef import NEF
 from .contract import Contract
 from .binaryserializer import BinarySerializer
 from .jsonserializer import (NEOJson, JSONSerializer)
-from .native import (CallFlags, NativeContract, PolicyContract, NeoToken, GasToken)
+from .native import (CallFlags, NativeContract, PolicyContract, NeoToken, GasToken, OracleContract)
 from .applicationengine import ApplicationEngine
 
 

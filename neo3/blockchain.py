@@ -21,6 +21,12 @@ class Blockchain(convenience._Singleton):
             sb.emit(vm.OpCode.DROP)
         self.native_onpersist_script = sb.to_array()
 
+        sb = vm.ScriptBuilder()
+        for cc in [contracts.NeoToken(), contracts.OracleContract()]:
+            sb.emit_contract_call(cc.script_hash, "postPersist")  # type: ignore
+            sb.emit(vm.OpCode.DROP)
+        self.native_postpersist_script = sb.to_array()
+
         if self.currentSnapshot.block_height < 0 and store_genesis_block:
             self.persist(self.genesis_block)
 
@@ -105,7 +111,11 @@ class Blockchain(convenience._Singleton):
                     cloned_snapshot.commit()
                 else:
                     cloned_snapshot = snapshot.clone()
-
+            engine = contracts.ApplicationEngine(contracts.TriggerType.SYSTEM,
+                                                 None, snapshot, 0, True)  # type: ignore
+            engine.load_script(vm.Script(self.native_postpersist_script))
+            if engine.execute() != vm.VMState.HALT:
+                raise ValueError(f"Failed postPersist in native contracts: {engine.exception_message}")
             snapshot.commit()
             self._current_snapshot = snapshot
         msgrouter.on_block_persisted(block)
