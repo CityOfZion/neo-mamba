@@ -7,12 +7,7 @@ from typing import Any, Dict, cast, List, Tuple, Type, Optional, Callable
 import enum
 from dataclasses import dataclass
 from contextlib import suppress
-
-
-class CheckReturnType(enum.IntEnum):
-    NONE = 0
-    ENSURE_IS_EMPTY = 1
-    ENSURE_NOT_EMPTY = 2
+from .checkreturn import CheckReturnType
 
 
 class ApplicationEngine(vm.ApplicationEngineCpp):
@@ -294,7 +289,8 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
         """
         counter = self._invocation_counter.get(self.current_scripthash, None)
         if counter is None:
-            raise ValueError(f"Failed to get invocation counter for the current context: {self.current_scripthash}")
+            self._invocation_counter.update({self.current_scripthash: 1})
+            counter = 1
         return counter
 
     def context_unloaded(self, context: vm.ExecutionContext):
@@ -323,10 +319,13 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
             return
         # TODO: implementation Action/DynamicInvoke part of callback logic
 
-    def load_context(self, context: vm.ExecutionContext, check_return_value: bool = False):
+    def load_context(self,
+                     context: vm.ExecutionContext,
+                     check_return_value: bool = False):
         if check_return_value:
             self._get_invocation_state(self.current_context).check_return_value = \
                 contracts.CheckReturnType.ENSURE_NOT_EMPTY
+
         super(ApplicationEngine, self).load_context(context)
 
     def load_script_with_callflags(self, script, call_flags: contracts.native.CallFlags, initial_position=0):

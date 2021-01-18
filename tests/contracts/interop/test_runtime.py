@@ -398,16 +398,6 @@ class RuntimeInteropTestCase(unittest.TestCase):
         item = engine.result_stack.pop()
         self.assertEqual(1, int(item))
 
-    def test_get_invocation_counter_fail(self):
-        # current script has no invocation calls
-        engine = test_engine(has_snapshot=True, has_container=False, default_script=False)
-        sb = vm.ScriptBuilder()
-        sb.emit_syscall(syscall_name_to_int("System.Runtime.GetInvocationCounter"))
-        engine.load_script(vm.Script(sb.to_array()))
-        engine.execute()
-        self.assertEqual(vm.VMState.FAULT, engine.state)
-        self.assertIn("Failed to get invocation counter for the current context", engine.exception_message)
-
     def test_runtime_log(self):
         message = ''
 
