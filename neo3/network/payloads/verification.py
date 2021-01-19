@@ -96,6 +96,8 @@ class Witness(serialization.ISerializable):
     """
     An executable verification script that validates a verifiable object like a transaction.
     """
+    _MAX_INVOCATION_SCRIPT = 1024
+    _MAX_VERIFICATION_SCRIPT = 1024
 
     def __init__(self, invocation_script: bytes, verification_script: bytes):
         #: A set of VM instructions to setup the stack for verification.
@@ -125,8 +127,8 @@ class Witness(serialization.ISerializable):
         Args:
             reader: instance.
         """
-        self.invocation_script = reader.read_var_bytes(max=664)
-        self.verification_script = reader.read_var_bytes(max=360)
+        self.invocation_script = reader.read_var_bytes(max=self._MAX_INVOCATION_SCRIPT)
+        self.verification_script = reader.read_var_bytes(max=self._MAX_VERIFICATION_SCRIPT)
 
     def script_hash(self) -> types.UInt160:
         """ Get the script hash based on the verification script."""
