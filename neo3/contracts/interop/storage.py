@@ -73,10 +73,12 @@ def _storage_put_internal(engine: contracts.ApplicationEngine,
     else:
         if item.is_constant:
             raise ValueError("StorageItem is marked as constant")
-        if len(value) <= len(item.value):
+        if len(value) == 0:
             new_data_len = 1
+        elif len(value) <= len(item.value):
+            new_data_len = (len(value) - 1) // 4 + 1
         else:
-            new_data_len = len(value) - len(item.value)
+            new_data_len = (len(item.value) - 1) // 4 + 1 + len(value) - len(item.value)
 
     engine.add_gas(new_data_len * STORAGE_PRICE)
     item.value = value
