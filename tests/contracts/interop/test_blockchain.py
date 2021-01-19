@@ -1,7 +1,5 @@
 import unittest
-import json
-from neo3 import vm, storage
-from neo3.contracts import manifest
+from neo3 import vm
 from .utils import test_engine, test_block
 
 

@@ -192,3 +192,11 @@ class Contract:
         if syscall_num != contracts.syscall_name_to_int("Neo.Crypto.CheckMultisigWithECDsaSecp256r1"):
             return False
         return True
+
+    @staticmethod
+    def get_consensus_address(validators: List[cryptography.ECPoint]) -> types.UInt160:
+        script = contracts.Contract.create_multisig_redeemscript(
+            len(validators) - (len(validators) - 1) // 3,
+            validators
+        )
+        return to_script_hash(script)

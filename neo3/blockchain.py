@@ -42,14 +42,6 @@ class Blockchain(convenience._Singleton):
         return self.currentSnapshot.block_height
 
     @staticmethod
-    def get_consensus_address(validators: List[cryptography.ECPoint]) -> types.UInt160:
-        script = contracts.Contract.create_multisig_redeemscript(
-            len(validators) - (len(validators) - 1) // 3,
-            validators
-        )
-        return to_script_hash(script)
-
-    @staticmethod
     def _create_genesis_block() -> payloads.Block:
         script = vm.ScriptBuilder().emit_syscall(contracts.syscall_name_to_int("Neo.Native.Deploy")).to_array()
         b = payloads.Block(
@@ -57,7 +49,7 @@ class Blockchain(convenience._Singleton):
             prev_hash=types.UInt256.zero(),
             timestamp=int(datetime(2016, 7, 15, 15, 8, 21, 0, timezone.utc).timestamp() * 1000),
             index=0,
-            next_consensus=Blockchain.get_consensus_address(settings.standby_validators),
+            next_consensus=contracts.Contract.get_consensus_address(settings.standby_validators),
             witness=payloads.Witness(
                 invocation_script=b'',
                 verification_script=b'\x11'  # (OpCode.PUSH1)

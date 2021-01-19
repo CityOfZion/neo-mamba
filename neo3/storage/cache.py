@@ -2,11 +2,12 @@ from __future__ import annotations
 import abc
 from copy import deepcopy
 from enum import Enum, auto
-from typing import Optional, Iterator, Tuple, TypeVar, Any, List
+from typing import Optional, Iterator, Tuple, TypeVar, Any, List, TYPE_CHECKING
 from neo3.core import types, serialization
-from neo3.network import payloads
 from neo3 import storage
 from contextlib import suppress
+if TYPE_CHECKING:
+    from neo3.network import payloads
 
 
 TKey = TypeVar('TKey', bound='serialization.ISerializable')

@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import List, Callable, Dict, Tuple, Iterator, Any, cast, NamedTuple
-from neo3 import contracts, vm, storage, blockchain, settings
+from neo3 import contracts, vm, storage, settings
 from neo3.core import types, to_script_hash, serialization, cryptography, msgrouter, Size as s
 from neo3.network import message, convenience
 from enum import IntFlag
@@ -1176,7 +1176,7 @@ class NeoToken(Nep5Token):
             storage.StorageKey(NeoToken().script_hash, NeoToken()._PREFIX_GAS_PER_BLOCK),
             storage.StorageItem(gas_bonus_state.to_array())
         )
-        self.mint(engine, blockchain.Blockchain().get_consensus_address(settings.standby_validators), self.total_amount)
+        self.mint(engine, contracts.Contract.get_consensus_address(settings.standby_validators), self.total_amount)
 
     def total_supply(self, snapshot: storage.Snapshot) -> vm.BigInteger:
         """ Get the total deployed tokens. """
@@ -1469,7 +1469,7 @@ class GasToken(Nep5Token):
     _symbol = "gas"
 
     def _initialize(self, engine: contracts.ApplicationEngine) -> None:
-        account = blockchain.Blockchain.get_consensus_address(settings.standby_validators)
+        account = contracts.Contract.get_consensus_address(settings.standby_validators)
         self.mint(engine, account, vm.BigInteger(30_000_000) * self.factor)
 
     def on_persist(self, engine: contracts.ApplicationEngine) -> None:

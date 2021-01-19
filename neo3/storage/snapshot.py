@@ -1,7 +1,9 @@
 from __future__ import annotations
 import abc
 from neo3 import storage
-from neo3.network import payloads
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from neo3.network import payloads
 
 
 class Snapshot:

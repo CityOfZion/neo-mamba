@@ -1,7 +1,7 @@
 from enum import IntEnum
 from neo3.network import payloads
 from neo3.core import Size as s, utils, serialization
-from neo3 import storage, blockchain, vm, contracts
+from neo3 import storage, vm, contracts
 import base64
 
 
@@ -13,13 +13,9 @@ class OracleReponseCode(IntEnum):
     ERROR = 0xFF
 
 
-sb = vm.ScriptBuilder()
-sb.emit_contract_call(contracts.native.OracleContract().script_hash, "finish")  # type: ignore
-FIXED_ORACLE_SCRIPT = sb.to_array()
-
-
 class OracleResponse(payloads.TransactionAttribute):
     _MAX_RESULT_SIZE = 1024
+    _FIXED_ORACLE_SCRIPT = None
 
     def __init__(self, id: int, code: OracleReponseCode, result: bytes):
         super(OracleResponse, self).__init__()
@@ -28,6 +24,10 @@ class OracleResponse(payloads.TransactionAttribute):
         self.id = id
         self.code = code
         self.result = result
+        if self._FIXED_ORACLE_SCRIPT is None:
+            sb = vm.ScriptBuilder()
+            sb.emit_contract_call(contracts.OracleContract().script_hash, "finish")  # type: ignore
+            self._FIXED_ORACLE_SCRIPT = sb.to_array()
 
     def __len__(self):
         return s.uint64 + s.uint8 + utils.get_var_size(self.result)
@@ -56,7 +56,7 @@ class OracleResponse(payloads.TransactionAttribute):
         if any(map(lambda signer: signer.scope != payloads.WitnessScope.NONE, tx.signers)):
             return False
 
-        if tx.script != FIXED_ORACLE_SCRIPT:
+        if tx.script != self._FIXED_ORACLE_SCRIPT:
             return False
 
         oracle = contracts.native.OracleContract()
@@ -65,7 +65,7 @@ class OracleResponse(payloads.TransactionAttribute):
             return False
         if tx.network_fee + tx.system_fee != request.gas_for_response:
             return False
-        oracle_account = blockchain.Blockchain().get_consensus_address(
+        oracle_account = contracts.Contract.get_consensus_address(
             contracts.DesignateContract().get_designated_by_role(snapshot, contracts.DesignateRole.ORACLE)
         )
         return any(map(lambda signer: signer.account == oracle_account, tx.signers))

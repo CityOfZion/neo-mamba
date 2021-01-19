@@ -5,7 +5,6 @@ import traceback
 from typing import Optional
 from neo3.network import node
 from neo3.network.message import Message
-from neo3.core import serialization
 from asyncio.streams import StreamReader, StreamReaderProtocol, StreamWriter
 from asyncio import events
 from neo3 import network_logger as logger
