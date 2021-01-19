@@ -408,7 +408,7 @@ class Nep5TestCase(unittest.TestCase):
         self.assertEqual("Invalid operation", str(context.exception))
 
         # set correct trigger type or we fail super().on_persist()
-        engine.trigger = contracts.TriggerType.SYSTEM
+        engine.trigger = contracts.TriggerType.ON_PERSIST
         # update the TX signer account to point to our validator or the token burn() (part of on persist)
         # will fail because it can't find an account with balance
         mock_signer = mock.MagicMock()

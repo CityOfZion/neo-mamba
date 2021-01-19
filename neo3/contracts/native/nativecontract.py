@@ -260,11 +260,11 @@ class NativeContract(convenience._Singleton):
 
         Should not be called manually.
         """
-        if engine.trigger != contracts.TriggerType.SYSTEM:
+        if engine.trigger != contracts.TriggerType.ON_PERSIST:
             raise SystemError("Invalid operation")
 
     def post_persist(self, engine: contracts.ApplicationEngine):
-        if engine.trigger != contracts.TriggerType.SYSTEM:
+        if engine.trigger != contracts.TriggerType.POST_PERSIST:
             raise SystemError("Invalid operation")
 
     def _check_committee(self, engine: contracts.ApplicationEngine) -> bool:

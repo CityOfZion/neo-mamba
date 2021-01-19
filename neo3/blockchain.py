@@ -81,7 +81,7 @@ class Blockchain(convenience._Singleton):
             snapshot.persisting_block = block
 
             if block.index > 0:
-                engine = contracts.ApplicationEngine(contracts.TriggerType.SYSTEM,
+                engine = contracts.ApplicationEngine(contracts.TriggerType.ON_PERSIST,
                                                      None, snapshot, 0, True)  # type: ignore
                 engine.load_script(vm.Script(self.native_onpersist_script))
                 if engine.execute() != vm.VMState.HALT:
@@ -103,7 +103,7 @@ class Blockchain(convenience._Singleton):
                     cloned_snapshot.commit()
                 else:
                     cloned_snapshot = snapshot.clone()
-            engine = contracts.ApplicationEngine(contracts.TriggerType.SYSTEM,
+            engine = contracts.ApplicationEngine(contracts.TriggerType.POST_PERSIST,
                                                  None, snapshot, 0, True)  # type: ignore
             engine.load_script(vm.Script(self.native_postpersist_script))
             if engine.execute() != vm.VMState.HALT:

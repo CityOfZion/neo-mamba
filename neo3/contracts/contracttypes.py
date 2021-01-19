@@ -2,7 +2,9 @@ from enum import IntFlag
 
 
 class TriggerType(IntFlag):
-    SYSTEM = 0x01
+    ON_PERSIST = 0x01
+    POST_PERSIST = 0x02
+    SYSTEM = ON_PERSIST | POST_PERSIST
     VERIFICATION = 0x20
     APPLICATION = 0x40
     ALL = SYSTEM | VERIFICATION | APPLICATION
