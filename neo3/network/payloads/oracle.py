@@ -65,7 +65,9 @@ class OracleResponse(payloads.TransactionAttribute):
             return False
         if tx.network_fee + tx.system_fee != request.gas_for_response:
             return False
-        oracle_account = blockchain.Blockchain().get_consensus_address(oracle.get_oracle_nodes(snapshot))
+        oracle_account = blockchain.Blockchain().get_consensus_address(
+            contracts.DesignateContract().get_designated_by_role(snapshot, contracts.DesignateRole.ORACLE)
+        )
         return any(map(lambda signer: signer.account == oracle_account, tx.signers))
 
     @classmethod

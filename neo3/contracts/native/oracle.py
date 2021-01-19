@@ -55,7 +55,6 @@ class OracleContract(NativeContract):
     _MAX_FILTER_LEN = 128
     _MAX_CALLBACK_LEN = 32
     _MAX_USER_DATA_LEN = 512
-    _PREFIX_NODE_LIST = b'\x08'
     _PREFIX_REQUEST_ID = b'\x09'
     _PREFIX_REQUEST = b'\x07'
     _PREFIX_ID_LIST = b'\x06'
@@ -85,22 +84,6 @@ class OracleContract(NativeContract):
                                        add_snapshot=False,
                                        safe_method=False)
 
-        self._register_contract_method(self.get_oracle_nodes,
-                                       "getOracleNodes",
-                                       1000000,
-                                       return_type=List[types.UInt160],
-                                       add_engine=False,
-                                       add_snapshot=True,
-                                       safe_method=True)
-
-        self._register_contract_method(self._set_oracle_nodes,
-                                       "setOracleNodes",
-                                       0,
-                                       return_type=None,
-                                       add_engine=True,
-                                       add_snapshot=False,
-                                       safe_method=False)
-
         self._register_contract_method(self._verify,
                                        "verify",
                                        1000000,
@@ -110,10 +93,6 @@ class OracleContract(NativeContract):
                                        safe_method=True)
 
     def _initialize(self, engine: contracts.ApplicationEngine) -> None:
-        engine.snapshot.storages.put(
-            storage.StorageKey(self.script_hash, self._PREFIX_NODE_LIST),
-            storage.StorageItem(b'\x00')  # number of items in the list
-        )
         engine.snapshot.storages.put(
             storage.StorageKey(self.script_hash, self._PREFIX_REQUEST_ID),
             storage.StorageItem(b'\x00' * 8)  # uint64
@@ -215,20 +194,6 @@ class OracleContract(NativeContract):
             si_id_list.value = writer.to_array()
         engine.snapshot.storages.update(sk_id_list, si_id_list)
 
-    def get_oracle_nodes(self, snapshot: storage.Snapshot) -> List[cryptography.ECPoint]:
-        storage_key = storage.StorageKey(self.script_hash, self._PREFIX_NODE_LIST)
-        storage_item = snapshot.storages.get(storage_key)
-        with serialization.BinaryReader(storage_item.value) as reader:
-            return reader.read_serializable_list(cryptography.ECPoint)
-
-    def _set_oracle_nodes(self, engine: contracts.ApplicationEngine, nodes: List[cryptography.ECPoint]) -> None:
-        nodes.sort()
-        storage_key = storage.StorageKey(self.script_hash, self._PREFIX_NODE_LIST)
-        with serialization.BinaryWriter() as writer:
-            writer.write_serializable_list(nodes)
-            storage_item = storage.StorageItem(writer.to_array())
-        engine.snapshot.storages.update(storage_key, storage_item)
-
     def _verify(self, engine: contracts.ApplicationEngine) -> bool:
         tx = engine.script_container
         if not isinstance(tx, payloads.Transaction):
@@ -266,7 +231,8 @@ class OracleContract(NativeContract):
                 engine.snapshot.storages.delete(sk_id_list)
 
             # mint gas for oracle nodes
-            nodes_public_keys = self.get_oracle_nodes(engine.snapshot)
+            nodes_public_keys = contracts.DesignateContract().get_designated_by_role(engine.snapshot,
+                                                                                     contracts.DesignateRole.ORACLE)
             for public_key in nodes_public_keys:
                 nodes.append((
                     to_script_hash(contracts.Contract.create_signature_redeemscript(public_key)),
