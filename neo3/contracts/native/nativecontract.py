@@ -1456,10 +1456,11 @@ class GasToken(Nep5Token):
 
     def on_persist(self, engine: contracts.ApplicationEngine) -> None:
         super(GasToken, self).on_persist(engine)
+        total_network_fee = 0
         for tx in engine.snapshot.persisting_block.transactions:
+            total_network_fee += tx.network_fee
             self.burn(engine, tx.sender, vm.BigInteger(tx.system_fee + tx.network_fee))
         pub_keys = NeoToken().get_next_block_validators(engine.snapshot)
         primary = pub_keys[engine.snapshot.persisting_block.consensus_data.primary_index]
         script_hash = to_script_hash(contracts.Contract.create_signature_redeemscript(primary))
-        amount = vm.BigInteger(sum(tx.network_fee for tx in engine.snapshot.persisting_block.transactions))
-        self.mint(engine, script_hash, amount)
+        self.mint(engine, script_hash, vm.BigInteger(total_network_fee))
