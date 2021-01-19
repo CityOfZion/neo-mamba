@@ -1119,7 +1119,7 @@ class NeoToken(Nep5Token):
 
         self._register_contract_method(self.vote,
                                        "vote",
-                                       500000000,
+                                       5000000,
                                        parameter_types=[types.UInt160, cryptography.ECPoint],
                                        parameter_names=["account", "public_key"],
                                        return_type=bool,
