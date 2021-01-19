@@ -3,7 +3,7 @@ from enum import IntEnum
 from typing import List
 from . import NativeContract
 from neo3 import storage, contracts, cryptography
-from neo3.core import serialization, types
+from neo3.core import serialization
 
 
 class DesignateRole(IntEnum):
@@ -51,6 +51,9 @@ class DesignateContract(NativeContract):
                           nodes: List[cryptography.ECPoint]) -> None:
         if len(nodes) == 0:
             raise ValueError("[DesignateContract] Cannot designate empty nodes list")
+
+        if len(nodes) > 32:
+            raise ValueError("[DesignateContract] Cannot designate a nodes list larger than 32")
 
         if not self._check_committee(engine):
             raise ValueError("[DesignateContract] check committee failed")

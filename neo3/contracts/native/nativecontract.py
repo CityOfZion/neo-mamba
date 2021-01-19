@@ -278,7 +278,7 @@ class PolicyContract(NativeContract):
 
     _PREFIX_MAX_TRANSACTIONS_PER_BLOCK = b'\x17'
     _PREFIX_FEE_PER_BYTE = b'\x0A'
-    _PREFIX_BLOCKED_ACCOUNTS = b'\x0F'
+    _PREFIX_BLOCKED_ACCOUNT = b'\x0F'
     _PREFIX_MAX_BLOCK_SIZE = b'\x0C'
     _PREFIX_MAX_BLOCK_SYSTEM_FEE = b'\x11'
 
@@ -314,10 +314,12 @@ class PolicyContract(NativeContract):
                                        safe_method=True,
                                        add_snapshot=True,
                                        )
-        self._register_contract_method(self.get_blocked_accounts,
-                                       "getBlockedAccounts",
+        self._register_contract_method(self.is_blocked,
+                                       "isBlocked",
                                        1000000,
-                                       return_type=List[types.UInt160],
+                                       return_type=bool,
+                                       parameter_types=[types.UInt160],
+                                       parameter_names=["account"],
                                        safe_method=True,
                                        add_snapshot=True,
                                        )
@@ -429,24 +431,21 @@ class PolicyContract(NativeContract):
             return 1000
         return int.from_bytes(data.value, 'little', signed=True)
 
-    def get_blocked_accounts(self, snapshot: storage.Snapshot) -> List[types.UInt160]:
+    def is_blocked(self, snapshot: storage.Snapshot, account: types.UInt160) -> bool:
         """
-        Retrieve the list of blocked accounts on the Blockchain.
+        Check if the account is blocked
 
         Transaction from blocked accounts will be rejected by the consensus nodes.
-
-        Returns:
-            A list of blocked accounts hashes
         """
 
         si = snapshot.storages.try_get(
-            storage.StorageKey(self.script_hash, self._PREFIX_BLOCKED_ACCOUNTS),
+            storage.StorageKey(self.script_hash, self._PREFIX_BLOCKED_ACCOUNT + account.to_array()),
             read_only=True
         )
         if si is None:
-            return []
-        with serialization.BinaryReader(si.value) as br:
-            return br.read_serializable_list(types.UInt160)
+            return False
+        else:
+            return True
 
     def _set_max_block_size(self, engine: contracts.ApplicationEngine, value: int) -> bool:
         """
@@ -543,19 +542,13 @@ class PolicyContract(NativeContract):
         if not self._check_committee(engine):
             return False
         storage_key = storage.StorageKey(self.script_hash,
-                                         self._PREFIX_BLOCKED_ACCOUNTS)
+                                         self._PREFIX_BLOCKED_ACCOUNT + account.to_array())
         storage_item = engine.snapshot.storages.try_get(storage_key, read_only=False)
         if storage_item is None:
-            storage_item = storage.StorageItem(b'\x00')
+            storage_item = storage.StorageItem(b'\x01')
             engine.snapshot.storages.update(storage_key, storage_item)
-
-        with serialization.BinaryReader(storage_item.value) as br:
-            accounts = br.read_serializable_list(types.UInt160)
-        accounts.append(account)
-
-        with serialization.BinaryWriter() as bw:
-            bw.write_serializable_list(accounts)
-            storage_item.value = bw.to_array()
+        else:
+            return False
 
         return True
 
@@ -566,23 +559,12 @@ class PolicyContract(NativeContract):
         if not self._check_committee(engine):
             return False
         storage_key = storage.StorageKey(self.script_hash,
-                                         self._PREFIX_BLOCKED_ACCOUNTS)
+                                         self._PREFIX_BLOCKED_ACCOUNT + account.to_array())
         storage_item = engine.snapshot.storages.try_get(storage_key, read_only=False)
         if storage_item is None:
-            storage_item = storage.StorageItem(b'\x00')
-            engine.snapshot.storages.update(storage_key, storage_item)
-
-        with serialization.BinaryReader(storage_item.value) as br:
-            accounts = br.read_serializable_list(types.UInt160)
-
-        if account not in accounts:
             return False
-
-        accounts.remove(account)
-        with serialization.BinaryWriter() as bw:
-            bw.write_serializable_list(accounts)
-            storage_item.value = bw.to_array()
-
+        else:
+            engine.snapshot.storages.delete(storage_key)
         return True
 
 

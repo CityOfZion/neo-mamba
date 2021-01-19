@@ -188,6 +188,9 @@ class OracleContract(NativeContract):
                 id_list.append(reader.read_uint64())
 
         id_list.append(item_id)
+        if len(id_list) >= 256:
+            raise ValueError("Oracle has too many pending responses for this url")
+
         with serialization.BinaryWriter() as writer:
             for id in id_list:
                 writer.write_uint64(id)

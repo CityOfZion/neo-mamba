@@ -173,7 +173,7 @@ class TestPolicyContract(unittest.TestCase):
         item = engine.result_stack.pop()
         self.assertEqual(vm.IntegerStackItem(1000), item)
 
-    def test_policy_set_and_get_blocked_accounts(self):
+    def test_policy_block_account_and_is_blocked(self):
         engine = test_engine(has_snapshot=True)
         block = test_block(0)
         # set or we won't pass the native deploy call
@@ -197,8 +197,13 @@ class TestPolicyContract(unittest.TestCase):
         sb.emit_push(contracts.PolicyContract().script_hash.to_array())
         sb.emit_syscall(syscall_name_to_int("System.Contract.Call"))
 
-        # next we call `getBlockedAccounts`
-        sb.emit_contract_call(contracts.PolicyContract().script_hash, "getBlockedAccounts")
+        # next we call `isBlocked`
+        sb.emit_push(b'\x11' * 20)
+        sb.emit(vm.OpCode.PUSH1)
+        sb.emit(vm.OpCode.PACK)
+        sb.emit_push("isBlocked")
+        sb.emit_push(contracts.PolicyContract().script_hash.to_array())
+        sb.emit_syscall(syscall_name_to_int("System.Contract.Call"))
 
         script = vm.Script(sb.to_array())
         engine.load_script(script)
@@ -209,20 +214,12 @@ class TestPolicyContract(unittest.TestCase):
         engine.execute()
         self.assertEqual(vm.VMState.HALT, engine.state)
         self.assertEqual(2, len(engine.result_stack))
-        get_blocked_accounts_result = engine.result_stack.pop()
-        set_blocked_accounts_result = engine.result_stack.pop()
-        self.assertTrue(set_blocked_accounts_result.to_boolean())
-        self.assertIsInstance(get_blocked_accounts_result, vm.InteropStackItem)
-        stored_accounts = get_blocked_accounts_result.get_object()
-        self.assertEqual(1, len(stored_accounts))
-
-        expected_account = types.UInt160(data=b'\x11' * 20)
-        self.assertEqual(expected_account, stored_accounts[0])
+        get_is_blocked_result = engine.result_stack.pop()
+        set_blocked_account_result = engine.result_stack.pop()
+        self.assertTrue(set_blocked_account_result.to_boolean())
+        self.assertTrue(get_is_blocked_result.to_boolean())
 
     def test_policy_unblock_account(self):
-        # we've tested the full round trip via "System.Contract.Call" in the test
-        # test_policy_set_and_get_blocked_accounts()
-        # Here we take the shortcut and test the unblock account function directly
         engine = test_engine(has_snapshot=True)
         block = test_block(0)
         engine.snapshot.persisting_block = block
@@ -241,10 +238,9 @@ class TestPolicyContract(unittest.TestCase):
         self.assertTrue(policy._block_account(engine, account))
         self.assertFalse(policy._unblock_account(engine, account_not_found))
         self.assertTrue(policy._unblock_account(engine, account))
-        storage_key = storage.StorageKey(policy.script_hash, policy._PREFIX_BLOCKED_ACCOUNTS)
+        storage_key = storage.StorageKey(policy.script_hash, policy._PREFIX_BLOCKED_ACCOUNT + account.to_array())
         storage_item = engine.snapshot.storages.try_get(storage_key)
-        self.assertIsNotNone(storage_item)
-        self.assertEqual(b'\x00', storage_item.value)
+        self.assertIsNone(storage_item)
 
     def test_policy_limit_setters(self):
         policy = contracts.PolicyContract()
