@@ -96,7 +96,7 @@ class HighPriorityAttribute(TransactionAttribute):
         self.type_ = TransactionAttributeType.HIGH_PRIORITY
 
     def verify(self, snapshot: storage.Snapshot, tx: Transaction) -> bool:
-        committee = contracts.NeoToken().get_committee_address(snapshot)
+        committee = contracts.NeoToken().get_committee_address()
         for signer in tx.signers:
             if signer.account == committee:
                 return True

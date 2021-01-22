@@ -268,7 +268,7 @@ class NativeContract(convenience._Singleton):
             raise SystemError("Invalid operation")
 
     def _check_committee(self, engine: contracts.ApplicationEngine) -> bool:
-        addr = NeoToken().get_committee_address(engine.snapshot)
+        addr = NeoToken().get_committee_address()
         return engine.checkwitness(addr)
 
 
@@ -931,37 +931,53 @@ class _CandidateState(serialization.ISerializable):
         self._votes = vm.BigInteger(reader.read_var_bytes())
 
 
-class _ValidatorsState(serialization.ISerializable):
-    def __init__(self, snapshot: storage.Snapshot, validators: List[cryptography.ECPoint]):
+class _CommitteeState(serialization.ISerializable):
+    def __init__(self, snapshot: storage.Snapshot, validators: Dict[cryptography.ECPoint, vm.BigInteger]):
         self._snapshot = snapshot
-        self._validators: List[cryptography.ECPoint] = validators
+        self._validators = validators
         self._storage_key = storage.StorageKey(NeoToken().script_hash, NeoToken()._PREFIX_COMMITTEE)
 
-        with serialization.BinaryWriter() as bw:
-            bw.write_serializable_list(validators)
-            self._storage_item = storage.StorageItem(bw.to_array())
+        with serialization.BinaryWriter() as writer:
+            self.serialize(writer)
+            self._storage_item = storage.StorageItem(writer.to_array())
             snapshot.storages.update(self._storage_key, self._storage_item)
 
     def __len__(self):
-        return sum(map(len, self._validators))
+        return len(self.to_array())
+
+    def __getitem__(self, item: cryptography.ECPoint) -> vm.BigInteger:
+        return self._validators[item]
+
+    @staticmethod
+    def compute_members(snapshot: storage.Snapshot) -> Dict[cryptography.ECPoint, vm.BigInteger]:
+        pass
 
     @property
     def validators(self) -> List[cryptography.ECPoint]:
-        return self._validators
+        return list(self._validators.keys())
 
-    def update(self, snapshot: storage.Snapshot, validators: List[cryptography.ECPoint]) -> None:
+    def update(self, snapshot: storage.Snapshot, validators: Dict[cryptography.ECPoint, vm.BigInteger]) -> None:
         self._validators = validators
         self._snapshot = snapshot
-        with serialization.BinaryWriter() as br:
-            br.write_serializable_list(validators)
-            self._storage_item.value = br.to_array()
+        with serialization.BinaryWriter() as writer:
+            self.serialize(writer)
+            self._storage_item.value = writer.to_array()
         self._snapshot.storages.update(self._storage_key, self._storage_item)
 
     def serialize(self, writer: serialization.BinaryWriter) -> None:
-        writer.write_serializable_list(self._validators)
+        writer.write_var_int(len(self._validators))
+        for key, value in self._validators.items():
+            writer.write_serializable(key)
+            writer.write_var_bytes(value.to_array())
 
     def deserialize(self, reader: serialization.BinaryReader) -> None:
-        self._validators = reader.read_serializable_list(cryptography.ECPoint)  # type: ignore
+        length = reader.read_var_int()
+        self._validators.clear()
+        for _ in range(length):
+            public_key = reader.read_serializable(cryptography.ECPoint)  # type: ignore
+            self._validators.update({
+                public_key: vm.BigInteger(reader.read_var_bytes())
+            })
 
 
 class _GasRecord(serialization.ISerializable):
@@ -1059,6 +1075,7 @@ class NeoToken(Nep5Token):
     _PREFIX_CANDIDATE = b'\x21'
     _PREFIX_VOTERS_COUNT = b'\x01'
     _PREFIX_GAS_PER_BLOCK = b'\x29'
+    _PREFIX_VOTER_REWARD_PER_COMMITTEE = b'\x17'
 
     _NEO_HOLDER_REWARD_RATIO = 10
     _COMMITTEE_REWARD_RATIO = 5
@@ -1068,13 +1085,54 @@ class NeoToken(Nep5Token):
     _candidates_dirty = True
     _candidates: List[Tuple[cryptography.ECPoint, vm.BigInteger]] = []
 
-    def _calculate_bonus(self, snapshot: storage.Snapshot, value: vm.BigInteger, start: int, end: int) -> vm.BigInteger:
+    def _calculate_bonus(self,
+                         snapshot: storage.Snapshot,
+                         vote: cryptography.ECPoint,
+                         value: vm.BigInteger,
+                         start: int,
+                         end: int) -> vm.BigInteger:
         if value == vm.BigInteger.zero() or start >= end:
             return vm.BigInteger.zero()
 
         if value.sign < 0:
             raise ValueError("Can't calculate bonus over negative balance")
 
+        neo_holder_reward = self._calculate_neo_holder_reward(snapshot, value, start, end)
+        if vote.is_zero():
+            return neo_holder_reward
+
+        border = storage.StorageKey(self.script_hash,
+                                    self._PREFIX_VOTER_REWARD_PER_COMMITTEE + vote.to_array()
+                                    ).to_array()
+        key_start = storage.StorageKey(
+            self.script_hash,
+            self._PREFIX_VOTER_REWARD_PER_COMMITTEE + vote.to_array() + vm.BigInteger(start).to_array()
+        ).to_array()
+
+        items = list(snapshot.storages.find_range(self.script_hash, key_start, border, "reverse"))
+        if len(items) > 0:
+            start_reward_per_neo = vm.BigInteger(items[0][1].value)  # first pair returned, StorageItem
+        else:
+            start_reward_per_neo = vm.BigInteger.zero()
+
+        key_end = storage.StorageKey(
+            self.script_hash,
+            self._PREFIX_VOTER_REWARD_PER_COMMITTEE + vote.to_array() + vm.BigInteger(end).to_array()
+        ).to_array()
+
+        items = list(snapshot.storages.find_range(self.script_hash, key_end, border, "reverse"))
+        if len(items) > 0:
+            end_reward_per_neo = vm.BigInteger(items[0][1].value)  # first pair returned, StorageItem
+        else:
+            end_reward_per_neo = vm.BigInteger.zero()
+
+        return neo_holder_reward + value * (end_reward_per_neo - start_reward_per_neo) / 100000000
+
+    def _calculate_neo_holder_reward(self,
+                                     snapshot: storage.Snapshot,
+                                     value: vm.BigInteger,
+                                     start: int,
+                                     end: int) -> vm.BigInteger:
         gas_bonus_state = GasBonusState.from_snapshot(snapshot)
         gas_sum = 0
         for pair in reversed(gas_bonus_state):  # type: _GasRecord
@@ -1090,7 +1148,19 @@ class NeoToken(Nep5Token):
         return value * gas_sum * self._NEO_HOLDER_REWARD_RATIO / 100 / self.total_amount
 
     def _should_refresh_committee(self, height: int) -> bool:
-        return height % (len(settings.standby_committee) + settings.network.validators_count) == 0
+        return height % len(settings.standby_committee) == 0
+
+    def _check_candidate(self,
+                         snapshot: storage.Snapshot,
+                         public_key: cryptography.ECPoint,
+                         candidate: _CandidateState) -> None:
+        if not candidate.registered and candidate.votes == 0:
+            storage_key = storage.StorageKey(self.script_hash,
+                                             self._PREFIX_VOTER_REWARD_PER_COMMITTEE + public_key.to_array())
+            for k, v in snapshot.storages.find(storage_key):
+                snapshot.storages.delete(k)
+            storage_key_candidate = storage.StorageKey(self.script_hash, self._PREFIX_CANDIDATE + public_key.to_array())
+            snapshot.storages.delete(storage_key_candidate)
 
     def init(self):
         super(NeoToken, self).init()
@@ -1144,10 +1214,39 @@ class NeoToken(Nep5Token):
                                        add_engine=False,
                                        safe_method=True
                                        )
+        self._register_contract_method(self.get_committee,
+                                       "getCommittee",
+                                       100000000,
+                                       return_type=List[cryptography.ECPoint],
+                                       add_engine=False,
+                                       add_snapshot=False,
+                                       safe_method=True
+                                       )
+
+        self._register_contract_method(self.get_candidates,
+                                       "getCandidates",
+                                       100000000,
+                                       return_type=None,  # we manually push onto the engine
+                                       add_engine=True,
+                                       add_snapshot=False,
+                                       safe_method=True
+                                       )
+
+        self._register_contract_method(self.get_next_block_validators,
+                                       "getNextBlockValidators",
+                                       100000000,
+                                       return_type=List[cryptography.ECPoint],
+                                       add_engine=False,
+                                       add_snapshot=False,
+                                       safe_method=True
+                                       )
 
     def _initialize(self, engine: contracts.ApplicationEngine) -> None:
         # NEO's native contract initialize. Is called upon contract deploy
-        self._validators_state = _ValidatorsState(engine.snapshot, settings.standby_validators)
+
+        self._committee_state = _CommitteeState(engine.snapshot,
+                                                dict.fromkeys(settings.standby_validators, vm.BigInteger(0))
+                                                )
         engine.snapshot.storages.put(
             storage.StorageKey(self.script_hash, self._PREFIX_VOTERS_COUNT),
             storage.StorageItem(b'\x00')
@@ -1187,25 +1286,52 @@ class NeoToken(Nep5Token):
         candidate_state.votes += amount
         self._candidates_dirty = True
 
-        if not candidate_state.registered and candidate_state.votes == 0:
-            engine.snapshot.storages.delete(sk_candidate)
+        self._check_candidate(engine.snapshot, state.vote_to, candidate_state)
 
     def on_persist(self, engine: contracts.ApplicationEngine) -> None:
         super(NeoToken, self).on_persist(engine)
 
         # set next committee
         if self._should_refresh_committee(engine.snapshot.block_height):
-            validators = self._get_committee_members(engine.snapshot)
-            self._validators_state.update(engine.snapshot, validators)
+            validators = self._compute_committee_members(engine.snapshot)
+            self._committee_state.update(engine.snapshot, validators)
 
     def post_persist(self, engine: contracts.ApplicationEngine):
         super(NeoToken, self).post_persist(engine)
         # distribute GAS for committee
-        index = engine.snapshot.persisting_block.index % len(settings.standby_committee)
+        m = len(settings.standby_committee)
+        n = settings.network.validators_count
+        index = engine.snapshot.persisting_block.index % m
         gas_per_block = self.get_gas_per_block(engine.snapshot)
-        pubkey = self.get_committee(engine.snapshot)[index]
+        committee = self.get_committee()
+        pubkey = committee[index]
         account = to_script_hash(contracts.Contract.create_signature_redeemscript(pubkey))
         GasToken().mint(engine, account, gas_per_block * self._COMMITTEE_REWARD_RATIO / 100)
+
+        if self._should_refresh_committee(engine.snapshot.persisting_block.index):
+            voter_reward_of_each_committee = gas_per_block * self._VOTER_REWARD_RATIO * 100000000 * m / (m + n) / 100
+            for i, member in enumerate(committee):
+                factor = 2 if i < n else 1
+                member_votes = self._committee_state[member]
+                if member_votes > 0:
+                    voter_sum_reward_per_neo = factor * voter_reward_of_each_committee / member_votes
+                    voter_reward_key = storage.StorageKey(
+                        self.script_hash,
+                        (self._PREFIX_VOTER_REWARD_PER_COMMITTEE + member.to_array()
+                         + vm.BigInteger(engine.snapshot.persisting_block.index + 1).to_array())
+                    )
+                    border = storage.StorageKey(
+                        self.script_hash,
+                        self._PREFIX_VOTER_REWARD_PER_COMMITTEE + member.to_array()
+                    ).to_array()
+                    result = engine.snapshot.storages.find_range(self.script_hash, voter_reward_key.to_array(), border)
+                    if len(result) > 0:
+                        result = result[0]
+                    else:
+                        result = vm.BigInteger.zero()
+                    voter_sum_reward_per_neo += result
+                    engine.snapshot.storages.put(voter_reward_key,
+                                                 storage.StorageItem(voter_sum_reward_per_neo.to_array()))
 
     def unclaimed_gas(self, snapshot: storage.Snapshot, account: types.UInt160, end: int) -> vm.BigInteger:
         """
@@ -1224,7 +1350,7 @@ class NeoToken(Nep5Token):
         if storage_item is None:
             return vm.BigInteger.zero()
         state = self._state.deserialize_from_bytes(storage_item.value)
-        return self._calculate_bonus(snapshot, state.balance, state.balance_height, end)
+        return self._calculate_bonus(snapshot, state.vote_to, state.balance, state.balance_height, end)
 
     def register_candidate(self,
                            engine: contracts.ApplicationEngine,
@@ -1367,43 +1493,42 @@ class NeoToken(Nep5Token):
             array.append(struct)
         engine.push(array)
 
-    def get_validators(self, engine: contracts.ApplicationEngine) -> List[cryptography.ECPoint]:
-        keys = self._get_committee_members(engine.snapshot)
-        keys = keys[:settings.network.validators_count]
+    def get_next_block_validators(self) -> List[cryptography.ECPoint]:
+        keys = self._committee_state.validators[:settings.network.validators_count]
         keys.sort()
         return keys
 
-    def get_committee(self, snapshot: storage.Snapshot) -> List[cryptography.ECPoint]:
-        keys = self._get_committee_members(snapshot)
-        keys.sort()
-        return keys
+    def get_committee(self) -> List[cryptography.ECPoint]:
+        return sorted(self._committee_state.validators)
 
-    def get_committee_address(self, snapshot: storage.Snapshot) -> types.UInt160:
-        comittees = self.get_committee(snapshot)
+    def get_committee_address(self) -> types.UInt160:
+        comittees = self.get_committee()
         return to_script_hash(
             contracts.Contract.create_multisig_redeemscript(
                 len(comittees) - (len(comittees) - 1) // 2,
                 comittees)
         )
 
-    def _get_committee_members(self, snapshot: storage.Snapshot) -> List[cryptography.ECPoint]:
+    def _compute_committee_members(self, snapshot: storage.Snapshot) -> Dict[cryptography.ECPoint, vm.BigInteger]:
         storage_key = storage.StorageKey(self.script_hash, self._PREFIX_VOTERS_COUNT)
         storage_item = snapshot.storages.get(storage_key, read_only=True)
         voters_count = int(vm.BigInteger(storage_item.value))
         voter_turnout = voters_count / float(self.total_amount)
-        if voter_turnout < 0.2:
-            return settings.standby_committee
+
         candidates = list(self._get_candidates(snapshot))
-        if len(candidates) < len(settings.standby_committee):
-            return settings.standby_committee
+        if voter_turnout < 0.2 or len(candidates) < len(settings.standby_committee):
+            results = {}
+            for key in settings.standby_committee:
+                results.update({key: self._committee_state[key]})
+            return results
         # first sort by votes descending, then by ECPoint ascending
         # we negate the value of the votes (c[1]) such that they get sorted in descending order
         candidates.sort(key=lambda c: (-c[1], c[0]))
-        public_keys = list(map(lambda c: c[0], candidates))
-        return public_keys[:len(settings.standby_committee)]
-
-    def get_next_block_validators(self, snapshot: storage.Snapshot) -> List[cryptography.ECPoint]:
-        return self._validators_state.validators
+        trimmed_candidates = candidates[:len(settings.standby_committee)]
+        results = {}
+        for candidate in trimmed_candidates:
+            results.update({candidate[0]: candidate[1]})
+        return results
 
     def _set_gas_per_block(self, engine: contracts.ApplicationEngine, gas_per_block: vm.BigInteger) -> bool:
         if gas_per_block > 0 or gas_per_block > 10 * self._gas.factor:
@@ -1436,7 +1561,7 @@ class NeoToken(Nep5Token):
         if engine.snapshot.persisting_block is None:
             return
 
-        gas = self._calculate_bonus(engine.snapshot, state.balance, state.balance_height,
+        gas = self._calculate_bonus(engine.snapshot, state.vote_to, state.balance, state.balance_height,
                                     engine.snapshot.persisting_block.index)
         state.balance_height = engine.snapshot.persisting_block.index
         GasToken().mint(engine, account, gas)
@@ -1460,7 +1585,7 @@ class GasToken(Nep5Token):
         for tx in engine.snapshot.persisting_block.transactions:
             total_network_fee += tx.network_fee
             self.burn(engine, tx.sender, vm.BigInteger(tx.system_fee + tx.network_fee))
-        pub_keys = NeoToken().get_next_block_validators(engine.snapshot)
+        pub_keys = NeoToken().get_next_block_validators()
         primary = pub_keys[engine.snapshot.persisting_block.consensus_data.primary_index]
         script_hash = to_script_hash(contracts.Contract.create_signature_redeemscript(primary))
         self.mint(engine, script_hash, vm.BigInteger(total_network_fee))

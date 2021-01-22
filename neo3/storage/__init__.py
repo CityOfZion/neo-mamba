@@ -15,3 +15,4 @@ from .snapshot import CloneSnapshot, Snapshot
 from .storageitem import StorageItem, StorageFlags, Nep5StorageState
 from .storagekey import StorageKey
 from .contractstate import ContractState
+from .utils import NEOByteCompare, NEOSeekSort

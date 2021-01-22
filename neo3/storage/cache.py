@@ -6,9 +6,10 @@ from typing import Optional, Iterator, Tuple, TypeVar, Any, List, TYPE_CHECKING
 from neo3.core import types, serialization
 from neo3 import storage
 from contextlib import suppress
+from functools import cmp_to_key, partial
+
 if TYPE_CHECKING:
     from neo3.network import payloads
-
 
 TKey = TypeVar('TKey', bound='serialization.ISerializable')
 TValue = TypeVar('TValue', bound='serialization.ISerializable')
@@ -36,6 +37,7 @@ class CachedAccess:
         self._internal_get = None
         self._internal_try_get = None
         self._internal_all = None
+        self._internal_seek = None
 
     def __getitem__(self, key):
         trackable = self._dictionary.get(key, None)  # type: Trackable
@@ -368,6 +370,7 @@ class CachedStorageAccess(CachedAccess):
         self._internal_try_get = self._db._internal_storage_try_get
         self._internal_all = self._db._internal_storage_all
         self._internal_find = self._db._internal_storage_find
+        self._iternal_seek = self._db._internal_storage_seek
 
     def put(self, key: storage.StorageKey, value: storage.StorageItem) -> None:
         """
@@ -483,6 +486,41 @@ class CachedStorageAccess(CachedAccess):
         for pair in pairs:
             yield pair
         return None
+
+    def seek(self, contract_script_hash: types.UInt160,
+             key_prefix: bytes,
+             direction="forward"
+             ) -> Iterator[Tuple[storage.StorageKey, storage.StorageItem]]:
+
+        comperator = storage.NEOByteCompare(direction)
+        results: List[Tuple[storage.StorageKey, storage.StorageItem]] = []
+        for key, value in self._dictionary.items():
+            if value.state != TrackState.DELETED and (
+                    len(key_prefix) == 0 or comperator.compare(key.to_array(), key_prefix) >= 0):
+                results.append((deepcopy(key), deepcopy(value.item)))
+
+        cached_keys = self._dictionary.keys()
+        for key, value in self._internal_seek(contract_script_hash, key_prefix, "forward"):
+            if key not in cached_keys:
+                results.append((key, value))
+        results.sort(key=cmp_to_key(partial(storage.NEOSeekSort, comperator.compare)))  # type: ignore
+
+        for pair in results:
+            yield pair
+        return None
+
+    def find_range(self,
+                   contract_script_hash: types.UInt160,
+                   start: bytes,
+                   end: bytes,
+                   direction: str = "forward"
+                   ) -> Iterator[Tuple[storage.StorageKey, storage.StorageItem]]:
+        comperator = storage.NEOByteCompare(direction)
+        for key, value in self.seek(contract_script_hash, start, direction):
+            if comperator.compare(key.to_array(), end) < 0:
+                yield key, value
+            else:
+                break
 
 
 class CachedTXAccess(CachedAccess):

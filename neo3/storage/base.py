@@ -134,6 +134,12 @@ class IDBImplementation(abc.ABC):
                                key_prefix: bytes) -> Iterator[Tuple[storage.StorageKey, storage.StorageItem]]:
         """ Find key/value pairs for a given smart contract by a given key prefix. """
 
+    def _internal_storage_seek(self,
+                               contract_scrip_hash: types.UInt160,
+                               key_prefix: bytes,
+                               seek_direction="forward") -> Iterator[Tuple[storage.StorageKey, storage.StorageItem]]:
+        """ """
+
     @abc.abstractmethod
     def _internal_transaction_put(self, transaction: payloads.Transaction) -> None:
         """ Persist a transaction in the real backend (readonly). """
