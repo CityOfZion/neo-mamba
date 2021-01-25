@@ -7,9 +7,12 @@ import base64
 
 class OracleReponseCode(IntEnum):
     SUCCESS = 0x00
-    NOT_FOUND = 0x10
-    TIMEOUT = 0x12
-    FORBIDDEN = 0x14
+    CONSENSUS_UNREACHABLE = 0x10
+    NOT_FOUND = 0x12
+    TIMEOUT = 0x14
+    FORBIDDEN = 0x16
+    RESPONSE_TOO_LARGE = 0x18
+    INSUFFICIENT_FUNDS = 0x1a
     ERROR = 0xFF
 
 
