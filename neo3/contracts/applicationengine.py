@@ -7,7 +7,7 @@ from typing import Any, Dict, cast, List, Tuple, Type, Optional, Callable
 import enum
 from dataclasses import dataclass
 from contextlib import suppress
-from .checkreturn import CheckReturnType
+from .checkreturn import ReturnTypeConvention
 
 
 class ApplicationEngine(vm.ApplicationEngineCpp):
@@ -28,7 +28,7 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
     class InvocationState:
         return_type: type = None  # type: ignore
         callback: Optional[Callable] = None
-        check_return_value: contracts.CheckReturnType = CheckReturnType.NONE
+        convention: contracts.ReturnTypeConvention = ReturnTypeConvention.NONE
 
     def __init__(self,
                  trigger: contracts.TriggerType,
@@ -305,10 +305,10 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
             state = self._invocation_states.pop(self.current_context)
         except KeyError:
             return
-        if state.check_return_value == contracts.CheckReturnType.ENSURE_IS_EMPTY:
+        if state.convention == contracts.ReturnTypeConvention.ENSURE_IS_EMPTY:
             if len(context.evaluation_stack) != 0:
                 raise ValueError("Evaluation expected to be empty, but was not")
-        elif state.check_return_value == contracts.CheckReturnType.ENSURE_NOT_EMPTY:
+        elif state.convention == contracts.ReturnTypeConvention.ENSURE_NOT_EMPTY:
             eval_stack_len = len(context.evaluation_stack)
             if eval_stack_len == 0:
                 self.push(vm.NullStackItem())
@@ -323,8 +323,8 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
                      context: vm.ExecutionContext,
                      check_return_value: bool = False):
         if check_return_value:
-            self._get_invocation_state(self.current_context).check_return_value = \
-                contracts.CheckReturnType.ENSURE_NOT_EMPTY
+            self._get_invocation_state(self.current_context).convention = \
+                contracts.ReturnTypeConvention.ENSURE_NOT_EMPTY
 
         super(ApplicationEngine, self).load_context(context)
 
@@ -341,7 +341,15 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
         state = self._get_invocation_state(self.current_context)
         state.return_type = type(None)
         state.callback = on_complete
-        contract_call_descriptor = self._interop_calls.get(contracts.syscall_name_to_int("System.Contract.Call"), None)
+        contract_call_descriptor = self._interop_calls.get(
+            contracts.syscall_name_to_int("contract_call_internal_ex"),
+            None
+        )
         if contract_call_descriptor is None:
             raise ValueError
-        contract_call_descriptor.handler(hash_, method, args)
+        contract_call_descriptor.handler(self,
+                                         hash_,
+                                         method,
+                                         args,
+                                         contracts.CallFlags.ALL,
+                                         contracts.ReturnTypeConvention.ENSURE_IS_EMPTY)

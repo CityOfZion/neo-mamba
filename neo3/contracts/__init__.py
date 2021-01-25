@@ -25,7 +25,7 @@ from .native import (CallFlags,
                      OracleContract,
                      DesignateContract,
                      DesignateRole)
-from .checkreturn import CheckReturnType
+from .checkreturn import ReturnTypeConvention
 from .applicationengine import ApplicationEngine
 
 
@@ -47,6 +47,6 @@ __all__ = ['ContractParameterType',
            'PolicyContract',
            'ApplicationEngine',
            'syscall_name_to_int',
-           'CheckReturnType',
+           'ReturnTypeConvention',
            'DesignateContract',
            'DesignateRole']

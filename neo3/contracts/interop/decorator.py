@@ -20,4 +20,5 @@ def register(method: str,
     """
     def inner_func(func):
         interop.InteropService.register(method, func, price, flags, allow_callback, param_types)
+        return func
     return inner_func

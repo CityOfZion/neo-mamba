@@ -37,7 +37,7 @@ def contract_create(engine: contracts.ApplicationEngine, script: bytes, manifest
                                   method_descriptor,
                                   vm.ArrayStackItem(engine.reference_counter, vm.BooleanStackItem(False)),
                                   contracts.native.CallFlags.ALL,
-                                  contracts.CheckReturnType.ENSURE_IS_EMPTY
+                                  contracts.ReturnTypeConvention.ENSURE_IS_EMPTY
                                   )
 
 
@@ -96,7 +96,7 @@ def contract_update(engine: contracts.ApplicationEngine, script: bytes, manifest
                                       method_descriptor,
                                       vm.ArrayStackItem(engine.reference_counter, vm.BooleanStackItem(True)),
                                       contracts.native.CallFlags.ALL,
-                                      contracts.CheckReturnType.ENSURE_IS_EMPTY
+                                      contracts.ReturnTypeConvention.ENSURE_IS_EMPTY
                                       )
 
 
@@ -119,7 +119,8 @@ def contract_call_internal(engine: contracts.ApplicationEngine,
                            contract_hash: types.UInt160,
                            method: str,
                            args: vm.ArrayStackItem,
-                           flags: contracts.native.CallFlags) -> None:
+                           flags: contracts.native.CallFlags,
+                           convention: contracts.ReturnTypeConvention) -> None:
     if method.startswith('_'):
         raise ValueError("[System.Contract.Call] Method not allowed to start with _")
 
@@ -135,20 +136,20 @@ def contract_call_internal(engine: contracts.ApplicationEngine,
     if current_contract and not current_contract.manifest.can_call(target_contract.manifest, method):
         raise ValueError(f"[System.Contract.Call] Not allowed to call target method '{method}' according to manifest")
 
-    contract_call_internal_ex(engine, target_contract, method_descriptor, args, flags,
-                              contracts.CheckReturnType.ENSURE_NOT_EMPTY)
+    contract_call_internal_ex(engine, target_contract, method_descriptor, args, flags, convention)
 
 
+@register("contract_call_internal_ex", 0, contracts.native.CallFlags.ALL, False, [])
 def contract_call_internal_ex(engine: contracts.ApplicationEngine,
                               contract: storage.ContractState,
                               contract_method_descriptor: contracts.ContractMethodDescriptor,
                               args: vm.ArrayStackItem,
                               flags: contracts.native.CallFlags,
-                              check_return_value: contracts.CheckReturnType) -> None:
+                              convention: contracts.ReturnTypeConvention) -> None:
     counter = engine._invocation_counter.get(contract.script_hash(), 0)
     engine._invocation_counter.update({contract.script_hash(): counter + 1})
 
-    engine._get_invocation_state(engine.current_context).check_return_value = check_return_value
+    engine._get_invocation_state(engine.current_context).convention = convention
 
     state = engine.current_context
     calling_flags = state.call_flags
@@ -175,14 +176,13 @@ def contract_call_internal_ex(engine: contracts.ApplicationEngine,
     if method_descriptor is not None:
         engine.load_cloned_context(method_descriptor.offset)
 
-
 @register("System.Contract.Call", 1000000, contracts.native.CallFlags.ALLOW_CALL, False,
           [types.UInt160, str, vm.ArrayStackItem])
 def contract_call(engine: contracts.ApplicationEngine,
                   contract_hash: types.UInt160,
                   method: str,
                   args: vm.ArrayStackItem) -> None:
-    contract_call_internal(engine, contract_hash, method, args, contracts.native.CallFlags.ALL)
+    contract_callex(engine, contract_hash, method, args, contracts.native.CallFlags.ALL)
 
 
 @register("System.Contract.CallEx", 1000000, contracts.native.CallFlags.ALLOW_CALL, False,
@@ -196,7 +196,7 @@ def contract_callex(engine: contracts.ApplicationEngine,
     # and will thrown an exception while converting the arguments for the function
     # if ((callFlags & ~CallFlags.All) != 0)
     #     throw new ArgumentOutOfRangeException(nameof(callFlags));
-    contract_call_internal(engine, contract_hash, method, args, flags)
+    contract_call_internal(engine, contract_hash, method, args, flags, contracts.ReturnTypeConvention.ENSURE_NOT_EMPTY)
 
 
 @register("System.Contract.IsStandard", 30000, contracts.native.CallFlags.ALLOW_STATES, True, [types.UInt160])

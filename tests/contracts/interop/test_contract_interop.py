@@ -416,12 +416,12 @@ class RuntimeInteropTestCase(unittest.TestCase):
         engine = test_engine(has_snapshot=True, default_script=False)
         engine.load_script(vm.Script(hello_world_nef.script))
         with self.assertRaises(ValueError) as context:
-            contract_call_internal(engine, types.UInt160.zero(), "_invalid_method", vm.ArrayStackItem(engine.reference_counter), contracts.native.CallFlags)
+            contract_call_internal(engine, types.UInt160.zero(), "_invalid_method", vm.ArrayStackItem(engine.reference_counter), contracts.native.CallFlags, contracts.ReturnTypeConvention.ENSURE_IS_EMPTY)
         self.assertEqual("[System.Contract.Call] Method not allowed to start with _", str(context.exception))
 
         # can't find contract
         with self.assertRaises(ValueError) as context:
-            contract_call_internal(engine, types.UInt160.zero(), "valid_method", vm.ArrayStackItem(engine.reference_counter), contracts.native.CallFlags)
+            contract_call_internal(engine, types.UInt160.zero(), "valid_method", vm.ArrayStackItem(engine.reference_counter), contracts.native.CallFlags, contracts.ReturnTypeConvention.ENSURE_IS_EMPTY)
         self.assertEqual("[System.Contract.Call] Can't find target contract", str(context.exception))
 
         target_contract = storage.ContractState(contract3_nef.script, contract3_manifest)
@@ -436,7 +436,7 @@ class RuntimeInteropTestCase(unittest.TestCase):
         new_current_contract = storage.ContractState(hello_world_nef.script, new_current_manifest)
         engine.snapshot.contracts.put(new_current_contract)
         with self.assertRaises(ValueError) as context:
-            contract_call_internal(engine, target_contract.script_hash(), "invalid_method", vm.ArrayStackItem(engine.reference_counter), contracts.native.CallFlags)
+            contract_call_internal(engine, target_contract.script_hash(), "invalid_method", vm.ArrayStackItem(engine.reference_counter), contracts.native.CallFlags, contracts.ReturnTypeConvention.ENSURE_IS_EMPTY)
         self.assertEqual("[System.Contract.Call] Method 'invalid_method' does not exist on target contract", str(context.exception))
 
         # restore current contract to its original form and try to call a non-existing contract
@@ -445,14 +445,14 @@ class RuntimeInteropTestCase(unittest.TestCase):
         engine.snapshot.contracts.put(current_contract)
 
         with self.assertRaises(ValueError) as context:
-            contract_call_internal(engine, target_contract.script_hash(), "invalid_method", vm.ArrayStackItem(engine.reference_counter), contracts.native.CallFlags)
+            contract_call_internal(engine, target_contract.script_hash(), "invalid_method", vm.ArrayStackItem(engine.reference_counter), contracts.native.CallFlags, contracts.ReturnTypeConvention.ENSURE_IS_EMPTY)
         self.assertEqual("[System.Contract.Call] Method 'invalid_method' does not exist on target contract", str(context.exception))
 
         # call the target method with invalid number of arguments
         array = vm.ArrayStackItem(engine.reference_counter)
         array.append([vm.NullStackItem(), vm.NullStackItem()])
         with self.assertRaises(ValueError) as context:
-            contract_call_internal(engine, target_contract.script_hash(), "test_func", array, contracts.native.CallFlags)
+            contract_call_internal(engine, target_contract.script_hash(), "test_func", array, contracts.native.CallFlags, contracts.ReturnTypeConvention.ENSURE_IS_EMPTY)
         self.assertEqual("[System.Contract.Call] Invalid number of contract arguments. Expected 0 actual 2", str(context.exception))
 
     def test_contract_call_ex(self):
