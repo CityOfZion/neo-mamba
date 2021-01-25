@@ -2,7 +2,7 @@ from __future__ import annotations
 from enum import IntEnum
 from typing import List
 from . import NativeContract
-from neo3 import storage, contracts, cryptography
+from neo3 import storage, contracts, cryptography, vm
 from neo3.core import serialization
 
 
@@ -34,16 +34,22 @@ class DesignateContract(NativeContract):
                                        add_snapshot=False,
                                        safe_method=False)
 
-    def _initialize(self, engine: contracts.ApplicationEngine) -> None:
-        for role in DesignateRole.__members__.values():  # type: DesignateRole
-            storage_key_role = storage.StorageKey(self.script_hash, role.to_bytes(1, 'little'))
-            engine.snapshot.storages.put(storage_key_role, storage.StorageItem(b'\x00'))
+    def get_designated_by_role(self,
+                               snapshot: storage.Snapshot,
+                               role: DesignateRole,
+                               index: int) -> List[cryptography.ECPoint]:
+        if snapshot.block_height + 1 < index:
+            raise ValueError("[DesignateContract] Designate list index out of range")
 
-    def get_designated_by_role(self, snapshot: storage.Snapshot, role: DesignateRole) -> List[cryptography.ECPoint]:
-        storage_key = storage.StorageKey(self.script_hash, role.to_bytes(1, 'little'))
-        storage_item = snapshot.storages.get(storage_key)
-        with serialization.BinaryReader(storage_item.value) as reader:
-            return reader.read_serializable_list(cryptography.ECPoint)
+        key = storage.StorageKey(self.script_hash,
+                                 role.to_bytes(1, 'little') + vm.BigInteger(index).to_array()
+                                 ).to_array()
+        boundary = storage.StorageKey(self.script_hash, role.to_bytes(1, 'little')) .to_array()
+        for _, storage_item in snapshot.storages.find_range(self.script_hash, key, boundary, "reverse"):
+            with serialization.BinaryReader(storage_item.value) as reader:
+                return reader.read_serializable_list(cryptography.ECPoint)
+        else:
+            return []
 
     def designate_as_role(self,
                           engine: contracts.ApplicationEngine,
@@ -58,8 +64,12 @@ class DesignateContract(NativeContract):
         if not self._check_committee(engine):
             raise ValueError("[DesignateContract] check committee failed")
 
+        if engine.snapshot.persisting_block is None:
+            raise ValueError
+
         nodes.sort()
-        storage_key = storage.StorageKey(self.script_hash, role.to_bytes(1, 'little'))
+        index = engine.snapshot.persisting_block.index + 1
+        storage_key = storage.StorageKey(self.script_hash, role.to_bytes(1, 'little') + vm.BigInteger(index).to_array())
         with serialization.BinaryWriter() as writer:
             writer.write_serializable_list(nodes)
             storage_item = storage.StorageItem(writer.to_array())

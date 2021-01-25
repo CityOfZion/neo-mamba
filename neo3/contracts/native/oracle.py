@@ -234,8 +234,11 @@ class OracleContract(NativeContract):
                 engine.snapshot.storages.delete(sk_id_list)
 
             # mint gas for oracle nodes
-            nodes_public_keys = contracts.DesignateContract().get_designated_by_role(engine.snapshot,
-                                                                                     contracts.DesignateRole.ORACLE)
+            nodes_public_keys = contracts.DesignateContract().get_designated_by_role(
+                engine.snapshot,
+                contracts.DesignateRole.ORACLE,
+                engine.snapshot.persisting_block.index)
+
             for public_key in nodes_public_keys:
                 nodes.append((
                     to_script_hash(contracts.Contract.create_signature_redeemscript(public_key)),
