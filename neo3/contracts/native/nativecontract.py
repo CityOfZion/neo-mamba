@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import List, Callable, Dict, Tuple, Iterator, Any, cast, NamedTuple
+from typing import List, Callable, Dict, Tuple, Iterator, Any, cast, Optional
 from neo3 import contracts, vm, storage, settings
 from neo3.core import types, to_script_hash, serialization, cryptography, msgrouter, Size as s
 from neo3.network import message, convenience
@@ -64,6 +64,7 @@ class NativeContract(convenience._Singleton):
         self._script: bytes = sb.to_array()
         self._script_hash: types.UInt160 = to_script_hash(self._script)
         self._manifest: contracts.ContractManifest = contracts.ContractManifest(contract_hash=self._script_hash)
+        self._manifest.name = self._service_name
         self._manifest.abi.methods = []
         self._manifest.safe_methods = contracts.WildcardContainer()
         self._register_contract_method(self.supported_standards,
@@ -567,9 +568,9 @@ class PolicyContract(NativeContract):
         return True
 
 
-class Nep5Token(NativeContract):
+class Nep17Token(NativeContract):
     _id: int = -99999
-    _service_name: str = "Nep5Token"
+    _service_name: str = "Nep17Token"
     _decimals: int = -1
 
     _PREFIX_ACCOUNT = b'\x14'
@@ -579,8 +580,8 @@ class Nep5Token(NativeContract):
     _symbol: str = ""
 
     def init(self):
-        super(Nep5Token, self).init()
-        self.manifest.supported_standards = ["NEP-5"]
+        super(Nep17Token, self).init()
+        self.manifest.supported_standards = ["NEP-17"]
         self.manifest.abi.events = [
             contracts.ContractEventDescriptor(
                 "Transfer",
@@ -658,7 +659,7 @@ class Nep5Token(NativeContract):
         else:
             old_value = vm.BigInteger(storage_item.value)
             storage_item.value = (amount + old_value).to_array()
-        self._notify_transfer(engine, types.UInt160.zero(), account, amount)
+        self._post_transfer(engine, types.UInt160.zero(), account, amount)
 
     def burn(self, engine: contracts.ApplicationEngine, account: types.UInt160, amount: vm.BigInteger) -> None:
         """
@@ -698,7 +699,7 @@ class Nep5Token(NativeContract):
             engine.snapshot.storages.delete(storage_key)
         else:
             storage_item.value = new_value.to_array()
-        self._notify_transfer(engine, account, types.UInt160.zero(), amount)
+        self._post_transfer(engine, account, types.UInt160.zero(), amount)
 
     def total_supply(self, snapshot: storage.Snapshot) -> vm.BigInteger:
         """ Get the total deployed tokens. """
@@ -730,11 +731,11 @@ class Nep5Token(NativeContract):
             state = self._state.deserialize_from_bytes(storage_item.value)
             return state.balance
 
-    def _notify_transfer(self,
-                         engine: contracts.ApplicationEngine,
-                         account_from: types.UInt160,
-                         account_to: types.UInt160,
-                         amount: vm.BigInteger) -> None:
+    def _post_transfer(self,
+                       engine: contracts.ApplicationEngine,
+                       account_from: types.UInt160,
+                       account_to: types.UInt160,
+                       amount: vm.BigInteger) -> None:
         state = vm.ArrayStackItem(engine.reference_counter)
         if account_from == types.UInt160.zero():
             state.append(vm.NullStackItem())
@@ -747,6 +748,16 @@ class Nep5Token(NativeContract):
         state.append(vm.IntegerStackItem(amount))
 
         msgrouter.interop_notify(self.script_hash, "Transfer", state)
+
+        # wallet or smart contract
+        if account_to == types.UInt160.zero() or engine.snapshot.contracts.try_get(account_to) is None:
+            return
+
+        engine.call_from_native(None,
+                                account_to,
+                                "onPayment",
+                                [vm.ByteStringStackItem(account_from.to_array()), vm.IntegerStackItem(amount)]
+                                )
 
     def transfer(self,
                  engine: contracts.ApplicationEngine,
@@ -805,7 +816,7 @@ class Nep5Token(NativeContract):
                 state_to.balance += amount
                 storage_item_to.value = state_to.to_array()
                 engine.snapshot.storages.update(storage_key_to, storage_item_to)
-        self._notify_transfer(engine, account_from, account_to, amount)
+        self._post_transfer(engine, account_from, account_to, amount)
         return True
 
     def on_balance_changing(self, engine: contracts.ApplicationEngine,
@@ -816,7 +827,7 @@ class Nep5Token(NativeContract):
 
     def supported_standards(self) -> List[str]:
         """ The list of supported Neo Enhancement Proposals (NEP)."""
-        return ["NEP-5"]
+        return ["NEP-17"]
 
 
 class _NeoTokenStorageState(storage.Nep5StorageState):
@@ -1060,7 +1071,7 @@ class GasBonusState(serialization.ISerializable, Sequence):
         self._records = reader.read_serializable_list(_GasRecord)
 
 
-class NeoToken(Nep5Token):
+class NeoToken(Nep17Token):
     _id: int = -1
     _service_name = "NEO"
     _decimals: int = 0
@@ -1561,7 +1572,7 @@ class NeoToken(Nep5Token):
         GasToken().mint(engine, account, gas)
 
 
-class GasToken(Nep5Token):
+class GasToken(Nep17Token):
     _id: int = -2
     _service_name: str = "GAS"
     _decimals: int = 8

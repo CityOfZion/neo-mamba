@@ -109,6 +109,7 @@ def contract_destroy(engine: contracts.ApplicationEngine) -> None:
         engine.snapshot.storages.delete(key)
 
 
+@register("contract_call_internal", 0, contracts.native.CallFlags.ALL, False, [])
 def contract_call_internal(engine: contracts.ApplicationEngine,
                            contract_hash: types.UInt160,
                            method: str,
@@ -133,7 +134,6 @@ def contract_call_internal(engine: contracts.ApplicationEngine,
     contract_call_internal_ex(engine, target_contract, method_descriptor, args, flags, convention)
 
 
-@register("contract_call_internal_ex", 0, contracts.native.CallFlags.ALL, False, [])
 def contract_call_internal_ex(engine: contracts.ApplicationEngine,
                               contract: storage.ContractState,
                               contract_method_descriptor: contracts.ContractMethodDescriptor,

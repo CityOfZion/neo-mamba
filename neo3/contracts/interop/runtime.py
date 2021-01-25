@@ -79,7 +79,7 @@ def do_notify(engine: contracts.ApplicationEngine, event_name: bytes, state: vm.
         engine:
         event_name:
         state: values belonging to the notification event.
-        e.g. a NEP-5 transfer event might have as state: from script_hash, to script_hash and an ammount
+        e.g. a NEP-17 transfer event might have as state: from script_hash, to script_hash and an ammount
     """
     if len(event_name) > engine.MAX_EVENT_SIZE:
         raise ValueError(

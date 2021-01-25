@@ -227,13 +227,13 @@ class ManifestTestCase(unittest.TestCase):
             Console.WriteLine($"{manifest.Size}");
             Console.WriteLine($"{manifest.ToJson()}");
         """
-        cls.expected_json = {"groups":[],"supportedstandards":[],"abi":{"hash":"0x0000000000000000000000000000000000000000","methods":[],"events":[]},"permissions":[{"contract":"*","methods":"*"}],"trusts":[],"safemethods":[],"extra":None}
+        cls.expected_json = {"name":None,"groups":[],"supportedstandards":[],"abi":{"hash":"0x0000000000000000000000000000000000000000","methods":[],"events":[]},"permissions":[{"contract":"*","methods":"*"}],"trusts":[],"safemethods":[],"extra":None}
 
     def test_create_default(self):
         cm = contracts.ContractManifest(types.UInt160.zero())
         self.assertEqual(self.expected_json, cm.to_json())
         # see setupClass for C# reference code
-        self.assertEqual(212, len(cm))
+        self.assertEqual(224, len(cm))
 
     def test_serialize(self):
         # if test_create_default() passes, then we know `to_json()` is ok, which serialize internally uses

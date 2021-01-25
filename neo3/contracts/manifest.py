@@ -259,6 +259,8 @@ class ContractManifest(serialization.ISerializable, IJson):
         Args:
             contract_hash: the contract script hash to create a manifest for.
         """
+        #: Contract name
+        self.name: str = ""
         #: A group represents a set of mutually trusted contracts. A contract will trust and allow any contract in the
         #: same group to invoke it.
         self.groups: List[ContractGroup] = []
@@ -291,7 +293,8 @@ class ContractManifest(serialization.ISerializable, IJson):
     def __eq__(self, other):
         if not isinstance(other, type(self)):
             return False
-        return (self.groups == other.groups
+        return (self.name == other.name
+                and self.groups == other.groups
                 and self.abi == other.abi
                 and self.permissions == other.permissions
                 and self.trusts == other.trusts
@@ -320,6 +323,9 @@ class ContractManifest(serialization.ISerializable, IJson):
         self._deserialize_from_json(json.loads(reader.read_var_string(self.MAX_LENGTH)))
 
     def _deserialize_from_json(self, json: dict) -> None:
+        self.name = json['name']
+        if self.name is None:
+            self.name = ""
         self.abi = contracts.ContractABI.from_json(json['abi'])
         self.contract_hash = self.abi.contract_hash
         self.groups = list(map(lambda g: ContractGroup.from_json(g), json['groups']))
@@ -340,6 +346,7 @@ class ContractManifest(serialization.ISerializable, IJson):
         """
         trusts = list(map(lambda m: "0x" + m, self.trusts.to_json()['wildcard']))
         json = {
+            "name": self.name if self.name else None,
             "groups": list(map(lambda g: g.to_json(), self.groups)),
             "supportedstandards": self.supported_standards,
             "abi": self.abi.to_json(),

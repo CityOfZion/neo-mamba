@@ -312,8 +312,8 @@ class Nep5TestCase(unittest.TestCase):
     def test_token_standards(self):
         gas_standards = contracts.GasToken().supported_standards()
         neo_standards = contracts.NeoToken().supported_standards()
-        self.assertEqual(["NEP-5"], gas_standards)
-        self.assertEqual(["NEP-5"], neo_standards)
+        self.assertEqual(["NEP-17"], gas_standards)
+        self.assertEqual(["NEP-17"], neo_standards)
 
     def test_token_symbols(self):
         gas_symbol = contracts.GasToken().symbol()
@@ -577,8 +577,6 @@ class Nep5TestCase(unittest.TestCase):
         amount = vm.BigInteger(0)
 
         engine = self.transfer_helper(gas, account_from, account_to, amount)
-        # ensure the destination contract exists
-        engine.snapshot.contracts.put(state_to)
         # ensure the source account has balance
         engine.snapshot.storages.put(storage_key_from, storage_item_from)
 
@@ -614,8 +612,6 @@ class Nep5TestCase(unittest.TestCase):
         amount = account_state.balance + 1
 
         engine = self.transfer_helper(gas, account_from, account_to, amount)
-        # ensure the destination contract exists
-        engine.snapshot.contracts.put(state_to)
         # ensure the source account has balance
         engine.snapshot.storages.put(storage_key_from, storage_item_from)
         engine.execute()
@@ -638,8 +634,6 @@ class Nep5TestCase(unittest.TestCase):
         amount = account_state.balance
 
         engine = self.transfer_helper(gas, account, account, amount)
-        # ensure the destination contract exists
-        engine.snapshot.contracts.put(state_to)
         # ensure the source account has balance
         engine.snapshot.storages.put(storage_key_from, storage_item_from)
 
@@ -677,8 +671,7 @@ class Nep5TestCase(unittest.TestCase):
         amount = account_from_state.balance
 
         engine = self.transfer_helper(gas, account_from, account_to, amount)
-        # ensure the destination contract exists
-        engine.snapshot.contracts.put(state_to)
+
         # ensure the source account has balance
         engine.snapshot.storages.put(storage_key_from, storage_item_from)
 
@@ -723,8 +716,6 @@ class Nep5TestCase(unittest.TestCase):
         amount = vm.BigInteger(50)
 
         engine = self.transfer_helper(gas, account_from, account_to, amount)
-        # ensure the destination contract exists
-        engine.snapshot.contracts.put(state_to)
         # ensure the source and destination account have balances
         engine.snapshot.storages.put(storage_key_from, storage_item_from)
         engine.snapshot.storages.put(storage_key_to, storage_item_to)

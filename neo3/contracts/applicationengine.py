@@ -341,9 +341,8 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
         state = self._get_invocation_state(self.current_context)
         state.return_type = type(None)
         state.callback = on_complete
-        contract_call_descriptor = self._interop_calls.get(
-            contracts.syscall_name_to_int("contract_call_internal_ex"),
-            None
+        contract_call_descriptor = interop.InteropService.get_descriptor(
+            contracts.syscall_name_to_int("contract_call_internal")
         )
         if contract_call_descriptor is None:
             raise ValueError
