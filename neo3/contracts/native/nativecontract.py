@@ -1078,8 +1078,8 @@ class NeoToken(Nep5Token):
     _PREFIX_VOTER_REWARD_PER_COMMITTEE = b'\x17'
 
     _NEO_HOLDER_REWARD_RATIO = 10
-    _COMMITTEE_REWARD_RATIO = 5
-    _VOTER_REWARD_RATIO = 85
+    _COMMITTEE_REWARD_RATIO = 10
+    _VOTER_REWARD_RATIO = 80
     _symbol = "neo"
     _state = _NeoTokenStorageState
     _candidates_dirty = True
