@@ -206,12 +206,13 @@ class NativeContract(convenience._Singleton):
         if engine.current_scripthash != self.script_hash:
             raise SystemError("It is not allowed to use Neo.Native.Call directly, use System.Contract.Call")
 
-        operation = engine.pop().to_array().decode()
-        stack_item = engine.pop()
+        context = engine.current_context
+        operation = context.evaluation_stack.pop().to_array().decode()
+        stack_item = context.evaluation_stack.pop()
         args = stack_item.convert_to(vm.StackItemType.ARRAY)
         args = cast(vm.ArrayStackItem, args)
 
-        flags = contracts.native.CallFlags(engine.current_context.call_flags)
+        flags = contracts.native.CallFlags(context.call_flags)
         method = self._methods.get(operation, None)
         if method is None:
             raise ValueError(f"Method \"{operation}\" does not exist on contract {self.service_name()}")
@@ -239,7 +240,7 @@ class NativeContract(convenience._Singleton):
         else:
             return_value = method.handler()
         if method.return_type is not None:
-            engine.push(engine._native_to_stackitem(return_value, type(return_value)))
+            context.evaluation_stack.push(engine._native_to_stackitem(return_value, type(return_value)))
 
     @staticmethod
     def is_native(hash_: types.UInt160) -> bool:

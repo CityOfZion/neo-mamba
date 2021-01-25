@@ -577,6 +577,7 @@ class Nep5TestCase(unittest.TestCase):
         amount = vm.BigInteger(0)
 
         engine = self.transfer_helper(gas, account_from, account_to, amount)
+
         # ensure the source account has balance
         engine.snapshot.storages.put(storage_key_from, storage_item_from)
 
