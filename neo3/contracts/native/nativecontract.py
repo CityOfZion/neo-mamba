@@ -753,11 +753,11 @@ class Nep17Token(NativeContract):
         if account_to == types.UInt160.zero() or engine.snapshot.contracts.try_get(account_to) is None:
             return
 
-        engine.call_from_native(None,
-                                account_to,
-                                "onPayment",
-                                [vm.ByteStringStackItem(account_from.to_array()), vm.IntegerStackItem(amount)]
-                                )
+        if account_from == types.UInt160.zero():
+            from_: vm.StackItem = vm.NullStackItem()
+        else:
+            from_ = vm.ByteStringStackItem(account_from.to_array())
+        engine.call_from_native(None, account_to, "onPayment", [from_, vm.IntegerStackItem(amount)])
 
     def transfer(self,
                  engine: contracts.ApplicationEngine,
