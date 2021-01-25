@@ -66,7 +66,6 @@ class OracleContract(NativeContract):
 
     def init(self):
         super(OracleContract, self).init()
-        self.manifest.features = contracts.ContractFeatures.HAS_STORAGE
         self.manifest.abi.events = [
             contracts.ContractEventDescriptor(
                 "OracleRequest",

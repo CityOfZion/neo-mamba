@@ -14,26 +14,9 @@ class StorageInteropTestCase(unittest.TestCase):
     def setUp(self) -> None:
         self.RET = b'\x40'
         self.manifest = contracts.ContractManifest()
-        self.manifest.features = contracts.ContractFeatures.HAS_STORAGE
         self.contract = storage.ContractState(script=self.RET, _manifest=self.manifest)
 
-    def test_get_context_no_storage(self):
-        engine = test_engine(has_snapshot=True)
-        manifest_without_storage = contracts.ContractManifest()
-        contract = storage.ContractState(script=self.RET, _manifest=manifest_without_storage)
-        engine.snapshot.contracts.put(contract)
-
-        # first test for asking for a context for a smart contract without storage
-        with self.assertRaises(ValueError) as context:
-            engine.invoke_syscall_by_name("System.Storage.GetContext")
-        self.assertEqual("Cannot get context for smart contract without storage", str(context.exception))
-
-        # the same should hold for getting a read only context
-        with self.assertRaises(ValueError) as context:
-            engine.invoke_syscall_by_name("System.Storage.GetReadOnlyContext")
-        self.assertEqual("Cannot get context for smart contract without storage", str(context.exception))
-
-    def test_get_context_ok(self):
+    def test_get_context(self):
         engine = test_engine(has_snapshot=True)
         engine.snapshot.contracts.put(self.contract)
         ctx = engine.invoke_syscall_by_name("System.Storage.GetContext")

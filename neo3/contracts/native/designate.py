@@ -16,8 +16,6 @@ class DesignateContract(NativeContract):
     _id = -5
 
     def init(self):
-        self.manifest.features = contracts.ContractFeatures.HAS_STORAGE
-
         self._register_contract_method(self.get_designated_by_role,
                                        "getDesignatedByRole",
                                        1000000,

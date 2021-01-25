@@ -19,10 +19,6 @@ raw_hello_world_nef = b'NEF3neo3-boa by COZ\x00\x00\x00\x00\x00\x00\x00\x00\x00\
 
 raw_hello_world_manifest = {
     "groups": [],
-    "features": {
-        "storage": False,
-        "payable": False
-    },
     "abi": {
         "hash": "0x20caf3711a574b0be8c5746d85db2ee1e85aed3b",
         "methods": [],
@@ -46,10 +42,6 @@ hello_world_manifest = contracts.manifest.ContractManifest.from_json(raw_hello_w
 raw_bye_world_nef = b'NEF3neo3-boa by COZ\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0c\x0c\tbye world@\x9f\xff\x95\xd0'
 raw_bye_world_manifest = {
     "groups": [],
-    "features": {
-        "storage": False,
-        "payable": False
-    },
     "abi": {
         "hash": "0xbf15664f6d3ecb0ff82ebe001257263b50a314c4",
         "methods": [],
@@ -89,10 +81,6 @@ def test_func2(value: int) -> int:
 raw_contract3_nef = b'NEF3neo3-boa by COZ\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0b\x11@\x12@W\x00\x01\x11x\x9e@P\x9c\xb5\xb0'
 raw_contract3_manifest = {
     "groups": [],
-    "features": {
-        "storage": False,
-        "payable": False
-    },
     "abi": {
         "hash": "0xad8c3929e008a0a981dcb5e3c3a0928becdc2a41",
         "methods": [
@@ -195,8 +183,6 @@ class RuntimeInteropTestCase(unittest.TestCase):
         # returns a serialized contract state
         self.assertEqual(hello_world_nef.script, item[0].to_array())
         self.assertEqual(hello_world_manifest, contracts.ContractManifest.from_json(json.loads(item[1].to_array())))
-        self.assertEqual(contracts.ContractFeatures.HAS_STORAGE in hello_world_manifest.features, item[2])
-        self.assertEqual(contracts.ContractFeatures.PAYABLE in hello_world_manifest.features, item[3])
         return engine
 
     def test_contract_create_already_exits(self):
@@ -241,7 +227,6 @@ class RuntimeInteropTestCase(unittest.TestCase):
         engine = test_engine(has_snapshot=True, default_script=False)
         # for this test we modify our contract to also have storage, to validate it gets cleared properly
         contract = storage.ContractState(hello_world_nef.script, deepcopy(hello_world_manifest))
-        contract.manifest.features |= contracts.ContractFeatures.HAS_STORAGE
         engine.snapshot.contracts.put(contract)
 
         storage_key = storage.StorageKey(contract.script_hash(), b'firstkey')
@@ -362,32 +347,6 @@ class RuntimeInteropTestCase(unittest.TestCase):
         with self.assertRaises(ValueError) as context:
             engine.invoke_syscall_by_name("System.Contract.Update")
         self.assertEqual("Error: manifest does not match with script", str(context.exception))
-
-    def test_contract_update_exceptions6(self):
-        # asking to update with a new script but with an invalid manifest (new manifest does not support storage,
-        # while the old contract has existing storage)
-        engine = test_engine(has_snapshot=True, default_script=False)
-
-        contract_old = storage.ContractState(hello_world_nef.script, deepcopy(hello_world_manifest))
-        contract_old.manifest.features |= contracts.ContractFeatures.HAS_STORAGE
-        engine.snapshot.contracts.put(contract_old)
-
-        storage_key = storage.StorageKey(contract_old.script_hash(), b'firstkey')
-        storage_item = storage.StorageItem(b'firstitem')
-        engine.snapshot.storages.put(storage_key, storage_item)
-
-        # we load the stored as script to properly setup "engine.current_scripthash"
-        engine.load_script(vm.Script(contract_old.script))
-        # next we push the necessary items on the stack before calling the update funcztion
-        # we take the matching manifest and change it to have no storage
-        bad_manifest = deepcopy(bye_world_manifest)
-        bad_manifest.features &= ~contracts.ContractFeatures.HAS_STORAGE
-        engine.push(vm.ByteStringStackItem(str(bad_manifest).encode()))
-        engine.push(vm.ByteStringStackItem(bye_world_nef.script))
-
-        with self.assertRaises(ValueError) as context:
-            engine.invoke_syscall_by_name("System.Contract.Update")
-        self.assertEqual("Error: New contract does not support storage while old contract has existing storage", str(context.exception))
 
     def test_contract_call(self):
         engine = test_engine(has_snapshot=True, default_script=False)

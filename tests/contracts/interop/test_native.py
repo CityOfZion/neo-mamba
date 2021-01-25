@@ -554,7 +554,6 @@ class Nep5TestCase(unittest.TestCase):
     def test_transfer_from_empty_account(self):
         gas = contracts.GasToken()
         manifest = contracts.ContractManifest()
-        manifest.features = contracts.ContractFeatures.PAYABLE
         state = storage.ContractState(b'\x00', manifest)
 
         engine = self.transfer_helper(gas, types.UInt160.zero(), state.script_hash(), vm.BigInteger(1))
@@ -573,7 +572,6 @@ class Nep5TestCase(unittest.TestCase):
         storage_item_from = storage.StorageItem(account_state.to_array())
 
         manifest = contracts.ContractManifest()
-        manifest.features = contracts.ContractFeatures.PAYABLE
         state_to = storage.ContractState(b'\x00', manifest)
         account_to = state_to.script_hash()
         amount = vm.BigInteger(0)
@@ -611,7 +609,6 @@ class Nep5TestCase(unittest.TestCase):
         storage_item_from = storage.StorageItem(account_state.to_array())
 
         manifest = contracts.ContractManifest()
-        manifest.features = contracts.ContractFeatures.PAYABLE
         state_to = storage.ContractState(b'\x00', manifest)
         account_to = state_to.script_hash()
         amount = account_state.balance + 1
@@ -630,7 +627,6 @@ class Nep5TestCase(unittest.TestCase):
         gas = contracts.GasToken()
 
         manifest = contracts.ContractManifest()
-        manifest.features = contracts.ContractFeatures.PAYABLE
         state_to = storage.ContractState(b'\x00' * 20, manifest)
         account = state_to.script_hash()
 
@@ -669,7 +665,6 @@ class Nep5TestCase(unittest.TestCase):
         gas = contracts.GasToken()
 
         manifest = contracts.ContractManifest()
-        manifest.features = contracts.ContractFeatures.PAYABLE
         state_to = storage.ContractState(b'\x00' * 20, manifest)
         account_to = state_to.script_hash()
 
@@ -712,7 +707,6 @@ class Nep5TestCase(unittest.TestCase):
         gas = contracts.GasToken()
 
         manifest = contracts.ContractManifest()
-        manifest.features = contracts.ContractFeatures.PAYABLE
         state_to = storage.ContractState(b'\x00' * 20, manifest)
         account_to = state_to.script_hash()
         storage_key_to = storage.StorageKey(gas.script_hash, gas._PREFIX_ACCOUNT + account_to.to_array())

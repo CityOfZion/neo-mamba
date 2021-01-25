@@ -59,7 +59,6 @@ def contract_update(engine: contracts.ApplicationEngine, script: bytes, manifest
     if hash_ == engine.current_scripthash or engine.snapshot.contracts.try_get(hash_) is not None:
         raise ValueError("Nothing to update")
 
-    old_contract_has_storage = contract.has_storage
     contract = storage.ContractState(script, contract.manifest)
     contract.manifest.abi.contract_hash = hash_
 
@@ -67,14 +66,13 @@ def contract_update(engine: contracts.ApplicationEngine, script: bytes, manifest
 
     # migrate storage to new contract hash
     with blockchain.Blockchain().backend.get_snapshotview() as snapshot:
-        if old_contract_has_storage:
-            for key, value in snapshot.storages.find(engine.current_scripthash, b''):
-                # delete the old storage
-                snapshot.storages.delete(key)
-                # update key to new contract hash
-                key.contract = contract.script_hash()
-                # now persist all data under new contract key
-                snapshot.storages.put(key, value)
+        for key, value in snapshot.storages.find(engine.current_scripthash, b''):
+            # delete the old storage
+            snapshot.storages.delete(key)
+            # update key to new contract hash
+            key.contract = contract.script_hash()
+            # now persist all data under new contract key
+            snapshot.storages.put(key, value)
         snapshot.commit()
     engine.snapshot.contracts.delete(engine.current_scripthash)
 
@@ -84,9 +82,6 @@ def contract_update(engine: contracts.ApplicationEngine, script: bytes, manifest
     contract.manifest = contracts.ContractManifest.from_json(json.loads(manifest.decode()))
     if not contract.manifest.is_valid(contract.script_hash()):
         raise ValueError("Error: manifest does not match with script")
-    if (not contract.has_storage
-            and len(list(engine.snapshot.storages.find(contract.script_hash(), key_prefix=b''))) != 0):
-        raise ValueError("Error: New contract does not support storage while old contract has existing storage")
 
     if len(script) != 0:
         method_descriptor = contract.manifest.abi.get_method("_deploy")
@@ -110,9 +105,8 @@ def contract_destroy(engine: contracts.ApplicationEngine) -> None:
 
     engine.snapshot.contracts.delete(hash_)
 
-    if contract.has_storage:
-        for key, _ in engine.snapshot.storages.find(contract.script_hash(), b''):
-            engine.snapshot.storages.delete(key)
+    for key, _ in engine.snapshot.storages.find(contract.script_hash(), b''):
+        engine.snapshot.storages.delete(key)
 
 
 def contract_call_internal(engine: contracts.ApplicationEngine,

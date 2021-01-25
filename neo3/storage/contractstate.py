@@ -28,14 +28,6 @@ class ContractState(serialization.ISerializable, IClonable, IInteroperable):
     def __deepcopy__(self, memodict={}):
         return ContractState.deserialize_from_bytes(self.to_array())
 
-    @property
-    def has_storage(self) -> bool:
-        return contracts.ContractFeatures.HAS_STORAGE in self.manifest.features
-
-    @property
-    def is_payable(self) -> bool:
-        return contracts.ContractFeatures.PAYABLE in self.manifest.features
-
     def serialize(self, writer: BinaryWriter) -> None:
         writer.write_var_bytes(self.script)
         writer.write_serializable(self.manifest)
@@ -62,9 +54,7 @@ class ContractState(serialization.ISerializable, IClonable, IInteroperable):
         array = vm.ArrayStackItem(reference_counter)
         script = vm.ByteStringStackItem(self.script)
         manifest = vm.ByteStringStackItem(str(self.manifest))
-        has_storage = vm.BooleanStackItem(self.has_storage)
-        is_payable = vm.BooleanStackItem(self.is_payable)
-        array.append([script, manifest, has_storage, is_payable])
+        array.append([script, manifest])
         return array
 
     @classmethod

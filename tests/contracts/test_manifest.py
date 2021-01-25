@@ -212,7 +212,6 @@ class ManifestTestCase(unittest.TestCase):
             var manifest = new ContractManifest()
             {
                 Groups = new ContractGroup[0],
-                Features = ContractFeatures.NoProperty,
                 SupportedStandards = Array.Empty<string>(),
                 Abi = new ContractAbi()
                 {
@@ -228,13 +227,13 @@ class ManifestTestCase(unittest.TestCase):
             Console.WriteLine($"{manifest.Size}");
             Console.WriteLine($"{manifest.ToJson()}");
         """
-        cls.expected_json = {"groups":[],"features":{"storage":False,"payable":False},"supportedstandards":[],"abi":{"hash":"0x0000000000000000000000000000000000000000","methods":[],"events":[]},"permissions":[{"contract":"*","methods":"*"}],"trusts":[],"safemethods":[],"extra":None}
+        cls.expected_json = {"groups":[],"supportedstandards":[],"abi":{"hash":"0x0000000000000000000000000000000000000000","methods":[],"events":[]},"permissions":[{"contract":"*","methods":"*"}],"trusts":[],"safemethods":[],"extra":None}
 
     def test_create_default(self):
         cm = contracts.ContractManifest(types.UInt160.zero())
         self.assertEqual(self.expected_json, cm.to_json())
         # see setupClass for C# reference code
-        self.assertEqual(259, len(cm))
+        self.assertEqual(212, len(cm))
 
     def test_serialize(self):
         # if test_create_default() passes, then we know `to_json()` is ok, which serialize internally uses
@@ -260,14 +259,9 @@ class ManifestTestCase(unittest.TestCase):
 
     def test_from_json(self):
         expected_json = deepcopy(self.expected_json)
-        # we update the defaults to also test the features
-        new_features = {'storage': True, 'payable':True}
-        expected_json['features'] = new_features
         cm = contracts.ContractManifest.from_json(expected_json)
         default = contracts.ContractManifest(types.UInt160.zero())
         self.assertEqual(default.groups, cm.groups)
-        self.assertIn(contracts.ContractFeatures.HAS_STORAGE, cm.features)
-        self.assertIn(contracts.ContractFeatures.PAYABLE, cm.features)
         self.assertEqual(default.permissions, cm.permissions)
         self.assertEqual(default.trusts, cm.trusts)
         self.assertEqual(default.safe_methods, cm.safe_methods)

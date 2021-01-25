@@ -134,14 +134,6 @@ class ContractPermission(IJson):
         return cls(cpd, methods)
 
 
-class ContractFeatures(IntFlag):
-    NO_PROPERTY = 0,
-    #: Indicate the contract has storage.
-    HAS_STORAGE = 1 << 0
-    #: Indicate the contract accepts tranfers.
-    PAYABLE = 1 << 2
-
-
 class WildcardContainer(IJson):
     """
     An internal helper class for ContractManifest attributes.
@@ -262,8 +254,7 @@ class ContractManifest(serialization.ISerializable, IJson):
         """
         Creates a default contract manifest if no arguments are supplied.
 
-        A default contract is not Payable and has no storage as configured by its features.
-        It may not be called by any other contracts
+        A default contract may not be called by any other contracts
 
         Args:
             contract_hash: the contract script hash to create a manifest for.
@@ -271,9 +262,6 @@ class ContractManifest(serialization.ISerializable, IJson):
         #: A group represents a set of mutually trusted contracts. A contract will trust and allow any contract in the
         #: same group to invoke it.
         self.groups: List[ContractGroup] = []
-
-        #: Features describe what contract abilities are available. TODO: link to contract features
-        self.features: ContractFeatures = ContractFeatures.NO_PROPERTY
 
         #: The list of NEP standards supported e.g. "NEP-3"
         self.supported_standards: List[str] = []
@@ -304,7 +292,6 @@ class ContractManifest(serialization.ISerializable, IJson):
         if not isinstance(other, type(self)):
             return False
         return (self.groups == other.groups
-                and self.features == other.features
                 and self.abi == other.abi
                 and self.permissions == other.permissions
                 and self.trusts == other.trusts
@@ -336,12 +323,7 @@ class ContractManifest(serialization.ISerializable, IJson):
         self.abi = contracts.ContractABI.from_json(json['abi'])
         self.contract_hash = self.abi.contract_hash
         self.groups = list(map(lambda g: ContractGroup.from_json(g), json['groups']))
-        self.features = ContractFeatures.NO_PROPERTY
         self.supported_standards = json['supportedstandards']
-        if json['features']['storage']:
-            self.features |= ContractFeatures.HAS_STORAGE
-        if json['features']['payable']:
-            self.features |= ContractFeatures.PAYABLE
         self.permissions = list(map(lambda p: ContractPermission.from_json(p), json['permissions']))
 
         self.trusts = WildcardContainer.from_json_as_type(
@@ -359,10 +341,6 @@ class ContractManifest(serialization.ISerializable, IJson):
         trusts = list(map(lambda m: "0x" + m, self.trusts.to_json()['wildcard']))
         json = {
             "groups": list(map(lambda g: g.to_json(), self.groups)),
-            "features": {
-                "storage": contracts.ContractFeatures.HAS_STORAGE in self.features,
-                "payable": contracts.ContractFeatures.PAYABLE in self.features,
-            },
             "supportedstandards": self.supported_standards,
             "abi": self.abi.to_json(),
             "permissions": list(map(lambda p: p.to_json(), self.permissions)),

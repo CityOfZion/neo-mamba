@@ -284,7 +284,6 @@ class PolicyContract(NativeContract):
 
     def init(self):
         super(PolicyContract, self).init()
-        self.manifest.features = contracts.ContractFeatures.HAS_STORAGE
 
         self._register_contract_method(self.get_max_block_size,
                                        "getMaxBlockSize",
@@ -581,7 +580,6 @@ class Nep5Token(NativeContract):
 
     def init(self):
         super(Nep5Token, self).init()
-        self.manifest.features = contracts.ContractFeatures.HAS_STORAGE
         self.manifest.supported_standards = ["NEP-5"]
         self.manifest.abi.events = [
             contracts.ContractEventDescriptor(
@@ -771,10 +769,6 @@ class Nep5Token(NativeContract):
         # transfer from an account not owned by the smart contract that is requesting the transfer
         # and there is no signature that approves we are allowed todo so
         if account_from != engine.calling_scripthash and not engine.checkwitness(account_from):
-            return False
-
-        contract_state_to = engine.snapshot.contracts.try_get(account_to, read_only=True)
-        if contract_state_to and not contract_state_to.is_payable:
             return False
 
         storage_key_from = storage.StorageKey(self.script_hash, self._PREFIX_ACCOUNT + account_from.to_array())
