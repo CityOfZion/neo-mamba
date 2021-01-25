@@ -6,7 +6,6 @@ from neo3 import vm, contracts, storage
 from neo3.core.serialization import BinaryReader, BinaryWriter
 from neo3.network import payloads
 from neo3.contracts import syscall_name_to_int
-from neo3.contracts.interop.runtime import _validate_state_item_limits
 from neo3.core import to_script_hash, types, cryptography, serialization, msgrouter
 from .utils import test_engine, test_block, test_tx, TestIVerifiable
 
@@ -485,47 +484,3 @@ class RuntimeInteropTestCase(unittest.TestCase):
         with self.assertRaises(ValueError) as context:
             engine.invoke_syscall_by_name("System.Runtime.Notify")
         self.assertEqual("Notify event name length (33) exceeds maximum allowed (32)", str(context.exception))
-
-    def test_notify_state_helper_basics(self):
-        bssi = vm.ByteStringStackItem(b'\x01\x02')  # 2
-        null = vm.NullStackItem()  # 0
-        primitive = vm.IntegerStackItem(2)  # 1
-
-        engine = test_engine()
-        array1 = vm.ArrayStackItem(engine.reference_counter)
-        array2 = vm.ArrayStackItem(engine.reference_counter)
-        array2.append(primitive)
-
-        # we expect a size of 3, given that our self reference should be ignored.
-        # 5 would mean a failure of detecting a circular reference for ArrayStackItem types
-        array1.append([bssi, null, array2, array1])
-
-        self.assertEqual(3, _validate_state_item_limits(engine, array1))
-
-        with self.assertRaises(ValueError) as context:
-            _validate_state_item_limits(engine, vm.InteropStackItem(object()))
-        self.assertEqual("An item in the notification state exceeds the allowed notification size limit", str(context.exception))
-
-    def test_notify_state_helper_struct(self):
-        bssi = vm.ByteStringStackItem(b'\x01\x02')  # 2
-        primitive = vm.IntegerStackItem(2)  # 1
-
-        engine = test_engine()
-        struct = vm.StructStackItem(engine.reference_counter)
-        struct.append([bssi, primitive])
-        self.assertEqual(3, _validate_state_item_limits(engine, struct))
-
-    def test_notify_state_helper_map(self):
-        bssi = vm.ByteStringStackItem(b'\x01\x02')  # 2
-        primitive = vm.IntegerStackItem(2)  # 1
-
-        engine = test_engine()
-        map1 = vm.MapStackItem(engine.reference_counter)
-        map1[primitive] = bssi
-
-        self.assertEqual(3, _validate_state_item_limits(engine, map1))
-
-        # self reference
-        map1[primitive] = map1
-        # asserting to 1 because the key in the map has a length of 1
-        self.assertEqual(1, _validate_state_item_limits(engine, map1))

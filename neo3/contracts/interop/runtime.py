@@ -71,41 +71,6 @@ def do_log(engine: contracts.ApplicationEngine, message: bytes) -> None:
     msgrouter.interop_log(engine.script_container, message.decode('utf-8'))
 
 
-def _validate_state_item_limits(engine: contracts.ApplicationEngine, state: vm.StackItem):
-    size = 0
-    checked: List[vm.StackItem] = []
-    not_checked: Deque[vm.StackItem] = deque()
-
-    while True:
-        if isinstance(state, vm.StructStackItem):
-            for item in state:
-                not_checked.append(item)
-        elif isinstance(state, vm.ArrayStackItem):
-            if not any(map(lambda item: id(item) == id(state), checked)):
-                checked.append(state)
-                for item in state:
-                    not_checked.append(item)
-        elif isinstance(state, vm.PrimitiveType):
-            size += len(state)
-        elif isinstance(state, vm.NullStackItem):
-            pass
-        elif isinstance(state, vm.InteropStackItem):
-            size = engine.MAX_NOTIFICATION_SIZE + 1
-        elif isinstance(state, vm.MapStackItem):
-            if not any(map(lambda item: id(item) == id(state), checked)):
-                checked.append(state)
-                for k, v in state:
-                    size += len(k)
-                    not_checked.append(v)
-        if size > engine.MAX_NOTIFICATION_SIZE:
-            raise ValueError("An item in the notification state exceeds the allowed notification size limit")
-        if len(not_checked) == 0:
-            break
-        state = not_checked.pop()
-
-    return size
-
-
 @register("System.Runtime.Notify", 1000000, contracts.native.CallFlags.ALLOW_NOTIFY, False, [bytes, vm.ArrayStackItem])
 def do_notify(engine: contracts.ApplicationEngine, event_name: bytes, state: vm.ArrayStackItem) -> None:
     """
@@ -119,7 +84,8 @@ def do_notify(engine: contracts.ApplicationEngine, event_name: bytes, state: vm.
     if len(event_name) > engine.MAX_EVENT_SIZE:
         raise ValueError(
             f"Notify event name length ({len(event_name)}) exceeds maximum allowed ({engine.MAX_EVENT_SIZE})")
-    _validate_state_item_limits(engine, state)
+    # will validate size + cyclic references
+    contracts.BinarySerializer.serialize(state, engine.MAX_NOTIFICATION_SIZE)
     engine.notifications.append((engine.script_container, engine.current_scripthash, event_name, state))
     msgrouter.interop_notify(engine.current_scripthash, event_name.decode('utf-8'), state)
 
