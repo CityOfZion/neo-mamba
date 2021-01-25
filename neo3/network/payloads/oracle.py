@@ -14,7 +14,7 @@ class OracleReponseCode(IntEnum):
 
 
 class OracleResponse(payloads.TransactionAttribute):
-    _MAX_RESULT_SIZE = 1024
+    _MAX_RESULT_SIZE = 0xFFFF
     _FIXED_ORACLE_SCRIPT = None
 
     def __init__(self, id: int, code: OracleReponseCode, result: bytes):
