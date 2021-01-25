@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import Optional, cast, List, Tuple
 from . import NativeContract
 from neo3 import contracts, storage, vm
-from neo3.core import types, cryptography, serialization, to_script_hash
+from neo3.core import types, cryptography, serialization, to_script_hash, msgrouter
 from neo3.network import payloads
 
 
@@ -67,6 +67,24 @@ class OracleContract(NativeContract):
     def init(self):
         super(OracleContract, self).init()
         self.manifest.features = contracts.ContractFeatures.HAS_STORAGE
+        self.manifest.abi.events = [
+            contracts.ContractEventDescriptor(
+                "OracleRequest",
+                parameters=[
+                    contracts.ContractParameterDefinition("Id", contracts.ContractParameterType.INTEGER),
+                    contracts.ContractParameterDefinition("RequestContract", contracts.ContractParameterType.HASH160),
+                    contracts.ContractParameterDefinition("Url", contracts.ContractParameterType.STRING),
+                    contracts.ContractParameterDefinition("Filter", contracts.ContractParameterType.STRING)
+                ]
+            ),
+            contracts.ContractEventDescriptor(
+                "OracleResponse",
+                parameters=[
+                    contracts.ContractParameterDefinition("Id", contracts.ContractParameterType.INTEGER),
+                    contracts.ContractParameterDefinition("OriginalTx", contracts.ContractParameterType.HASH160)
+                ]
+            )
+        ]
 
         self._register_contract_method(self.finish,
                                        "finish",
@@ -108,6 +126,15 @@ class OracleContract(NativeContract):
         request = self.get_request(engine.snapshot, response.id)
         if request is None:
             raise ValueError("Oracle request not found")
+
+        state = vm.ArrayStackItem(
+            engine.reference_counter,
+            [vm.IntegerStackItem(response.id),
+             vm.ByteStringStackItem(request.original_tx_id.to_array())
+             ]
+        )
+
+        msgrouter.interop_notify(self.script_hash, "OracleResponse", state)
 
         user_data = contracts.BinarySerializer.deserialize(request.user_data,
                                                            engine.MAX_STACK_SIZE,
@@ -196,6 +223,17 @@ class OracleContract(NativeContract):
                 writer.write_uint64(id)
             si_id_list.value = writer.to_array()
         engine.snapshot.storages.update(sk_id_list, si_id_list)
+
+        state = vm.ArrayStackItem(
+            engine.reference_counter,
+            [vm.IntegerStackItem(item_id),
+             vm.ByteStringStackItem(engine.calling_scripthash.to_array()),
+             vm.ByteStringStackItem(url.encode()),
+             vm.ByteStringStackItem(filter.encode()),
+             ]
+        )
+
+        msgrouter.interop_notify(self.script_hash, "OracleRequest", state)
 
     def _verify(self, engine: contracts.ApplicationEngine) -> bool:
         tx = engine.script_container
