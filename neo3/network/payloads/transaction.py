@@ -115,8 +115,8 @@ class Transaction(payloads.IInventory, IInteroperable):
     """
     #: the maximum number of bytes a single transaction may consists of
     MAX_TRANSACTION_SIZE = 102400
-    #: the maximum time a transaction will be valid from height of creation plus this value.
-    MAX_VALID_UNTIL_BLOCK_INCREMENT = 2102400
+    #: the maximum time a transaction will be valid from height of creation plus this value. Default is 24h
+    MAX_VALID_UNTIL_BLOCK_INCREMENT = 5760
     #: the maximum number of transaction attributes for a single transaction
     MAX_TRANSACTION_ATTRIBUTES = 16
 

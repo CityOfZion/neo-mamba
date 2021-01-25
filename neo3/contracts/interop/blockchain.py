@@ -14,7 +14,8 @@ def _is_traceable_block(snapshot: storage.Snapshot, index: int):
         # Leaving it here expecting some bug fix on the C# project sooner or later
         return False  # pragma: no cover
     # otherwise limit search back distance
-    return index + payloads.Transaction.MAX_VALID_UNTIL_BLOCK_INCREMENT > snapshot.block_height
+    MAX_TRACABLE_BLOCKS = 2_102_400
+    return index + MAX_TRACABLE_BLOCKS > snapshot.block_height
 
 
 @register("System.Blockchain.GetHeight", 400, contracts.native.CallFlags.ALLOW_STATES, True)
