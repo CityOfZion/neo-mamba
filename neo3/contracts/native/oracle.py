@@ -250,7 +250,9 @@ class OracleContract(NativeContract):
 
             # remove request from storage
             sk_request = storage.StorageKey(self.script_hash, self._PREFIX_REQUEST + response.id.to_bytes(8, 'little'))
-            si_request = engine.snapshot.storages.get(sk_request)
+            si_request = engine.snapshot.storages.try_get(sk_request)
+            if si_request is None:
+                continue
             request = OracleRequest.deserialize_from_bytes(si_request.value)
             engine.snapshot.storages.delete(sk_request)
 
