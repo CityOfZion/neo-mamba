@@ -496,10 +496,11 @@ class Nep5TestCase(unittest.TestCase):
         engine.script_container.script_hashes = [from_account]
 
         sb = vm.ScriptBuilder()
+        sb.emit(vm.OpCode.PUSHNULL)
         sb.emit_push(amount)
         sb.emit_push(to_account.to_array())
         sb.emit_push(from_account.to_array())
-        sb.emit_push(3)
+        sb.emit_push(4)
         sb.emit(vm.OpCode.PACK)
         sb.emit_push(b'transfer')
         sb.emit_push(contract.script_hash.to_array())
@@ -520,7 +521,7 @@ class Nep5TestCase(unittest.TestCase):
         gas = contracts.GasToken()
 
         with self.assertRaises(ValueError) as context:
-            gas.transfer(engine, types.UInt160.zero(), types.UInt160.zero(), vm.BigInteger(-1))
+            gas.transfer(engine, types.UInt160.zero(), types.UInt160.zero(), vm.BigInteger(-1), vm.NullStackItem())
         self.assertEqual("Can't transfer a negative amount", str(context.exception))
 
     def test_transfer_fail_no_permission(self):

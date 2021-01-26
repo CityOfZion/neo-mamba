@@ -612,8 +612,8 @@ class Nep17Token(NativeContract):
         self._register_contract_method(self.transfer,
                                        "transfer",
                                        8000000,
-                                       parameter_names=["account_from", "account_to", "amount"],
-                                       parameter_types=[types.UInt160, types.UInt160, vm.BigInteger],
+                                       parameter_names=["account_from", "account_to", "amount", "data"],
+                                       parameter_types=[types.UInt160, types.UInt160, vm.BigInteger, vm.StackItem],
                                        return_type=bool,
                                        add_engine=True,
                                        safe_method=False)
@@ -660,7 +660,7 @@ class Nep17Token(NativeContract):
         else:
             old_value = vm.BigInteger(storage_item.value)
             storage_item.value = (amount + old_value).to_array()
-        self._post_transfer(engine, types.UInt160.zero(), account, amount)
+        self._post_transfer(engine, types.UInt160.zero(), account, amount, vm.NullStackItem())
 
     def burn(self, engine: contracts.ApplicationEngine, account: types.UInt160, amount: vm.BigInteger) -> None:
         """
@@ -700,7 +700,7 @@ class Nep17Token(NativeContract):
             engine.snapshot.storages.delete(storage_key)
         else:
             storage_item.value = new_value.to_array()
-        self._post_transfer(engine, account, types.UInt160.zero(), amount)
+        self._post_transfer(engine, account, types.UInt160.zero(), amount, vm.NullStackItem())
 
     def total_supply(self, snapshot: storage.Snapshot) -> vm.BigInteger:
         """ Get the total deployed tokens. """
@@ -736,7 +736,8 @@ class Nep17Token(NativeContract):
                        engine: contracts.ApplicationEngine,
                        account_from: types.UInt160,
                        account_to: types.UInt160,
-                       amount: vm.BigInteger) -> None:
+                       amount: vm.BigInteger,
+                       data: vm.StackItem) -> None:
         state = vm.ArrayStackItem(engine.reference_counter)
         if account_from == types.UInt160.zero():
             state.append(vm.NullStackItem())
@@ -758,13 +759,14 @@ class Nep17Token(NativeContract):
             from_: vm.StackItem = vm.NullStackItem()
         else:
             from_ = vm.ByteStringStackItem(account_from.to_array())
-        engine.call_from_native(None, account_to, "onPayment", [from_, vm.IntegerStackItem(amount)])
+        engine.call_from_native(None, account_to, "onPayment", [from_, vm.IntegerStackItem(amount), data])
 
     def transfer(self,
                  engine: contracts.ApplicationEngine,
                  account_from: types.UInt160,
                  account_to: types.UInt160,
-                 amount: vm.BigInteger
+                 amount: vm.BigInteger,
+                 data: vm.StackItem
                  ) -> bool:
         """
         Transfer tokens from one account to another.
@@ -817,7 +819,7 @@ class Nep17Token(NativeContract):
                 state_to.balance += amount
                 storage_item_to.value = state_to.to_array()
                 engine.snapshot.storages.update(storage_key_to, storage_item_to)
-        self._post_transfer(engine, account_from, account_to, amount)
+        self._post_transfer(engine, account_from, account_to, amount, data)
         return True
 
     def on_balance_changing(self, engine: contracts.ApplicationEngine,
