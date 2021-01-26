@@ -753,6 +753,6 @@ class Nep5TestCase(unittest.TestCase):
     def test_negative_mint(self):
         gas = contracts.GasToken()
         with self.assertRaises(ValueError) as context:
-            gas.mint(None, None, vm.BigInteger(-1))
+            gas.mint(None, None, vm.BigInteger(-1), False)
         self.assertEqual("Can't mint a negative amount", str(context.exception))
 

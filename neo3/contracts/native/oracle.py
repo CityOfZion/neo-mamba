@@ -182,7 +182,7 @@ class OracleContract(NativeContract):
             raise ValueError
 
         engine.add_gas(gas_for_response)
-        self._gas.mint(engine, self.script_hash, vm.BigInteger(gas_for_response))
+        self._gas.mint(engine, self.script_hash, vm.BigInteger(gas_for_response), False)
 
         sk_item_id = storage.StorageKey(self.script_hash, self._PREFIX_REQUEST_ID)
         si_item_id = engine.snapshot.storages.get(sk_item_id, read_only=False)
@@ -286,4 +286,4 @@ class OracleContract(NativeContract):
 
         for pair in nodes:  # type: Tuple[types.UInt160, vm.BigInteger]
             if pair[1].sign > 0:
-                self._gas.mint(engine, pair[0], pair[1])
+                self._gas.mint(engine, pair[0], pair[1], False)

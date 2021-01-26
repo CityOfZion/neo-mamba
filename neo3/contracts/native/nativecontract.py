@@ -628,7 +628,11 @@ class Nep17Token(NativeContract):
         """ Token symbol. """
         return self._symbol
 
-    def mint(self, engine: contracts.ApplicationEngine, account: types.UInt160, amount: vm.BigInteger) -> None:
+    def mint(self,
+             engine: contracts.ApplicationEngine,
+             account: types.UInt160,
+             amount: vm.BigInteger,
+             call_on_payment: bool) -> None:
         """
         Mint an amount of tokens into account.
 
@@ -659,7 +663,7 @@ class Nep17Token(NativeContract):
         else:
             old_value = vm.BigInteger(storage_item.value)
             storage_item.value = (amount + old_value).to_array()
-        self._post_transfer(engine, types.UInt160.zero(), account, amount, vm.NullStackItem())
+        self._post_transfer(engine, types.UInt160.zero(), account, amount, vm.NullStackItem(), call_on_payment)
 
     def burn(self, engine: contracts.ApplicationEngine, account: types.UInt160, amount: vm.BigInteger) -> None:
         """
@@ -699,7 +703,7 @@ class Nep17Token(NativeContract):
             engine.snapshot.storages.delete(storage_key)
         else:
             storage_item.value = new_value.to_array()
-        self._post_transfer(engine, account, types.UInt160.zero(), amount, vm.NullStackItem())
+        self._post_transfer(engine, account, types.UInt160.zero(), amount, vm.NullStackItem(), False)
 
     def total_supply(self, snapshot: storage.Snapshot) -> vm.BigInteger:
         """ Get the total deployed tokens. """
@@ -736,7 +740,8 @@ class Nep17Token(NativeContract):
                        account_from: types.UInt160,
                        account_to: types.UInt160,
                        amount: vm.BigInteger,
-                       data: vm.StackItem) -> None:
+                       data: vm.StackItem,
+                       call_on_payment: bool) -> None:
         state = vm.ArrayStackItem(engine.reference_counter)
         if account_from == types.UInt160.zero():
             state.append(vm.NullStackItem())
@@ -751,7 +756,9 @@ class Nep17Token(NativeContract):
         msgrouter.interop_notify(self.script_hash, "Transfer", state)
 
         # wallet or smart contract
-        if account_to == types.UInt160.zero() or engine.snapshot.contracts.try_get(account_to) is None:
+        if not call_on_payment \
+                or account_to == types.UInt160.zero() \
+                or engine.snapshot.contracts.try_get(account_to) is None:
             return
 
         if account_from == types.UInt160.zero():
@@ -818,7 +825,7 @@ class Nep17Token(NativeContract):
                 state_to.balance += amount
                 storage_item_to.value = state_to.to_array()
                 engine.snapshot.storages.update(storage_key_to, storage_item_to)
-        self._post_transfer(engine, account_from, account_to, amount, data)
+        self._post_transfer(engine, account_from, account_to, amount, data, True)
         return True
 
     def on_balance_changing(self, engine: contracts.ApplicationEngine,
@@ -1264,7 +1271,10 @@ class NeoToken(Nep17Token):
             storage.StorageKey(NeoToken().script_hash, NeoToken()._PREFIX_GAS_PER_BLOCK),
             storage.StorageItem(gas_bonus_state.to_array())
         )
-        self.mint(engine, contracts.Contract.get_consensus_address(settings.standby_validators), self.total_amount)
+        self.mint(engine,
+                  contracts.Contract.get_consensus_address(settings.standby_validators),
+                  self.total_amount,
+                  False)
 
     def total_supply(self, snapshot: storage.Snapshot) -> vm.BigInteger:
         """ Get the total deployed tokens. """
@@ -1313,7 +1323,7 @@ class NeoToken(Nep17Token):
         committee = self.get_committee()
         pubkey = committee[index]
         account = to_script_hash(contracts.Contract.create_signature_redeemscript(pubkey))
-        GasToken().mint(engine, account, gas_per_block * self._COMMITTEE_REWARD_RATIO / 100)
+        GasToken().mint(engine, account, gas_per_block * self._COMMITTEE_REWARD_RATIO / 100, False)
 
         if self._should_refresh_committee(engine.snapshot.persisting_block.index):
             voter_reward_of_each_committee = gas_per_block * self._VOTER_REWARD_RATIO * 100000000 * m / (m + n) / 100
@@ -1571,7 +1581,7 @@ class NeoToken(Nep17Token):
         gas = self._calculate_bonus(engine.snapshot, state.vote_to, state.balance, state.balance_height,
                                     engine.snapshot.persisting_block.index)
         state.balance_height = engine.snapshot.persisting_block.index
-        GasToken().mint(engine, account, gas)
+        GasToken().mint(engine, account, gas, True)
 
 
 class GasToken(Nep17Token):
@@ -1584,7 +1594,7 @@ class GasToken(Nep17Token):
 
     def _initialize(self, engine: contracts.ApplicationEngine) -> None:
         account = contracts.Contract.get_consensus_address(settings.standby_validators)
-        self.mint(engine, account, vm.BigInteger(30_000_000) * self.factor)
+        self.mint(engine, account, vm.BigInteger(30_000_000) * self.factor, False)
 
     def on_persist(self, engine: contracts.ApplicationEngine) -> None:
         super(GasToken, self).on_persist(engine)
@@ -1595,4 +1605,4 @@ class GasToken(Nep17Token):
         pub_keys = NeoToken().get_next_block_validators()
         primary = pub_keys[engine.snapshot.persisting_block.consensus_data.primary_index]
         script_hash = to_script_hash(contracts.Contract.create_signature_redeemscript(primary))
-        self.mint(engine, script_hash, vm.BigInteger(total_network_fee))
+        self.mint(engine, script_hash, vm.BigInteger(total_network_fee), False)
