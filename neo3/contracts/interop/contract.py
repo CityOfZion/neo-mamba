@@ -154,9 +154,10 @@ def contract_call_internal_ex(engine: contracts.ApplicationEngine,
         raise ValueError(
             f"[System.Contract.Call] Invalid number of contract arguments. Expected {expected_len} actual {arg_len}")  # noqa
 
-    context_new = engine.load_script(vm.Script(contract.script), contract_method_descriptor.offset)
+    context_new = engine.load_contract(contract, contract_method_descriptor.name, flags & calling_flags)
+    if context_new is None:
+        raise ValueError
     context_new.calling_script = state.script
-    context_new.call_flags = flags & calling_flags
 
     if contracts.NativeContract.is_native(contract.script_hash()):
         context_new.evaluation_stack.push(args)
@@ -166,9 +167,6 @@ def contract_call_internal_ex(engine: contracts.ApplicationEngine,
             context_new.evaluation_stack.push(item)
         context_new.ip = contract_method_descriptor.offset
 
-    method_descriptor = contract.manifest.abi.get_method("_initialize")
-    if method_descriptor is not None:
-        engine.load_cloned_context(method_descriptor.offset)
 
 @register("System.Contract.Call", 1000000, contracts.native.CallFlags.ALLOW_CALL, False,
           [types.UInt160, str, vm.ArrayStackItem])
