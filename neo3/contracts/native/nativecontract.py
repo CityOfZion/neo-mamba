@@ -72,7 +72,6 @@ class NativeContract(convenience._Singleton):
                                        0,
                                        list,
                                        safe_method=True)
-        self._register_contract_method(self.service_name, "name", 0, return_type=str, safe_method=True)
         if self._id != NativeContract._id:
             self._contracts.update({self._service_name: self})
             self._contract_hashes.update({self._script_hash: self})
