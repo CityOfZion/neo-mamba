@@ -9,20 +9,14 @@ if TYPE_CHECKING:
 class Snapshot:
     def __init__(self):
         self._block_cache: storage.CachedBlockAccess = None
-        self._contract_cache: storage.CachedContractAccess = None
         self._storage_cache: storage.CachedStorageAccess = None
         self._tx_cache: storage.CachedTXAccess = None
         self._block_height_cache: storage.AttributeCache = None
-        self._contract_id_cache: storage.AttributeCache = None
         self.persisting_block: payloads.Block = None
 
     @property
     def blocks(self):
         return self._block_cache
-
-    @property
-    def contracts(self):
-        return self._contract_cache
 
     @property
     def storages(self):
@@ -43,17 +37,6 @@ class Snapshot:
     def block_height(self, value) -> None:
         self._block_height_cache.put(value)
 
-    @property
-    def contract_id(self) -> int:
-        try:
-            return self._contract_id_cache.get()
-        except KeyError:
-            return -1
-
-    @contract_id.setter
-    def contract_id(self, value) -> None:
-        self._contract_id_cache.put(value)
-
     def commit(self):
         """
 
@@ -61,11 +44,9 @@ class Snapshot:
 
         """
         self._block_cache.commit()
-        self._contract_cache.commit()
         self._storage_cache.commit()
         self._tx_cache.commit()
         self._block_height_cache.commit()
-        self._contract_id_cache.commit()
 
     def clone(self) -> CloneSnapshot:
         return CloneSnapshot(self)
@@ -84,11 +65,9 @@ class CloneSnapshot(Snapshot):
         super(CloneSnapshot, self).__init__()
         self._snapshot = snapshot
         self._block_cache = snapshot.blocks.create_snapshot()
-        self._contract_cache = snapshot.contracts.create_snapshot()
         self._storage_cache = snapshot.storages.create_snapshot()
         self._tx_cache = snapshot.transactions.create_snapshot()
         self._block_height_cache = snapshot._block_height_cache.create_snapshot()
-        self._contract_id_cache = snapshot._contract_id_cache.create_snapshot()
         self.persisting_block = snapshot.persisting_block
 
     def commit(self):

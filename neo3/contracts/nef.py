@@ -75,7 +75,7 @@ class NEF(serialization.ISerializable):
             raise ValueError("Deserialization error - Incorrect magic")
         self.compiler = reader.read_bytes(32).decode('utf-8')
         self.version = reader.read_bytes(32).decode('utf-8')
-        self.script = reader.read_var_bytes()
+        self.script = reader.read_var_bytes(max=512 * 1024)
         if len(self.script) == 0:
             raise ValueError("Deserialization error - Script can't be empty")
 

@@ -272,98 +272,6 @@ class CachedBlockAccess(CachedAccess):
         return None
 
 
-# It is currently unclear why these do not persist when they're class attributes to CachedContractAccess
-# Keeping them here for the time being
-_gas_token_contract_state = None
-_neo_token_contract_state = None
-
-
-class CachedContractAccess(CachedAccess):
-    # TODO: update to new values
-    _gas_token_script_hash = types.UInt160.from_string("668e0c1f9d7b70a99dd9e06eadd4c784d641afbc")
-    _neo_token_script_hash = types.UInt160.from_string("de5f57d430d3dece511cf975a8d37848cb9e0525")
-
-    def __init__(self, db):
-        super(CachedContractAccess, self).__init__(db)
-        self._internal_get = self._db._internal_contract_get
-        self._internal_try_get = self._db._internal_contract_try_get
-        self._internal_all = self._db._internal_contract_all
-
-    def put(self, contract: storage.ContractState) -> None:
-        """
-        Store a contract.
-
-        Args:
-            contract: contract state instance.
-
-        Raises:
-            ValueError: if a duplicate item is found.
-        """
-        super(CachedContractAccess, self)._put(contract.hash, contract)
-
-    def get(self, hash_: types.UInt160, read_only=False) -> storage.ContractState:
-        """
-        Retrieve a contract.
-
-        Args:
-            hash_: contract hash.
-            read_only: set to True to safeguard against return value modifications being persisted when committing.
-
-        Raises:
-            KeyError: if the item is not found.
-        """
-        global _gas_token_contract_state, _neo_token_contract_state
-        if hash_ == self._gas_token_script_hash:
-            if _gas_token_contract_state is None:
-                _gas_token_contract_state = super(CachedContractAccess, self)._get(hash_, read_only)
-            return _gas_token_contract_state
-        elif hash_ == self._neo_token_script_hash:
-            if _neo_token_contract_state is None:
-                _neo_token_contract_state = super(CachedContractAccess, self)._get(hash_, read_only)
-            return _neo_token_contract_state
-        return super(CachedContractAccess, self)._get(hash_, read_only)
-
-    def try_get(self, hash_: types.UInt160, read_only=False) -> Optional[storage.ContractState]:
-        """
-        Try to retrieve a contract.
-
-        Args:
-            hash_: contract hash.
-            read_only: set to True to safeguard against return value modifications being persisted when committing.
-        """
-        try:
-            return self.get(hash_, read_only)
-        except KeyError:
-            return None
-
-    def delete(self, hash_: types.UInt160) -> None:
-        """
-        Remove a transaction.
-
-        Args:
-            hash_: contract hash.
-        """
-        super(CachedContractAccess, self)._delete(hash_)
-
-    def all(self) -> Iterator[storage.ContractState]:
-        """
-        Retrieve all contracts (readonly)
-        """
-        contracts = []
-        for contract in self._internal_all():  # type: storage.ContractState
-            if contract.hash not in self._dictionary:
-                contracts.append(contract)
-
-        for k, v in self._dictionary.items():
-            if v.state != TrackState.DELETED:
-                contracts.append(deepcopy(v.item))
-
-        contracts.sort(key=lambda contract: contract.hash.to_array())
-        for contract in contracts:
-            yield contract
-        return None
-
-
 class CachedStorageAccess(CachedAccess):
     def __init__(self, db):
         super(CachedStorageAccess, self).__init__(db)
@@ -464,33 +372,21 @@ class CachedStorageAccess(CachedAccess):
             yield pair
         return None
 
-    def find(self, contract_script_hash: types.UInt160, key_prefix: bytes) -> Iterator[Tuple[storage.StorageKey,
-                                                                                             storage.StorageItem]]:
+    def find(self, key_prefix: bytes) -> Iterator[Tuple[storage.StorageKey, storage.StorageItem]]:
         """
         Retrieve all storage key/value pairs (readonly).
 
         Args:
-            contract_script_hash: script hash of smart contract to search storage of.
             key_prefix: the prefix part of the storage.StorageKey.key to look for.
 
         """
-        pairs = []
-        for k, v in self._internal_find(contract_script_hash, key_prefix):
-            if k not in self._dictionary:
-                pairs.append((k, v))
+        for key, value in self.seek(key_prefix):
+            if key.to_array().startswith(key_prefix):
+                yield key, value
+            else:
+                raise StopIteration
 
-        for k, v in self._dictionary.items():
-            if v.state != TrackState.DELETED and k.key.startswith(key_prefix):
-                pairs.append((deepcopy(v.key), deepcopy(v.item)))
-
-        pairs.sort(key=lambda keypair: keypair[0].to_array())
-        for pair in pairs:
-            yield pair
-        return None
-
-    def seek(self, contract_script_hash: types.UInt160,
-             key_prefix: bytes,
-             direction="forward"
+    def seek(self, key_prefix: bytes, direction="forward"
              ) -> Iterator[Tuple[storage.StorageKey, storage.StorageItem]]:
 
         comperator = storage.NEOByteCompare(direction)
@@ -501,7 +397,7 @@ class CachedStorageAccess(CachedAccess):
                 results.append((deepcopy(key), deepcopy(value.item)))
 
         cached_keys = self._dictionary.keys()
-        for key, value in self._internal_seek(contract_script_hash, key_prefix, "forward"):
+        for key, value in self._internal_seek(key_prefix, "forward"):
             if key not in cached_keys:
                 results.append((key, value))
         results.sort(key=cmp_to_key(partial(storage.NEOSeekSort, comperator.compare)))  # type: ignore
@@ -511,13 +407,12 @@ class CachedStorageAccess(CachedAccess):
         return None
 
     def find_range(self,
-                   contract_script_hash: types.UInt160,
                    start: bytes,
                    end: bytes,
                    direction: str = "forward"
                    ) -> Iterator[Tuple[storage.StorageKey, storage.StorageItem]]:
         comperator = storage.NEOByteCompare(direction)
-        for key, value in self.seek(contract_script_hash, start, direction):
+        for key, value in self.seek(start, direction):
             if comperator.compare(key.to_array(), end) < 0:
                 yield key, value
             else:
@@ -647,49 +542,6 @@ class CloneBlockCache(CachedBlockAccess):
                 trackable.state = storage.TrackState.NONE
             elif trackable.state == TrackState.DELETED:
                 self.inner_cache.delete(trackable.item.hash())
-                keys_to_delete.append(trackable.key)
-        for key in keys_to_delete:
-            with suppress(KeyError):
-                self._dictionary.pop(key)
-        self._changeset.clear()
-
-
-class CloneContractCache(CachedContractAccess):
-    def __init__(self, db, inner_cache: CachedContractAccess):
-        super(CloneContractCache, self).__init__(db)
-        self.inner_cache = inner_cache
-        self._internal_get = self._inner_cache_get
-        self._internal_try_get = self._inner_cache_try_get
-        self._internal_all = self._inner_cache_all
-
-    def _inner_cache_try_get(self, hash, read_only=True):
-        try:
-            return self._inner_cache_get(hash, read_only)
-        except KeyError:
-            return None
-
-    def _inner_cache_get(self, hash, read_only=True):
-        return self.inner_cache.get(hash, read_only)
-
-    def _inner_cache_all(self):
-        return self.inner_cache.all()
-
-    def commit(self) -> None:
-        """
-        Persist changes to the parent snapshot.
-        """
-        keys_to_delete: List[types.UInt160] = []
-        for trackable in self.get_changeset():  # trackable.item: storage.ContractState
-            if trackable.state == TrackState.ADDED:
-                self.inner_cache.put(trackable.item)
-                trackable.state = storage.TrackState.NONE
-            elif trackable.state == TrackState.CHANGED:
-                item = self.inner_cache.try_get(trackable.item.script_hash(), read_only=False)
-                if item:
-                    item.from_replica(trackable.item)
-                trackable.state = storage.TrackState.NONE
-            elif trackable.state == TrackState.DELETED:
-                self.inner_cache.delete(trackable.item.script_hash())
                 keys_to_delete.append(trackable.key)
         for key in keys_to_delete:
             with suppress(KeyError):

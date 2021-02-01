@@ -87,7 +87,9 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
                         contracts.native.CallFlags(self.current_context.call_flags):
                     raise ValueError("Context requires callflags ALLOW_STATES")
 
-                contract = self.snapshot.contracts.get(self.calling_scripthash)
+                contract = contracts.ManagementContract().get_contract(self.snapshot, self.calling_scripthash)
+                if contract is None:
+                    return False
                 group_keys = set(map(lambda g: g.public_key, contract.manifest.groups))
                 if any(group_keys.intersection(signer.allowed_groups)):
                     return True
@@ -377,3 +379,9 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
             if init is not None:
                 self.load_context(context.clone(init.offset), False)
         return context
+
+    def call_native(self, name: str) -> None:
+        contract = contracts.ManagementContract().get_contract_by_name(name)
+        if contract is None or contract.active_block_index > self.snapshot.persisting_block.index:
+            raise ValueError
+        contract.invoke(self)

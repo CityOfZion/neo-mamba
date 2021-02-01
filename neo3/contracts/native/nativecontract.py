@@ -54,6 +54,8 @@ class NativeContract(convenience._Singleton):
     #: A dictionary for accessing a native contract by its hash
     _contract_hashes: Dict[types.UInt160, NativeContract] = {}
 
+    active_block_index = 0
+
     def init(self):
         self._methods: Dict[str, _ContractMethodMetadata] = {}
         self._neo = NeoToken()
@@ -61,9 +63,9 @@ class NativeContract(convenience._Singleton):
         self._policy = PolicyContract()
         sb = vm.ScriptBuilder()
         sb.emit_push(self._service_name)
-        sb.emit_syscall(192440171)  # "Neo.Native.Call"
+        sb.emit_syscall(1736177434)  # "System.Contract.CallNative"
         self._script: bytes = sb.to_array()
-        sender = to_script_hash(b'\x11')  # OpCode.PUSH1
+        sender = types.UInt160.zero()  # OpCode.PUSH1
         sb = vm.ScriptBuilder()
         sb.emit(vm.OpCode.ABORT)
         sb.emit_push(sender.to_array())
@@ -93,7 +95,7 @@ class NativeContract(convenience._Singleton):
                                        call_flags=contracts.CallFlags.WRITE_STATES)
 
     @classmethod
-    def get_contract(cls, name: str) -> NativeContract:
+    def get_contract_by_name(cls, name: str) -> NativeContract:
         """
         Get the contract instance by its service name
         Args:
@@ -116,7 +118,7 @@ class NativeContract(convenience._Singleton):
                                   parameter_names: List[str] = None,
                                   add_engine: bool = False,
                                   add_snapshot: bool = False,
-                                  call_flags: contracts.CallFlags = contracts.CallFlags.NONE
+                                  call_flags: contracts.native.CallFlags = contracts.native.CallFlags.NONE
                                   ) -> None:
         """
         Registers a native contract method into the manifest
@@ -274,16 +276,17 @@ class NativeContract(convenience._Singleton):
 
         Should not be called manually.
         """
-        if engine.trigger != contracts.TriggerType.ON_PERSIST:
-            raise SystemError("Invalid operation")
+        pass
 
     def post_persist(self, engine: contracts.ApplicationEngine):
-        if engine.trigger != contracts.TriggerType.POST_PERSIST:
-            raise SystemError("Invalid operation")
+        pass
 
     def _check_committee(self, engine: contracts.ApplicationEngine) -> bool:
         addr = NeoToken().get_committee_address()
         return engine.checkwitness(addr)
+
+    def create_key(self, prefix: bytes) -> storage.StorageKey:
+        return storage.StorageKey(self._id, prefix)
 
 
 class PolicyContract(NativeContract):
@@ -393,7 +396,7 @@ class PolicyContract(NativeContract):
             int: maximum number of bytes.
         """
         data = snapshot.storages.try_get(
-            storage.StorageKey(self.hash, self._PREFIX_MAX_BLOCK_SIZE),
+            self.create_key(self._PREFIX_MAX_BLOCK_SIZE),
             read_only=True
         )
         if data is None:
@@ -408,7 +411,7 @@ class PolicyContract(NativeContract):
             int: maximum number of transaction.
         """
         data = snapshot.storages.try_get(
-            storage.StorageKey(self.hash, self._PREFIX_MAX_TRANSACTIONS_PER_BLOCK),
+            self.create_key(self._PREFIX_MAX_TRANSACTIONS_PER_BLOCK),
             read_only=True
         )
         if data is None:
@@ -423,7 +426,7 @@ class PolicyContract(NativeContract):
             int: maximum system fee.
         """
         data = snapshot.storages.try_get(
-            storage.StorageKey(self.hash, self._PREFIX_MAX_BLOCK_SYSTEM_FEE),
+            self.create_key(self._PREFIX_MAX_BLOCK_SYSTEM_FEE),
             read_only=True
         )
         if data is None:
@@ -439,7 +442,7 @@ class PolicyContract(NativeContract):
             int: maximum fee.
         """
         data = snapshot.storages.try_get(
-            storage.StorageKey(self.hash, self._PREFIX_FEE_PER_BYTE),
+            self.create_key(self._PREFIX_FEE_PER_BYTE),
             read_only=True
         )
         if data is None:
@@ -454,7 +457,7 @@ class PolicyContract(NativeContract):
         """
 
         si = snapshot.storages.try_get(
-            storage.StorageKey(self.hash, self._PREFIX_BLOCKED_ACCOUNT + account.to_array()),
+            self.create_key(self._PREFIX_BLOCKED_ACCOUNT + account.to_array()),
             read_only=True
         )
         if si is None:
@@ -472,7 +475,7 @@ class PolicyContract(NativeContract):
         if not self._check_committee(engine):
             return False
 
-        storage_key = storage.StorageKey(self.hash, self._PREFIX_MAX_BLOCK_SIZE)
+        storage_key = self.create_key(self._PREFIX_MAX_BLOCK_SIZE)
         storage_item = engine.snapshot.storages.try_get(
             storage_key,
             read_only=False
@@ -493,7 +496,7 @@ class PolicyContract(NativeContract):
         if not self._check_committee(engine):
             return False
 
-        storage_key = storage.StorageKey(self.hash, self._PREFIX_MAX_TRANSACTIONS_PER_BLOCK)
+        storage_key = self.create_key(self._PREFIX_MAX_TRANSACTIONS_PER_BLOCK)
         storage_item = engine.snapshot.storages.try_get(
             storage_key,
             read_only=False
@@ -516,7 +519,7 @@ class PolicyContract(NativeContract):
         if not self._check_committee(engine):
             return False
 
-        storage_key = storage.StorageKey(self.hash, self._PREFIX_MAX_BLOCK_SYSTEM_FEE)
+        storage_key = self.create_key(self._PREFIX_MAX_BLOCK_SYSTEM_FEE)
         storage_item = engine.snapshot.storages.try_get(
             storage_key,
             read_only=False
@@ -538,7 +541,7 @@ class PolicyContract(NativeContract):
         if not self._check_committee(engine):
             return False
 
-        storage_key = storage.StorageKey(self.hash, self._PREFIX_FEE_PER_BYTE)
+        storage_key = self.create_key(self._PREFIX_FEE_PER_BYTE)
         storage_item = engine.snapshot.storages.try_get(
             storage_key,
             read_only=False
@@ -556,8 +559,7 @@ class PolicyContract(NativeContract):
         """
         if not self._check_committee(engine):
             return False
-        storage_key = storage.StorageKey(self.hash,
-                                         self._PREFIX_BLOCKED_ACCOUNT + account.to_array())
+        storage_key = self.create_key(self._PREFIX_BLOCKED_ACCOUNT + account.to_array())
         storage_item = engine.snapshot.storages.try_get(storage_key, read_only=False)
         if storage_item is None:
             storage_item = storage.StorageItem(b'\x01')
@@ -573,8 +575,7 @@ class PolicyContract(NativeContract):
         """
         if not self._check_committee(engine):
             return False
-        storage_key = storage.StorageKey(self.hash,
-                                         self._PREFIX_BLOCKED_ACCOUNT + account.to_array())
+        storage_key = self.create_key(self._PREFIX_BLOCKED_ACCOUNT + account.to_array())
         storage_item = engine.snapshot.storages.try_get(storage_key, read_only=False)
         if storage_item is None:
             return False
@@ -665,7 +666,7 @@ class Nep17Token(NativeContract):
         if amount == vm.BigInteger.zero():
             return
 
-        storage_key = storage.StorageKey(self.hash, self._PREFIX_ACCOUNT + account.to_array())
+        storage_key = self.create_key(self._PREFIX_ACCOUNT + account.to_array())
         storage_item = engine.snapshot.storages.try_get(storage_key, read_only=False)
 
         if storage_item is None:
@@ -676,7 +677,7 @@ class Nep17Token(NativeContract):
         self.on_balance_changing(engine, account, state, amount)
         state.balance += amount
 
-        storage_key = storage.StorageKey(self.hash, self._PREFIX_TOTAL_SUPPLY)
+        storage_key = self.create_key(self._PREFIX_TOTAL_SUPPLY)
         storage_item = engine.snapshot.storages.try_get(storage_key, read_only=False)
         if storage_item is None:
             storage_item = storage.StorageItem(amount.to_array())
@@ -702,7 +703,7 @@ class Nep17Token(NativeContract):
         if amount == vm.BigInteger.zero():
             return
 
-        storage_key = storage.StorageKey(self.hash, self._PREFIX_ACCOUNT + account.to_array())
+        storage_key = self.create_key(self._PREFIX_ACCOUNT + account.to_array())
         storage_item = engine.snapshot.storages.get(storage_key, read_only=False)
 
         state = self._state.from_storage(storage_item)
@@ -716,7 +717,7 @@ class Nep17Token(NativeContract):
             state.balance -= amount
             engine.snapshot.storages.update(storage_key, storage_item)
 
-        storage_key = storage.StorageKey(self.hash, self._PREFIX_TOTAL_SUPPLY)
+        storage_key = self.create_key(self._PREFIX_TOTAL_SUPPLY)
         storage_item = engine.snapshot.storages.get(storage_key, read_only=False)
         old_value = vm.BigInteger(storage_item.value)
         new_value = old_value - amount
@@ -728,7 +729,7 @@ class Nep17Token(NativeContract):
 
     def total_supply(self, snapshot: storage.Snapshot) -> vm.BigInteger:
         """ Get the total deployed tokens. """
-        storage_key = storage.StorageKey(self.hash, self._PREFIX_TOTAL_SUPPLY)
+        storage_key = self.create_key(self._PREFIX_TOTAL_SUPPLY)
         storage_item = snapshot.storages.try_get(storage_key)
         if storage_item is None:
             return vm.BigInteger.zero()
@@ -748,7 +749,7 @@ class Nep17Token(NativeContract):
 
         Note: The returned value is still in internal format. Divide the results by the contract's `decimals`
         """
-        storage_key = storage.StorageKey(self.hash, self._PREFIX_ACCOUNT + account.to_array())
+        storage_key = self.create_key(self._PREFIX_ACCOUNT + account.to_array())
         storage_item = snapshot.storages.try_get(storage_key)
         if storage_item is None:
             return vm.BigInteger.zero()
@@ -779,7 +780,7 @@ class Nep17Token(NativeContract):
         # wallet or smart contract
         if not call_on_payment \
                 or account_to == types.UInt160.zero() \
-                or engine.snapshot.contracts.try_get(account_to) is None:
+                or contracts.ManagementContract().get_contract(engine.snapshot, account_to) is None:
             return
 
         if account_from == types.UInt160.zero():
@@ -812,7 +813,7 @@ class Nep17Token(NativeContract):
         if account_from != engine.calling_scripthash and not engine.checkwitness(account_from):
             return False
 
-        storage_key_from = storage.StorageKey(self.hash, self._PREFIX_ACCOUNT + account_from.to_array())
+        storage_key_from = self.create_key(self._PREFIX_ACCOUNT + account_from.to_array())
         storage_item_from = engine.snapshot.storages.try_get(storage_key_from, read_only=False)
 
         if storage_item_from is None:
@@ -834,7 +835,7 @@ class Nep17Token(NativeContract):
                 else:
                     state_from.balance -= amount
 
-                storage_key_to = storage.StorageKey(self.hash, self._PREFIX_ACCOUNT + account_to.to_array())
+                storage_key_to = self.create_key(self._PREFIX_ACCOUNT + account_to.to_array())
                 storage_item_to = engine.snapshot.storages.try_get(storage_key_to, read_only=False)
                 if storage_item_to is None:
                     storage_item_to = storage.StorageItem(b'')
@@ -966,7 +967,7 @@ class _CommitteeState(serialization.ISerializable):
     def __init__(self, snapshot: storage.Snapshot, validators: Dict[cryptography.ECPoint, vm.BigInteger]):
         self._snapshot = snapshot
         self._validators = validators
-        self._storage_key = storage.StorageKey(NeoToken().hash, NeoToken()._PREFIX_COMMITTEE)
+        self._storage_key = storage.StorageKey(NeoToken().id, NeoToken()._PREFIX_COMMITTEE)
 
         with serialization.BinaryWriter() as writer:
             self.serialize(writer)
@@ -1053,7 +1054,7 @@ class _GasRecord(serialization.ISerializable):
 
 class GasBonusState(serialization.ISerializable, Sequence):
     def __init__(self, initial_record: _GasRecord = None):
-        self._storage_key = storage.StorageKey(NeoToken().hash, NeoToken()._PREFIX_GAS_PER_BLOCK)
+        self._storage_key = storage.StorageKey(NeoToken().id, NeoToken()._PREFIX_GAS_PER_BLOCK)
         self._records: List[_GasRecord] = [initial_record] if initial_record else []
         self._storage_item = storage.StorageItem(b'')
         self._iter = iter(self._records)
@@ -1081,7 +1082,7 @@ class GasBonusState(serialization.ISerializable, Sequence):
     def from_snapshot(cls, snapshot: storage.Snapshot):
         record = cls()
         record._storage_item = snapshot.storages.get(
-            storage.StorageKey(NeoToken().hash, NeoToken()._PREFIX_GAS_PER_BLOCK))
+            storage.StorageKey(NeoToken().id, NeoToken()._PREFIX_GAS_PER_BLOCK))
         with serialization.BinaryReader(record._storage_item.value) as reader:
             record.deserialize(reader)
         return record
@@ -1132,11 +1133,8 @@ class NeoToken(Nep17Token):
         if vote.is_zero():
             return neo_holder_reward
 
-        border = storage.StorageKey(self.hash,
-                                    self._PREFIX_VOTER_REWARD_PER_COMMITTEE + vote.to_array()
-                                    ).to_array()
-        key_start = storage.StorageKey(
-            self.hash,
+        border = self.create_key(self._PREFIX_VOTER_REWARD_PER_COMMITTEE + vote.to_array()).to_array()
+        key_start = self.create_key(
             self._PREFIX_VOTER_REWARD_PER_COMMITTEE + vote.to_array() + vm.BigInteger(start).to_array()
         ).to_array()
 
@@ -1146,8 +1144,7 @@ class NeoToken(Nep17Token):
         else:
             start_reward_per_neo = vm.BigInteger.zero()
 
-        key_end = storage.StorageKey(
-            self.hash,
+        key_end = self.create_key(
             self._PREFIX_VOTER_REWARD_PER_COMMITTEE + vote.to_array() + vm.BigInteger(end).to_array()
         ).to_array()
 
@@ -1186,11 +1183,10 @@ class NeoToken(Nep17Token):
                          public_key: cryptography.ECPoint,
                          candidate: _CandidateState) -> None:
         if not candidate.registered and candidate.votes == 0:
-            storage_key = storage.StorageKey(self.hash,
-                                             self._PREFIX_VOTER_REWARD_PER_COMMITTEE + public_key.to_array())
+            storage_key = self.create_key(self._PREFIX_VOTER_REWARD_PER_COMMITTEE + public_key.to_array())
             for k, v in snapshot.storages.find(storage_key):
                 snapshot.storages.delete(k)
-            storage_key_candidate = storage.StorageKey(self.hash, self._PREFIX_CANDIDATE + public_key.to_array())
+            storage_key_candidate = self.create_key(self._PREFIX_CANDIDATE + public_key.to_array())
             snapshot.storages.delete(storage_key_candidate)
 
     def init(self):
@@ -1279,13 +1275,13 @@ class NeoToken(Nep17Token):
                                                 dict.fromkeys(settings.standby_validators, vm.BigInteger(0))
                                                 )
         engine.snapshot.storages.put(
-            storage.StorageKey(self.hash, self._PREFIX_VOTERS_COUNT),
+            self.create_key(self._PREFIX_VOTERS_COUNT),
             storage.StorageItem(b'\x00')
         )
 
         gas_bonus_state = GasBonusState(_GasRecord(0, GasToken().factor * 5))
         engine.snapshot.storages.put(
-            storage.StorageKey(NeoToken().hash, NeoToken()._PREFIX_GAS_PER_BLOCK),
+            self.create_key(NeoToken()._PREFIX_GAS_PER_BLOCK),
             storage.StorageItem(gas_bonus_state.to_array())
         )
         self.mint(engine,
@@ -1309,12 +1305,12 @@ class NeoToken(Nep17Token):
         if state.vote_to.is_zero():
             return
 
-        sk_voters_count = storage.StorageKey(self.hash, self._PREFIX_VOTERS_COUNT)
+        sk_voters_count = self.create_key(self._PREFIX_VOTERS_COUNT)
         si_voters_count = engine.snapshot.storages.get(sk_voters_count, read_only=False)
         new_value = vm.BigInteger(si_voters_count.value) + amount
         si_voters_count.value = new_value.to_array()
 
-        sk_candidate = storage.StorageKey(self.hash, self._PREFIX_CANDIDATE + state.vote_to.to_array())
+        sk_candidate = self.create_key(self._PREFIX_CANDIDATE + state.vote_to.to_array())
         si_candidate = engine.snapshot.storages.get(sk_candidate, read_only=False)
         candidate_state = _CandidateState.from_storage(si_candidate)
         candidate_state.votes += amount
@@ -1349,13 +1345,11 @@ class NeoToken(Nep17Token):
                 member_votes = self._committee_state[member]
                 if member_votes > 0:
                     voter_sum_reward_per_neo = factor * voter_reward_of_each_committee / member_votes
-                    voter_reward_key = storage.StorageKey(
-                        self.hash,
+                    voter_reward_key = self.create_key(
                         (self._PREFIX_VOTER_REWARD_PER_COMMITTEE + member.to_array()
                          + vm.BigInteger(engine.snapshot.persisting_block.index + 1).to_array())
                     )
-                    border = storage.StorageKey(
-                        self.hash,
+                    border = self.create_key(
                         self._PREFIX_VOTER_REWARD_PER_COMMITTEE + member.to_array()
                     ).to_array()
                     result = engine.snapshot.storages.find_range(self.hash, voter_reward_key.to_array(), border)
@@ -1379,7 +1373,7 @@ class NeoToken(Nep17Token):
             end: ending block height to calculate bonus up to. You should use mostlikly use the current chain height.
         """
         storage_item = snapshot.storages.try_get(
-            storage.StorageKey(self.hash, self._PREFIX_ACCOUNT + account.to_array())
+            self.create_key(self._PREFIX_ACCOUNT + account.to_array())
         )
         if storage_item is None:
             return vm.BigInteger.zero()
@@ -1403,7 +1397,7 @@ class NeoToken(Nep17Token):
         if not engine.checkwitness(script_hash):
             return False
 
-        storage_key = storage.StorageKey(self.hash, self._PREFIX_CANDIDATE + public_key.to_array())
+        storage_key = self.create_key(self._PREFIX_CANDIDATE + public_key.to_array())
         storage_item = engine.snapshot.storages.try_get(storage_key, read_only=False)
         if storage_item is None:
             state = _CandidateState()
@@ -1433,7 +1427,7 @@ class NeoToken(Nep17Token):
         if not engine.checkwitness(script_hash):
             return False
 
-        storage_key = storage.StorageKey(self.hash, self._PREFIX_CANDIDATE + public_key.to_array())
+        storage_key = self.create_key(self._PREFIX_CANDIDATE + public_key.to_array())
         storage_item = engine.snapshot.storages.try_get(storage_key, read_only=False)
         if storage_item is None:
             return True
@@ -1463,13 +1457,13 @@ class NeoToken(Nep17Token):
         if not engine.checkwitness(account):
             return False
 
-        storage_key_account = storage.StorageKey(self.hash, self._PREFIX_ACCOUNT + account.to_array())
+        storage_key_account = self.create_key(self._PREFIX_ACCOUNT + account.to_array())
         storage_item = engine.snapshot.storages.try_get(storage_key_account, read_only=False)
         if storage_item is None:
             return False
         account_state = self._state.from_storage(storage_item)
 
-        storage_key_candidate = storage.StorageKey(self.hash, self._PREFIX_CANDIDATE + vote_to.to_array())
+        storage_key_candidate = self.create_key(self._PREFIX_CANDIDATE + vote_to.to_array())
         storage_item_candidate = engine.snapshot.storages.try_get(storage_key_candidate, read_only=False)
         if storage_key_candidate is None:
             return False
@@ -1479,7 +1473,7 @@ class NeoToken(Nep17Token):
             return False
 
         if account_state.vote_to.is_zero():
-            sk_voters_count = storage.StorageKey(self.hash, self._PREFIX_VOTERS_COUNT)
+            sk_voters_count = self.create_key(self._PREFIX_VOTERS_COUNT)
             si_voters_count = engine.snapshot.storages.get(sk_voters_count, read_only=False)
 
             old_value = vm.BigInteger(si_voters_count.value)
@@ -1487,8 +1481,7 @@ class NeoToken(Nep17Token):
             si_voters_count.value = new_value.to_array()
 
         if not account_state.vote_to.is_zero():
-            sk_validator = storage.StorageKey(self.hash,
-                                              self._PREFIX_CANDIDATE + account_state.vote_to.to_array())
+            sk_validator = self.create_key(self._PREFIX_CANDIDATE + account_state.vote_to.to_array())
             si_validator = engine.snapshot.storages.get(sk_validator, read_only=False)
             validator_state = _CandidateState.from_storage(si_validator)
             validator_state.votes -= account_state.balance
@@ -1544,7 +1537,7 @@ class NeoToken(Nep17Token):
         )
 
     def _compute_committee_members(self, snapshot: storage.Snapshot) -> Dict[cryptography.ECPoint, vm.BigInteger]:
-        storage_key = storage.StorageKey(self.hash, self._PREFIX_VOTERS_COUNT)
+        storage_key = self.create_key(self._PREFIX_VOTERS_COUNT)
         storage_item = snapshot.storages.get(storage_key, read_only=True)
         voters_count = int(vm.BigInteger(storage_item.value))
         voter_turnout = voters_count / float(self.total_amount)

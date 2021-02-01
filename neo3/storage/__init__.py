@@ -6,8 +6,6 @@ from .cache import (Trackable,
                     CloneTXCache,
                     CachedBlockAccess,
                     CloneBlockCache,
-                    CachedContractAccess,
-                    CloneContractCache,
                     CachedStorageAccess,
                     CloneStorageCache,
                     AttributeCache)

@@ -23,7 +23,8 @@ from .native import (CallFlags,
                      GasToken,
                      OracleContract,
                      DesignateContract,
-                     DesignateRole)
+                     DesignateRole,
+                     ManagementContract)
 from .checkreturn import ReturnTypeConvention
 from .applicationengine import ApplicationEngine
 
