@@ -6,7 +6,7 @@ from neo3.core import cryptography, types, to_script_hash
 from neo3.contracts.interop import register
 
 
-@register("System.Contract.Create", 0, contracts.native.CallFlags.ALLOW_MODIFIED_STATES, False, [bytes, bytes])
+@register("System.Contract.Create", 0, contracts.native.CallFlags.WRITE_STATES, False, [bytes, bytes])
 def contract_create(engine: contracts.ApplicationEngine, nef_file: bytes, manifest: bytes) -> None:
     if not isinstance(engine.script_container, payloads.Transaction):
         raise ValueError("Cannot create contract without a Transaction script container")
@@ -60,7 +60,7 @@ def contract_create(engine: contracts.ApplicationEngine, nef_file: bytes, manife
                                   )
 
 
-@register("System.Contract.Update", 0, contracts.native.CallFlags.ALLOW_MODIFIED_STATES, False, [bytes, bytes])
+@register("System.Contract.Update", 0, contracts.native.CallFlags.WRITE_STATES, False, [bytes, bytes])
 def contract_update(engine: contracts.ApplicationEngine, nef_file: bytes, manifest: bytes) -> None:
     nef_len = len(nef_file)
     manifest_len = len(manifest)
@@ -99,7 +99,7 @@ def contract_update(engine: contracts.ApplicationEngine, nef_file: bytes, manife
                                       )
 
 
-@register("System.Contract.Destroy", 1000000, contracts.native.CallFlags.ALLOW_MODIFIED_STATES, False)
+@register("System.Contract.Destroy", 1000000, contracts.native.CallFlags.WRITE_STATES, False)
 def contract_destroy(engine: contracts.ApplicationEngine) -> None:
     hash_ = engine.current_scripthash
     contract = engine.snapshot.contracts.try_get(hash_)
@@ -195,7 +195,7 @@ def contract_callex(engine: contracts.ApplicationEngine,
     contract_call_internal(engine, contract_hash, method, args, flags, contracts.ReturnTypeConvention.ENSURE_NOT_EMPTY)
 
 
-@register("System.Contract.IsStandard", 30000, contracts.native.CallFlags.ALLOW_STATES, True, [types.UInt160])
+@register("System.Contract.IsStandard", 30000, contracts.native.CallFlags.READ_STATES, True, [types.UInt160])
 def contract_is_standard(engine: contracts.ApplicationEngine, hash_: types.UInt160) -> bool:
     contract = engine.snapshot.contracts.try_get(hash_)
     if contract:

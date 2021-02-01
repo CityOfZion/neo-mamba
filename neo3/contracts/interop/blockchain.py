@@ -18,7 +18,7 @@ def _is_traceable_block(snapshot: storage.Snapshot, index: int):
     return index + MAX_TRACABLE_BLOCKS > snapshot.block_height
 
 
-@register("System.Blockchain.GetHeight", 400, contracts.native.CallFlags.ALLOW_STATES, True)
+@register("System.Blockchain.GetHeight", 400, contracts.native.CallFlags.READ_STATES, True)
 def blockchain_get_height(engine: contracts.ApplicationEngine) -> int:
     return engine.snapshot.block_height
 
@@ -40,12 +40,12 @@ def _try_get_block(engine: contracts.ApplicationEngine, data: bytes) -> Optional
     return block
 
 
-@register("System.Blockchain.GetBlock", 2500000, contracts.native.CallFlags.ALLOW_STATES, True, [bytes])
+@register("System.Blockchain.GetBlock", 2500000, contracts.native.CallFlags.READ_STATES, True, [bytes])
 def blockchain_get_block(engine: contracts.ApplicationEngine, data: bytes) -> Optional[payloads.Block]:
     return _try_get_block(engine, data)
 
 
-@register("System.Blockchain.GetTransactionFromBlock", 1000000, contracts.native.CallFlags.ALLOW_STATES, True,
+@register("System.Blockchain.GetTransactionFromBlock", 1000000, contracts.native.CallFlags.READ_STATES, True,
           [bytes, int])
 def blockchain_get_transaction_from_block(engine: contracts.ApplicationEngine,
                                           data: bytes,
@@ -61,7 +61,7 @@ def blockchain_get_transaction_from_block(engine: contracts.ApplicationEngine,
         return block.transactions[tx_index]
 
 
-@register("System.Blockchain.GetTransaction", 1000000, contracts.native.CallFlags.ALLOW_STATES, True, [types.UInt256])
+@register("System.Blockchain.GetTransaction", 1000000, contracts.native.CallFlags.READ_STATES, True, [types.UInt256])
 def blockchain_get_transaction(engine: contracts.ApplicationEngine,
                                tx_hash: types.UInt256) -> Optional[payloads.Transaction]:
     tx = engine.snapshot.transactions.try_get(tx_hash)
@@ -70,7 +70,7 @@ def blockchain_get_transaction(engine: contracts.ApplicationEngine,
     return tx
 
 
-@register("System.Blockchain.GetTransactionHeight", 1000000, contracts.native.CallFlags.ALLOW_STATES, True,
+@register("System.Blockchain.GetTransactionHeight", 1000000, contracts.native.CallFlags.READ_STATES, True,
           [types.UInt256])
 def blockchain_get_transaction_height(engine: contracts.ApplicationEngine, tx_hash: types.UInt256) -> int:
     tx = engine.snapshot.transactions.try_get(tx_hash)

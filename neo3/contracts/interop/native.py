@@ -3,7 +3,7 @@ from neo3 import contracts, storage
 from neo3.contracts.interop import register
 
 
-@register("Neo.Native.Deploy", 0, contracts.native.CallFlags.ALLOW_MODIFIED_STATES, False, [])
+@register("Neo.Native.Deploy", 0, contracts.native.CallFlags.WRITE_STATES, False, [])
 def deploy_native(engine: contracts.ApplicationEngine) -> None:
     if engine.snapshot.persisting_block.index != 0:
         raise ValueError("Can only deploy native contracts in the genenis block")
@@ -13,6 +13,6 @@ def deploy_native(engine: contracts.ApplicationEngine) -> None:
         nc._initialize(engine)
 
 
-@register("Neo.Native.Call", 0, contracts.native.CallFlags.NONE, False, [str])
+@register("Neo.Native.Call", 0, contracts.native.CallFlags.ALLOW_CALL, False, [str])
 def call_native(engine: contracts.ApplicationEngine, contract_name: str) -> None:
     contracts.NativeContract.get_contract(contract_name).invoke(engine)

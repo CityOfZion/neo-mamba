@@ -16,7 +16,7 @@ def get_trigger(engine: contracts.ApplicationEngine) -> vm.BigInteger:
     return vm.BigInteger(engine.trigger.value)
 
 
-@register("System.Runtime.GetTime", 250, contracts.native.CallFlags.ALLOW_STATES, True)
+@register("System.Runtime.GetTime", 250, contracts.native.CallFlags.NONE, True)
 def get_time(engine: contracts.ApplicationEngine) -> int:
     return engine.snapshot.persisting_block.timestamp
 

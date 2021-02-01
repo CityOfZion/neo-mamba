@@ -12,12 +12,13 @@ class CallFlags(IntFlag):
     Describes the required call permissions for contract functions.
     """
     NONE = 0,
-    ALLOW_STATES = 0x1
-    ALLOW_MODIFIED_STATES = 0x02
+    READ_STATES = 0x1
+    WRITE_STATES = 0x02
     ALLOW_CALL = 0x04
     ALLOW_NOTIFY = 0x08
-    READ_ONLY = ALLOW_STATES | ALLOW_CALL | ALLOW_NOTIFY
-    ALL = ALLOW_STATES | ALLOW_MODIFIED_STATES | ALLOW_CALL | ALLOW_NOTIFY
+    STATES = READ_STATES | WRITE_STATES
+    READ_ONLY = READ_STATES | ALLOW_CALL
+    ALL = STATES | ALLOW_CALL | ALLOW_NOTIFY
 
 
 class _ContractMethodMetadata:
@@ -72,14 +73,24 @@ class NativeContract(convenience._Singleton):
         self._manifest.name = self._service_name
         self._manifest.abi.methods = []
         self._manifest.safe_methods = contracts.WildcardContainer()
-        self._register_contract_method(self.supported_standards,
-                                       "supportedStandards",
-                                       0,
-                                       list,
-                                       safe_method=True)
         if self._id != NativeContract._id:
             self._contracts.update({self._service_name: self})
             self._contract_hashes.update({self._hash: self})
+
+        self._register_contract_method(self.on_persist,
+                                       0,
+                                       "onPersist",
+                                       return_type=None,
+                                       add_engine=True,
+                                       add_snapshot=False,
+                                       call_flags=contracts.CallFlags.WRITE_STATES)
+        self._register_contract_method(self.post_persist,
+                                       0,
+                                       "postPersist",
+                                       return_type=None,
+                                       add_engine=True,
+                                       add_snapshot=False,
+                                       call_flags=contracts.CallFlags.WRITE_STATES)
 
     @classmethod
     def get_contract(cls, name: str) -> NativeContract:
@@ -103,9 +114,9 @@ class NativeContract(convenience._Singleton):
                                   return_type,
                                   parameter_types: list = None,
                                   parameter_names: List[str] = None,
-                                  safe_method: bool = False,
                                   add_engine: bool = False,
-                                  add_snapshot: bool = False
+                                  add_snapshot: bool = False,
+                                  call_flags: contracts.CallFlags = contracts.CallFlags.NONE
                                   ) -> None:
         """
         Registers a native contract method into the manifest
@@ -140,8 +151,9 @@ class NativeContract(convenience._Singleton):
                 parameters=params
             )
         )
-        self._manifest.safe_methods._data.append(func_name)
-        call_flags = CallFlags.NONE if safe_method else CallFlags.ALLOW_MODIFIED_STATES
+
+        if (call_flags & ~contracts.CallFlags.READ_ONLY) == 0:
+            self._manifest.safe_methods._data.append(func_name)
         self._methods.update({func_name: _ContractMethodMetadata(
             func, price, call_flags, add_engine, add_snapshot, return_type, parameter_types)
         })
@@ -180,10 +192,6 @@ class NativeContract(convenience._Singleton):
     def manifest(self) -> contracts.ContractManifest:
         """ The associated contract manifest. """
         return self._manifest
-
-    def supported_standards(self) -> List[str]:
-        """ The list of supported Neo Enhancement Proposals (NEP)."""
-        return []
 
     def _initialize(self, engine: contracts.ApplicationEngine) -> None:
         """
@@ -295,28 +303,28 @@ class PolicyContract(NativeContract):
                                        "getMaxBlockSize",
                                        1000000,
                                        return_type=int,
-                                       safe_method=True,
+                                       call_flags=contracts.CallFlags.READ_STATES,
                                        add_snapshot=True,
                                        )
         self._register_contract_method(self.get_max_transactions_per_block,
                                        "getMaxTransactionsPerBlock",
                                        1000000,
                                        return_type=int,
-                                       safe_method=True,
+                                       call_flags=contracts.CallFlags.READ_STATES,
                                        add_snapshot=True,
                                        )
         self._register_contract_method(self.get_max_block_system_fee,
                                        "getMaxBlockSystemFee",
                                        1000000,
                                        return_type=int,
-                                       safe_method=True,
+                                       call_flags=contracts.CallFlags.READ_STATES,
                                        add_snapshot=True,
                                        )
         self._register_contract_method(self.get_fee_per_byte,
                                        "getFeePerByte",
                                        1000000,
                                        return_type=int,
-                                       safe_method=True,
+                                       call_flags=contracts.CallFlags.READ_STATES,
                                        add_snapshot=True,
                                        )
         self._register_contract_method(self.is_blocked,
@@ -325,7 +333,7 @@ class PolicyContract(NativeContract):
                                        return_type=bool,
                                        parameter_types=[types.UInt160],
                                        parameter_names=["account"],
-                                       safe_method=True,
+                                       call_flags=contracts.CallFlags.READ_STATES,
                                        add_snapshot=True,
                                        )
         self._register_contract_method(self._block_account,
@@ -334,46 +342,48 @@ class PolicyContract(NativeContract):
                                        return_type=bool,
                                        parameter_types=[types.UInt160],
                                        parameter_names=["account"],
-                                       add_engine=True)
+                                       add_engine=True,
+                                       call_flags=contracts.CallFlags.WRITE_STATES)
         self._register_contract_method(self._unblock_account,
                                        "unblockAccount",
                                        3000000,
                                        return_type=bool,
                                        parameter_types=[types.UInt160],
                                        parameter_names=["account"],
-                                       add_engine=True)
+                                       add_engine=True,
+                                       call_flags=contracts.CallFlags.WRITE_STATES)
         self._register_contract_method(self._set_max_block_size,
                                        "setMaxBlockSize",
                                        3000000,
                                        return_type=bool,
                                        parameter_types=[int],
                                        parameter_names=["value"],
-                                       add_engine=True)
+                                       add_engine=True,
+                                       call_flags=contracts.CallFlags.WRITE_STATES)
         self._register_contract_method(self._set_max_transactions_per_block,
                                        "setMaxTransactionsPerBlock",
                                        3000000,
                                        return_type=bool,
                                        parameter_types=[int],
                                        parameter_names=["value"],
-                                       add_engine=True)
+                                       add_engine=True,
+                                       call_flags=contracts.CallFlags.WRITE_STATES)
         self._register_contract_method(self._set_max_block_system_fee,
                                        "setMaxBlockSystemFee",
                                        3000000,
                                        return_type=bool,
                                        parameter_types=[int],
                                        parameter_names=["value"],
-                                       add_engine=True)
+                                       add_engine=True,
+                                       call_flags=contracts.CallFlags.WRITE_STATES)
         self._register_contract_method(self._set_fee_per_byte,
                                        "setFeePerByte",
                                        3000000,
                                        return_type=bool,
                                        parameter_types=[int],
                                        parameter_names=["value"],
-                                       add_engine=True)
-
-    def supported_standards(self) -> List[str]:
-        """ The list of supported Neo Enhancement Proposals (NEP)."""
-        return []
+                                       add_engine=True,
+                                       call_flags=contracts.CallFlags.WRITE_STATES)
 
     def get_max_block_size(self, snapshot: storage.Snapshot) -> int:
         """
@@ -604,7 +614,7 @@ class Nep17Token(NativeContract):
                                        1000000,
                                        return_type=vm.BigInteger,
                                        add_snapshot=True,
-                                       safe_method=True)
+                                       call_flags=contracts.CallFlags.READ_STATES)
         self._register_contract_method(self.balance_of,
                                        "balanceOf",
                                        1000000,
@@ -612,7 +622,7 @@ class Nep17Token(NativeContract):
                                        parameter_types=[types.UInt160],
                                        return_type=vm.BigInteger,
                                        add_engine=True,
-                                       safe_method=True)
+                                       call_flags=contracts.CallFlags.READ_STATES)
         self._register_contract_method(self.transfer,
                                        "transfer",
                                        8000000,
@@ -620,14 +630,20 @@ class Nep17Token(NativeContract):
                                        parameter_types=[types.UInt160, types.UInt160, vm.BigInteger, vm.StackItem],
                                        return_type=bool,
                                        add_engine=True,
-                                       safe_method=False)
-        self._register_contract_method(self.symbol, "symbol", 0, return_type=str, safe_method=True)
+                                       call_flags=(contracts.CallFlags.WRITE_STATES
+                                                   | contracts.CallFlags.ALLOW_CALL
+                                                   | contracts.CallFlags.ALLOW_NOTIFY))
+        self._register_contract_method(self.symbol,
+                                       "symbol",
+                                       0,
+                                       return_type=str,
+                                       call_flags=contracts.CallFlags.READ_STATES)
         self._register_contract_method(self.on_persist,
                                        "onPersist",
                                        0,
                                        return_type=None,
                                        add_engine=True,
-                                       safe_method=False)
+                                       call_flags=contracts.CallFlags.WRITE_STATES)
 
     def symbol(self) -> str:
         """ Token symbol. """
@@ -838,10 +854,6 @@ class Nep17Token(NativeContract):
                             state,
                             amount: vm.BigInteger) -> None:
         pass
-
-    def supported_standards(self) -> List[str]:
-        """ The list of supported Neo Enhancement Proposals (NEP)."""
-        return ["NEP-17"]
 
 
 class _NeoTokenStorageState(storage.Nep5StorageState):
@@ -1194,7 +1206,7 @@ class NeoToken(Nep17Token):
                                        return_type=bool,
                                        add_snapshot=False,
                                        add_engine=True,
-                                       safe_method=False)
+                                       call_flags=contracts.CallFlags.WRITE_STATES)
 
         self._register_contract_method(self.unregister_candidate,
                                        "unregisterCandidate",
@@ -1204,7 +1216,7 @@ class NeoToken(Nep17Token):
                                        return_type=bool,
                                        add_snapshot=False,
                                        add_engine=True,
-                                       safe_method=False)
+                                       call_flags=contracts.CallFlags.WRITE_STATES)
 
         self._register_contract_method(self.vote,
                                        "vote",
@@ -1214,7 +1226,7 @@ class NeoToken(Nep17Token):
                                        return_type=bool,
                                        add_snapshot=False,
                                        add_engine=True,
-                                       safe_method=False)
+                                       call_flags=contracts.CallFlags.WRITE_STATES)
         self._register_contract_method(self._set_gas_per_block,
                                        "setGasPerBlock",
                                        5000000,
@@ -1223,7 +1235,7 @@ class NeoToken(Nep17Token):
                                        return_type=bool,
                                        add_engine=True,
                                        add_snapshot=False,
-                                       safe_method=False
+                                       call_flags=contracts.CallFlags.WRITE_STATES
                                        )
         self._register_contract_method(self.get_gas_per_block,
                                        "getGasPerBlock",
@@ -1231,7 +1243,7 @@ class NeoToken(Nep17Token):
                                        return_type=vm.BigInteger,
                                        add_snapshot=True,
                                        add_engine=False,
-                                       safe_method=True
+                                       call_flags=contracts.CallFlags.READ_STATES
                                        )
         self._register_contract_method(self.get_committee,
                                        "getCommittee",
@@ -1239,7 +1251,7 @@ class NeoToken(Nep17Token):
                                        return_type=List[cryptography.ECPoint],
                                        add_engine=False,
                                        add_snapshot=False,
-                                       safe_method=True
+                                       call_flags=contracts.CallFlags.READ_STATES
                                        )
 
         self._register_contract_method(self.get_candidates,
@@ -1248,7 +1260,7 @@ class NeoToken(Nep17Token):
                                        return_type=None,  # we manually push onto the engine
                                        add_engine=True,
                                        add_snapshot=False,
-                                       safe_method=True
+                                       call_flags=contracts.CallFlags.READ_STATES
                                        )
 
         self._register_contract_method(self.get_next_block_validators,
@@ -1257,7 +1269,7 @@ class NeoToken(Nep17Token):
                                        return_type=List[cryptography.ECPoint],
                                        add_engine=False,
                                        add_snapshot=False,
-                                       safe_method=True
+                                       call_flags=contracts.CallFlags.READ_STATES
                                        )
 
     def _initialize(self, engine: contracts.ApplicationEngine) -> None:

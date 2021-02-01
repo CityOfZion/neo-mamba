@@ -83,7 +83,7 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
                     return True
 
             if payloads.WitnessScope.CUSTOM_GROUPS in signer.scope:
-                if contracts.native.CallFlags.ALLOW_STATES not in \
+                if contracts.native.CallFlags.READ_STATES not in \
                         contracts.native.CallFlags(self.current_context.call_flags):
                     raise ValueError("Context requires callflags ALLOW_STATES")
 
@@ -93,7 +93,7 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
                     return True
             return False
 
-        if contracts.native.CallFlags.ALLOW_STATES not in \
+        if contracts.native.CallFlags.READ_STATES not in \
                 contracts.native.CallFlags(self.current_context.call_flags):
             raise ValueError("Context requires callflags ALLOW_STATES")
 

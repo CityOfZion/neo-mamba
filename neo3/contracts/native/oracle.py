@@ -91,7 +91,9 @@ class OracleContract(NativeContract):
                                        return_type=None,
                                        add_engine=True,
                                        add_snapshot=False,
-                                       safe_method=False)
+                                       call_flags=(contracts.CallFlags.WRITE_STATES
+                                                   | contracts.CallFlags.ALLOW_CALL
+                                                   | contracts.CallFlags.ALLOW_NOTIFY))
 
         self._register_contract_method(self._request,
                                        "request",
@@ -99,7 +101,7 @@ class OracleContract(NativeContract):
                                        return_type=None,
                                        add_engine=True,
                                        add_snapshot=False,
-                                       safe_method=False)
+                                       call_flags=contracts.CallFlags.WRITE_STATES | contracts.CallFlags.ALLOW_NOTIFY)
 
         self._register_contract_method(self._verify,
                                        "verify",
@@ -107,7 +109,7 @@ class OracleContract(NativeContract):
                                        return_type=bool,
                                        add_engine=True,
                                        add_snapshot=False,
-                                       safe_method=True)
+                                       call_flags=contracts.CallFlags.NONE)
 
     def _initialize(self, engine: contracts.ApplicationEngine) -> None:
         engine.snapshot.storages.put(
