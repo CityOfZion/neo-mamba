@@ -227,7 +227,7 @@ class ManifestTestCase(unittest.TestCase):
             Console.WriteLine($"{manifest.Size}");
             Console.WriteLine($"{manifest.ToJson()}");
         """
-        cls.expected_json = {"name":None,"groups":[],"supportedstandards":[],"abi":{"hash":"0x0000000000000000000000000000000000000000","methods":[],"events":[]},"permissions":[{"contract":"*","methods":"*"}],"trusts":[],"safemethods":[],"extra":None}
+        cls.expected_json = {"name":None,"groups":[],"supportedstandards":[],"abi":{"methods":[],"events":[]},"permissions":[{"contract":"*","methods":"*"}],"trusts":[],"safemethods":[],"extra":None}
 
     def test_create_default(self):
         cm = contracts.ContractManifest(types.UInt160.zero())

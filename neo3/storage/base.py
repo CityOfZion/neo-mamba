@@ -31,6 +31,18 @@ class IDBImplementation(abc.ABC):
         """ Update the existing best stored block height. """
 
     @abc.abstractmethod
+    def _internal_contractid_get(self):
+        """ Get the latest known contract id. """
+
+    @abc.abstractmethod
+    def _internal_contractid_put(self, new_id: int):
+        """ Persist a new latest known contract id. """
+
+    @abc.abstractmethod
+    def _internal_contractid_update(self, new_id: int):
+        """ Update the latest known contract id. """
+
+    @abc.abstractmethod
     def _internal_block_put(self, block: payloads.Block) -> None:
         """ Persist a block to the real backend. """
 

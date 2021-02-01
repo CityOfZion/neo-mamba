@@ -133,7 +133,7 @@ class LevelDB(storage.IDBImplementation):
         else:
             db = self._real_db
 
-        db.put(DBPrefixes.CONTRACTS + contract.script_hash().to_array(), contract.to_array())
+        db.put(DBPrefixes.CONTRACTS + contract.hash.to_array(), contract.to_array())
 
     def _internal_contract_update(self, contract: storage.ContractState, batch=None):
         self._internal_contract_put(contract, batch)
@@ -286,6 +286,7 @@ class LevelDBSnapshot(storage.Snapshot):
         self._storage_cache = LevelDBCachedStorageAccess(db, self._batch)
         self._tx_cache = LevelDBCachedTXAccess(db, self._batch)
         self._block_height_cache = LevelDBBestBlockHeightAttribute(db, self._batch)
+        self._contract_id_cache = LevelDBContractIDAttribute(db, self._batch)
 
     def commit(self) -> None:
         super(LevelDBSnapshot, self).commit()
@@ -309,6 +310,19 @@ class LevelDBBestBlockHeightAttribute(storage.AttributeCache):
 
     def _update_internal(self, value):
         self._db._internal_bestblockheight_update(value, self._batch)
+
+
+class LevelDBContractIDAttribute(storage.AttributeCache):
+    def __init__(self, db, batch):
+        super(LevelDBContractIDAttribute, self).__init__()
+        self._db = db
+        self._batch = batch
+
+    def _get_internal(self):
+        return self._db._internal_contractid_get()
+
+    def _update_internal(self, value):
+        self._db._internal_contractid_update(value, self._batch)
 
 
 class LevelDBCachedBlockAccess(storage.CachedBlockAccess):

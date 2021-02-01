@@ -17,13 +17,13 @@ class Blockchain(convenience._Singleton):
 
         sb = vm.ScriptBuilder()
         for c in [contracts.GasToken(), contracts.NeoToken()]:
-            sb.emit_contract_call(c.script_hash, "onPersist")  # type: ignore
+            sb.emit_contract_call(c.hash, "onPersist")  # type: ignore
             sb.emit(vm.OpCode.DROP)
         self.native_onpersist_script = sb.to_array()
 
         sb = vm.ScriptBuilder()
         for cc in [contracts.NeoToken(), contracts.OracleContract()]:
-            sb.emit_contract_call(cc.script_hash, "postPersist")  # type: ignore
+            sb.emit_contract_call(cc.hash, "postPersist")  # type: ignore
             sb.emit(vm.OpCode.DROP)
         self.native_postpersist_script = sb.to_array()
 

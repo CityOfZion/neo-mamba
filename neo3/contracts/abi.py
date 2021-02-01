@@ -216,26 +216,21 @@ class ContractABI(IJson):
     smart contract.
     """
     def __init__(self,
-                 contract_hash: types.UInt160,
                  methods: List[contracts.ContractMethodDescriptor],
                  events: List[contracts.ContractEventDescriptor]):
         """
-
         Args:
-            contract_hash: the result of performing RIPEMD160(SHA256(vm_script)), where vm_script is the smart contract
             byte code.
             methods: the available methods in the contract.
             events: the various events that can be broad casted by the contract.
         """
-        self.contract_hash = contract_hash
         self.methods = methods
         self.events = events
 
     def __eq__(self, other):
         if not isinstance(other, type(self)):
             return False
-        return (self.contract_hash == other.contract_hash
-                and self.methods == other.methods
+        return (self.methods == other.methods
                 and self.events == other.events)
 
     def get_method(self, name) -> Optional[contracts.ContractMethodDescriptor]:
@@ -256,7 +251,6 @@ class ContractABI(IJson):
         Convert object into JSON representation.
         """
         json = {
-            "hash": '0x' + str(self.contract_hash),
             "methods": list(map(lambda m: m.to_json(), self.methods)),
             "events": list(map(lambda e: e.to_json(), self.events))
         }
@@ -274,7 +268,6 @@ class ContractABI(IJson):
             KeyError: if the data supplied does not contain the necessary keys.
         """
         return cls(
-            contract_hash=types.UInt160.from_string(json['hash'][2:]),
             methods=list(map(lambda m: contracts.ContractMethodDescriptor.from_json(m), json['methods'])),
             events=list(map(lambda e: contracts.ContractEventDescriptor.from_json(e), json['events'])),
         )

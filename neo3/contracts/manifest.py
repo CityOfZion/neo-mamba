@@ -4,7 +4,7 @@ import binascii
 import orjson as json
 from typing import List, Callable
 from enum import IntFlag
-from neo3 import contracts
+from neo3 import contracts, storage
 from neo3.core import serialization, types, IJson, cryptography, utils
 from neo3.core.serialization import BinaryReader, BinaryWriter
 
@@ -91,22 +91,22 @@ class ContractPermission(IJson):
         return cls(contracts.ContractPermissionDescriptor(),  # with no parameters equals to Wildcard
                    WildcardContainer.create_wildcard())
 
-    def is_allowed(self, manifest: ContractManifest, method: str) -> bool:
+    def is_allowed(self, target_contract: storage.ContractState, target_method: str) -> bool:
         """
-        Return if it is allowed to call `method` on contract `manifest.contract_hash`.
+        Return if it is allowed to call `target_method` on the target contract.
 
         Args:
-            manifest: the manifest of the contract to be called.
-            method: the method of the contract to be called.
+            target_contract: the contract state of the contract to be called.
+            target_method: the method of the contract to be called.
         """
         if self.contract.is_hash:
-            if not self.contract.contract_hash == manifest.contract_hash:
+            if not self.contract.contract_hash == target_contract.hash:
                 return False
         elif self.contract.is_group:
-            results = list(map(lambda p: p.public_key != self.contract.group, manifest.groups))
+            results = list(map(lambda p: p.public_key != self.contract.group, target_contract.manifest.groups))
             if all(results):
                 return False
-        return self.methods.is_wildcard or method in self.methods
+        return self.methods.is_wildcard or target_method in self.methods
 
     def to_json(self) -> dict:
         """
@@ -248,7 +248,7 @@ class ContractManifest(serialization.ISerializable, IJson):
     https://github.com/neo-project/proposals/blob/3e492ad05d9de97abb6524fb9a73714e2cdc5461/nep-15.mediawiki
     """
     #: The maximum byte size after serialization to be considered valid a valid contract.
-    MAX_LENGTH = 4096
+    MAX_LENGTH = 0xFFFF
 
     def __init__(self, contract_hash: types.UInt160 = types.UInt160.zero()):
         """
@@ -271,15 +271,12 @@ class ContractManifest(serialization.ISerializable, IJson):
         #: For technical details of ABI, please refer to NEP-14: NeoContract ABI.
         #: https://github.com/neo-project/proposals/blob/d1f4e9e1a67d22a5755c45595121f80b0971ea64/nep-14.mediawiki
         self.abi: contracts.ContractABI = contracts.ContractABI(
-            contract_hash=contract_hash,
             events=[],
             methods=[]
         )
 
         #: Permissions describe what external contract(s) and what method(s) on these are allowed to be invoked.
         self.permissions: List[contracts.ContractPermission] = [contracts.ContractPermission.default_permissions()]
-
-        self.contract_hash: types.UInt160 = self.abi.contract_hash
 
         # Update trusts/safe_methods with outcome of https://github.com/neo-project/neo/issues/1664
         # Unfortunately we have to add this nonsense logic or we get deviating VM results.
@@ -327,7 +324,6 @@ class ContractManifest(serialization.ISerializable, IJson):
         if self.name is None:
             self.name = ""
         self.abi = contracts.ContractABI.from_json(json['abi'])
-        self.contract_hash = self.abi.contract_hash
         self.groups = list(map(lambda g: ContractGroup.from_json(g), json['groups']))
         self.supported_standards = json['supportedstandards']
         self.permissions = list(map(lambda p: ContractPermission.from_json(p), json['permissions']))
@@ -385,21 +381,8 @@ class ContractManifest(serialization.ISerializable, IJson):
             contract_hash:
 
         """
-        if not self.abi.contract_hash == contract_hash:
-            return False
         result = list(map(lambda g: g.is_valid(contract_hash), self.groups))
         return all(result)
-
-    def can_call(self, target_manifest: ContractManifest, method: str) -> bool:
-        """
-        Convenience function to check if it is allowed to call `method` on `target_manifest` from this contract.
-
-        Args:
-            target_manifest: The manifest describing the target contract.
-            method: the name of the target method.
-        """
-        results = list(map(lambda p: p.is_allowed(target_manifest, method), self.permissions))
-        return any(results)
 
     @classmethod
     def _serializable_init(cls):

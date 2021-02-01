@@ -279,6 +279,7 @@ _neo_token_contract_state = None
 
 
 class CachedContractAccess(CachedAccess):
+    # TODO: update to new values
     _gas_token_script_hash = types.UInt160.from_string("668e0c1f9d7b70a99dd9e06eadd4c784d641afbc")
     _neo_token_script_hash = types.UInt160.from_string("de5f57d430d3dece511cf975a8d37848cb9e0525")
 
@@ -298,66 +299,66 @@ class CachedContractAccess(CachedAccess):
         Raises:
             ValueError: if a duplicate item is found.
         """
-        super(CachedContractAccess, self)._put(contract.script_hash(), contract)
+        super(CachedContractAccess, self)._put(contract.hash, contract)
 
-    def get(self, script_hash: types.UInt160, read_only=False) -> storage.ContractState:
+    def get(self, hash_: types.UInt160, read_only=False) -> storage.ContractState:
         """
         Retrieve a contract.
 
         Args:
-            script_hash: contract script hash.
+            hash_: contract hash.
             read_only: set to True to safeguard against return value modifications being persisted when committing.
 
         Raises:
             KeyError: if the item is not found.
         """
         global _gas_token_contract_state, _neo_token_contract_state
-        if script_hash == self._gas_token_script_hash:
+        if hash_ == self._gas_token_script_hash:
             if _gas_token_contract_state is None:
-                _gas_token_contract_state = super(CachedContractAccess, self)._get(script_hash, read_only)
+                _gas_token_contract_state = super(CachedContractAccess, self)._get(hash_, read_only)
             return _gas_token_contract_state
-        elif script_hash == self._neo_token_script_hash:
+        elif hash_ == self._neo_token_script_hash:
             if _neo_token_contract_state is None:
-                _neo_token_contract_state = super(CachedContractAccess, self)._get(script_hash, read_only)
+                _neo_token_contract_state = super(CachedContractAccess, self)._get(hash_, read_only)
             return _neo_token_contract_state
-        return super(CachedContractAccess, self)._get(script_hash, read_only)
+        return super(CachedContractAccess, self)._get(hash_, read_only)
 
-    def try_get(self, script_hash: types.UInt160, read_only=False) -> Optional[storage.ContractState]:
+    def try_get(self, hash_: types.UInt160, read_only=False) -> Optional[storage.ContractState]:
         """
         Try to retrieve a contract.
 
         Args:
-            script_hash: contract script hash.
+            hash_: contract hash.
             read_only: set to True to safeguard against return value modifications being persisted when committing.
         """
         try:
-            return self.get(script_hash, read_only)
+            return self.get(hash_, read_only)
         except KeyError:
             return None
 
-    def delete(self, script_hash: types.UInt160) -> None:
+    def delete(self, hash_: types.UInt160) -> None:
         """
         Remove a transaction.
 
         Args:
-            script_hash: contract script hash.
+            hash_: contract hash.
         """
-        super(CachedContractAccess, self)._delete(script_hash)
+        super(CachedContractAccess, self)._delete(hash_)
 
     def all(self) -> Iterator[storage.ContractState]:
         """
         Retrieve all contracts (readonly)
         """
         contracts = []
-        for contract in self._internal_all():
-            if contract.script_hash() not in self._dictionary:
+        for contract in self._internal_all():  # type: storage.ContractState
+            if contract.hash not in self._dictionary:
                 contracts.append(contract)
 
         for k, v in self._dictionary.items():
             if v.state != TrackState.DELETED:
                 contracts.append(deepcopy(v.item))
 
-        contracts.sort(key=lambda contract: contract.script_hash().to_array())
+        contracts.sort(key=lambda contract: contract.hash.to_array())
         for contract in contracts:
             yield contract
         return None

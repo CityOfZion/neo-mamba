@@ -7,25 +7,44 @@ from neo3.contracts.interop import register
 
 
 @register("System.Contract.Create", 0, contracts.native.CallFlags.ALLOW_MODIFIED_STATES, False, [bytes, bytes])
-def contract_create(engine: contracts.ApplicationEngine, script: bytes, manifest: bytes) -> None:
-    script_len = len(script)
+def contract_create(engine: contracts.ApplicationEngine, nef_file: bytes, manifest: bytes) -> None:
+    if not isinstance(engine.script_container, payloads.Transaction):
+        raise ValueError("Cannot create contract without a Transaction script container")
+
+    nef_len = len(nef_file)
     manifest_len = len(manifest)
-    if (script_len == 0
-            or script_len > engine.MAX_CONTRACT_LENGTH
+    if (nef_len == 0
+            or nef_len > engine.MAX_CONTRACT_LENGTH
             or manifest_len == 0
             or manifest_len > contracts.ContractManifest.MAX_LENGTH):
-        raise ValueError("Invalid script or manifest length")
+        raise ValueError("Invalid NEF or manifest length")
 
-    engine.add_gas(engine.STORAGE_PRICE * (script_len + manifest_len))
+    engine.add_gas(engine.STORAGE_PRICE * (nef_len + manifest_len))
 
-    hash_ = to_script_hash(script)
+    nef = contracts.NEF.deserialize_from_bytes(nef_file)
+    sb = vm.ScriptBuilder()
+    sb.emit(vm.OpCode.ABORT)
+    sb.emit_push(engine.script_container.sender.to_array())
+    sb.emit_push(nef.script)
+    hash_ = to_script_hash(sb.to_array())
+
     contract = engine.snapshot.contracts.try_get(hash_)
     if contract is not None:
         raise ValueError("Contract already exists")
 
-    contract = storage.ContractState(script, contracts.ContractManifest.from_json(json.loads(manifest.decode())))
+    new_id = engine.snapshot.contract_id + 1
+    engine.snapshot.contract_id = new_id
+
+    contract = storage.ContractState(
+        new_id,
+        nef.script,
+        contracts.ContractManifest.from_json(json.loads(manifest.decode())),
+        0,
+        hash_
+    )
+
     if not contract.manifest.is_valid(hash_):
-        raise ValueError("Error: manifest does not match with script")
+        raise ValueError("Error: invalid manifest")
 
     engine.snapshot.contracts.put(contract)
 
@@ -42,48 +61,33 @@ def contract_create(engine: contracts.ApplicationEngine, script: bytes, manifest
 
 
 @register("System.Contract.Update", 0, contracts.native.CallFlags.ALLOW_MODIFIED_STATES, False, [bytes, bytes])
-def contract_update(engine: contracts.ApplicationEngine, script: bytes, manifest: bytes) -> None:
-    script_len = len(script)
+def contract_update(engine: contracts.ApplicationEngine, nef_file: bytes, manifest: bytes) -> None:
+    nef_len = len(nef_file)
     manifest_len = len(manifest)
 
-    engine.add_gas(engine.STORAGE_PRICE * (script_len + manifest_len))
+    engine.add_gas(engine.STORAGE_PRICE * (nef_len + manifest_len))
 
-    contract = engine.snapshot.contracts.try_get(engine.current_scripthash, read_only=True)
+    contract = engine.snapshot.contracts.try_get(engine.current_scripthash, read_only=False)
     if contract is None:
         raise ValueError("Can't find contract to update")
 
-    if script_len == 0 or script_len > engine.MAX_CONTRACT_LENGTH:
-        raise ValueError(f"Invalid script length: {script_len}")
+    if nef_len == 0:
+        raise ValueError(f"Invalid NEF length: {nef_len}")
 
-    hash_ = to_script_hash(script)
-    if hash_ == engine.current_scripthash or engine.snapshot.contracts.try_get(hash_) is not None:
-        raise ValueError("Nothing to update")
-
-    contract = storage.ContractState(script, contract.manifest)
-    contract.manifest.abi.contract_hash = hash_
-
-    engine.snapshot.contracts.put(contract)
-
-    # migrate storage to new contract hash
-    with blockchain.Blockchain().backend.get_snapshotview() as snapshot:
-        for key, value in snapshot.storages.find(engine.current_scripthash, b''):
-            # delete the old storage
-            snapshot.storages.delete(key)
-            # update key to new contract hash
-            key.contract = contract.script_hash()
-            # now persist all data under new contract key
-            snapshot.storages.put(key, value)
-        snapshot.commit()
-    engine.snapshot.contracts.delete(engine.current_scripthash)
+    nef = contracts.NEF.deserialize_from_bytes(nef_file)
+    # update contract
+    contract.script = nef.script
 
     if manifest_len == 0 or manifest_len > contracts.ContractManifest.MAX_LENGTH:
         raise ValueError(f"Invalid manifest length: {manifest_len}")
 
     contract.manifest = contracts.ContractManifest.from_json(json.loads(manifest.decode()))
-    if not contract.manifest.is_valid(contract.script_hash()):
+    if not contract.manifest.is_valid(contract.hash_):
         raise ValueError("Error: manifest does not match with script")
 
-    if len(script) != 0:
+    contract.update_counter += 1
+
+    if len(nef_file) != 0:
         method_descriptor = contract.manifest.abi.get_method("_deploy")
         if method_descriptor is not None:
             contract_call_internal_ex(engine,
@@ -128,7 +132,7 @@ def contract_call_internal(engine: contracts.ApplicationEngine,
         raise ValueError(f"[System.Contract.Call] Method '{method}' does not exist on target contract")
 
     current_contract = engine.snapshot.contracts.try_get(engine.current_scripthash, read_only=True)
-    if current_contract and not current_contract.manifest.can_call(target_contract.manifest, method):
+    if current_contract and not current_contract.can_call(target_contract, method):
         raise ValueError(f"[System.Contract.Call] Not allowed to call target method '{method}' according to manifest")
 
     contract_call_internal_ex(engine, target_contract, method_descriptor, args, flags, convention)
@@ -140,8 +144,8 @@ def contract_call_internal_ex(engine: contracts.ApplicationEngine,
                               args: vm.ArrayStackItem,
                               flags: contracts.native.CallFlags,
                               convention: contracts.ReturnTypeConvention) -> None:
-    counter = engine._invocation_counter.get(contract.script_hash(), 0)
-    engine._invocation_counter.update({contract.script_hash(): counter + 1})
+    counter = engine._invocation_counter.get(contract.hash, 0)
+    engine._invocation_counter.update({contract.hash: counter + 1})
 
     engine._get_invocation_state(engine.current_context).convention = convention
 
@@ -159,7 +163,7 @@ def contract_call_internal_ex(engine: contracts.ApplicationEngine,
         raise ValueError
     context_new.calling_script = state.script
 
-    if contracts.NativeContract.is_native(contract.script_hash()):
+    if contracts.NativeContract.is_native(contract.hash):
         context_new.evaluation_stack.push(args)
         context_new.evaluation_stack.push(vm.ByteStringStackItem(contract_method_descriptor.name.encode('utf-8')))
     else:

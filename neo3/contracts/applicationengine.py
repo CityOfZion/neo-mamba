@@ -328,7 +328,10 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
 
         super(ApplicationEngine, self).load_context(context)
 
-    def load_script_with_callflags(self, script: vm.Script, call_flags: contracts.native.CallFlags, initial_position=0):
+    def load_script_with_callflags(self,
+                                   script: vm.Script,
+                                   call_flags: contracts.native.CallFlags,
+                                   initial_position=0):
         context = super(ApplicationEngine, self).load_script(script, initial_position)
         context.call_flags = int(call_flags)
         return context
@@ -363,7 +366,7 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
             return None
 
         context = self.load_script_with_callflags(vm.Script(contract.script), flags, method_descriptor.offset)
-        if contracts.NativeContract.is_native(contract.script_hash()):
+        if contracts.NativeContract.is_native(contract.hash):
             if pack_parameters:
                 sb = vm.ScriptBuilder()
                 sb.emit(vm.OpCode.DEPTH, vm.OpCode.PACK)

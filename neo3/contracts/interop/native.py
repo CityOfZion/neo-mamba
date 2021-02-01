@@ -9,7 +9,7 @@ def deploy_native(engine: contracts.ApplicationEngine) -> None:
         raise ValueError("Can only deploy native contracts in the genenis block")
 
     for nc in contracts.NativeContract()._contracts.values():
-        engine.snapshot.contracts.put(storage.ContractState(nc.script, nc.manifest))
+        engine.snapshot.contracts.put(storage.ContractState(nc.id, nc.script, nc.manifest, 0, nc.hash))
         nc._initialize(engine)
 
 

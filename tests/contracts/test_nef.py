@@ -21,9 +21,9 @@ class NEFTestCase(unittest.TestCase):
         Console.WriteLine(nef.ToArray().ToHexString());
         Console.WriteLine(nef.Size);
         """
-        cls.expected = binascii.unhexlify(b'4e4546336e656f332d626f6120627920434f5a2e696f0000000000000000000000000000736f6d652076657273696f6e0000000000000000000000000000000000000000030102035752f2b1')
+        cls.expected = binascii.unhexlify(b'4e4546336e656f332d626f6120627920434f5a2e696f0000000000000000000000000000756e6b6e6f776e0000000000000000000000000000000000000000000000000003010203e084c94b')
         cls.expected_length = 76
-        version = "some version"
+        version = "unknown"
         compiler = "neo3-boa by COZ.io"
         cls.nef = contracts.NEF(compiler_name=compiler, version=version, script=b'\x01\x02\x03')
 
@@ -62,7 +62,7 @@ class NEFTestCase(unittest.TestCase):
         self.assertEqual(self.expected_length, len(self.nef))
 
     def test_eq(self):
-        version = "some version"
+        version = "uknown"
         compiler = "neo3-boa by COZ.io"
         nef = contracts.NEF(compiler_name=compiler, version=version, script=b'\x01\x02\x03')
         nef2 = contracts.NEF(compiler_name=compiler, version=version, script=b'\x01\x02\x03')

@@ -39,11 +39,11 @@ class DesignateContract(NativeContract):
         if snapshot.block_height + 1 < index:
             raise ValueError("[DesignateContract] Designate list index out of range")
 
-        key = storage.StorageKey(self.script_hash,
+        key = storage.StorageKey(self.hash,
                                  role.to_bytes(1, 'little') + vm.BigInteger(index).to_array()
                                  ).to_array()
-        boundary = storage.StorageKey(self.script_hash, role.to_bytes(1, 'little')) .to_array()
-        for _, storage_item in snapshot.storages.find_range(self.script_hash, key, boundary, "reverse"):
+        boundary = storage.StorageKey(self.hash, role.to_bytes(1, 'little')) .to_array()
+        for _, storage_item in snapshot.storages.find_range(self.hash, key, boundary, "reverse"):
             with serialization.BinaryReader(storage_item.value) as reader:
                 return reader.read_serializable_list(cryptography.ECPoint)
         else:
@@ -67,7 +67,7 @@ class DesignateContract(NativeContract):
 
         nodes.sort()
         index = engine.snapshot.persisting_block.index + 1
-        storage_key = storage.StorageKey(self.script_hash, role.to_bytes(1, 'little') + vm.BigInteger(index).to_array())
+        storage_key = storage.StorageKey(self.hash, role.to_bytes(1, 'little') + vm.BigInteger(index).to_array())
         with serialization.BinaryWriter() as writer:
             writer.write_serializable_list(nodes)
             storage_item = storage.StorageItem(writer.to_array())

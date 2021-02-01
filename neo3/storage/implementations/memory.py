@@ -12,6 +12,7 @@ class MemoryDB(storage.IDBImplementation):
     BLOCK_HEIGHT_MAP = 'blocksmap'
     BLOCK_BEST_HEIGHT = 'blockheight'
     CONTRACT = 'contracts'
+    CONTRACT_ID = 'contract_id'
     STORAGE = 'storages'
     TX = 'transactions'
 
@@ -24,6 +25,7 @@ class MemoryDB(storage.IDBImplementation):
             self.TX: {}
         }
         self._best_block_height = -1
+        self._contract_id = 0
 
     def get_snapshotview(self) -> MemorySnapshot:
         return MemorySnapshot(self)
@@ -41,6 +43,20 @@ class MemoryDB(storage.IDBImplementation):
 
     def _internal_bestblockheight_update(self, height: int, batch=None):
         self._internal_bestblockheight_put(height, batch)
+
+    def _internal_contractid_get(self):
+        if self._contract_id == -1:
+            raise KeyError
+        return self._contract_id
+
+    def _internal_contractid_put(self, new_id: int, batch=None):
+        if batch:
+            batch.put(self.CONTRACT_ID, new_id, new_id)
+        else:
+            self._contract_id = new_id
+
+    def _internal_contractid_update(self, new_id: int, batch=None):
+        self._internal_contractid_update(new_id, batch)
 
     def _internal_block_put(self, block: payloads.Block, batch: WriteBatch = None) -> None:
         if batch:
@@ -86,9 +102,9 @@ class MemoryDB(storage.IDBImplementation):
 
     def _internal_contract_put(self, contract: storage.ContractState, batch: WriteBatch = None) -> None:
         if batch:
-            batch.put(self.CONTRACT, contract.script_hash(), contract)
+            batch.put(self.CONTRACT, contract.hash, contract)
         else:
-            self.db[self.CONTRACT][contract.script_hash()] = contract
+            self.db[self.CONTRACT][contract.hash] = contract
 
     def _internal_contract_update(self, contract: storage.ContractState, batch: WriteBatch = None) -> None:
         self._internal_contract_put(contract, batch)
@@ -225,6 +241,7 @@ class MemorySnapshot(storage.Snapshot):
         self._storage_cache = MemoryDBCachedStorageAccess(db, self._batch)
         self._tx_cache = MemoryDBCachedTXAccess(db, self._batch)
         self._block_height_cache = MemoryBestBlockHeightAttribute(db, self._batch)
+        self._contract_id_cache = MemoryBestBlockHeightAttribute(db, self._batch)
 
     def commit(self) -> None:
         super(MemorySnapshot, self).commit()
@@ -249,6 +266,19 @@ class MemoryBestBlockHeightAttribute(storage.AttributeCache):
 
     def _update_internal(self, value):
         self._db._internal_bestblockheight_update(value, self._batch)
+
+
+class MemoryContractIDAttribute(storage.AttributeCache):
+    def __init__(self, db, batch):
+        super(MemoryContractIDAttribute, self).__init__()
+        self._db = db
+        self._batch = batch
+
+    def _get_internal(self):
+        return self._db._internal_contractid_get()
+
+    def _update_internal(self, value):
+        self._db._internal_contractid_update(value, self._batch)
 
 
 class MemoryDBCachedBlockAccess(storage.CachedBlockAccess):

@@ -111,7 +111,7 @@ class OracleContract(NativeContract):
 
     def _initialize(self, engine: contracts.ApplicationEngine) -> None:
         engine.snapshot.storages.put(
-            storage.StorageKey(self.script_hash, self._PREFIX_REQUEST_ID),
+            storage.StorageKey(self.hash, self._PREFIX_REQUEST_ID),
             storage.StorageItem(b'\x00' * 8)  # uint64
         )
 
@@ -133,7 +133,7 @@ class OracleContract(NativeContract):
              ]
         )
 
-        msgrouter.interop_notify(self.script_hash, "OracleResponse", state)
+        msgrouter.interop_notify(self.hash, "OracleResponse", state)
 
         user_data = contracts.BinarySerializer.deserialize(request.user_data,
                                                            engine.MAX_STACK_SIZE,
@@ -148,7 +148,7 @@ class OracleContract(NativeContract):
 
     def get_request(self, snapshot: storage.Snapshot, id: int) -> Optional[OracleRequest]:
         id_bytes = id.to_bytes(8, 'little', signed=False)
-        storage_key = storage.StorageKey(self.script_hash, self._PREFIX_REQUEST + id_bytes)
+        storage_key = storage.StorageKey(self.hash, self._PREFIX_REQUEST + id_bytes)
         storage_item = snapshot.storages.try_get(storage_key)
         if storage_item is None:
             return None
@@ -182,9 +182,9 @@ class OracleContract(NativeContract):
             raise ValueError
 
         engine.add_gas(gas_for_response)
-        self._gas.mint(engine, self.script_hash, vm.BigInteger(gas_for_response), False)
+        self._gas.mint(engine, self.hash, vm.BigInteger(gas_for_response), False)
 
-        sk_item_id = storage.StorageKey(self.script_hash, self._PREFIX_REQUEST_ID)
+        sk_item_id = storage.StorageKey(self.hash, self._PREFIX_REQUEST_ID)
         si_item_id = engine.snapshot.storages.get(sk_item_id, read_only=False)
         item_id = int.from_bytes(si_item_id.value, 'little', signed=False)
         si_item_id.value = item_id.to_bytes(8, 'little', signed=False)
@@ -192,7 +192,7 @@ class OracleContract(NativeContract):
         if engine.snapshot.contracts.try_get(engine.calling_scripthash) is None:
             raise ValueError
 
-        sk_request = storage.StorageKey(self.script_hash, self._PREFIX_REQUEST + si_item_id.value)
+        sk_request = storage.StorageKey(self.hash, self._PREFIX_REQUEST + si_item_id.value)
         oracle_request = OracleRequest(self._get_original_txid(engine),
                                        gas_for_response,
                                        url,
@@ -202,7 +202,7 @@ class OracleContract(NativeContract):
                                        contracts.BinarySerializer.serialize(user_data, self._MAX_USER_DATA_LEN))
         engine.snapshot.storages.put(sk_request, storage.StorageItem(oracle_request.to_array()))
 
-        sk_id_list = storage.StorageKey(self.script_hash, self._PREFIX_ID_LIST + self._get_url_hash(url))
+        sk_id_list = storage.StorageKey(self.hash, self._PREFIX_ID_LIST + self._get_url_hash(url))
         si_id_list = engine.snapshot.storages.try_get(sk_id_list, read_only=False)
         if si_id_list is None:
             si_id_list = storage.StorageItem(b'\x00')
@@ -232,7 +232,7 @@ class OracleContract(NativeContract):
              ]
         )
 
-        msgrouter.interop_notify(self.script_hash, "OracleRequest", state)
+        msgrouter.interop_notify(self.hash, "OracleRequest", state)
 
     def _verify(self, engine: contracts.ApplicationEngine) -> bool:
         tx = engine.script_container
@@ -249,7 +249,7 @@ class OracleContract(NativeContract):
                 continue
 
             # remove request from storage
-            sk_request = storage.StorageKey(self.script_hash, self._PREFIX_REQUEST + response.id.to_bytes(8, 'little'))
+            sk_request = storage.StorageKey(self.hash, self._PREFIX_REQUEST + response.id.to_bytes(8, 'little'))
             si_request = engine.snapshot.storages.try_get(sk_request)
             if si_request is None:
                 continue
@@ -257,7 +257,7 @@ class OracleContract(NativeContract):
             engine.snapshot.storages.delete(sk_request)
 
             # remove id from id list
-            sk_id_list = storage.StorageKey(self.script_hash, self._PREFIX_ID_LIST + self._get_url_hash(request.url))
+            sk_id_list = storage.StorageKey(self.hash, self._PREFIX_ID_LIST + self._get_url_hash(request.url))
             si_id_list = engine.snapshot.storages.try_get(sk_id_list, read_only=False)
             if si_id_list is None:
                 si_id_list = storage.StorageItem(b'\x00')

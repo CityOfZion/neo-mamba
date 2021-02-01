@@ -1,7 +1,7 @@
 from __future__ import annotations
 import hashlib
 import json
-from neo3.core import serialization, IClonable, utils, types, IInteroperable
+from neo3.core import serialization, IClonable, utils, types, IInteroperable, Size as s, cryptography
 from neo3.core.serialization import BinaryReader, BinaryWriter
 from neo3.contracts import manifest
 from neo3 import vm, contracts
@@ -9,19 +9,29 @@ from copy import deepcopy
 
 
 class ContractState(serialization.ISerializable, IClonable, IInteroperable):
-    def __init__(self, script: bytes, _manifest: manifest.ContractManifest):
+    def __init__(self,
+                 id_: int,
+                 script: bytes,
+                 manifest_: manifest.ContractManifest,
+                 update_counter: int,
+                 hash_: types.UInt160):
+        self.id = id_
         self.script = script
-        self.manifest = _manifest
+        self.manifest = manifest_
+        self.update_counter = update_counter
+        self.hash = hash_
 
     def __len__(self):
-        return utils.get_var_size(self.script) + len(self.manifest)
+        return (s.uint32  # id
+                + utils.get_var_size(self.script)
+                + len(self.manifest)
+                + s.uint16  # update counter
+                + utils.get_var_size(self.hash))
 
     def __eq__(self, other):
         if other is None:
             return False
         if type(self) != type(other):
-            return False
-        if self.script_hash() != other.script_hash():
             return False
         return True
 
@@ -29,34 +39,50 @@ class ContractState(serialization.ISerializable, IClonable, IInteroperable):
         return ContractState.deserialize_from_bytes(self.to_array())
 
     def serialize(self, writer: BinaryWriter) -> None:
+        writer.write_uint32(self.id)
         writer.write_var_bytes(self.script)
         writer.write_serializable(self.manifest)
+        writer.write_uint32(self.update_counter)
+        writer.write_serializable(self.hash)
 
     def deserialize(self, reader: BinaryReader) -> None:
+        self.id = reader.read_uint32()
         self.script = reader.read_var_bytes()
         self.manifest = reader.read_serializable(manifest.ContractManifest)
+        self.update_counter = reader.read_uint32()
+        self.hash = reader.read_serializable(types.UInt160)
 
     def from_replica(self, replica):
         super().from_replica(replica)
+        self.id = replica.id
         self.script = replica.script
         self.manifest = replica.manifest
+        self.update_counter = replica.update_counter
+        self.hash = replica.hash
 
     def clone(self):
-        return ContractState(self.script, deepcopy(self.manifest))
+        return ContractState(self.id, self.script, deepcopy(self.manifest), self.update_counter, self.hash)
 
-    def script_hash(self) -> types.UInt160:
-        """ Get the script hash."""
-        intermediate_data = hashlib.sha256(self.script).digest()
-        data = hashlib.new('ripemd160', intermediate_data).digest()
-        return types.UInt160(data=data)
+    # def script_hash(self) -> types.UInt160:
+    #     """ Get the script hash."""
+    #     intermediate_data = hashlib.sha256(self.script).digest()
+    #     data = hashlib.new('ripemd160', intermediate_data).digest()
+    #     return types.UInt160(data=data)
 
     def to_stack_item(self, reference_counter: vm.ReferenceCounter) -> vm.StackItem:
         array = vm.ArrayStackItem(reference_counter)
+        id_ = vm.IntegerStackItem(self.id)
         script = vm.ByteStringStackItem(self.script)
         manifest = vm.ByteStringStackItem(str(self.manifest))
-        array.append([script, manifest])
+        update_counter = vm.IntegerStackItem(self.update_counter)
+        hash_ = vm.ByteStringStackItem(self.hash.to_array())
+        array.append([id_, update_counter, hash_, script, manifest])
         return array
+
+    def can_call(self, target_contract: ContractState, target_method: str) -> bool:
+        results = list(map(lambda p: p.is_allowed(target_contract, target_method), self.manifest.permissions))
+        return any(results)
 
     @classmethod
     def _serializable_init(cls):
-        return cls(b'', manifest.ContractManifest())
+        return cls(0, b'', manifest.ContractManifest(), 0, types.UInt160.zero())

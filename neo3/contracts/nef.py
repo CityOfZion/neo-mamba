@@ -82,6 +82,8 @@ class NEF(serialization.ISerializable):
         checksum = int.from_bytes(reader.read_bytes(4), 'little')
         if checksum != self.compute_checksum():
             raise ValueError("Deserialization error - Invalid checksum")
+        else:
+            self._checksum = checksum
 
     def compute_checksum(self) -> int:
         """
