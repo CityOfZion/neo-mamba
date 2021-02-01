@@ -140,17 +140,6 @@ class Witness(serialization.ISerializable):
     def _serializable_init(cls):
         return cls(b'', b'')
 
-    @property
-    def state_dependent(self):
-        return len(self.verification_script) == 0
-
-
-class WitnessFlag(IntFlag):
-    NONE = 0
-    StateIndependent = 0b00000001
-    StateDependent = 0b00000010
-    All = StateIndependent | StateDependent
-
 
 class WitnessScope(IntFlag):
     """
