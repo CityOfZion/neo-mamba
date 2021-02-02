@@ -158,7 +158,7 @@ class ManagementContract(NativeContract):
     def _initialize(self, engine: contracts.ApplicationEngine) -> None:
         engine.snapshot.storages.add(
             self.create_key(self._PREFIX_MINIMUM_DEPLOYMENT_FEE),
-            storage.StorageItem(vm.BigInteger(100_00000000).to_array())
+            storage.StorageItem(vm.BigInteger(10_00000000).to_array())
         )
 
     def get_next_available_id(self, snapshot: storage.Snapshot) -> int:
