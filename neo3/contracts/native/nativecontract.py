@@ -56,9 +56,11 @@ class NativeContract(convenience._Singleton):
 
     def init(self):
         self._methods: Dict[str, _ContractMethodMetadata] = {}
+
         self._neo = NeoToken()
         self._gas = GasToken()
         self._policy = PolicyContract()
+
         sb = vm.ScriptBuilder()
         sb.emit_push(self.service_name)
         sb.emit_syscall(1736177434)  # "System.Contract.CallNative"
@@ -75,6 +77,8 @@ class NativeContract(convenience._Singleton):
         if self._id != NativeContract._id:
             self._contracts.update({self.service_name: self})
             self._contract_hashes.update({self._hash: self})
+
+        self.active_block_index = settings.native_contract_activation.get(self.service_name, 0)
 
         self._register_contract_method(self.on_persist,
                                        0,

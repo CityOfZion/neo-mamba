@@ -76,7 +76,8 @@ class Settings(IndexableNamespace):
                     }
                 }
             }
-        }
+        },
+        'native_contract_activation': {}
     }
 
     @classmethod
