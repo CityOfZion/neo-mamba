@@ -62,7 +62,6 @@ class OracleContract(NativeContract):
     _ORACLE_REQUEST_PRICE = 50000000
 
     _id = -4
-    _service_name = "Oracle"
 
     def init(self):
         super(OracleContract, self).init()

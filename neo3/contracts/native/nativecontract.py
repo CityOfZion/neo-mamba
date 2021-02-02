@@ -46,8 +46,6 @@ class _ContractMethodMetadata:
 class NativeContract(convenience._Singleton):
     #: unique contract identifier
     _id: int = -99999
-    #: human-readable name
-    _service_name: str = "override me"
 
     #: A dictionary of all native contracts in the system
     _contracts: Dict[str, NativeContract] = {}
@@ -62,7 +60,7 @@ class NativeContract(convenience._Singleton):
         self._gas = GasToken()
         self._policy = PolicyContract()
         sb = vm.ScriptBuilder()
-        sb.emit_push(self._service_name)
+        sb.emit_push(self.service_name)
         sb.emit_syscall(1736177434)  # "System.Contract.CallNative"
         self._script: bytes = sb.to_array()
         sender = types.UInt160.zero()  # OpCode.PUSH1
@@ -72,10 +70,10 @@ class NativeContract(convenience._Singleton):
         sb.emit_push(self._script)
         self._hash: types.UInt160 = to_script_hash(sb.to_array())
         self._manifest: contracts.ContractManifest = contracts.ContractManifest()
-        self._manifest.name = self._service_name
+        self._manifest.name = self.service_name
         self._manifest.abi.methods = []
         if self._id != NativeContract._id:
-            self._contracts.update({self._service_name: self})
+            self._contracts.update({self.service_name: self})
             self._contract_hashes.update({self._hash: self})
 
         self._register_contract_method(self.on_persist,
@@ -171,7 +169,7 @@ class NativeContract(convenience._Singleton):
     @classmethod
     def service_name(cls) -> str:
         """ The human readable name. """
-        return cls._service_name
+        return cls.__name__
 
     @property
     def script(self) -> bytes:
@@ -289,7 +287,6 @@ class NativeContract(convenience._Singleton):
 
 class PolicyContract(NativeContract):
     _id: int = -3
-    _service_name: str = "Policy"
 
     DEFAULT_EXEC_FEE_FACTOR = 30
     MAX_EXEC_FEE_FACTOR = 1000
@@ -663,7 +660,6 @@ class PolicyContract(NativeContract):
 
 class Nep17Token(NativeContract):
     _id: int = -99999
-    _service_name: str = "Nep17Token"
     _decimals: int = -1
 
     _PREFIX_ACCOUNT = b'\x14'
@@ -1177,7 +1173,6 @@ class GasBonusState(serialization.ISerializable, Sequence):
 
 class NeoToken(Nep17Token):
     _id: int = -1
-    _service_name = "NEO"
     _decimals: int = 0
 
     _PREFIX_COMMITTEE = b'\x0e'
@@ -1673,7 +1668,6 @@ class NeoToken(Nep17Token):
 
 class GasToken(Nep17Token):
     _id: int = -2
-    _service_name: str = "GAS"
     _decimals: int = 8
 
     _state = storage.Nep5StorageState
