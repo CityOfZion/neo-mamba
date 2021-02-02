@@ -6,7 +6,7 @@ from neo3.core import cryptography, types, to_script_hash
 from neo3.contracts.interop import register
 
 
-@register("System.Contract.Call", 1000000, contracts.native.CallFlags.ALLOW_CALL, False,
+@register("System.Contract.Call", 1 << 15, contracts.native.CallFlags.ALLOW_CALL, False,
           [types.UInt160, str, vm.ArrayStackItem])
 def contract_call(engine: contracts.ApplicationEngine,
                   contract_hash: types.UInt160,
@@ -15,7 +15,7 @@ def contract_call(engine: contracts.ApplicationEngine,
     contract_callex(engine, contract_hash, method, args, contracts.native.CallFlags.ALL)
 
 
-@register("System.Contract.CallEx", 1000000, contracts.native.CallFlags.ALLOW_CALL, False,
+@register("System.Contract.CallEx", 1 << 15, contracts.native.CallFlags.ALLOW_CALL, False,
           [types.UInt160, str, vm.ArrayStackItem, contracts.native.CallFlags])
 def contract_callex(engine: contracts.ApplicationEngine,
                     contract_hash: types.UInt160,
@@ -32,7 +32,7 @@ def contract_callex(engine: contracts.ApplicationEngine,
     pass
 
 
-@register("System.Contract.IsStandard", 30000, contracts.native.CallFlags.READ_STATES, True, [types.UInt160])
+@register("System.Contract.IsStandard", 1 << 10, contracts.native.CallFlags.READ_STATES, True, [types.UInt160])
 def contract_is_standard(engine: contracts.ApplicationEngine, hash_: types.UInt160) -> bool:
     contract = contracts.ManagementContract().get_contract(engine.snapshot, hash_)
     if contract:
@@ -47,12 +47,12 @@ def contract_is_standard(engine: contracts.ApplicationEngine, hash_: types.UInt1
     return False
 
 
-@register("System.Contract.GetCallFlags", 30000, contracts.native.CallFlags.NONE, False)
+@register("System.Contract.GetCallFlags", 1 << 10, contracts.native.CallFlags.NONE, False)
 def get_callflags(engine: contracts.ApplicationEngine) -> contracts.native.CallFlags:
     return contracts.native.CallFlags(engine.current_context.call_flags)
 
 
-@register("System.Contract.CreateStandardAccount", 10000, contracts.native.CallFlags.NONE, True,
+@register("System.Contract.CreateStandardAccount", 1 << 8, contracts.native.CallFlags.NONE, True,
           [cryptography.ECPoint])
 def contract_create_standard_account(engine: contracts.ApplicationEngine,
                                      public_key: cryptography.ECPoint) -> types.UInt160:

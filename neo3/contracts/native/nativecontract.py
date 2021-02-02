@@ -291,11 +291,18 @@ class PolicyContract(NativeContract):
     _id: int = -3
     _service_name: str = "Policy"
 
+    DEFAULT_EXEC_FEE_FACTOR = 30
+    MAX_EXEC_FEE_FACTOR = 1000
+    DEFAULT_STORAGE_PRICE = 100000
+    MAX_STORAGE_PRICE = 10000000
+
     _PREFIX_MAX_TRANSACTIONS_PER_BLOCK = b'\x17'
     _PREFIX_FEE_PER_BYTE = b'\x0A'
     _PREFIX_BLOCKED_ACCOUNT = b'\x0F'
     _PREFIX_MAX_BLOCK_SIZE = b'\x0C'
     _PREFIX_MAX_BLOCK_SYSTEM_FEE = b'\x11'
+    _PREFIX_EXEC_FEE_FACTOR = b'\x12'
+    _PREFIX_STORAGE_PRICE = b'\x13'
 
     def init(self):
         super(PolicyContract, self).init()
@@ -385,6 +392,38 @@ class PolicyContract(NativeContract):
                                        parameter_names=["value"],
                                        add_engine=True,
                                        call_flags=contracts.CallFlags.WRITE_STATES)
+        self._register_contract_method(self.get_exec_fee_factor,
+                                       "getExecFeeFactor",
+                                       1000000,
+                                       return_type=int,
+                                       add_engine=False,
+                                       add_snapshot=True,
+                                       call_flags=contracts.CallFlags.READ_STATES
+                                       )
+        self._register_contract_method(self.get_storage_price,
+                                       "getStoragePrice",
+                                       1000000,
+                                       return_type=int,
+                                       add_engine=False,
+                                       add_snapshot=True,
+                                       call_flags=contracts.CallFlags.READ_STATES
+                                       )
+        self._register_contract_method(self._set_exec_fee_factor,
+                                       "setExecFeeFactor",
+                                       3000000,
+                                       return_type=bool,
+                                       add_engine=True,
+                                       add_snapshot=False,
+                                       call_flags=contracts.CallFlags.WRITE_STATES
+                                       )
+        self._register_contract_method(self._set_storage_price,
+                                       "setStoragePrice",
+                                       3000000,
+                                       return_type=bool,
+                                       add_engine=True,
+                                       add_snapshot=False,
+                                       call_flags=contracts.CallFlags.WRITE_STATES
+                                       )
 
     def get_max_block_size(self, snapshot: storage.Snapshot) -> int:
         """
@@ -579,6 +618,46 @@ class PolicyContract(NativeContract):
             return False
         else:
             engine.snapshot.storages.delete(storage_key)
+        return True
+
+    def get_exec_fee_factor(self, snapshot: storage.Snapshot) -> int:
+        storage_item = snapshot.storages.try_get(self.create_key(self._PREFIX_EXEC_FEE_FACTOR))
+        if storage_item is None:
+            return self.DEFAULT_EXEC_FEE_FACTOR
+        return int(vm.BigInteger(storage_item.value))
+
+    def get_storage_price(self, snapshot: storage.Snapshot) -> int:
+        storage_item = snapshot.storages.try_get(self.create_key(self._PREFIX_STORAGE_PRICE))
+        if storage_item is None:
+            return self.DEFAULT_STORAGE_PRICE
+        return int(vm.BigInteger(storage_item.value))
+
+    def _set_exec_fee_factor(self, engine: contracts.ApplicationEngine, value: int) -> bool:
+        if value == 0 or value > self.MAX_EXEC_FEE_FACTOR:
+            raise ValueError("New exec fee value out of range")
+        if not self._check_committee(engine):
+            return False
+        storage_key = self.create_key(self._PREFIX_EXEC_FEE_FACTOR)
+        storage_item = engine.snapshot.storages.try_get(storage_key, read_only=False)
+        if storage_item is None:
+            storage_item = storage.StorageItem(vm.BigInteger(value).to_array())
+        else:
+            storage_item.value = vm.BigInteger(value).to_array()
+        engine.snapshot.storages.update(storage_key, storage_item)
+        return True
+
+    def _set_storage_price(self, engine: contracts.ApplicationEngine, value: int) -> bool:
+        if value == 0 or value > self.MAX_STORAGE_PRICE:
+            raise ValueError("New storage price value out of range")
+        if not self._check_committee(engine):
+            return False
+        storage_key = self.create_key(self._PREFIX_STORAGE_PRICE)
+        storage_item = engine.snapshot.storages.try_get(storage_key, read_only=False)
+        if storage_item is None:
+            storage_item = storage.StorageItem(vm.BigInteger(value).to_array())
+        else:
+            storage_item.value = vm.BigInteger(value).to_array()
+        engine.snapshot.storages.update(storage_key, storage_item)
         return True
 
 

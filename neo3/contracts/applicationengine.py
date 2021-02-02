@@ -22,7 +22,6 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
     #: Maximum size of the smart contract script.
     MAX_CONTRACT_LENGTH = 1024 * 1024
     #: Multiplier for determining the costs of storing the contract including its manifest.
-    STORAGE_PRICE = 100000
 
     @dataclass
     class InvocationState:
@@ -51,6 +50,8 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
         self._invocation_counter: Dict[types.UInt160, int] = {}
         #: Notifications (Notify SYSCALLs) that occured while executing the script.
         self.notifications: List[Tuple[payloads.IVerifiable, types.UInt160, bytes, vm.ArrayStackItem]] = []
+        self.exec_fee_factor = contracts.PolicyContract().get_exec_fee_factor(snapshot)
+        self.STORAGE_PRICE = contracts.PolicyContract().get_storage_price(snapshot)
 
     def checkwitness(self, hash_: types.UInt160) -> bool:
         """
@@ -215,7 +216,7 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
         if descriptor.required_call_flags not in contracts.native.CallFlags(self.current_context.call_flags):
             raise ValueError(f"Cannot call {descriptor.method} with {self.current_context.call_flags}")
 
-        self.add_gas(descriptor.price)
+        self.add_gas(descriptor.price * self.exec_fee_factor)
 
         parameters = []
         for target_type in descriptor.parameters:

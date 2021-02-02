@@ -5,11 +5,10 @@ from neo3.core import types
 from neo3.contracts.interop import register, IIterator, StorageIterator
 
 MAX_STORAGE_KEY_SIZE = 64
-STORAGE_PRICE = 100000
 MAX_STORAGE_VALUE_SIZE = 65535
 
 
-@register("System.Storage.GetContext", 400, contracts.native.CallFlags.READ_STATES, False, [])
+@register("System.Storage.GetContext", 1 << 4, contracts.native.CallFlags.READ_STATES, False, [])
 def get_context(engine: contracts.ApplicationEngine) -> storage.StorageContext:
     contract = contracts.ManagementContract().get_contract(engine.snapshot, engine.current_scripthash)
     if contract is None:
@@ -17,7 +16,7 @@ def get_context(engine: contracts.ApplicationEngine) -> storage.StorageContext:
     return storage.StorageContext(contract.id, False)
 
 
-@register("System.Storage.GetReadOnlyContext", 400, contracts.native.CallFlags.READ_STATES, False, [])
+@register("System.Storage.GetReadOnlyContext", 1 << 4, contracts.native.CallFlags.READ_STATES, False, [])
 def get_read_only_context(engine: contracts.ApplicationEngine) -> storage.StorageContext:
     contract = contracts.ManagementContract().get_contract(engine.snapshot, engine.current_scripthash)
     if contract is None:
@@ -25,7 +24,7 @@ def get_read_only_context(engine: contracts.ApplicationEngine) -> storage.Storag
     return storage.StorageContext(contract.id, True)
 
 
-@register("System.Storage.AsReadOnly", 400, contracts.native.CallFlags.READ_STATES, False, [storage.StorageContext])
+@register("System.Storage.AsReadOnly", 1 << 4, contracts.native.CallFlags.READ_STATES, False, [storage.StorageContext])
 def context_as_read_only(engine: contracts.ApplicationEngine,
                          context: storage.StorageContext) -> storage.StorageContext:
     if not context.is_read_only:
@@ -33,7 +32,7 @@ def context_as_read_only(engine: contracts.ApplicationEngine,
     return context
 
 
-@register("System.Storage.Get", 1000000, contracts.native.CallFlags.READ_STATES, False,
+@register("System.Storage.Get", 1 << 15, contracts.native.CallFlags.READ_STATES, False,
           [storage.StorageContext, bytes])
 def storage_get(engine: contracts.ApplicationEngine, context: storage.StorageContext, key: bytes) -> Optional[bytes]:
     storage_key = storage.StorageKey(context.id, key)
@@ -43,7 +42,7 @@ def storage_get(engine: contracts.ApplicationEngine, context: storage.StorageCon
     return None
 
 
-@register("System.Storage.Find", 1000000, contracts.native.CallFlags.READ_STATES, False,
+@register("System.Storage.Find", 1 << 15, contracts.native.CallFlags.READ_STATES, False,
           [storage.StorageContext, bytes])
 def storage_find(engine: contracts.ApplicationEngine, context: storage.StorageContext, key: bytes) -> IIterator:
     it = StorageIterator(engine.snapshot.storages.find(context.id, key))
@@ -80,7 +79,7 @@ def _storage_put_internal(engine: contracts.ApplicationEngine,
         else:
             new_data_len = (len(item.value) - 1) // 4 + 1 + len(value) - len(item.value)
 
-    engine.add_gas(new_data_len * STORAGE_PRICE)
+    engine.add_gas(new_data_len * engine.STORAGE_PRICE)
     item.value = value
     item.is_constant = is_constant
 
@@ -104,11 +103,12 @@ def storage_put_ex(engine: contracts.ApplicationEngine,
     _storage_put_internal(engine, context, key, value, flags)
 
 
-@register("System.Storage.Delete", 1 * STORAGE_PRICE, contracts.native.CallFlags.WRITE_STATES, False,
+@register("System.Storage.Delete", 0, contracts.native.CallFlags.WRITE_STATES, False,
           [storage.StorageContext, bytes])
 def storage_delete(engine: contracts.ApplicationEngine, context: storage.StorageContext, key: bytes) -> None:
     if context.is_read_only:
         raise ValueError("Cannot delete from read-only storage context")
+    engine.add_gas(engine.STORAGE_PRICE)
     storage_key = storage.StorageKey(context.id, key)
     item = engine.snapshot.storages.try_get(storage_key)
     if item and item.is_constant:

@@ -21,19 +21,19 @@ def stackitem_to_hash_data(engine: contracts.ApplicationEngine, stack_item: vm.S
     return value
 
 
-@register("Neo.Crypto.RIPEMD160", 1000000, contracts.native.CallFlags.NONE, True, [vm.StackItem])
+@register("Neo.Crypto.RIPEMD160", 1 << 15, contracts.native.CallFlags.NONE, True, [vm.StackItem])
 def do_ripemd160(engine: contracts.ApplicationEngine, stack_item: vm.StackItem) -> bytes:
     value = stackitem_to_hash_data(engine, stack_item)
     return hashlib.new('ripemd160', value).digest()
 
 
-@register("Neo.Crypto.SHA256", 1000000, contracts.native.CallFlags.NONE, True, [vm.StackItem])
+@register("Neo.Crypto.SHA256", 1 << 15, contracts.native.CallFlags.NONE, True, [vm.StackItem])
 def do_sha256(engine: contracts.ApplicationEngine, stack_item: vm.StackItem) -> bytes:
     value = stackitem_to_hash_data(engine, stack_item)
     return hashlib.sha256(value).digest()
 
 
-@register("Neo.Crypto.VerifyWithECDsaSecp256r1", 1000000, contracts.native.CallFlags.NONE, True,
+@register("Neo.Crypto.VerifyWithECDsaSecp256r1", 1 << 15, contracts.native.CallFlags.NONE, True,
           [vm.StackItem, bytes, bytes])
 def verify_with_ECDSA_Secp256r1(engine: contracts.ApplicationEngine,
                                 stack_item: vm.StackItem,
@@ -43,7 +43,7 @@ def verify_with_ECDSA_Secp256r1(engine: contracts.ApplicationEngine,
     return cryptography.verify_signature(value, signature, public_key, cryptography.ECCCurve.SECP256R1)
 
 
-@register("Neo.Crypto.VerifyWithECDsaSecp256k1", 1000000, contracts.native.CallFlags.NONE, True,
+@register("Neo.Crypto.VerifyWithECDsaSecp256k1", 1 << 15, contracts.native.CallFlags.NONE, True,
           [vm.StackItem, bytes, bytes])
 def verify_with_ECDSA_Secp256k1(engine: contracts.ApplicationEngine,
                                 stack_item: vm.StackItem,
@@ -69,7 +69,7 @@ def _check_multisig(engine: contracts.ApplicationEngine,
 
     message = stackitem_to_hash_data(engine, stack_item)
 
-    engine.add_gas(len_pub_keys * 1000000)
+    engine.add_gas(len_pub_keys * (1 << 15) * engine.exec_fee_factor)
 
     i = 0
     j = 0
