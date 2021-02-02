@@ -1189,7 +1189,7 @@ class NeoToken(Nep17Token):
     _NEO_HOLDER_REWARD_RATIO = 10
     _COMMITTEE_REWARD_RATIO = 10
     _VOTER_REWARD_RATIO = 80
-    _symbol = "neo"
+    _symbol = "NEO"
     _state = _NeoTokenStorageState
     _candidates_dirty = True
     _candidates: List[Tuple[cryptography.ECPoint, vm.BigInteger]] = []
@@ -1677,7 +1677,7 @@ class GasToken(Nep17Token):
     _decimals: int = 8
 
     _state = storage.Nep5StorageState
-    _symbol = "gas"
+    _symbol = "GAS"
 
     def _initialize(self, engine: contracts.ApplicationEngine) -> None:
         account = contracts.Contract.get_consensus_address(settings.standby_validators)
