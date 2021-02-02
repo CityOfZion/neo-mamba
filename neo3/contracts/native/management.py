@@ -3,7 +3,7 @@ import json
 from . import NativeContract
 from typing import Optional
 from neo3 import storage, contracts, vm
-from neo3.core import to_script_hash, types
+from neo3.core import to_script_hash, types, msgrouter
 from neo3.network import payloads
 from neo3.contracts.interop import register
 
@@ -96,7 +96,9 @@ class ManagementContract(NativeContract):
                                        return_type=None,
                                        parameter_names=["nef_file", "manifest"],
                                        parameter_types=[bytes, bytes],
-                                       call_flags=contracts.native.CallFlags.WRITE_STATES)
+                                       call_flags=(contracts.native.CallFlags.WRITE_STATES
+                                                   | contracts.CallFlags.ALLOW_NOTIFY)
+                                       )
         self._register_contract_method(self.contract_update,
                                        0,
                                        "update",
@@ -105,14 +107,18 @@ class ManagementContract(NativeContract):
                                        return_type=None,
                                        parameter_names=["nef_file", "manifest"],
                                        parameter_types=[bytes, bytes],
-                                       call_flags=contracts.native.CallFlags.WRITE_STATES)
+                                       call_flags=(contracts.native.CallFlags.WRITE_STATES
+                                                   | contracts.CallFlags.ALLOW_NOTIFY)
+                                       )
         self._register_contract_method(self.contract_destroy,
                                        1000000,
                                        "destroy",
                                        add_engine=True,
                                        add_snapshot=False,
                                        return_type=None,
-                                       call_flags=contracts.native.CallFlags.WRITE_STATES)
+                                       call_flags=(contracts.native.CallFlags.WRITE_STATES
+                                                   | contracts.CallFlags.ALLOW_NOTIFY)
+                                       )
         self._register_contract_method(self.get_minimum_deployment_fee,
                                        1000000,
                                        "getMinimumDeploymentFee",
@@ -127,6 +133,27 @@ class ManagementContract(NativeContract):
                                        add_snapshot=False,
                                        return_type=None,
                                        call_flags=contracts.native.CallFlags.WRITE_STATES)
+
+        self.manifest.abi.events = [
+            contracts.ContractEventDescriptor(
+                "Deploy",
+                parameters=[
+                    contracts.ContractParameterDefinition("Hash", contracts.ContractParameterType.HASH160)
+                ]
+            ),
+            contracts.ContractEventDescriptor(
+                "Update",
+                parameters=[
+                    contracts.ContractParameterDefinition("Hash", contracts.ContractParameterType.HASH160)
+                ]
+            ),
+            contracts.ContractEventDescriptor(
+                "Destroy",
+                parameters=[
+                    contracts.ContractParameterDefinition("Hash", contracts.ContractParameterType.HASH160)
+                ]
+            ),
+        ]
 
     def _initialize(self, engine: contracts.ApplicationEngine) -> None:
         engine.snapshot.storages.add(
@@ -210,6 +237,13 @@ class ManagementContract(NativeContract):
         if method_descriptor is not None:
             engine.call_from_native(hash_, hash_, method_descriptor.name, [vm.BooleanStackItem(False)])
 
+        msgrouter.interop_notify(self.hash,
+                                 "Deploy",
+                                 vm.ArrayStackItem(engine.reference_counter,
+                                                   vm.ByteStringStackItem(contract.hash.to_array())
+                                                   )
+                                 )
+
     def contract_update(self, engine: contracts.ApplicationEngine, nef_file: bytes, manifest: bytes) -> None:
         nef_len = len(nef_file)
         manifest_len = len(manifest)
@@ -243,6 +277,13 @@ class ManagementContract(NativeContract):
             if method_descriptor is not None:
                 engine.call_from_native(self.hash, contract.hash, method_descriptor.name, [vm.BooleanStackItem(True)])
 
+        msgrouter.interop_notify(self.hash,
+                                 "Update",
+                                 vm.ArrayStackItem(engine.reference_counter,
+                                                   vm.ByteStringStackItem(contract.hash.to_array())
+                                                   )
+                                 )
+
     def contract_destroy(self, engine: contracts.ApplicationEngine) -> None:
         hash_ = engine.current_scripthash
         key = self.create_key(self._PREFIX_CONTRACT + hash_.to_array())
@@ -255,6 +296,13 @@ class ManagementContract(NativeContract):
 
         for key, _ in engine.snapshot.storages.find(contract.id.to_bytes(4, 'little', signed=True), b''):
             engine.snapshot.storages.delete(key)
+
+        msgrouter.interop_notify(self.hash,
+                                 "Destroy",
+                                 vm.ArrayStackItem(engine.reference_counter,
+                                                   vm.ByteStringStackItem(contract.hash.to_array())
+                                                   )
+                                 )
 
     def get_minimum_deployment_fee(self, snapshot: storage.Snapshot) -> int:
         key = self.create_key(self._PREFIX_MINIMUM_DEPLOYMENT_FEE)
