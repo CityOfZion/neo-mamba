@@ -146,7 +146,7 @@ class OracleContract(NativeContract):
                                     vm.IntegerStackItem(int(response.code)),
                                     vm.ByteStringStackItem(response.result)]
 
-        engine.call_from_native(None, request.callback_contract, request.callback_method, args)
+        engine.call_from_native(self.hash, request.callback_contract, request.callback_method, args)
 
     def get_request(self, snapshot: storage.Snapshot, id: int) -> Optional[OracleRequest]:
         id_bytes = id.to_bytes(8, 'little', signed=False)

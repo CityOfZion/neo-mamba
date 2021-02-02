@@ -57,7 +57,7 @@ def contract_call_internal_ex(engine: contracts.ApplicationEngine,
     context_new = engine.load_contract(contract, contract_method_descriptor.name, flags & calling_flags)
     if context_new is None:
         raise ValueError
-    context_new.calling_script = state.script
+    context_new.calling_scripthash_bytes = state.calling_scripthash_bytes
 
     if contracts.NativeContract.is_native(contract.hash):
         context_new.evaluation_stack.push(args)
@@ -183,13 +183,7 @@ class ManagementContract(NativeContract):
         engine.push(engine._native_to_stackitem(contract, storage.ContractState))
         method_descriptor = contract.manifest.abi.get_method("_deploy")
         if method_descriptor is not None:
-            contract_call_internal_ex(engine,
-                                      contract,
-                                      method_descriptor,
-                                      vm.ArrayStackItem(engine.reference_counter, vm.BooleanStackItem(False)),
-                                      contracts.native.CallFlags.ALL,
-                                      contracts.ReturnTypeConvention.ENSURE_IS_EMPTY
-                                      )
+            engine.call_from_native(hash_, hash_, method_descriptor.name, [vm.BooleanStackItem(False)])
 
     def contract_update(self, engine: contracts.ApplicationEngine, nef_file: bytes, manifest: bytes) -> None:
         nef_len = len(nef_file)
@@ -198,10 +192,11 @@ class ManagementContract(NativeContract):
         engine.add_gas(engine.STORAGE_PRICE * (nef_len + manifest_len))
 
         key = self.create_key(self._PREFIX_CONTRACT + engine.current_scripthash.to_array())
-        contract = engine.snapshot.storages.try_get(key, read_only=False)
-        if contract is None:
+        contract_storage_item = engine.snapshot.storages.try_get(key, read_only=False)
+        if contract_storage_item is None:
             raise ValueError("Can't find contract to update")
 
+        contract = storage.ContractState.deserialize_from_bytes(contract_storage_item.value)
         if nef_len == 0:
             raise ValueError(f"Invalid NEF length: {nef_len}")
 
@@ -213,7 +208,7 @@ class ManagementContract(NativeContract):
             raise ValueError(f"Invalid manifest length: {manifest_len}")
 
         contract.manifest = contracts.ContractManifest.from_json(json.loads(manifest.decode()))
-        if not contract.manifest.is_valid(contract.hash_):
+        if not contract.manifest.is_valid(contract.hash):
             raise ValueError("Error: manifest does not match with script")
 
         contract.update_counter += 1
@@ -221,13 +216,7 @@ class ManagementContract(NativeContract):
         if len(nef_file) != 0:
             method_descriptor = contract.manifest.abi.get_method("_deploy")
             if method_descriptor is not None:
-                contract_call_internal_ex(engine,
-                                          contract,
-                                          method_descriptor,
-                                          vm.ArrayStackItem(engine.reference_counter, vm.BooleanStackItem(True)),
-                                          contracts.native.CallFlags.ALL,
-                                          contracts.ReturnTypeConvention.ENSURE_IS_EMPTY
-                                          )
+                engine.call_from_native(self.hash, contract.hash, method_descriptor.name, [vm.BooleanStackItem(True)])
 
     def contract_destroy(self, engine: contracts.ApplicationEngine) -> None:
         hash_ = engine.current_scripthash

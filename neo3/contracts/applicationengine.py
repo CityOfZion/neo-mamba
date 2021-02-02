@@ -26,8 +26,6 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
 
     @dataclass
     class InvocationState:
-        return_type: type = None  # type: ignore
-        callback: Optional[Callable] = None
         convention: contracts.ReturnTypeConvention = ReturnTypeConvention.NONE
 
     def __init__(self,
@@ -267,9 +265,9 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
         Raises:
             ValueError: if the current executing contract has not been called by another contract.
         """
-        if len(self.current_context.calling_script) == 0:
+        if len(self.current_context.calling_scripthash_bytes) == 0:
             raise ValueError("Cannot retrieve calling script_hash - current context has not yet been called")
-        return to_script_hash(self.current_context.calling_script._value)
+        return types.UInt160(self.current_context.calling_scripthash_bytes)
 
     @property
     def entry_scripthash(self) -> types.UInt160:
@@ -339,13 +337,10 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
         return context
 
     def call_from_native(self,
-                         on_complete: Optional[Callable],
+                         calling_scripthash: types.UInt160,
                          hash_: types.UInt160,
                          method: str,
                          args: List[vm.StackItem]) -> None:
-        state = self._get_invocation_state(self.current_context)
-        state.return_type = type(None)
-        state.callback = on_complete
         contract_call_descriptor = interop.InteropService.get_descriptor(
             contracts.syscall_name_to_int("contract_call_internal")
         )
@@ -357,6 +352,15 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
                                          args,
                                          contracts.CallFlags.ALL,
                                          contracts.ReturnTypeConvention.ENSURE_IS_EMPTY)
+        self.current_context.calling_scripthash_bytes = calling_scripthash.to_array()
+        self.step_out()
+
+    def step_out(self) -> None:
+        c = len(self.invocation_stack)
+        while self.state != vm.VMState.HALT and self.state != vm.VMState.FAULT and len(self.invocation_stack) >= c:
+            self._execute_next()
+        if self.state == vm.VMState.FAULT:
+            raise ValueError(f"Call from native contract failed: {self.exception_message}")
 
     def load_contract(self,
                       contract: storage.ContractState,
