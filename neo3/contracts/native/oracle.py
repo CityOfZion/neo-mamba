@@ -179,6 +179,7 @@ class OracleContract(NativeContract):
         if len(url.encode('utf-8')) > self._MAX_URL_LENGTH or \
                 len(filter.encode('utf-8')) > self._MAX_FILTER_LEN or \
                 len(callback.encode('utf-8')) > self._MAX_CALLBACK_LEN or \
+                callback.startswith("_") or \
                 gas_for_response < 10000000:
             raise ValueError
 

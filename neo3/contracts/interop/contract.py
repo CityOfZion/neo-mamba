@@ -22,6 +22,8 @@ def contract_callex(engine: contracts.ApplicationEngine,
                     method: str,
                     args: vm.ArrayStackItem,
                     flags: contracts.native.CallFlags) -> None:
+    if method.startswith("_"):
+        raise ValueError("Invalid method name")
     # unlike C# we don't need this check as Python doesn't allow creating invalid enums
     # and will thrown an exception while converting the arguments for the function
     # if ((callFlags & ~CallFlags.All) != 0)
