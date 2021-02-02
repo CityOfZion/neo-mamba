@@ -92,7 +92,7 @@ class NativeContract(convenience._Singleton):
                                        call_flags=contracts.CallFlags.WRITE_STATES)
 
     @classmethod
-    def get_contract_by_name(cls, name: str) -> NativeContract:
+    def get_contract_by_name(cls, name: str) -> Optional[NativeContract]:
         """
         Get the contract instance by its service name
         Args:
@@ -102,8 +102,6 @@ class NativeContract(convenience._Singleton):
             ValueError: if the contract is not registered on the chain and cannot be obtained
         """
         contract = cls._contracts.get(name, None)
-        if contract is None:
-            raise ValueError(f"There is no native contract with name: {name}")
         return contract
 
     def _register_contract_method(self,

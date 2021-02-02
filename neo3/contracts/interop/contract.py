@@ -59,7 +59,7 @@ def contract_create_standard_account(engine: contracts.ApplicationEngine,
     return to_script_hash(contracts.Contract.create_signature_redeemscript(public_key))
 
 
-@register("System.Contract.NativeOnPersist", 0, contracts.CallFlags.WRITE_STATES, False, [])
+@register("System.Contract.NativeOnPersist", 0, contracts.CallFlags.WRITE_STATES, False)
 def native_on_persist(engine: contracts.ApplicationEngine) -> None:
     if engine.trigger != contracts.TriggerType.ON_PERSIST:
         raise SystemError()
@@ -68,10 +68,18 @@ def native_on_persist(engine: contracts.ApplicationEngine) -> None:
             contract.on_persist(engine)
 
 
-@register("System.Contract.NativePostPersist", 0, contracts.CallFlags.WRITE_STATES, False, [])
+@register("System.Contract.NativePostPersist", 0, contracts.CallFlags.WRITE_STATES, False)
 def native_post_persist(engine: contracts.ApplicationEngine) -> None:
     if engine.trigger != contracts.TriggerType.POST_PERSIST:
         raise SystemError()
     for contract in contracts.NativeContract._contracts.values():
         if contract.active_block_index <= engine.snapshot.persisting_block.index:
             contract.post_persist(engine)
+
+
+@register("System.Contract.CallNative", 0, contracts.CallFlags.NONE, False, [str])
+def call_native(engine: contracts.ApplicationEngine, name: str) -> None:
+    contract = contracts.NativeContract.get_contract_by_name(name)
+    if contract is None or contract.active_block_index > engine.snapshot.persisting_block.index:
+        raise ValueError
+    contract.invoke(engine)
