@@ -76,6 +76,7 @@ class ManagementContract(NativeContract):
 
     _PREFIX_NEXT_AVAILABLE_ID = b'\x0F'
     _PREFIX_CONTRACT = b'\x08'
+    _PREFIX_MINIMUM_DEPLOYMENT_FEE = b'\x14'
 
     def init(self):
         super(ManagementContract, self).init()
@@ -112,6 +113,26 @@ class ManagementContract(NativeContract):
                                        add_snapshot=False,
                                        return_type=None,
                                        call_flags=contracts.native.CallFlags.WRITE_STATES)
+        self._register_contract_method(self.get_minimum_deployment_fee,
+                                       1000000,
+                                       "getMinimumDeploymentFee",
+                                       add_engine=False,
+                                       add_snapshot=True,
+                                       return_type=int,
+                                       call_flags=contracts.native.CallFlags.READ_STATES)
+        self._register_contract_method(self._set_minimum_deployment_fee,
+                                       3000000,
+                                       "setMinimumDeploymentFee",
+                                       add_engine=True,
+                                       add_snapshot=False,
+                                       return_type=None,
+                                       call_flags=contracts.native.CallFlags.WRITE_STATES)
+
+    def _initialize(self, engine: contracts.ApplicationEngine) -> None:
+        engine.snapshot.storages.add(
+            self.create_key(self._PREFIX_MINIMUM_DEPLOYMENT_FEE),
+            storage.StorageItem(vm.BigInteger(100_00000000).to_array())
+        )
 
     def get_next_available_id(self, snapshot: storage.Snapshot) -> int:
         key = self.create_key(self._PREFIX_NEXT_AVAILABLE_ID)
@@ -155,7 +176,9 @@ class ManagementContract(NativeContract):
                 or manifest_len > contracts.ContractManifest.MAX_LENGTH):
             raise ValueError("Invalid NEF or manifest length")
 
-        engine.add_gas(engine.STORAGE_PRICE * (nef_len + manifest_len))
+        engine.add_gas(
+            max(engine.STORAGE_PRICE * (nef_len + manifest_len), self.get_minimum_deployment_fee(engine.snapshot))
+        )
 
         nef = contracts.NEF.deserialize_from_bytes(nef_file)
         sb = vm.ScriptBuilder()
@@ -232,3 +255,15 @@ class ManagementContract(NativeContract):
 
         for key, _ in engine.snapshot.storages.find(contract.id.to_bytes(4, 'little', signed=True), b''):
             engine.snapshot.storages.delete(key)
+
+    def get_minimum_deployment_fee(self, snapshot: storage.Snapshot) -> int:
+        key = self.create_key(self._PREFIX_MINIMUM_DEPLOYMENT_FEE)
+        return int.from_bytes(snapshot.storages[key].value, 'little')
+
+    def _set_minimum_deployment_fee(self, engine: contracts.ApplicationEngine, value: int) -> None:
+        if value < 0:
+            raise ValueError("Can't set deployment fee to a negative value")
+        if not self._check_committee(engine):
+            raise ValueError
+        key = self.create_key(self._PREFIX_MINIMUM_DEPLOYMENT_FEE)
+        engine.snapshot.storages.update(key, storage.StorageItem(vm.BigInteger(value).to_array()))
