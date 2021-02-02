@@ -22,7 +22,7 @@ from .native import (CallFlags,
                      NeoToken,
                      GasToken,
                      OracleContract,
-                     DesignateContract,
+                     DesignationContract,
                      DesignateRole,
                      ManagementContract)
 from .checkreturn import ReturnTypeConvention
@@ -48,5 +48,5 @@ __all__ = ['ContractParameterType',
            'ApplicationEngine',
            'syscall_name_to_int',
            'ReturnTypeConvention',
-           'DesignateContract',
+           'DesignationContract',
            'DesignateRole']

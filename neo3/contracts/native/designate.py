@@ -11,12 +11,12 @@ class DesignateRole(IntEnum):
     ORACLE = 8
 
 
-class DesignateContract(NativeContract):
+class DesignationContract(NativeContract):
     _service_name = "Designation"
     _id = -5
 
     def init(self):
-        super(DesignateContract, self).init()
+        super(DesignationContract, self).init()
         self._register_contract_method(self.get_designated_by_role,
                                        "getDesignatedByRole",
                                        1000000,

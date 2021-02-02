@@ -69,9 +69,9 @@ class OracleResponse(payloads.TransactionAttribute):
         if tx.network_fee + tx.system_fee != request.gas_for_response:
             return False
         oracle_account = contracts.Contract.get_consensus_address(
-            contracts.DesignateContract().get_designated_by_role(snapshot,
-                                                                 contracts.DesignateRole.ORACLE,
-                                                                 snapshot.block_height + 1)
+            contracts.DesignationContract().get_designated_by_role(snapshot,
+                                                                   contracts.DesignateRole.ORACLE,
+                                                                   snapshot.block_height + 1)
         )
         return any(map(lambda signer: signer.account == oracle_account, tx.signers))
 

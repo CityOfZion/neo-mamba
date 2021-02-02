@@ -275,7 +275,7 @@ class OracleContract(NativeContract):
                 engine.snapshot.storages.delete(sk_id_list)
 
             # mint gas for oracle nodes
-            nodes_public_keys = contracts.DesignateContract().get_designated_by_role(
+            nodes_public_keys = contracts.DesignationContract().get_designated_by_role(
                 engine.snapshot,
                 contracts.DesignateRole.ORACLE,
                 engine.snapshot.persisting_block.index)
