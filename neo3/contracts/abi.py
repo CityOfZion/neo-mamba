@@ -157,7 +157,8 @@ class ContractMethodDescriptor(ContractEventDescriptor, IJson):
     def __init__(self, name: str,
                  offset: int,
                  parameters: List[ContractParameterDefinition],
-                 return_type: contracts.ContractParameterType):
+                 return_type: contracts.ContractParameterType,
+                 safe: bool):
         """
         Args:
             name: the human readable identifier of the method.
@@ -168,6 +169,7 @@ class ContractMethodDescriptor(ContractEventDescriptor, IJson):
         super(ContractMethodDescriptor, self).__init__(name, parameters)
         self.offset = offset
         self.return_type = return_type
+        self.safe = safe
 
     def __eq__(self, other):
         if not isinstance(other, type(self)):
@@ -175,7 +177,8 @@ class ContractMethodDescriptor(ContractEventDescriptor, IJson):
         return (self.name == other.name
                 and self.parameters == other.parameters
                 and self.offset == other.offset
-                and self.return_type == other.return_type)
+                and self.return_type == other.return_type
+                and self.safe == other.safe)
 
     def to_json(self) -> dict:
         """
@@ -184,7 +187,9 @@ class ContractMethodDescriptor(ContractEventDescriptor, IJson):
         json = super(ContractMethodDescriptor, self).to_json()
         json.update({
             "offset": self.offset,
-            "returntype": self.return_type.PascalCase()
+            "returntype": self.return_type.PascalCase(),
+            "safe": self.safe
+
         })
         return json
 
@@ -203,7 +208,8 @@ class ContractMethodDescriptor(ContractEventDescriptor, IJson):
             name=json['name'],
             offset=json['offset'],
             parameters=list(map(lambda p: contracts.ContractParameterDefinition.from_json(p), json['parameters'])),
-            return_type=contracts.ContractParameterType[json['returntype'].upper()]
+            return_type=contracts.ContractParameterType[json['returntype'].upper()],
+            safe=json['safe']
         )
 
     def __repr__(self):

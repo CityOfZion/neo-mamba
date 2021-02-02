@@ -74,7 +74,6 @@ class NativeContract(convenience._Singleton):
         self._manifest: contracts.ContractManifest = contracts.ContractManifest()
         self._manifest.name = self._service_name
         self._manifest.abi.methods = []
-        self._manifest.safe_methods = contracts.WildcardContainer()
         if self._id != NativeContract._id:
             self._contracts.update({self._service_name: self})
             self._contract_hashes.update({self._hash: self})
@@ -150,12 +149,11 @@ class NativeContract(convenience._Singleton):
                 name=func_name,
                 offset=0,
                 return_type=contracts.ContractParameterType.from_type(return_type),
-                parameters=params
+                parameters=params,
+                safe=(call_flags & ~contracts.CallFlags.READ_ONLY) == 0
             )
         )
 
-        if (call_flags & ~contracts.CallFlags.READ_ONLY) == 0:
-            self._manifest.safe_methods._data.append(func_name)
         self._methods.update({func_name: _ContractMethodMetadata(
             func, price, call_flags, add_engine, add_snapshot, return_type, parameter_types)
         })

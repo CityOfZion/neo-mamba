@@ -26,10 +26,13 @@ def contract_call_internal(engine: contracts.ApplicationEngine,
     if method_descriptor is None:
         raise ValueError(f"[System.Contract.Call] Method '{method}' does not exist on target contract")
 
-    current_contract = ManagementContract().get_contract(engine.snapshot, engine.current_scripthash)
-    if current_contract and not current_contract.can_call(target_contract, method):
-        raise ValueError(
-            f"[System.Contract.Call] Not allowed to call target method '{method}' according to manifest")
+    if method_descriptor.safe:
+        flags &= ~contracts.native.CallFlags.WRITE_STATES
+    else:
+        current_contract = ManagementContract().get_contract(engine.snapshot, engine.current_scripthash)
+        if current_contract and not current_contract.can_call(target_contract, method):
+            raise ValueError(
+                f"[System.Contract.Call] Not allowed to call target method '{method}' according to manifest")
 
     contract_call_internal_ex(engine, target_contract, method_descriptor, args, flags, convention)
 

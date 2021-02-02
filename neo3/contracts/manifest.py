@@ -281,7 +281,6 @@ class ContractManifest(serialization.ISerializable, IJson):
         # Update trusts/safe_methods with outcome of https://github.com/neo-project/neo/issues/1664
         # Unfortunately we have to add this nonsense logic or we get deviating VM results.
         self.trusts = WildcardContainer()  # for UInt160 types
-        self.safe_methods: WildcardContainer = WildcardContainer()  # for string types
         self.extra = None
 
     def __len__(self):
@@ -295,7 +294,6 @@ class ContractManifest(serialization.ISerializable, IJson):
                 and self.abi == other.abi
                 and self.permissions == other.permissions
                 and self.trusts == other.trusts
-                and self.safe_methods == other.safe_methods
                 and self.extra == other.extra)
 
     def __str__(self):
@@ -333,7 +331,6 @@ class ContractManifest(serialization.ISerializable, IJson):
             lambda t: types.UInt160.from_string(t))
 
         # converting json key/value back to default WildcardContainer format
-        self.safe_methods = WildcardContainer.from_json({'wildcard': json['safemethods']})
         self.extra = json['extra']
 
     def to_json(self) -> dict:
@@ -348,7 +345,6 @@ class ContractManifest(serialization.ISerializable, IJson):
             "abi": self.abi.to_json(),
             "permissions": list(map(lambda p: p.to_json(), self.permissions)),
             "trusts": trusts,
-            "safemethods": self.safe_methods.to_json()['wildcard'],
             "extra": self.extra
         }
         return json
