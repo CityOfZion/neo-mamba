@@ -52,6 +52,8 @@ class NativeContract(convenience._Singleton):
     #: A dictionary for accessing a native contract by its hash
     _contract_hashes: Dict[types.UInt160, NativeContract] = {}
 
+    _service_name: Optional[str] = None
+
     active_block_index = 0
 
     def init(self):
@@ -171,7 +173,10 @@ class NativeContract(convenience._Singleton):
     @classmethod
     def service_name(cls) -> str:
         """ The human readable name. """
-        return cls.__name__
+        if cls._service_name is None:
+            return cls.__name__
+        else:
+            return cls._service_name
 
     @property
     def script(self) -> bytes:

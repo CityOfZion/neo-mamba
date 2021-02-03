@@ -73,6 +73,7 @@ def contract_call_internal_ex(engine: contracts.ApplicationEngine,
 
 class ManagementContract(NativeContract):
     _id = 0
+    _service_name = "ContractManagement"
 
     _PREFIX_NEXT_AVAILABLE_ID = b'\x0F'
     _PREFIX_CONTRACT = b'\x08'
