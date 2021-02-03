@@ -6,15 +6,6 @@ from neo3.core import cryptography, types, to_script_hash
 from neo3.contracts.interop import register
 
 
-@register("System.Contract.Call", 1 << 15, contracts.native.CallFlags.ALLOW_CALL, False,
-          [types.UInt160, str, vm.ArrayStackItem])
-def contract_call(engine: contracts.ApplicationEngine,
-                  contract_hash: types.UInt160,
-                  method: str,
-                  args: vm.ArrayStackItem) -> None:
-    contract_callex(engine, contract_hash, method, args, contracts.native.CallFlags.ALL)
-
-
 @register("System.Contract.CallEx", 1 << 15, contracts.native.CallFlags.ALLOW_CALL, False,
           [types.UInt160, str, vm.ArrayStackItem, contracts.native.CallFlags])
 def contract_callex(engine: contracts.ApplicationEngine,

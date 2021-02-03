@@ -283,7 +283,7 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
         """
         Get the number of times the current contract has been called during this execute() run.
 
-        Note: the counter increases with every "System.Contract.Call" or "System.Contract.CallEx" SYSCALL
+        Note: the counter increases with every "System.Contract.CallEx" SYSCALL
 
         Raises:
             ValueError: if the contract has not been called.

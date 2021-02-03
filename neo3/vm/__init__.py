@@ -25,4 +25,4 @@ class ScriptBuilder(_ScriptBuilder):  # type: ignore
         self.emit(OpCode.NEWARRAY)
         self.emit_push(operation)
         self.emit_push(script_hash.to_array())
-        self.emit_syscall(_syscall_name_to_int("System.Contract.Call"))
+        self.emit_syscall(_syscall_name_to_int("System.Contract.CallEx"))
