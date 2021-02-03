@@ -8,7 +8,7 @@ from neo3.network import payloads
 from neo3.contracts.interop import register
 
 
-@register("contract_call_internal", 0, contracts.native.CallFlags.ALL, False, [])
+@register("contract_call_internal", 0, contracts.native.CallFlags.ALL, [])
 def contract_call_internal(engine: contracts.ApplicationEngine,
                            contract_hash: types.UInt160,
                            method: str,

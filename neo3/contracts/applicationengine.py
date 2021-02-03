@@ -316,19 +316,6 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
             elif eval_stack_len > 1:
                 raise SystemError("Invalid evaluation stack state")
 
-        if state.callback is None:
-            return
-        # TODO: implementation Action/DynamicInvoke part of callback logic
-
-    def load_context(self,
-                     context: vm.ExecutionContext,
-                     check_return_value: bool = False):
-        if check_return_value:
-            self._get_invocation_state(self.current_context).convention = \
-                contracts.ReturnTypeConvention.ENSURE_NOT_EMPTY
-
-        super(ApplicationEngine, self).load_context(context)
-
     def load_script_with_callflags(self,
                                    script: vm.Script,
                                    call_flags: contracts.native.CallFlags,
@@ -382,7 +369,7 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
         else:
             init = contract.manifest.abi.get_method("_initialize")
             if init is not None:
-                self.load_context(context.clone(init.offset), False)
+                self.load_context(context.clone(init.offset))
         return context
 
     def call_native(self, name: str) -> None:

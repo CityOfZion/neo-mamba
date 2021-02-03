@@ -11,7 +11,6 @@ class InteropDescriptor:
                  handler: Callable,
                  price: int,
                  call_flags: contracts.native.CallFlags,
-                 allow_callback: bool,
                  param_types: list = None):
         """
         Create a interoperability call descriptor.
@@ -24,7 +23,6 @@ class InteropDescriptor:
             handler: the function that will be executed when called.
             price: the price of calling the handler.
             call_flags: ExecutionContext rights needed.
-            allow_callback: can be used in callbacks.
         """
         self.method = method
         self.hash: int = int.from_bytes(hashlib.sha256(self.method.encode()).digest()[:4], 'little', signed=False)
@@ -33,7 +31,6 @@ class InteropDescriptor:
         self.has_return_value = inspect.signature(handler).return_annotation != 'None'
         self.price = price
         self.required_call_flags = call_flags
-        self.callback_allowed = allow_callback
 
 
 class InteropService:
@@ -49,7 +46,6 @@ class InteropService:
                  handler: Callable,
                  fixed_price: int,
                  call_flags: contracts.native.CallFlags,
-                 allow_callback: bool,
                  param_types: Optional[List[type]]) -> InteropDescriptor:
         """
         Register an interoperability method to the interoperability service that can be called by the Virtual Machine.
@@ -59,12 +55,11 @@ class InteropService:
             handler: the function that will be executed when called.
             fixed_price: the price for calling the handler.
             call_flags: ExecutionContext rights needed.
-            allow_callback: can be used in callbacks.
             param_types: an optional list of types the handler accepts.
 
                 Note: This is a work around until the build-in inspect module can return actual signature parameter
                 types instead of strings.
         """
-        descriptor = InteropDescriptor(method, handler, fixed_price, call_flags, allow_callback, param_types)
+        descriptor = InteropDescriptor(method, handler, fixed_price, call_flags, param_types)
         cls._methods.update({descriptor.hash: descriptor})
         return descriptor

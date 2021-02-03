@@ -168,7 +168,7 @@ class StorageIterator(IIterator):
         return vm.ByteStringStackItem(self._pair[0].key)
 
 
-@register("System.Enumerator.Create", 1 << 4, contracts.native.CallFlags.NONE, False, [vm.StackItem])
+@register("System.Enumerator.Create", 1 << 4, contracts.native.CallFlags.NONE, [vm.StackItem])
 def enumerator_create(engine: contracts.ApplicationEngine, stack_item: vm.StackItem) -> IEnumerator:
     if isinstance(stack_item, vm.ArrayStackItem):
         return ArrayWrapper(stack_item)
@@ -178,17 +178,17 @@ def enumerator_create(engine: contracts.ApplicationEngine, stack_item: vm.StackI
         raise ValueError(f"Cannot create iterator from unsupported type: {type(stack_item)}")
 
 
-@register("System.Enumerator.Next", 1 << 15, contracts.native.CallFlags.NONE, False, [IEnumerator])
+@register("System.Enumerator.Next", 1 << 15, contracts.native.CallFlags.NONE, [IEnumerator])
 def enumerator_next(engine: contracts.ApplicationEngine, it: IEnumerator) -> bool:
     return it.next()
 
 
-@register("System.Enumerator.Value", 1 << 4, contracts.native.CallFlags.NONE, False, [IEnumerator])
+@register("System.Enumerator.Value", 1 << 4, contracts.native.CallFlags.NONE, [IEnumerator])
 def enumerator_value(engine: contracts.ApplicationEngine, it: IEnumerator) -> vm.StackItem:
     return it.value()
 
 
-@register("System.Iterator.Create", 400, contracts.native.CallFlags.NONE, False, [vm.StackItem])
+@register("System.Iterator.Create", 400, contracts.native.CallFlags.NONE, [vm.StackItem])
 def iterator_create(engine: contracts.ApplicationEngine, stack_item: vm.StackItem) -> IIterator:
     if isinstance(stack_item, vm.ArrayStackItem):
         return ArrayWrapper(stack_item)
@@ -200,16 +200,16 @@ def iterator_create(engine: contracts.ApplicationEngine, stack_item: vm.StackIte
         raise ValueError(f"Cannot create iterator from unsupported type: {type(stack_item)}")
 
 
-@register("System.Iterator.Key", 1 << 4, contracts.native.CallFlags.NONE, False, [IIterator])
+@register("System.Iterator.Key", 1 << 4, contracts.native.CallFlags.NONE, [IIterator])
 def iterator_key(engine: contracts.ApplicationEngine, iterator: IIterator) -> vm.PrimitiveType:
     return iterator.key()
 
 
-@register("System.Iterator.Keys", 1 << 4, contracts.native.CallFlags.NONE, False, [IIterator])
+@register("System.Iterator.Keys", 1 << 4, contracts.native.CallFlags.NONE, [IIterator])
 def iterator_keys(engine: contracts.ApplicationEngine, iterator: IIterator) -> IEnumerator:
     return IteratorKeysWrapper(iterator)
 
 
-@register("System.Iterator.Values", 1 << 4, contracts.native.CallFlags.NONE, False, [IIterator])
+@register("System.Iterator.Values", 1 << 4, contracts.native.CallFlags.NONE, [IIterator])
 def iterator_values(engine: contracts.ApplicationEngine, iterator: IIterator) -> IEnumerator:
     return IteratorValuesWrapper(iterator)

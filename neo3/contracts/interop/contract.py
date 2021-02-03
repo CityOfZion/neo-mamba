@@ -6,7 +6,7 @@ from neo3.core import cryptography, types, to_script_hash
 from neo3.contracts.interop import register
 
 
-@register("System.Contract.CallEx", 1 << 15, contracts.native.CallFlags.ALLOW_CALL, False,
+@register("System.Contract.CallEx", 1 << 15, contracts.native.CallFlags.ALLOW_CALL,
           [types.UInt160, str, vm.ArrayStackItem, contracts.native.CallFlags])
 def contract_callex(engine: contracts.ApplicationEngine,
                     contract_hash: types.UInt160,
@@ -25,7 +25,7 @@ def contract_callex(engine: contracts.ApplicationEngine,
     pass
 
 
-@register("System.Contract.IsStandard", 1 << 10, contracts.native.CallFlags.READ_STATES, True, [types.UInt160])
+@register("System.Contract.IsStandard", 1 << 10, contracts.native.CallFlags.READ_STATES, [types.UInt160])
 def contract_is_standard(engine: contracts.ApplicationEngine, hash_: types.UInt160) -> bool:
     contract = contracts.ManagementContract().get_contract(engine.snapshot, hash_)
     if contract:
@@ -40,19 +40,18 @@ def contract_is_standard(engine: contracts.ApplicationEngine, hash_: types.UInt1
     return False
 
 
-@register("System.Contract.GetCallFlags", 1 << 10, contracts.native.CallFlags.NONE, False)
+@register("System.Contract.GetCallFlags", 1 << 10, contracts.native.CallFlags.NONE)
 def get_callflags(engine: contracts.ApplicationEngine) -> contracts.native.CallFlags:
     return contracts.native.CallFlags(engine.current_context.call_flags)
 
 
-@register("System.Contract.CreateStandardAccount", 1 << 8, contracts.native.CallFlags.NONE, True,
-          [cryptography.ECPoint])
+@register("System.Contract.CreateStandardAccount", 1 << 8, contracts.native.CallFlags.NONE, [cryptography.ECPoint])
 def contract_create_standard_account(engine: contracts.ApplicationEngine,
                                      public_key: cryptography.ECPoint) -> types.UInt160:
     return to_script_hash(contracts.Contract.create_signature_redeemscript(public_key))
 
 
-@register("System.Contract.NativeOnPersist", 0, contracts.CallFlags.WRITE_STATES, False)
+@register("System.Contract.NativeOnPersist", 0, contracts.CallFlags.WRITE_STATES)
 def native_on_persist(engine: contracts.ApplicationEngine) -> None:
     if engine.trigger != contracts.TriggerType.ON_PERSIST:
         raise SystemError()
@@ -61,7 +60,7 @@ def native_on_persist(engine: contracts.ApplicationEngine) -> None:
             contract.on_persist(engine)
 
 
-@register("System.Contract.NativePostPersist", 0, contracts.CallFlags.WRITE_STATES, False)
+@register("System.Contract.NativePostPersist", 0, contracts.CallFlags.WRITE_STATES)
 def native_post_persist(engine: contracts.ApplicationEngine) -> None:
     if engine.trigger != contracts.TriggerType.POST_PERSIST:
         raise SystemError()
@@ -70,7 +69,7 @@ def native_post_persist(engine: contracts.ApplicationEngine) -> None:
             contract.post_persist(engine)
 
 
-@register("System.Contract.CallNative", 0, contracts.CallFlags.NONE, False, [str])
+@register("System.Contract.CallNative", 0, contracts.CallFlags.NONE, [str])
 def call_native(engine: contracts.ApplicationEngine, name: str) -> None:
     contract = contracts.NativeContract.get_contract_by_name(name)
     if contract is None or contract.active_block_index > engine.snapshot.persisting_block.index:
