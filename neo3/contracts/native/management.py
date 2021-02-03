@@ -1,7 +1,7 @@
 from __future__ import annotations
 import json
 from . import NativeContract
-from typing import Optional
+from typing import Optional, List
 from neo3 import storage, contracts, vm
 from neo3.core import to_script_hash, types, msgrouter
 from neo3.network import payloads
@@ -12,9 +12,9 @@ from neo3.contracts.interop import register
 def contract_call_internal(engine: contracts.ApplicationEngine,
                            contract_hash: types.UInt160,
                            method: str,
-                           args: vm.ArrayStackItem,
                            flags: contracts.native.CallFlags,
-                           convention: contracts.ReturnTypeConvention) -> None:
+                           has_return_value: bool,
+                           args: List[vm.StackItem]) -> None:
     if method.startswith('_'):
         raise ValueError("[System.Contract.Call] Method not allowed to start with _")
 
@@ -34,19 +34,18 @@ def contract_call_internal(engine: contracts.ApplicationEngine,
             raise ValueError(
                 f"[System.Contract.Call] Not allowed to call target method '{method}' according to manifest")
 
-    contract_call_internal_ex(engine, target_contract, method_descriptor, args, flags, convention)
+    contract_call_internal_ex(engine, target_contract, method_descriptor, flags, has_return_value, args)
 
 
 def contract_call_internal_ex(engine: contracts.ApplicationEngine,
                               contract: storage.ContractState,
                               contract_method_descriptor: contracts.ContractMethodDescriptor,
-                              args: vm.ArrayStackItem,
                               flags: contracts.native.CallFlags,
-                              convention: contracts.ReturnTypeConvention) -> None:
+                              has_return_value: bool,
+                              args: List[vm.StackItem],
+                              ) -> None:
     counter = engine._invocation_counter.get(contract.hash, 0)
     engine._invocation_counter.update({contract.hash: counter + 1})
-
-    engine._get_invocation_state(engine.current_context).convention = convention
 
     state = engine.current_context
     calling_flags = state.call_flags
@@ -57,18 +56,20 @@ def contract_call_internal_ex(engine: contracts.ApplicationEngine,
         raise ValueError(
             f"[System.Contract.Call] Invalid number of contract arguments. Expected {expected_len} actual {arg_len}")  # noqa
 
-    context_new = engine.load_contract(contract, contract_method_descriptor.name, flags & calling_flags)
+    context_new = engine.load_contract(contract,
+                                       contract_method_descriptor.name,
+                                       flags & calling_flags,
+                                       has_return_value,
+                                       len(args))
     if context_new is None:
         raise ValueError
     context_new.calling_scripthash_bytes = state.calling_scripthash_bytes
 
+    for item in reversed(args):
+        context_new.evaluation_stack.push(item)
+
     if contracts.NativeContract.is_native(contract.hash):
-        context_new.evaluation_stack.push(args)
         context_new.evaluation_stack.push(vm.ByteStringStackItem(contract_method_descriptor.name.encode('utf-8')))
-    else:
-        for item in reversed(args):
-            context_new.evaluation_stack.push(item)
-        context_new.ip = contract_method_descriptor.offset
 
 
 class ManagementContract(NativeContract):

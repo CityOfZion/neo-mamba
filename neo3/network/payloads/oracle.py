@@ -30,7 +30,8 @@ class OracleResponse(payloads.TransactionAttribute):
         self.result = result
         if self._FIXED_ORACLE_SCRIPT is None:
             sb = vm.ScriptBuilder()
-            sb.emit_contract_call(contracts.OracleContract().script_hash, "finish")  # type: ignore
+
+            sb.emit_dynamic_call(contracts.OracleContract().script_hash, "finish", False)  # type: ignore
             self._FIXED_ORACLE_SCRIPT = sb.to_array()
 
     def __len__(self):

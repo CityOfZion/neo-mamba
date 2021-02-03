@@ -225,9 +225,6 @@ class NativeContract(convenience._Singleton):
 
         context = engine.current_context
         operation = context.evaluation_stack.pop().to_array().decode()
-        stack_item = context.evaluation_stack.pop()
-        args = stack_item.convert_to(vm.StackItemType.ARRAY)
-        args = cast(vm.ArrayStackItem, args)
 
         flags = contracts.native.CallFlags(context.call_flags)
         method = self._methods.get(operation, None)
@@ -246,11 +243,7 @@ class NativeContract(convenience._Singleton):
             params.append(engine.snapshot)
 
         for i in range(len(method.parameters)):
-            if i < len(args):
-                item = args[i]
-            else:
-                item = vm.NullStackItem()
-            params.append(engine._stackitem_to_native(item, method.parameters[i]))
+            params.append(engine._stackitem_to_native(context.evaluation_stack.pop(), method.parameters[i]))
 
         if len(params) > 0:
             return_value = method.handler(*params)

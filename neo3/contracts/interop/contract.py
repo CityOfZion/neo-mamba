@@ -1,24 +1,32 @@
 from __future__ import annotations
 import json
+from typing import List
 from neo3 import vm, contracts, storage, settings, blockchain
 from neo3.network import payloads
 from neo3.core import cryptography, types, to_script_hash
 from neo3.contracts.interop import register
 
 
-@register("System.Contract.CallEx", 1 << 15, contracts.native.CallFlags.ALLOW_CALL,
+@register("System.Contract.Call", 1 << 15, contracts.native.CallFlags.ALLOW_CALL,
           [types.UInt160, str, vm.ArrayStackItem, contracts.native.CallFlags])
-def contract_callex(engine: contracts.ApplicationEngine,
-                    contract_hash: types.UInt160,
-                    method: str,
-                    args: vm.ArrayStackItem,
-                    flags: contracts.native.CallFlags) -> None:
+def contract_call(engine: contracts.ApplicationEngine,
+                  contract_hash: types.UInt160,
+                  method: str,
+                  call_flags: contracts.native.CallFlags,
+                  has_return_value: bool,
+                  pcount: int) -> None:
     if method.startswith("_"):
         raise ValueError("Invalid method name")
     # unlike C# we don't need this check as Python doesn't allow creating invalid enums
     # and will thrown an exception while converting the arguments for the function
     # if ((callFlags & ~CallFlags.All) != 0)
     #     throw new ArgumentOutOfRangeException(nameof(callFlags));
+    if pcount > len(engine.current_context.evaluation_stack):
+        raise ValueError
+    args: List[vm.StackItem] = []
+    for _ in range(pcount):
+        args.append(engine.pop())
+
     # TODO: fix
     # contract_call_internal(engine,
     # contract_hash, method, args, flags, contracts.ReturnTypeConvention.ENSURE_NOT_EMPTY)

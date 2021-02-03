@@ -7,12 +7,10 @@ from typing import Any, Dict, cast, List, Tuple, Type, Optional, Callable
 import enum
 from dataclasses import dataclass
 from contextlib import suppress
-from .checkreturn import ReturnTypeConvention
 
 
 class ApplicationEngine(vm.ApplicationEngineCpp):
     _interop_calls: Dict[int, interop.InteropDescriptor] = {}
-    _invocation_states: Dict[vm.ExecutionContext, InvocationState] = {}
     #: Amount of free GAS added to the engine.
     GAS_FREE = 0
     #: Maximum length of event names for "System.Runtime.Notify" SYSCALLs.
@@ -22,10 +20,6 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
     #: Maximum size of the smart contract script.
     MAX_CONTRACT_LENGTH = 1024 * 1024
     #: Multiplier for determining the costs of storing the contract including its manifest.
-
-    @dataclass
-    class InvocationState:
-        convention: contracts.ReturnTypeConvention = ReturnTypeConvention.NONE
 
     def __init__(self,
                  trigger: contracts.TriggerType,
@@ -187,13 +181,6 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
         else:
             return vm.StackItem.from_interface(value)
 
-    def _get_invocation_state(self, context: vm.ExecutionContext) -> InvocationState:
-        state = self._invocation_states.get(context, None)
-        if state is None:
-            state = self.InvocationState()
-            self._invocation_states.update({context: state})
-        return state
-
     def on_syscall(self, method_id: int) -> Any:
         """
         Handle interop syscalls.
@@ -294,33 +281,13 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
             counter = 1
         return counter
 
-    def context_unloaded(self, context: vm.ExecutionContext):
-        # Do not use super() version, see
-        # https://pybind11.readthedocs.io/en/master/advanced/classes.html#overriding-virtual-functions-in-python
-        vm.ExecutionEngine.context_unloaded(self, context)
-        if self.uncaught_exception is not None:
-            return
-        if len(self._invocation_states) == 0:
-            return
-        try:
-            state = self._invocation_states.pop(self.current_context)
-        except KeyError:
-            return
-        if state.convention == contracts.ReturnTypeConvention.ENSURE_IS_EMPTY:
-            if len(context.evaluation_stack) != 0:
-                raise ValueError("Evaluation expected to be empty, but was not")
-        elif state.convention == contracts.ReturnTypeConvention.ENSURE_NOT_EMPTY:
-            eval_stack_len = len(context.evaluation_stack)
-            if eval_stack_len == 0:
-                self.push(vm.NullStackItem())
-            elif eval_stack_len > 1:
-                raise SystemError("Invalid evaluation stack state")
-
     def load_script_with_callflags(self,
                                    script: vm.Script,
                                    call_flags: contracts.native.CallFlags,
-                                   initial_position=0):
-        context = super(ApplicationEngine, self).load_script(script, initial_position)
+                                   initial_position: int = 0,
+                                   pcount: int = 0,
+                                   rvcount: int = -1):
+        context = super(ApplicationEngine, self).load_script(script, initial_position, pcount, rvcount)
         context.call_flags = int(call_flags)
         return context
 
@@ -337,9 +304,10 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
         contract_call_descriptor.handler(self,
                                          hash_,
                                          method,
-                                         args,
                                          contracts.CallFlags.ALL,
-                                         contracts.ReturnTypeConvention.ENSURE_IS_EMPTY)
+                                         False,
+                                         args)
+
         self.current_context.calling_scripthash_bytes = calling_scripthash.to_array()
         self.step_out()
 
@@ -354,22 +322,21 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
                       contract: storage.ContractState,
                       method: str,
                       flags: contracts.native.CallFlags,
-                      pack_parameters: bool = False) -> Optional[vm.ExecutionContext]:
+                      has_return_value: bool = False,
+                      pcount: int = 0) -> Optional[vm.ExecutionContext]:
         method_descriptor = contract.manifest.abi.get_method(method)
         if method_descriptor is None:
             return None
 
-        context = self.load_script_with_callflags(vm.Script(contract.script), flags, method_descriptor.offset)
-        if contracts.NativeContract.is_native(contract.hash):
-            if pack_parameters:
-                sb = vm.ScriptBuilder()
-                sb.emit(vm.OpCode.DEPTH, vm.OpCode.PACK)
-                sb.emit_push(method_descriptor.name)
-                self.load_script_with_callflags(vm.Script(sb.to_array()), contracts.native.CallFlags.NONE)
-        else:
-            init = contract.manifest.abi.get_method("_initialize")
-            if init is not None:
-                self.load_context(context.clone(init.offset))
+        context = self.load_script_with_callflags(vm.Script(contract.script),
+                                                  flags,
+                                                  method_descriptor.offset,
+                                                  pcount,
+                                                  int(has_return_value))
+
+        init = contract.manifest.abi.get_method("_initialize")
+        if init is not None:
+            self.load_context(context.clone(init.offset))
         return context
 
     def call_native(self, name: str) -> None:

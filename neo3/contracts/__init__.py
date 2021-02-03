@@ -25,7 +25,6 @@ from .native import (CallFlags,
                      DesignationContract,
                      DesignateRole,
                      ManagementContract)
-from .checkreturn import ReturnTypeConvention
 from .applicationengine import ApplicationEngine
 
 
@@ -47,6 +46,5 @@ __all__ = ['ContractParameterType',
            'PolicyContract',
            'ApplicationEngine',
            'syscall_name_to_int',
-           'ReturnTypeConvention',
            'DesignationContract',
            'DesignateRole']
