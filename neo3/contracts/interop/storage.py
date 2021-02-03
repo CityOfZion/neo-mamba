@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import Optional
 from neo3 import contracts, storage
 from neo3.core import types
-from neo3.contracts.interop import register, IIterator, StorageIterator
+from neo3.contracts.interop import register, IIterator, StorageIterator, StorageKeyIterator, IEnumerator
 
 MAX_STORAGE_KEY_SIZE = 64
 MAX_STORAGE_VALUE_SIZE = 65535
@@ -45,7 +45,19 @@ def storage_get(engine: contracts.ApplicationEngine, context: storage.StorageCon
 @register("System.Storage.Find", 1 << 15, contracts.native.CallFlags.READ_STATES, False,
           [storage.StorageContext, bytes])
 def storage_find(engine: contracts.ApplicationEngine, context: storage.StorageContext, key: bytes) -> IIterator:
-    it = StorageIterator(engine.snapshot.storages.find(context.id, key))
+    prefix_key = context.id.to_bytes(4, 'little', signed=True) + key
+    it = StorageIterator(engine.snapshot.storages.find(prefix_key))
+    return it
+
+
+@register("System.Storage.FindKeys", 1 << 15, contracts.native.CallFlags.READ_STATES, False)
+def storage_find_keys(engine: contracts.ApplicationEngine,
+                      context: storage.StorageContext,
+                      prefix: bytes,
+                      remove_prefix: bytes
+                      ) -> IEnumerator:
+    prefix_key = context.id.to_bytes(4, 'little', signed=True) + prefix
+    it = StorageKeyIterator(engine.snapshot.storages.find(prefix_key), remove_prefix)
     return it
 
 

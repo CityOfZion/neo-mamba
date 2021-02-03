@@ -1,6 +1,6 @@
 from __future__ import annotations
 import abc
-from typing import Union
+from typing import Union, Iterator
 from neo3 import vm, contracts
 from neo3.contracts.interop import register
 
@@ -30,6 +30,30 @@ class ConcatenatedEnumerator(IEnumerator):
 
     def value(self) -> vm.StackItem:
         return self.current.value()
+
+
+class StorageKeyIterator(IEnumerator):
+    def __init__(self, iterator: Iterator, remove_prefix: bytes):
+        self.it = iterator
+        self.remove_prefix = remove_prefix
+        self._key = None  # type: StorageKey
+        self._value = None  # type: StorageItem
+
+    def next(self) -> bool:
+        try:
+            self._key, self._value = next(self.it)
+        except StopIteration:
+            self._key = None
+            self._value = None
+            return False
+        return True
+
+    def value(self) -> vm.StackItem:
+        if self._key is None:
+            raise ValueError("Cannot call 'value' without having advanced the iterator at least once")
+        if len(self.remove_prefix) > 0:
+            return vm.ByteStringStackItem(self._key.to_array().lstrip(self.remove_prefix))
+        return vm.ByteStringStackItem(self._key.to_array())
 
 
 class IIterator(IEnumerator, abc.ABC):
