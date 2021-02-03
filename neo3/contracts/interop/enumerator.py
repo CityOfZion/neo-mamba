@@ -15,29 +15,12 @@ class IEnumerator(abc.ABC):
         """ Get the current value """
 
 
-class ConcatenatedEnumerator(IEnumerator):
-    def __init__(self, first: IEnumerator, second: IEnumerator):
-        super(ConcatenatedEnumerator, self).__init__()
-        self.first = first
-        self.second = second
-        self.current = self.first
-
-    def next(self) -> bool:
-        if self.current.next():
-            return True
-        self.current = self.second
-        return self.current.next()
-
-    def value(self) -> vm.StackItem:
-        return self.current.value()
-
-
 class StorageKeyIterator(IEnumerator):
     def __init__(self, iterator: Iterator, remove_prefix: bytes):
         self.it = iterator
         self.remove_prefix = remove_prefix
-        self._key = None  # type: StorageKey
-        self._value = None  # type: StorageItem
+        self._key = None
+        self._value = None
 
     def next(self) -> bool:
         try:
@@ -161,25 +144,6 @@ class IteratorValuesWrapper(IEnumerator):
         return self.it.value()
 
 
-class ConcatenatedIterator(IIterator):
-    def __init__(self, first: IIterator, second: IIterator):
-        self.first = first
-        self.second = second
-        self.current = self.first
-
-    def key(self) -> vm.PrimitiveType:
-        return self.current.key()
-
-    def value(self) -> vm.StackItem:
-        return self.current.value()
-
-    def next(self) -> bool:
-        if self.current.next():
-            return True
-        self.current = self.second
-        return self.current.next()
-
-
 class StorageIterator(IIterator):
     def __init__(self, generator):
         self.it = generator
@@ -224,11 +188,6 @@ def enumerator_value(engine: contracts.ApplicationEngine, it: IEnumerator) -> vm
     return it.value()
 
 
-@register("System.Enumerator.Concat", 1 << 4, contracts.native.CallFlags.NONE, False, [IEnumerator, IEnumerator])
-def enumerator_concat(engine: contracts.ApplicationEngine, first: IEnumerator, second: IEnumerator) -> IEnumerator:
-    return ConcatenatedEnumerator(first, second)
-
-
 @register("System.Iterator.Create", 400, contracts.native.CallFlags.NONE, False, [vm.StackItem])
 def iterator_create(engine: contracts.ApplicationEngine, stack_item: vm.StackItem) -> IIterator:
     if isinstance(stack_item, vm.ArrayStackItem):
@@ -254,8 +213,3 @@ def iterator_keys(engine: contracts.ApplicationEngine, iterator: IIterator) -> I
 @register("System.Iterator.Values", 1 << 4, contracts.native.CallFlags.NONE, False, [IIterator])
 def iterator_values(engine: contracts.ApplicationEngine, iterator: IIterator) -> IEnumerator:
     return IteratorValuesWrapper(iterator)
-
-
-@register("System.Iterator.Concat", 1 << 4, contracts.native.CallFlags.NONE, False, [IIterator, IIterator])
-def iterator_concat(engine: contracts.ApplicationEngine, first: IIterator, second: IIterator) -> IIterator:
-    return ConcatenatedIterator(first, second)
