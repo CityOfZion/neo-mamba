@@ -80,6 +80,6 @@ def native_post_persist(engine: contracts.ApplicationEngine) -> None:
 @register("System.Contract.CallNative", 0, contracts.CallFlags.NONE, [str])
 def call_native(engine: contracts.ApplicationEngine, name: str) -> None:
     contract = contracts.NativeContract.get_contract_by_name(name)
-    if contract is None or contract.active_block_index > engine.snapshot.persisting_block.index:
+    if contract is None or contract.active_block_index > engine.snapshot.block_height:
         raise ValueError
     contract.invoke(engine)
