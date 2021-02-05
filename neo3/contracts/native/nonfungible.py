@@ -49,7 +49,7 @@ class NFTState(IInteroperable, serialization.ISerializable):
         return cls(types.UInt160.zero(), "", "")
 
 
-class NFTAccountState(storage.Nep17StorageState):
+class NFTAccountState(storage.FungibleTokenStorageState):
     def __init__(self):
         super(NFTAccountState, self).__init__()
         self.tokens: List[bytes] = []

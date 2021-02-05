@@ -44,7 +44,7 @@ class StorageItem(serialization.ISerializable, IClonable):
         return cls(b'')
 
 
-class Nep17StorageState(IInteroperable, serialization.ISerializable):
+class FungibleTokenStorageState(IInteroperable, serialization.ISerializable):
     """
     Helper class for NEP17 balance state
 
@@ -53,7 +53,7 @@ class Nep17StorageState(IInteroperable, serialization.ISerializable):
     """
 
     def __init__(self):
-        super(Nep17StorageState, self).__init__()
+        super(FungibleTokenStorageState, self).__init__()
         self._balance: vm.BigInteger = vm.BigInteger.zero()
         self._storage_item = StorageItem(b'')
 

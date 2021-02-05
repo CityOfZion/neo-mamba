@@ -658,18 +658,18 @@ class PolicyContract(NativeContract):
         return True
 
 
-class Nep17Token(NativeContract):
+class FungibleToken(NativeContract):
     _id: int = -99999
     _decimals: int = -1
 
     _PREFIX_ACCOUNT = b'\x14'
     _PREFIX_TOTAL_SUPPLY = b'\x0B'
 
-    _state = storage.Nep17StorageState
+    _state = storage.FungibleTokenStorageState
     _symbol: str = ""
 
     def init(self):
-        super(Nep17Token, self).init()
+        super(FungibleToken, self).init()
         self.manifest.supported_standards = ["NEP-17"]
         self.manifest.abi.events = [
             contracts.ContractEventDescriptor(
@@ -930,7 +930,7 @@ class Nep17Token(NativeContract):
         pass
 
 
-class _NeoTokenStorageState(storage.Nep17StorageState):
+class _NeoTokenStorageState(storage.FungibleTokenStorageState):
     """
     Helper class for storing voting and bonus GAS state
 
@@ -1171,7 +1171,7 @@ class GasBonusState(serialization.ISerializable, Sequence):
         self._records = reader.read_serializable_list(_GasRecord)
 
 
-class NeoToken(Nep17Token):
+class NeoToken(FungibleToken):
     _id: int = -1
     _decimals: int = 0
 
@@ -1666,11 +1666,11 @@ class NeoToken(Nep17Token):
         GasToken().mint(engine, account, gas, True)
 
 
-class GasToken(Nep17Token):
+class GasToken(FungibleToken):
     _id: int = -2
     _decimals: int = 8
 
-    _state = storage.Nep17StorageState
+    _state = storage.FungibleTokenStorageState
     _symbol = "GAS"
 
     def _initialize(self, engine: contracts.ApplicationEngine) -> None:
