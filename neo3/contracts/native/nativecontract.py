@@ -665,7 +665,7 @@ class Nep17Token(NativeContract):
     _PREFIX_ACCOUNT = b'\x14'
     _PREFIX_TOTAL_SUPPLY = b'\x0B'
 
-    _state = storage.Nep5StorageState
+    _state = storage.Nep17StorageState
     _symbol: str = ""
 
     def init(self):
@@ -930,7 +930,7 @@ class Nep17Token(NativeContract):
         pass
 
 
-class _NeoTokenStorageState(storage.Nep5StorageState):
+class _NeoTokenStorageState(storage.Nep17StorageState):
     """
     Helper class for storing voting and bonus GAS state
 
@@ -1670,7 +1670,7 @@ class GasToken(Nep17Token):
     _id: int = -2
     _decimals: int = 8
 
-    _state = storage.Nep5StorageState
+    _state = storage.Nep17StorageState
     _symbol = "GAS"
 
     def _initialize(self, engine: contracts.ApplicationEngine) -> None:

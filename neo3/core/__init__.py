@@ -1,6 +1,7 @@
 from __future__ import annotations
 import abc
 import hashlib
+from typing import TypeVar, Type
 from neo3 import vm
 from enum import IntEnum
 from events import Events  # type: ignore
@@ -45,14 +46,18 @@ class IJson(abc.ABC):
         """ create object from JSON """
 
 
+T = TypeVar('T', bound='IInteroperable')
+
+
 class IInteroperable(abc.ABC):
     @abc.abstractmethod
     def to_stack_item(self, reference_counter: vm.ReferenceCounter) -> vm.StackItem:
         """ Convert object to a virtual machine stack item"""
 
-    def from_stack_item(self, stack_item: vm.StackItem) -> None:
+    @classmethod
+    def from_stack_item(cls: Type[T], stack_item: vm.StackItem) -> T:
         """ Convert a stack item into an object"""
-        raise ValueError(f"{self.__class__.__name__} cannot be converted to a stack item")
+        raise ValueError(f"{cls.__class__.__name__} cannot be converted to a stack item")
 
 
 def to_script_hash(data: bytes) -> types.UInt160:

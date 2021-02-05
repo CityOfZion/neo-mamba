@@ -21,6 +21,12 @@ class StorageKey(serialization.ISerializable):
     def __repr__(self):
         return f"<{self.__class__.__name__} at {hex(id(self))}> [{self.id}] {self.key}"
 
+    def __add__(self, other):
+        if type(other) in [bytes, bytearray]:
+            self.key += other
+        else:
+            return NotImplemented
+
     def serialize(self, writer: serialization.BinaryWriter) -> None:
         writer.write_int32(self.id)
         writer.write_var_bytes(self.key)

@@ -44,16 +44,16 @@ class StorageItem(serialization.ISerializable, IClonable):
         return cls(b'')
 
 
-class Nep5StorageState(IInteroperable, serialization.ISerializable):
+class Nep17StorageState(IInteroperable, serialization.ISerializable):
     """
-    Helper class for NEP5 balance state
+    Helper class for NEP17 balance state
 
     Use the from_storage() method if you're working with a DB snapshot and intend to modify the state values.
     It will ensure that the cache is updated automatically.
     """
 
     def __init__(self):
-        super(Nep5StorageState, self).__init__()
+        super(Nep17StorageState, self).__init__()
         self._balance: vm.BigInteger = vm.BigInteger.zero()
         self._storage_item = StorageItem(b'')
 
@@ -88,6 +88,9 @@ class Nep5StorageState(IInteroperable, serialization.ISerializable):
         s.append(vm.IntegerStackItem(self._balance))
         return s
 
-    def from_stack_item(self, stack_item: vm.StackItem) -> None:
+    @classmethod
+    def from_stack_item(cls, stack_item: vm.StackItem):
         si = cast(vm.StructStackItem, stack_item)
-        self._balance = si[0].to_biginteger()
+        c = cls()
+        c._balance = si[0].to_biginteger()
+        return c
