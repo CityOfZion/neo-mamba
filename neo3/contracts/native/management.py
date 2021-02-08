@@ -181,7 +181,7 @@ class ManagementContract(NativeContract):
                 continue
             storage_key = self.create_key(self._PREFIX_CONTRACT + contract.hash.to_array())
             storage_item = storage.StorageItem(
-                storage.ContractState(contract.id, contract.script, contract.manifest, 0, contract.hash).to_array()
+                storage.ContractState(contract.id, contract.nef, contract.manifest, 0, contract.hash).to_array()
             )
             engine.snapshot.storages.put(storage_key, storage_item)
             contract._initialize(engine)
@@ -223,7 +223,7 @@ class ManagementContract(NativeContract):
 
         contract = storage.ContractState(
             self.get_next_available_id(engine.snapshot),
-            nef.script,
+            nef,
             contracts.ContractManifest.from_json(json.loads(manifest.decode())),
             0,
             hash_
@@ -261,9 +261,8 @@ class ManagementContract(NativeContract):
         if nef_len == 0:
             raise ValueError(f"Invalid NEF length: {nef_len}")
 
-        nef = contracts.NEF.deserialize_from_bytes(nef_file)
         # update contract
-        contract.script = nef.script
+        contract.nef = contracts.NEF.deserialize_from_bytes(nef_file)
 
         if manifest_len == 0 or manifest_len > contracts.ContractManifest.MAX_LENGTH:
             raise ValueError(f"Invalid manifest length: {manifest_len}")

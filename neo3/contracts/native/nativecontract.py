@@ -53,6 +53,7 @@ class NativeContract(convenience._Singleton):
         sb.emit_push(self.__class__.service_name())
         sb.emit_syscall(1736177434)  # "System.Contract.CallNative"
         self._script: bytes = sb.to_array()
+        self.nef = contracts.NEF("ScriptBuilder", "3.0", self._script)
         sender = types.UInt160.zero()  # OpCode.PUSH1
         sb = vm.ScriptBuilder()
         sb.emit(vm.OpCode.ABORT)

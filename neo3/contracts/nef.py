@@ -31,9 +31,9 @@ class NEF(serialization.ISerializable):
             self.version = version[:32] + bytearray(32 - len(version)).decode('utf-8')
         self.script = script if script else b''
         self._checksum = 0
+        self.tokens = [] if tokens is None else tokens
         # this is intentional, because NEO computes the initial checksum by serializing itself while checksum is 0
         self._checksum = self.compute_checksum()
-        self.tokens = [] if tokens is None else tokens
 
     def __len__(self):
         return (
@@ -122,31 +122,31 @@ class MethodToken(serialization.ISerializable):
                  hash: types.UInt160,
                  method: str,
                  parameters_count: int,
-                 rvcount: int,
+                 has_return_value: bool,
                  call_flags: contracts.CallFlags):
         self.hash = hash
         self.method = method
         self.parameters_count = parameters_count
-        self.rvcount = rvcount
+        self.has_return_value = has_return_value
         self.call_flags = call_flags
 
     def __len__(self):
-        return s.uint160 + utils.get_var_size(self.method) + s.uint16 + s.uint16 + s.uint8
+        return s.uint160 + utils.get_var_size(self.method) + s.uint16 + s.uint8 + s.uint8
 
     def serialize(self, writer: serialization.BinaryWriter) -> None:
         writer.write_serializable(self.hash)
         writer.write_var_string(self.method)
         writer.write_uint16(self.parameters_count)
-        writer.write_uint16(self.rvcount)
+        writer.write_uint8(self.has_return_value)
         writer.write_uint8(self.call_flags.value)
 
     def deserialize(self, reader: serialization.BinaryReader) -> None:
         self.hash = reader.read_serializable(types.UInt160)
         self.method = reader.read_var_string(32)
         self.parameters_count = reader.read_uint16()
-        self.rvcount = reader.read_uint16()
+        self.has_return_value = bool(reader.read_uint8())
         self.call_flags = contracts.CallFlags(reader.read_uint8())
 
     @classmethod
     def _serializable_init(cls):
-        return cls(types.UInt160.zero(), "", 0, 0, contracts.CallFlags.NONE)
+        return cls(types.UInt160.zero(), "", 0, False, contracts.CallFlags.NONE)
