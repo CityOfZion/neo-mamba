@@ -27,10 +27,7 @@ def contract_call(engine: contracts.ApplicationEngine,
     for _ in range(pcount):
         args.append(engine.pop())
 
-    # TODO: fix
-    # contract_call_internal(engine,
-    # contract_hash, method, args, flags, contracts.ReturnTypeConvention.ENSURE_NOT_EMPTY)
-    pass
+    engine._contract_call_internal(contract_hash, method, call_flags, has_return_value, args)
 
 
 @register("System.Contract.IsStandard", 1 << 10, contracts.CallFlags.READ_STATES, [types.UInt160])

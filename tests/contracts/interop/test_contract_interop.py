@@ -3,7 +3,6 @@ import json
 from neo3 import vm, contracts, storage
 from neo3.network import payloads
 from neo3.contracts import syscall_name_to_int
-from neo3.contracts.interop.contract import contract_call_internal
 from neo3.core import to_script_hash, types, cryptography
 from .utils import test_engine, test_block, test_tx
 from copy import deepcopy
