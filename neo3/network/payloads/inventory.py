@@ -12,6 +12,7 @@ class InventoryType(IntEnum):
     TX = 0x2b
     BLOCK = 0x2c
     CONSENSUS = 0x2d
+    EXTENSIBLE = 0x2e
 
 
 class InventoryPayload(serialization.ISerializable):
