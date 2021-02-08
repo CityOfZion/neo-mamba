@@ -18,7 +18,7 @@ def _is_traceable_block(snapshot: storage.Snapshot, index: int):
     return index + MAX_TRACABLE_BLOCKS > snapshot.block_height
 
 
-@register("System.Blockchain.GetHeight", 1 << 4, contracts.native.CallFlags.READ_STATES)
+@register("System.Blockchain.GetHeight", 1 << 4, contracts.CallFlags.READ_STATES)
 def blockchain_get_height(engine: contracts.ApplicationEngine) -> int:
     return engine.snapshot.block_height
 
@@ -40,12 +40,12 @@ def _try_get_block(engine: contracts.ApplicationEngine, data: bytes) -> Optional
     return block
 
 
-@register("System.Blockchain.GetBlock", 1 << 16, contracts.native.CallFlags.READ_STATES, [bytes])
+@register("System.Blockchain.GetBlock", 1 << 16, contracts.CallFlags.READ_STATES, [bytes])
 def blockchain_get_block(engine: contracts.ApplicationEngine, data: bytes) -> Optional[payloads.Block]:
     return _try_get_block(engine, data)
 
 
-@register("System.Blockchain.GetTransactionFromBlock", 1 << 15, contracts.native.CallFlags.READ_STATES, [bytes, int])
+@register("System.Blockchain.GetTransactionFromBlock", 1 << 15, contracts.CallFlags.READ_STATES, [bytes, int])
 def blockchain_get_transaction_from_block(engine: contracts.ApplicationEngine,
                                           data: bytes,
                                           tx_index: int) -> Optional[payloads.Transaction]:
@@ -60,7 +60,7 @@ def blockchain_get_transaction_from_block(engine: contracts.ApplicationEngine,
         return block.transactions[tx_index]
 
 
-@register("System.Blockchain.GetTransaction", 1 << 15, contracts.native.CallFlags.READ_STATES, [types.UInt256])
+@register("System.Blockchain.GetTransaction", 1 << 15, contracts.CallFlags.READ_STATES, [types.UInt256])
 def blockchain_get_transaction(engine: contracts.ApplicationEngine,
                                tx_hash: types.UInt256) -> Optional[payloads.Transaction]:
     tx = engine.snapshot.transactions.try_get(tx_hash)
@@ -69,7 +69,7 @@ def blockchain_get_transaction(engine: contracts.ApplicationEngine,
     return tx
 
 
-@register("System.Blockchain.GetTransactionHeight", 1 << 15, contracts.native.CallFlags.READ_STATES, [types.UInt256])
+@register("System.Blockchain.GetTransactionHeight", 1 << 15, contracts.CallFlags.READ_STATES, [types.UInt256])
 def blockchain_get_transaction_height(engine: contracts.ApplicationEngine, tx_hash: types.UInt256) -> int:
     tx = engine.snapshot.transactions.try_get(tx_hash)
     if tx and not _is_traceable_block(engine.snapshot, tx.block_height):

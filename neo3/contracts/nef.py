@@ -123,7 +123,7 @@ class MethodToken(serialization.ISerializable):
                  method: str,
                  parameters_count: int,
                  rvcount: int,
-                 call_flags: contracts.native.CallFlags):
+                 call_flags: contracts.CallFlags):
         self.hash = hash
         self.method = method
         self.parameters_count = parameters_count
@@ -145,8 +145,8 @@ class MethodToken(serialization.ISerializable):
         self.method = reader.read_var_string(32)
         self.parameters_count = reader.read_uint16()
         self.rvcount = reader.read_uint16()
-        self.call_flags = contracts.native.CallFlags(reader.read_uint8())
+        self.call_flags = contracts.CallFlags(reader.read_uint8())
 
     @classmethod
     def _serializable_init(cls):
-        return cls(types.UInt160.zero(), "", 0, 0, contracts.native.CallFlags.NONE)
+        return cls(types.UInt160.zero(), "", 0, 0, contracts.CallFlags.NONE)

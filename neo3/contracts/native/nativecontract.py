@@ -7,20 +7,6 @@ from enum import IntFlag
 from collections import Sequence
 
 
-class CallFlags(IntFlag):
-    """
-    Describes the required call permissions for contract functions.
-    """
-    NONE = 0,
-    READ_STATES = 0x1
-    WRITE_STATES = 0x02
-    ALLOW_CALL = 0x04
-    ALLOW_NOTIFY = 0x08
-    STATES = READ_STATES | WRITE_STATES
-    READ_ONLY = READ_STATES | ALLOW_CALL
-    ALL = STATES | ALLOW_CALL | ALLOW_NOTIFY
-
-
 class _ContractMethodMetadata:
     """
     Internal helper class containing meta data that helps in translating VM Stack Items to the arguments types of the
@@ -29,7 +15,7 @@ class _ContractMethodMetadata:
 
     def __init__(self, handler: Callable[..., None],
                  price: int,
-                 required_flags: CallFlags,
+                 required_flags: contracts.CallFlags,
                  add_engine: bool,
                  add_snapshot: bool,
                  return_type,
@@ -64,7 +50,7 @@ class NativeContract(convenience._Singleton):
         self._policy = PolicyContract()
 
         sb = vm.ScriptBuilder()
-        sb.emit_push(self.service_name)
+        sb.emit_push(self.__class__.service_name())
         sb.emit_syscall(1736177434)  # "System.Contract.CallNative"
         self._script: bytes = sb.to_array()
         sender = types.UInt160.zero()  # OpCode.PUSH1
@@ -119,7 +105,7 @@ class NativeContract(convenience._Singleton):
                                   parameter_names: List[str] = None,
                                   add_engine: bool = False,
                                   add_snapshot: bool = False,
-                                  call_flags: contracts.native.CallFlags = contracts.native.CallFlags.NONE
+                                  call_flags: contracts.CallFlags = contracts.CallFlags.NONE
                                   ) -> None:
         """
         Registers a native contract method into the manifest
@@ -226,7 +212,7 @@ class NativeContract(convenience._Singleton):
         context = engine.current_context
         operation = context.evaluation_stack.pop().to_array().decode()
 
-        flags = contracts.native.CallFlags(context.call_flags)
+        flags = contracts.CallFlags(context.call_flags)
         method = self._methods.get(operation, None)
         if method is None:
             raise ValueError(f"Method \"{operation}\" does not exist on contract {self.service_name()}")

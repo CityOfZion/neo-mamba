@@ -109,7 +109,7 @@ class NonFungibleToken(NativeContract):
                                        return_type=vm.BigInteger,
                                        add_engine=False,
                                        add_snapshot=True,
-                                       call_flags=contracts.native.CallFlags.READ_STATES)
+                                       call_flags=contracts.CallFlags.READ_STATES)
 
         self._register_contract_method(self.owner_of,
                                        "ownerOf",
@@ -117,7 +117,7 @@ class NonFungibleToken(NativeContract):
                                        return_type=types.UInt160,
                                        add_engine=False,
                                        add_snapshot=True,
-                                       call_flags=contracts.native.CallFlags.READ_STATES)
+                                       call_flags=contracts.CallFlags.READ_STATES)
 
         self._register_contract_method(self.properties,
                                        "properties",
@@ -125,7 +125,7 @@ class NonFungibleToken(NativeContract):
                                        return_type=types.UInt160,
                                        add_engine=False,
                                        add_snapshot=True,
-                                       call_flags=contracts.native.CallFlags.READ_STATES)
+                                       call_flags=contracts.CallFlags.READ_STATES)
 
         self._register_contract_method(self.balance_of,
                                        "balanceOf",
@@ -135,7 +135,7 @@ class NonFungibleToken(NativeContract):
                                        parameter_names=["owner"],
                                        add_engine=False,
                                        add_snapshot=True,
-                                       call_flags=contracts.native.CallFlags.READ_STATES)
+                                       call_flags=contracts.CallFlags.READ_STATES)
         self._register_contract_method(self.transfer,
                                        "transfer",
                                        9000000,
@@ -144,8 +144,8 @@ class NonFungibleToken(NativeContract):
                                        parameter_types=[types.UInt160, bytes],
                                        add_engine=True,
                                        add_snapshot=False,
-                                       call_flags=(contracts.native.CallFlags.WRITE_STATES
-                                                   | contracts.native.CallFlags.ALLOW_NOTIFY))
+                                       call_flags=(contracts.CallFlags.WRITE_STATES
+                                                   | contracts.CallFlags.ALLOW_NOTIFY))
 
     def mint(self, engine: contracts.ApplicationEngine, token: NFTState) -> None:
         engine.snapshot.storages.put(self.key_token, storage.StorageItem(token.to_array()))

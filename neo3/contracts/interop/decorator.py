@@ -5,7 +5,7 @@ from neo3.contracts import interop
 
 def register(method: str,
              price: int,
-             flags: contracts.native.CallFlags,
+             flags: contracts.CallFlags,
              param_types=None):
     """
     Register a SYSCALL handler with the Application engine.

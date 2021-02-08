@@ -9,7 +9,7 @@ def syscall_name_to_int(name: str) -> int:
     return int.from_bytes(hashlib.sha256(name.encode()).digest()[:4], 'little', signed=False)
 
 
-def test_engine(has_container=False, has_snapshot=False, default_script=True, call_flags=contracts.native.CallFlags.ALL):
+def test_engine(has_container=False, has_snapshot=False, default_script=True, call_flags=contracts.CallFlags.ALL):
     tx = payloads.Transaction._serializable_init()
 
     # this little hack basically nullifies the singleton behaviour and ensures we create

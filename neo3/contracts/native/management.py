@@ -8,11 +8,11 @@ from neo3.network import payloads
 from neo3.contracts.interop import register
 
 
-@register("contract_call_internal", 0, contracts.native.CallFlags.ALL, [])
+@register("contract_call_internal", 0, contracts.CallFlags.ALL, [])
 def contract_call_internal(engine: contracts.ApplicationEngine,
                            contract_hash: types.UInt160,
                            method: str,
-                           flags: contracts.native.CallFlags,
+                           flags: contracts.CallFlags,
                            has_return_value: bool,
                            args: List[vm.StackItem]) -> None:
     if method.startswith('_'):
@@ -27,7 +27,7 @@ def contract_call_internal(engine: contracts.ApplicationEngine,
         raise ValueError(f"[System.Contract.Call] Method '{method}' does not exist on target contract")
 
     if method_descriptor.safe:
-        flags &= ~contracts.native.CallFlags.WRITE_STATES
+        flags &= ~contracts.CallFlags.WRITE_STATES
     else:
         current_contract = ManagementContract().get_contract(engine.snapshot, engine.current_scripthash)
         if current_contract and not current_contract.can_call(target_contract, method):
@@ -40,7 +40,7 @@ def contract_call_internal(engine: contracts.ApplicationEngine,
 def contract_call_internal_ex(engine: contracts.ApplicationEngine,
                               contract: storage.ContractState,
                               contract_method_descriptor: contracts.ContractMethodDescriptor,
-                              flags: contracts.native.CallFlags,
+                              flags: contracts.CallFlags,
                               has_return_value: bool,
                               args: List[vm.StackItem],
                               ) -> None:
@@ -98,7 +98,7 @@ class ManagementContract(NativeContract):
                                        return_type=None,
                                        parameter_names=["nef_file", "manifest"],
                                        parameter_types=[bytes, bytes],
-                                       call_flags=(contracts.native.CallFlags.WRITE_STATES
+                                       call_flags=(contracts.CallFlags.WRITE_STATES
                                                    | contracts.CallFlags.ALLOW_NOTIFY)
                                        )
         self._register_contract_method(self.contract_update,
@@ -109,7 +109,7 @@ class ManagementContract(NativeContract):
                                        return_type=None,
                                        parameter_names=["nef_file", "manifest"],
                                        parameter_types=[bytes, bytes],
-                                       call_flags=(contracts.native.CallFlags.WRITE_STATES
+                                       call_flags=(contracts.CallFlags.WRITE_STATES
                                                    | contracts.CallFlags.ALLOW_NOTIFY)
                                        )
         self._register_contract_method(self.contract_destroy,
@@ -118,7 +118,7 @@ class ManagementContract(NativeContract):
                                        add_engine=True,
                                        add_snapshot=False,
                                        return_type=None,
-                                       call_flags=(contracts.native.CallFlags.WRITE_STATES
+                                       call_flags=(contracts.CallFlags.WRITE_STATES
                                                    | contracts.CallFlags.ALLOW_NOTIFY)
                                        )
         self._register_contract_method(self.get_minimum_deployment_fee,
@@ -127,14 +127,14 @@ class ManagementContract(NativeContract):
                                        add_engine=False,
                                        add_snapshot=True,
                                        return_type=int,
-                                       call_flags=contracts.native.CallFlags.READ_STATES)
+                                       call_flags=contracts.CallFlags.READ_STATES)
         self._register_contract_method(self._set_minimum_deployment_fee,
                                        3000000,
                                        "setMinimumDeploymentFee",
                                        add_engine=True,
                                        add_snapshot=False,
                                        return_type=None,
-                                       call_flags=contracts.native.CallFlags.WRITE_STATES)
+                                       call_flags=contracts.CallFlags.WRITE_STATES)
 
         self.manifest.abi.events = [
             contracts.ContractEventDescriptor(

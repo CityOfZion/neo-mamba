@@ -40,8 +40,17 @@ def load_class_from_path(path_and_class: str):
 
 
 class IndexableNamespace(SimpleNamespace):
+    def __len__(self):
+        return len(self.__dict__)
+
     def __getitem__(self, key):
         return self.__dict__[key]
+
+    def get(self, key, default=None):
+        try:
+            return self.__dict__[key]
+        except KeyError:
+            return default
 
 
 class Settings(IndexableNamespace):

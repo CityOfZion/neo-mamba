@@ -76,8 +76,8 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
                     return True
 
             if payloads.WitnessScope.CUSTOM_GROUPS in signer.scope:
-                if contracts.native.CallFlags.READ_STATES not in \
-                        contracts.native.CallFlags(self.current_context.call_flags):
+                if contracts.CallFlags.READ_STATES not in \
+                        contracts.CallFlags(self.current_context.call_flags):
                     raise ValueError("Context requires callflags ALLOW_STATES")
 
                 contract = contracts.ManagementContract().get_contract(self.snapshot, self.calling_scripthash)
@@ -88,8 +88,8 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
                     return True
             return False
 
-        if contracts.native.CallFlags.READ_STATES not in \
-                contracts.native.CallFlags(self.current_context.call_flags):
+        if contracts.CallFlags.READ_STATES not in \
+                contracts.CallFlags(self.current_context.call_flags):
             raise ValueError("Context requires callflags ALLOW_STATES")
 
         # for other IVerifiable types like Block
@@ -200,7 +200,7 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
         if descriptor is None:
             raise KeyError(f"Requested interop {method_id} is not valid")
 
-        if descriptor.required_call_flags not in contracts.native.CallFlags(self.current_context.call_flags):
+        if descriptor.required_call_flags not in contracts.CallFlags(self.current_context.call_flags):
             raise ValueError(f"Cannot call {descriptor.method} with {self.current_context.call_flags}")
 
         self.add_gas(descriptor.price * self.exec_fee_factor)
@@ -283,7 +283,7 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
 
     def load_script_with_callflags(self,
                                    script: vm.Script,
-                                   call_flags: contracts.native.CallFlags,
+                                   call_flags: contracts.CallFlags,
                                    initial_position: int = 0,
                                    pcount: int = 0,
                                    rvcount: int = -1):
@@ -321,7 +321,7 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
     def load_contract(self,
                       contract: storage.ContractState,
                       method: str,
-                      flags: contracts.native.CallFlags,
+                      flags: contracts.CallFlags,
                       has_return_value: bool = False,
                       pcount: int = 0) -> Optional[vm.ExecutionContext]:
         method_descriptor = contract.manifest.abi.get_method(method)

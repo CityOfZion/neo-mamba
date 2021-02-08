@@ -1,5 +1,6 @@
 from __future__ import annotations
 import hashlib
+from .callflags import CallFlags
 from .contracttypes import (TriggerType)
 from .descriptor import (ContractPermissionDescriptor)
 from .manifest import (ContractGroup,
@@ -16,8 +17,7 @@ from .nef import NEF
 from .contract import Contract
 from .binaryserializer import BinarySerializer
 from .jsonserializer import (NEOJson, JSONSerializer)
-from .native import (CallFlags,
-                     NativeContract,
+from .native import (NativeContract,
                      PolicyContract,
                      NeoToken,
                      GasToken,

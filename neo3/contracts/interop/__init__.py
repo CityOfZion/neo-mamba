@@ -1,4 +1,5 @@
 from __future__ import annotations
+from .findoptions import FindOptions
 from .service import InteropService, InteropDescriptor
 # having the decorator out of the __init__ ensures we can use it in the modules below on import
 # otherwise we get a circular import issue
@@ -10,6 +11,6 @@ from .blockchain import __name__
 from .contract import __name__
 from .crypto import __name__
 from .json import __name__
-from .enumerator import IIterator, IEnumerator, StorageIterator, StorageKeyIterator
+from .enumerator import IIterator, StorageIterator
 from .runtime import __name__
 from .storage import _storage_put_internal, MAX_STORAGE_VALUE_SIZE, MAX_STORAGE_KEY_SIZE

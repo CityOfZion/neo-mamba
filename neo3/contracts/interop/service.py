@@ -10,7 +10,7 @@ class InteropDescriptor:
                  method: str,
                  handler: Callable,
                  price: int,
-                 call_flags: contracts.native.CallFlags,
+                 call_flags: contracts.CallFlags,
                  param_types: list = None):
         """
         Create a interoperability call descriptor.
@@ -45,7 +45,7 @@ class InteropService:
                  method: str,
                  handler: Callable,
                  fixed_price: int,
-                 call_flags: contracts.native.CallFlags,
+                 call_flags: contracts.CallFlags,
                  param_types: Optional[List[type]]) -> InteropDescriptor:
         """
         Register an interoperability method to the interoperability service that can be called by the Virtual Machine.

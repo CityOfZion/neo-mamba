@@ -23,7 +23,7 @@ class DesignationContract(NativeContract):
                                        return_type=List[cryptography.ECPoint],
                                        add_engine=False,
                                        add_snapshot=True,
-                                       call_flags=contracts.native.CallFlags.READ_STATES)
+                                       call_flags=contracts.CallFlags.READ_STATES)
 
         self._register_contract_method(self.designate_as_role,
                                        "designateAsRole",
@@ -31,7 +31,7 @@ class DesignationContract(NativeContract):
                                        return_type=None,
                                        add_engine=True,
                                        add_snapshot=False,
-                                       call_flags=contracts.native.CallFlags.WRITE_STATES)
+                                       call_flags=contracts.CallFlags.WRITE_STATES)
 
     def get_designated_by_role(self,
                                snapshot: storage.Snapshot,
