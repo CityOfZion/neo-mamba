@@ -45,12 +45,14 @@ class NativeContract(convenience._Singleton):
     def init(self):
         self._methods: Dict[str, _ContractMethodMetadata] = {}
 
+        self._management = contracts.ManagementContract()
         self._neo = NeoToken()
         self._gas = GasToken()
         self._policy = PolicyContract()
+        self._nameservice = contracts.NameService()
 
         sb = vm.ScriptBuilder()
-        sb.emit_push(self.__class__.service_name())
+        sb.emit_push(self.service_name())
         sb.emit_syscall(1736177434)  # "System.Contract.CallNative"
         self._script: bytes = sb.to_array()
         self.nef = contracts.NEF("ScriptBuilder", "3.0", self._script)
@@ -61,24 +63,24 @@ class NativeContract(convenience._Singleton):
         sb.emit_push(self._script)
         self._hash: types.UInt160 = to_script_hash(sb.to_array())
         self._manifest: contracts.ContractManifest = contracts.ContractManifest()
-        self._manifest.name = self.service_name
+        self._manifest.name = self.service_name()
         self._manifest.abi.methods = []
         if self._id != NativeContract._id:
-            self._contracts.update({self.service_name: self})
+            self._contracts.update({self.service_name(): self})
             self._contract_hashes.update({self._hash: self})
 
         self.active_block_index = settings.native_contract_activation.get(self.service_name, 0)
 
         self._register_contract_method(self.on_persist,
-                                       0,
                                        "onPersist",
+                                       0,
                                        return_type=None,
                                        add_engine=True,
                                        add_snapshot=False,
                                        call_flags=contracts.CallFlags.WRITE_STATES)
         self._register_contract_method(self.post_persist,
-                                       0,
                                        "postPersist",
+                                       0,
                                        return_type=None,
                                        add_engine=True,
                                        add_snapshot=False,
@@ -157,13 +159,12 @@ class NativeContract(convenience._Singleton):
         """ All deployed contracts. """
         return list(self._contracts.values())
 
-    @classmethod
-    def service_name(cls) -> str:
+    def service_name(self) -> str:
         """ The human readable name. """
-        if cls._service_name is None:
-            return cls.__name__
+        if self._service_name is None:
+            return self.__class__.__name__
         else:
-            return cls._service_name
+            return self._service_name
 
     @property
     def script(self) -> bytes:
@@ -1168,6 +1169,8 @@ class NeoToken(FungibleToken):
     _PREFIX_GAS_PER_BLOCK = b'\x29'
     _PREFIX_VOTER_REWARD_PER_COMMITTEE = b'\x17'
 
+    key_candidate = storage.StorageKey(_id, _PREFIX_CANDIDATE)
+
     _NEO_HOLDER_REWARD_RATIO = 10
     _COMMITTEE_REWARD_RATIO = 10
     _VOTER_REWARD_RATIO = 80
@@ -1556,11 +1559,10 @@ class NeoToken(FungibleToken):
 
     def _get_candidates(self,
                         snapshot: storage.Snapshot) -> \
-            Iterator[Tuple[cryptography.ECPoint, vm.BigInteger]]:
+            List[Tuple[cryptography.ECPoint, vm.BigInteger]]:
         if self._candidates_dirty:
-            storage_results = list(snapshot.storages.find(self.hash, self._PREFIX_CANDIDATE))
             self._candidates = []
-            for k, v in storage_results:
+            for k, v in snapshot.storages.find(self.key_candidate.to_array()):
                 candidate = _CandidateState.deserialize_from_bytes(v.value)
                 if candidate.registered:
                     # take of the CANDIDATE prefix
@@ -1568,7 +1570,7 @@ class NeoToken(FungibleToken):
                     self._candidates.append((point, candidate.votes))
             self._candidates_dirty = False
 
-        return iter(self._candidates)
+        return self._candidates
 
     def get_candidates(self, engine: contracts.ApplicationEngine) -> None:
         array = vm.ArrayStackItem(engine.reference_counter)
@@ -1601,7 +1603,7 @@ class NeoToken(FungibleToken):
         voters_count = int(vm.BigInteger(storage_item.value))
         voter_turnout = voters_count / float(self.total_amount)
 
-        candidates = list(self._get_candidates(snapshot))
+        candidates = self._get_candidates(snapshot)
         if voter_turnout < 0.2 or len(candidates) < len(settings.standby_committee):
             results = {}
             for key in settings.standby_committee:

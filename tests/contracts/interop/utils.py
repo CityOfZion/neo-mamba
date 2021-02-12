@@ -16,7 +16,7 @@ def test_engine(has_container=False, has_snapshot=False, default_script=True, ca
     # a new instance every time we call it. This in turn gives us a clean backend/snapshot
     blockchain.Blockchain.__it__ = None
 
-    snapshot = blockchain.Blockchain(store_genesis_block=False).currentSnapshot
+    snapshot = blockchain.Blockchain(store_genesis_block=True).currentSnapshot
     if has_container and has_snapshot:
         engine = contracts.ApplicationEngine(contracts.TriggerType.APPLICATION, tx, snapshot, 0, test_mode=True)
     elif has_container:
@@ -31,14 +31,19 @@ def test_engine(has_container=False, has_snapshot=False, default_script=True, ca
     return engine
 
 
-def test_tx(with_block_height=1) -> payloads.Transaction:
+def test_tx(with_block_height=1, signers: List[types.UInt160]=None) -> payloads.Transaction:
+    if signers is None:
+        new_signers = [payloads.Signer(types.UInt160.from_string("f782c7fbb2eef6afe629b96c0d53fb525eda64ce"), payloads.WitnessScope.GLOBAL)]
+    else:
+        new_signers = list(map(lambda v: payloads.Signer(v, payloads.WitnessScope.GLOBAL), signers))
+
     tx = payloads.Transaction(version=0,
                               nonce=123,
                               system_fee=456,
                               network_fee=789,
                               valid_until_block=1,
                               attributes=[],
-                              signers=[payloads.Signer(types.UInt160.from_string("f782c7fbb2eef6afe629b96c0d53fb525eda64ce"))],
+                              signers=new_signers,
                               script=b'\x01',
                               witnesses=[])
     tx.block_height = with_block_height

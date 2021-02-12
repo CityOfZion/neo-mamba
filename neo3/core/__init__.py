@@ -70,3 +70,7 @@ def to_script_hash(data: bytes) -> types.UInt160:
     intermediate_data = hashlib.sha256(data).digest()
     data_ = hashlib.new('ripemd160', intermediate_data).digest()
     return types.UInt160(data_)
+
+
+def syscall_name_to_int(name: str) -> int:
+    return int.from_bytes(hashlib.sha256(name.encode()).digest()[:4], 'little', signed=False)

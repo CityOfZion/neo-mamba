@@ -3,7 +3,7 @@ from neo3 import contracts, storage, vm
 from neo3.network import payloads
 from neo3.core import types, cryptography, IInteroperable, serialization, to_script_hash
 from neo3.contracts import interop
-from typing import Any, Dict, cast, List, Tuple, Type, Optional, Callable
+from typing import Any, Dict, cast, List, Tuple, Type, Optional, Callable, Union
 import enum
 from dataclasses import dataclass
 from contextlib import suppress
@@ -131,7 +131,9 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
         """
         if class_type in [vm.StackItem, vm.PointerStackItem, vm.ArrayStackItem, vm.InteropStackItem]:
             return stack_item
-        elif class_type in [int, vm.BigInteger]:
+        elif class_type == int:
+            return int(stack_item.to_biginteger())
+        elif class_type == vm.BigInteger:
             return stack_item.to_biginteger()
         # mypy bug? https://github.com/python/mypy/issues/9756
         elif class_type in [bytes, bytearray]:  # type: ignore
@@ -181,6 +183,17 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
             return vm.BooleanStackItem(value)
         elif issubclass(native_type, (enum.IntFlag, enum.IntEnum)):
             return self._native_to_stackitem(value.value, int)
+        elif hasattr(native_type, '__origin__') and native_type.__origin__ == Union:  # type: ignore
+            # handle typing.Optional[type], Optional is an alias for Union[x, None]
+            # only support specifying 1 type
+            if len(native_type.__args__) != 2:
+                raise ValueError(f"Don't know how to convert native type {native_type} to stackitem")
+            for i in native_type.__args__:
+                if i is None:
+                    continue
+                return self._native_to_stackitem(value, native_type)
+            else:
+                raise ValueError  # shouldn't be possible, but silences mypy
         else:
             return vm.StackItem.from_interface(value)
 
@@ -244,7 +257,9 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
 
         Note: a smart contract can call other smart contracts.
         """
-        return to_script_hash(self.current_context.script._value)
+        if len(self.current_context.scripthash_bytes) == 0:
+            return to_script_hash(self.current_context.script._value)
+        return types.UInt160(self.current_context.scripthash_bytes)
 
     @property
     def calling_scripthash(self) -> types.UInt160:
@@ -267,13 +282,15 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
 
         Note: a smart contract can call other smart contracts.
         """
-        return to_script_hash(self.entry_context.script._value)
+        if len(self.entry_context.scripthash_bytes) == 0:
+            return to_script_hash(self.entry_context.script._value)
+        return types.UInt160(self.entry_context.scripthash_bytes)
 
     def get_invocation_counter(self) -> int:
         """
         Get the number of times the current contract has been called during this execute() run.
 
-        Note: the counter increases with every "System.Contract.CallEx" SYSCALL
+        Note: the counter increases with every "System.Contract.Call" SYSCALL
 
         Raises:
             ValueError: if the contract has not been called.
@@ -291,7 +308,7 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
                                    pcount: int = 0,
                                    rvcount: int = -1,
                                    contract_state: Optional[storage.ContractState] = None):
-        context = super(ApplicationEngine, self).load_script(script, initial_position, pcount, rvcount)
+        context = super(ApplicationEngine, self).load_script(script, pcount, rvcount, initial_position)
         context.call_flags = int(call_flags)
         if contract_state is not None:
             self._context_state.update({context: contract_state})
@@ -336,6 +353,9 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
                                                   pcount,
                                                   int(has_return_value),
                                                   contract)
+        # configure state
+        context.call_flags = int(flags)
+        context.scripthash_bytes = contract.hash.to_array()
 
         init = contract.manifest.abi.get_method("_initialize")
         if init is not None:
@@ -395,6 +415,7 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
         engine._invocation_counter.update({target_contract.hash: counter + 1})
 
         state = engine.current_context
+        calling_script_hash_bytes = state.scripthash_bytes
         calling_flags = state.call_flags
 
         arg_len = len(args)
@@ -410,7 +431,7 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
                                            len(args))
         if context_new is None:
             raise ValueError
-        context_new.calling_scripthash_bytes = state.calling_scripthash_bytes
+        context_new.calling_scripthash_bytes = calling_script_hash_bytes
 
         for item in reversed(args):
             context_new.evaluation_stack.push(item)

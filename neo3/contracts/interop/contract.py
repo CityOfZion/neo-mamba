@@ -1,6 +1,6 @@
 from __future__ import annotations
 import json
-from typing import List
+from typing import List, Any
 from neo3 import vm, contracts, storage, settings, blockchain
 from neo3.network import payloads
 from neo3.core import cryptography, types, to_script_hash
@@ -8,7 +8,7 @@ from neo3.contracts.interop import register
 
 
 @register("System.Contract.Call", 1 << 15, contracts.CallFlags.ALLOW_CALL,
-          [types.UInt160, str, vm.ArrayStackItem, contracts.CallFlags])
+          [types.UInt160, str, contracts.CallFlags, bool, int])
 def contract_call(engine: contracts.ApplicationEngine,
                   contract_hash: types.UInt160,
                   method: str,
@@ -60,7 +60,14 @@ def contract_create_standard_account(engine: contracts.ApplicationEngine,
 def native_on_persist(engine: contracts.ApplicationEngine) -> None:
     if engine.trigger != contracts.TriggerType.ON_PERSIST:
         raise SystemError()
-    for contract in contracts.NativeContract._contracts.values():
+    # NEO implicitely expects the ManagementContract to be called first *ugh*
+    # because ManagementContract.on_persist will call _initialize() on all other native contracts
+    # which is needed for the other contracts to work properly when their on_persist() is called
+    management = contracts.ManagementContract()
+    others: List[Any] = list(contracts.NativeContract._contracts.values())
+    others.remove(management)
+    ordered_contracts = [management] + others
+    for contract in ordered_contracts:
         if contract.active_block_index <= engine.snapshot.persisting_block.index:
             contract.on_persist(engine)
 

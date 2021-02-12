@@ -1,11 +1,10 @@
 from __future__ import annotations
-from neo3 import storage
-from neo3 import storage_logger as logger
-from neo3.core import types, serialization
-from neo3.network import payloads
 from contextlib import suppress
 from copy import deepcopy
-from typing import List
+from typing import List, Iterator, Tuple
+from neo3 import storage, storage_logger as logger
+from neo3.core import types, serialization
+from neo3.network import payloads
 
 level_db_supported = False
 with suppress(ModuleNotFoundError, ImportError):
@@ -183,6 +182,12 @@ class LevelDB(storage.IDBImplementation):
         # yielding outside of iterator to make sure the LevelDB iterator is closed and not leaking resources
         for k, v in res.items():
             yield k, v
+
+    def _internal_storage_seek(self,
+                               contract_scrip_hash: types.UInt160,
+                               key_prefix: bytes,
+                               seek_direction="forward") -> Iterator[Tuple[storage.StorageKey, storage.StorageItem]]:
+        raise NotImplementedError()
 
     def _internal_transaction_put(self, transaction: payloads.Transaction, batch=None):
         if batch:

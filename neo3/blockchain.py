@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import List
 from datetime import datetime, timezone
 from neo3 import contracts, storage, settings, vm
-from neo3.core import cryptography, types, to_script_hash, msgrouter
+from neo3.core import cryptography, types, to_script_hash, msgrouter, syscall_name_to_int
 from neo3.network import payloads, convenience
 
 
@@ -15,16 +15,9 @@ class Blockchain(convenience._Singleton):
         self.genesis_block = self._create_genesis_block()
         self.genesis_block.rebuild_merkle_root()
 
-        sb = vm.ScriptBuilder()
-        for c in [contracts.GasToken(), contracts.NeoToken()]:
-            sb.emit_contract_call(c.hash, "onPersist")  # type: ignore
-            sb.emit(vm.OpCode.DROP)
+        sb = vm.ScriptBuilder().emit_syscall(syscall_name_to_int("System.Contract.NativeOnPersist"))
         self.native_onpersist_script = sb.to_array()
-
-        sb = vm.ScriptBuilder()
-        for cc in [contracts.NeoToken(), contracts.OracleContract()]:
-            sb.emit_contract_call(cc.hash, "postPersist")  # type: ignore
-            sb.emit(vm.OpCode.DROP)
+        sb = vm.ScriptBuilder().emit_syscall(syscall_name_to_int("System.Contract.NativePostPersist"))
         self.native_postpersist_script = sb.to_array()
 
         if self.currentSnapshot.block_height < 0 and store_genesis_block:
@@ -80,12 +73,11 @@ class Blockchain(convenience._Singleton):
             snapshot.blocks.put(block)
             snapshot.persisting_block = block
 
-            if block.index > 0:
-                engine = contracts.ApplicationEngine(contracts.TriggerType.ON_PERSIST,
-                                                     None, snapshot, 0, True)  # type: ignore
-                engine.load_script(vm.Script(self.native_onpersist_script))
-                if engine.execute() != vm.VMState.HALT:
-                    raise ValueError(f"Failed onPersist in native contracts: {engine.exception_message}")
+            engine = contracts.ApplicationEngine(contracts.TriggerType.ON_PERSIST,
+                                                 None, snapshot, 0, True)  # type: ignore
+            engine.load_script(vm.Script(self.native_onpersist_script))
+            if engine.execute() != vm.VMState.HALT:
+                raise ValueError(f"Failed onPersist in native contracts: {engine.exception_message}")
 
             cloned_snapshot = snapshot.clone()
             for tx in block.transactions:

@@ -306,7 +306,7 @@ class ContractManifest(serialization.ISerializable, IJson):
         Args:
             writer: instance.
         """
-        writer.write_var_string(json.dumps(self.to_json()).decode())
+        writer.write_var_string(str(self))
 
     def deserialize(self, reader: BinaryReader) -> None:
         """

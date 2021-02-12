@@ -2,10 +2,10 @@ import unittest
 import binascii
 from unittest import mock
 from collections import namedtuple
-from neo3 import vm, contracts, storage, settings, cryptography
+from neo3 import vm, contracts, storage, settings, cryptography, blockchain
 from neo3.core import types, to_script_hash, msgrouter
 from neo3.network import message
-from .utils import syscall_name_to_int, test_engine, test_block, TestIVerifiable
+from .utils import syscall_name_to_int, test_engine, test_block, TestIVerifiable, test_tx
 
 
 def test_native_contract(contract_hash: types.UInt160, operation: str, args=None):
@@ -755,4 +755,5 @@ class Nep5TestCase(unittest.TestCase):
         with self.assertRaises(ValueError) as context:
             gas.mint(None, None, vm.BigInteger(-1), False)
         self.assertEqual("Can't mint a negative amount", str(context.exception))
+
 

@@ -215,25 +215,23 @@ class ManifestTestCase(unittest.TestCase):
                 SupportedStandards = Array.Empty<string>(),
                 Abi = new ContractAbi()
                 {
-                    Hash = UInt160.Zero,
                     Events = new ContractEventDescriptor[0],
                     Methods = new ContractMethodDescriptor[0]
                 },
                 Permissions = new[] { ContractPermission.DefaultPermission },
                 Trusts = WildcardContainer<UInt160>.Create(),
-                SafeMethods = WildcardContainer<string>.Create(),
                 Extra = null
             };
             Console.WriteLine($"{manifest.Size}");
             Console.WriteLine($"{manifest.ToJson()}");
         """
-        cls.expected_json = {"name":None,"groups":[],"supportedstandards":[],"abi":{"methods":[],"events":[]},"permissions":[{"contract":"*","methods":"*"}],"trusts":[],"safemethods":[],"extra":None}
+        cls.expected_json = {"name":None,"groups":[],"supportedstandards":[],"abi":{"methods":[],"events":[]},"permissions":[{"contract":"*","methods":"*"}],"trusts":[],"extra":None}
 
     def test_create_default(self):
         cm = contracts.ContractManifest(types.UInt160.zero())
         self.assertEqual(self.expected_json, cm.to_json())
         # see setupClass for C# reference code
-        self.assertEqual(224, len(cm))
+        self.assertEqual(155, len(cm))
 
     def test_serialize(self):
         # if test_create_default() passes, then we know `to_json()` is ok, which serialize internally uses

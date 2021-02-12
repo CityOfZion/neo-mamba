@@ -1,7 +1,7 @@
 from __future__ import annotations
 from enum import IntEnum
 from contextlib import suppress
-from typing import List, cast
+from typing import List, cast, Optional
 from . import NativeContract
 from neo3 import storage, contracts, cryptography, vm
 from neo3.core import serialization, IInteroperable, types, msgrouter
@@ -79,7 +79,8 @@ class NFTAccountState(storage.FungibleTokenStorageState):
 
 class NonFungibleToken(NativeContract):
     _id = -5
-    _service_name = "NonfungibleToken"
+    _service_name: Optional[str] = "NonfungibleToken"
+    _symbol: str = ""
 
     _PREFIX_TOTAL_SUPPLY = b'\x0b'
     _PREFIX_TOKEN = b'\x05'
@@ -148,7 +149,7 @@ class NonFungibleToken(NativeContract):
                                                    | contracts.CallFlags.ALLOW_NOTIFY))
 
     def mint(self, engine: contracts.ApplicationEngine, token: NFTState) -> None:
-        engine.snapshot.storages.put(self.key_token, storage.StorageItem(token.to_array()))
+        engine.snapshot.storages.put(self.key_token + token.id, storage.StorageItem(token.to_array()))
         sk_account = self.key_account + token.id
         si_account = engine.snapshot.storages.try_get(sk_account, read_only=False)
 

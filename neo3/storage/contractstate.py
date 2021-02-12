@@ -44,14 +44,14 @@ class ContractState(serialization.ISerializable, IClonable, IInteroperable):
         return self.nef.script
 
     def serialize(self, writer: BinaryWriter) -> None:
-        writer.write_uint32(self.id)
+        writer.write_int32(self.id)
         writer.write_serializable(self.nef)
         writer.write_serializable(self.manifest)
         writer.write_uint32(self.update_counter)
         writer.write_serializable(self.hash)
 
     def deserialize(self, reader: BinaryReader) -> None:
-        self.id = reader.read_uint32()
+        self.id = reader.read_int32()
         self.nef = reader.read_serializable(contracts.NEF)
         self.manifest = reader.read_serializable(manifest.ContractManifest)
         self.update_counter = reader.read_uint32()

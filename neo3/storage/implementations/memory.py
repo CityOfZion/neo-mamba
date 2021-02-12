@@ -128,6 +128,20 @@ class MemoryDB(storage.IDBImplementation):
             if k.to_array()[script_hash_len:].startswith(key_prefix):
                 yield deepcopy(k), deepcopy(v)
 
+    def _internal_storage_seek(self,
+                               contract_scrip_hash: types.UInt160,
+                               key_prefix: bytes,
+                               seek_direction="forward") -> Iterator[Tuple[storage.StorageKey, storage.StorageItem]]:
+        if seek_direction == "forward":
+            view = iter(self.db[self.STORAGE].items())
+        else:
+            view = reversed(self.db[self.STORAGE].items())
+        matches = []
+        for key, value in view:  # type: storage.StorageKey, storage.StorageItem
+            if key.key.startswith(key_prefix):
+                matches.append((key, value))
+        return iter(matches)
+
     def _internal_transaction_put(self, transaction: payloads.Transaction, batch: WriteBatch = None) -> None:
         if batch:
             batch.put(self.TX, transaction.hash(), transaction)

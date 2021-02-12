@@ -279,7 +279,7 @@ class CachedStorageAccess(CachedAccess):
         self._internal_try_get = self._db._internal_storage_try_get
         self._internal_all = self._db._internal_storage_all
         self._internal_find = self._db._internal_storage_find
-        self._iternal_seek = self._db._internal_storage_seek
+        self._internal_seek = self._db._internal_storage_seek
 
     def put(self, key: storage.StorageKey, value: storage.StorageItem) -> None:
         """
@@ -384,7 +384,19 @@ class CachedStorageAccess(CachedAccess):
             if key.to_array().startswith(key_prefix):
                 yield key, value
             else:
-                raise StopIteration
+                return None
+
+    def find_range(self,
+                   start: bytes,
+                   end: bytes,
+                   direction: str = "forward"
+                   ) -> Iterator[Tuple[storage.StorageKey, storage.StorageItem]]:
+        comperator = storage.NEOByteCompare(direction)
+        for key, value in self.seek(start, direction):
+            if comperator.compare(key.to_array(), end) < 0:
+                yield key, value
+            else:
+                return None
 
     def seek(self, key_prefix: bytes, direction="forward"
              ) -> Iterator[Tuple[storage.StorageKey, storage.StorageItem]]:
@@ -402,21 +414,7 @@ class CachedStorageAccess(CachedAccess):
                 results.append((key, value))
         results.sort(key=cmp_to_key(partial(storage.NEOSeekSort, comperator.compare)))  # type: ignore
 
-        for pair in results:
-            yield pair
-        return None
-
-    def find_range(self,
-                   start: bytes,
-                   end: bytes,
-                   direction: str = "forward"
-                   ) -> Iterator[Tuple[storage.StorageKey, storage.StorageItem]]:
-        comperator = storage.NEOByteCompare(direction)
-        for key, value in self.seek(start, direction):
-            if comperator.compare(key.to_array(), end) < 0:
-                yield key, value
-            else:
-                break
+        return iter(results)
 
 
 class CachedTXAccess(CachedAccess):

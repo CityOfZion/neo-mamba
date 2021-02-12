@@ -24,7 +24,10 @@ from .native import (NativeContract,
                      OracleContract,
                      DesignationContract,
                      DesignateRole,
-                     ManagementContract)
+                     ManagementContract,
+                     NonFungibleToken,
+                     NFTState,
+                     NameService)
 from .applicationengine import ApplicationEngine
 
 

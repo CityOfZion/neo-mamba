@@ -2,7 +2,7 @@ from __future__ import annotations
 import hashlib
 import inspect
 from neo3 import contracts
-from typing import Dict, Callable, Optional, List
+from typing import Dict, Callable, Optional, List, get_type_hints
 
 
 class InteropDescriptor:
@@ -27,6 +27,12 @@ class InteropDescriptor:
         self.method = method
         self.hash: int = int.from_bytes(hashlib.sha256(self.method.encode()).digest()[:4], 'little', signed=False)
         self.handler = handler
+        # params = []
+        # for k, v in get_type_hints(handler):
+        #     if k == 'return':
+        #         continue
+        #     params.append(v)
+        # print(f"*** {params == param_types}")
         self.parameters = param_types if param_types else []
         self.has_return_value = inspect.signature(handler).return_annotation != 'None'
         self.price = price

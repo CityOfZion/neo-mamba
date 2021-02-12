@@ -23,7 +23,7 @@ class StorageKey(serialization.ISerializable):
 
     def __add__(self, other):
         if type(other) in [bytes, bytearray]:
-            self.key += other
+            return StorageKey(self.id, self.key + other)
         else:
             return NotImplemented
 

@@ -16,6 +16,10 @@ class ManagementContract(NativeContract):
     _PREFIX_CONTRACT = b'\x08'
     _PREFIX_MINIMUM_DEPLOYMENT_FEE = b'\x14'
 
+    key_contract = storage.StorageKey(_id, _PREFIX_CONTRACT)
+    key_next_id = storage.StorageKey(_id, _PREFIX_NEXT_AVAILABLE_ID)
+    key_min_deploy_fee = storage.StorageKey(_id, _PREFIX_MINIMUM_DEPLOYMENT_FEE)
+
     def init(self):
         super(ManagementContract, self).init()
 
@@ -94,8 +98,8 @@ class ManagementContract(NativeContract):
         ]
 
     def _initialize(self, engine: contracts.ApplicationEngine) -> None:
-        engine.snapshot.storages.add(
-            self.create_key(self._PREFIX_MINIMUM_DEPLOYMENT_FEE),
+        engine.snapshot.storages.put(
+            self.key_min_deploy_fee,
             storage.StorageItem(vm.BigInteger(10_00000000).to_array())
         )
 
@@ -123,8 +127,7 @@ class ManagementContract(NativeContract):
             contract._initialize(engine)
 
     def get_contract(self, snapshot: storage.Snapshot, hash_: types.UInt160) -> Optional[storage.ContractState]:
-        storage_key = self.create_key(self._PREFIX_CONTRACT + hash_.to_array())
-        storage_item = snapshot.storages.try_get(storage_key, read_only=True)
+        storage_item = snapshot.storages.try_get(self.key_contract + hash_.to_array(), read_only=True)
         if storage_item is None:
             return None
         return storage.ContractState.deserialize_from_bytes(storage_item.value)
