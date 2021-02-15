@@ -47,8 +47,15 @@ def storage_find(engine: contracts.ApplicationEngine,
                  key: bytes,
                  options: contracts.interop.FindOptions) -> IIterator:
     opt = contracts.interop.FindOptions
-    if opt.KEYS_ONLY in options and opt.VALUES_ONLY in options:
-        raise ValueError("KEYS_ONLY and VALUES_ONLY are mutually exclusive")
+    if opt.KEYS_ONLY in options and (
+            opt.VALUES_ONLY in options
+            or opt.DESERIALIZE_VALUES in options
+            or opt.PICK_FIELD0 in options
+            or opt.PICK_FIELD1 in options):
+        raise ValueError("KEYS_ONLY and (VALUES_ONLY || DESERIALIZE_VALUES || PICK_FIELD0 || PICK_FIELD1) are mutually "
+                         "exclusive")
+    if opt.VALUES_ONLY in options and (opt.KEYS_ONLY in options or opt.REMOVE_PREFIX in options):
+        raise ValueError("VALUES_ONLY and (KEYS_ONLY || REMOVE_PREFIX) are mutually exclusive")
     if opt.PICK_FIELD0 in options and opt.PICK_FIELD1 in options:
         raise ValueError("PICK_FIELD0 and PICK_FIELD1 are mutually exclusive")
     if (opt.PICK_FIELD0 in options or opt.PICK_FIELD1 in options) and opt.DESERIALIZE_VALUES not in options:
