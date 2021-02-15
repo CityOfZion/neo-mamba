@@ -170,10 +170,12 @@ class ManagementContract(NativeContract):
         )
 
         nef = contracts.NEF.deserialize_from_bytes(nef_file)
+        parsed_manifest = contracts.ContractManifest.from_json(json.loads(manifest.decode()))
         sb = vm.ScriptBuilder()
         sb.emit(vm.OpCode.ABORT)
         sb.emit_push(engine.script_container.sender.to_array())
-        sb.emit_push(nef.script)
+        sb.emit_push(nef.checksum)
+        sb.emit_push(parsed_manifest.name)
         hash_ = to_script_hash(sb.to_array())
 
         key = self.create_key(self._PREFIX_CONTRACT + hash_.to_array())
@@ -181,13 +183,7 @@ class ManagementContract(NativeContract):
         if contract is not None:
             raise ValueError("Contract already exists")
 
-        contract = storage.ContractState(
-            self.get_next_available_id(engine.snapshot),
-            nef,
-            contracts.ContractManifest.from_json(json.loads(manifest.decode())),
-            0,
-            hash_
-        )
+        contract = storage.ContractState(self.get_next_available_id(engine.snapshot), nef, parsed_manifest, 0, hash_)
 
         if not contract.manifest.is_valid(hash_):
             raise ValueError("Error: invalid manifest")
