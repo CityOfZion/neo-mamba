@@ -50,9 +50,10 @@ class NativeContract(convenience._Singleton):
         self._gas = GasToken()
         self._policy = PolicyContract()
         self._nameservice = contracts.NameService()
+        self._oracle = contracts.OracleContract()
 
         sb = vm.ScriptBuilder()
-        sb.emit_push(self.service_name())
+        sb.emit_push(self.id)
         sb.emit_syscall(1736177434)  # "System.Contract.CallNative"
         self._script: bytes = sb.to_array()
         self.nef = contracts.NEF("ScriptBuilder", "3.0", self._script)
@@ -98,6 +99,14 @@ class NativeContract(convenience._Singleton):
         """
         contract = cls._contracts.get(name, None)
         return contract
+
+    @classmethod
+    def get_contract_by_id(cls, contract_id: int) -> Optional[NativeContract]:
+        for contract in cls._contracts.values():
+            if contract_id == contract.id:
+                return contract
+        else:
+            return None
 
     def _register_contract_method(self,
                                   func: Callable,
@@ -274,7 +283,7 @@ class NativeContract(convenience._Singleton):
 
 
 class PolicyContract(NativeContract):
-    _id: int = -3
+    _id: int = -4
 
     DEFAULT_EXEC_FEE_FACTOR = 30
     MAX_EXEC_FEE_FACTOR = 1000
@@ -1160,7 +1169,7 @@ class GasBonusState(serialization.ISerializable, Sequence):
 
 
 class NeoToken(FungibleToken):
-    _id: int = -1
+    _id: int = -2
     _decimals: int = 0
 
     _PREFIX_COMMITTEE = b'\x0e'
@@ -1656,7 +1665,7 @@ class NeoToken(FungibleToken):
 
 
 class GasToken(FungibleToken):
-    _id: int = -2
+    _id: int = -3
     _decimals: int = 8
 
     _state = storage.FungibleTokenStorageState

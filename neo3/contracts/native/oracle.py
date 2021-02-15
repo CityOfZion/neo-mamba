@@ -61,7 +61,7 @@ class OracleContract(NativeContract):
 
     _ORACLE_REQUEST_PRICE = 50000000
 
-    _id = -4
+    _id = -6
 
     def init(self):
         super(OracleContract, self).init()
@@ -245,7 +245,7 @@ class OracleContract(NativeContract):
     def post_persist(self, engine: contracts.ApplicationEngine) -> None:
         super(OracleContract, self).post_persist(engine)
         nodes = []
-        for tx in engine.snapshot.transactions:
+        for tx in engine.snapshot.persisting_block.transactions:
             response = tx.try_get_attribute(payloads.OracleResponse)
             if response is None:
                 continue

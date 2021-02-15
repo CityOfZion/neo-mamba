@@ -100,7 +100,7 @@ class StringList(list, serialization.ISerializable):
 
 
 class NameService(NonFungibleToken):
-    _id = -6
+    _id = -7
     _symbol = "NNS"
     _service_name = None
 

@@ -9,7 +9,7 @@ from neo3.contracts.interop import register
 
 
 class ManagementContract(NativeContract):
-    _id = 0
+    _id = -1
     _service_name = "ContractManagement"
 
     _PREFIX_NEXT_AVAILABLE_ID = b'\x0F'
