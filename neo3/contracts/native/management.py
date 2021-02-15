@@ -36,8 +36,8 @@ class ManagementContract(NativeContract):
                                        add_engine=True,
                                        add_snapshot=False,
                                        return_type=None,
-                                       parameter_names=["nef_file", "manifest"],
-                                       parameter_types=[bytes, bytes],
+                                       parameter_names=["nef_file", "manifest", "data"],
+                                       parameter_types=[bytes, bytes, vm.StackItem],
                                        call_flags=(contracts.CallFlags.WRITE_STATES
                                                    | contracts.CallFlags.ALLOW_NOTIFY)
                                        )
@@ -47,8 +47,8 @@ class ManagementContract(NativeContract):
                                        add_engine=True,
                                        add_snapshot=False,
                                        return_type=None,
-                                       parameter_names=["nef_file", "manifest"],
-                                       parameter_types=[bytes, bytes],
+                                       parameter_names=["nef_file", "manifest", "data"],
+                                       parameter_types=[bytes, bytes, vm.StackItem],
                                        call_flags=(contracts.CallFlags.WRITE_STATES
                                                    | contracts.CallFlags.ALLOW_NOTIFY)
                                        )
@@ -132,7 +132,11 @@ class ManagementContract(NativeContract):
             return None
         return storage.ContractState.deserialize_from_bytes(storage_item.value)
 
-    def contract_create(self, engine: contracts.ApplicationEngine, nef_file: bytes, manifest: bytes) -> None:
+    def contract_create(self,
+                        engine: contracts.ApplicationEngine,
+                        nef_file: bytes,
+                        manifest: bytes,
+                        data: vm.StackItem) -> None:
         if not isinstance(engine.script_container, payloads.Transaction):
             raise ValueError("Cannot create contract without a Transaction script container")
 
@@ -176,7 +180,7 @@ class ManagementContract(NativeContract):
         engine.push(engine._native_to_stackitem(contract, storage.ContractState))
         method_descriptor = contract.manifest.abi.get_method("_deploy")
         if method_descriptor is not None:
-            engine.call_from_native(hash_, hash_, method_descriptor.name, [vm.BooleanStackItem(False)])
+            engine.call_from_native(hash_, hash_, method_descriptor.name, [data, vm.BooleanStackItem(False)])
 
         msgrouter.interop_notify(self.hash,
                                  "Deploy",
@@ -185,7 +189,11 @@ class ManagementContract(NativeContract):
                                                    )
                                  )
 
-    def contract_update(self, engine: contracts.ApplicationEngine, nef_file: bytes, manifest: bytes) -> None:
+    def contract_update(self,
+                        engine: contracts.ApplicationEngine,
+                        nef_file: bytes,
+                        manifest: bytes,
+                        data: vm.StackItem) -> None:
         nef_len = len(nef_file)
         manifest_len = len(manifest)
 
@@ -215,7 +223,10 @@ class ManagementContract(NativeContract):
         if len(nef_file) != 0:
             method_descriptor = contract.manifest.abi.get_method("_deploy")
             if method_descriptor is not None:
-                engine.call_from_native(self.hash, contract.hash, method_descriptor.name, [vm.BooleanStackItem(True)])
+                engine.call_from_native(self.hash,
+                                        contract.hash,
+                                        method_descriptor.name,
+                                        [data, vm.BooleanStackItem(True)])
 
         msgrouter.interop_notify(self.hash,
                                  "Update",
