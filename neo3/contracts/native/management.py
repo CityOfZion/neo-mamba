@@ -178,7 +178,7 @@ class ManagementContract(NativeContract):
         engine.snapshot.storages.put(key, storage.StorageItem(contract.to_array()))
 
         engine.push(engine._native_to_stackitem(contract, storage.ContractState))
-        method_descriptor = contract.manifest.abi.get_method("_deploy")
+        method_descriptor = contract.manifest.abi.get_method("_deploy", 2)
         if method_descriptor is not None:
             engine.call_from_native(hash_, hash_, method_descriptor.name, [data, vm.BooleanStackItem(False)])
 
@@ -224,7 +224,7 @@ class ManagementContract(NativeContract):
         contract.update_counter += 1
 
         if len(nef_file) != 0:
-            method_descriptor = contract.manifest.abi.get_method("_deploy")
+            method_descriptor = contract.manifest.abi.get_method("_deploy", 2)
             if method_descriptor is not None:
                 engine.call_from_native(self.hash,
                                         contract.hash,

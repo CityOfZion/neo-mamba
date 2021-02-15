@@ -338,23 +338,20 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
 
     def load_contract(self,
                       contract: storage.ContractState,
-                      method: str,
-                      flags: contracts.CallFlags,
-                      has_return_value: bool = False) -> Optional[vm.ExecutionContext]:
-        method_descriptor = contract.manifest.abi.get_method(method)
-        if method_descriptor is None:
-            return None
+                      method_descriptor: contracts.ContractMethodDescriptor,
+                      flags: contracts.CallFlags) -> Optional[vm.ExecutionContext]:
 
+        rvcount = 0 if method_descriptor.return_type == contracts.ContractParameterType.VOID else 1
         context = self.load_script_with_callflags(vm.Script(contract.script),
                                                   flags,
                                                   method_descriptor.offset,
-                                                  int(has_return_value),
+                                                  rvcount,
                                                   contract)
         # configure state
         context.call_flags = int(flags)
         context.scripthash_bytes = contract.hash.to_array()
 
-        init = contract.manifest.abi.get_method("_initialize")
+        init = contract.manifest.abi.get_method("_initialize", 0)
         if init is not None:
             self.load_context(context.clone(init.offset))
         return context
@@ -393,7 +390,7 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
         if target_contract is None:
             raise ValueError("[System.Contract.Call] Can't find target contract")
 
-        method_descriptor = target_contract.manifest.abi.get_method(method)
+        method_descriptor = target_contract.manifest.abi.get_method(method, len(args))
         if method_descriptor is None:
             raise ValueError(f"[System.Contract.Call] Method '{method}' does not exist on target contract")
         return self._contract_call_internal2(target_contract, method_descriptor, flags, has_return_value, args)
@@ -430,9 +427,8 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
             raise ValueError("Return value type does not match")
 
         context_new = self.load_contract(target_contract,
-                                         method_descriptor.name,
-                                         flags & calling_flags,
-                                         has_return_value)
+                                         method_descriptor,
+                                         flags & calling_flags)
         if context_new is None:
             raise ValueError
         context_new.calling_scripthash_bytes = calling_script_hash_bytes

@@ -21,7 +21,7 @@ def contract_call(engine: contracts.ApplicationEngine,
     if target_contract is None:
         raise ValueError("[System.Contract.Call] Can't find target contract")
 
-    method_descriptor = target_contract.manifest.abi.get_method(method)
+    method_descriptor = target_contract.manifest.abi.get_method(method, len(args))
     if method_descriptor is None:
         raise ValueError(f"[System.Contract.Call] Method '{method}' does not exist on target contract")
 
@@ -66,7 +66,7 @@ def native_on_persist(engine: contracts.ApplicationEngine) -> None:
     # because ManagementContract.on_persist will call _initialize() on all other native contracts
     # which is needed for the other contracts to work properly when their on_persist() is called
     management = contracts.ManagementContract()
-    others: List[Any] = list(contracts.NativeContract._contracts.values())
+    others: List[Any] = list(contracts.NativeContract()._contracts.values())
     others.remove(management)
     ordered_contracts = [management] + others
     for contract in ordered_contracts:

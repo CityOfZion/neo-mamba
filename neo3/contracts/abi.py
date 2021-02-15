@@ -239,18 +239,29 @@ class ContractABI(IJson):
         return (self.methods == other.methods
                 and self.events == other.events)
 
-    def get_method(self, name) -> Optional[contracts.ContractMethodDescriptor]:
+    def get_method(self, name, parameter_count: int) -> Optional[contracts.ContractMethodDescriptor]:
         """
-        Return the ContractMethodDescriptor matching the name or None otherwise.
+        Return the ContractMethodDescriptor matching the name (and optional parameter count) or None otherwise.
 
         Args:
             name: the name of the method to return.
+            parameter_count: the expected number of parameters teh method has.
         """
-        for m in self.methods:
-            if m.name == name:
-                return m
+        if parameter_count < -1 or parameter_count > 0xFFFF:
+            raise ValueError("Parameter count is out of range")
+
+        if parameter_count >= 0:
+            for m in self.methods:
+                if m.name == name and len(m.parameters) == parameter_count:
+                    return m
+            else:
+                return None
         else:
-            return None
+            for m in self.methods:
+                if m.name == name:
+                    return m
+            else:
+                return None
 
     def to_json(self) -> dict:
         """
