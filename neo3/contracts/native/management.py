@@ -214,10 +214,13 @@ class ManagementContract(NativeContract):
         if manifest_len == 0 or manifest_len > contracts.ContractManifest.MAX_LENGTH:
             raise ValueError(f"Invalid manifest length: {manifest_len}")
 
-        contract.manifest = contracts.ContractManifest.from_json(json.loads(manifest.decode()))
+        manifest_new = contracts.ContractManifest.from_json(json.loads(manifest.decode()))
+        if manifest_new.name != contract.manifest.name:
+            raise ValueError("Error: cannot change contract name")
         if not contract.manifest.is_valid(contract.hash):
             raise ValueError("Error: manifest does not match with script")
 
+        contract.manifest = manifest_new
         contract.update_counter += 1
 
         if len(nef_file) != 0:
