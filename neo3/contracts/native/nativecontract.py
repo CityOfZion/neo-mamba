@@ -43,7 +43,7 @@ class NativeContract(convenience._Singleton):
     active_block_index = 0
 
     def init(self):
-        self._methods: Dict[str, _ContractMethodMetadata] = {}
+        self._methods: Dict[Tuple[str, int], _ContractMethodMetadata] = {}
 
         self._management = contracts.ManagementContract()
         self._neo = NeoToken()
@@ -154,7 +154,7 @@ class NativeContract(convenience._Singleton):
             )
         )
 
-        self._methods.update({func_name: _ContractMethodMetadata(
+        self._methods.update({(func_name, len(params)): _ContractMethodMetadata(
             func, price, call_flags, add_engine, add_snapshot, return_type, parameter_types)
         })
 
@@ -224,7 +224,7 @@ class NativeContract(convenience._Singleton):
         operation = context.evaluation_stack.pop().to_array().decode()
 
         flags = contracts.CallFlags(context.call_flags)
-        method = self._methods.get(operation, None)
+        method = self._methods.get((operation, len(context.evaluation_stack)), None)
         if method is None:
             raise ValueError(f"Method \"{operation}\" does not exist on contract {self.service_name()}")
         if method.required_flag not in flags:

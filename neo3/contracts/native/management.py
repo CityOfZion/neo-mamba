@@ -36,6 +36,17 @@ class ManagementContract(NativeContract):
                                        add_engine=True,
                                        add_snapshot=False,
                                        return_type=None,
+                                       parameter_names=["nef_file", "manifest"],
+                                       parameter_types=[bytes, bytes],
+                                       call_flags=(contracts.CallFlags.WRITE_STATES
+                                                   | contracts.CallFlags.ALLOW_NOTIFY)
+                                       )
+        self._register_contract_method(self.contract_create_with_data,
+                                       0,
+                                       "deploy",
+                                       add_engine=True,
+                                       add_snapshot=False,
+                                       return_type=None,
                                        parameter_names=["nef_file", "manifest", "data"],
                                        parameter_types=[bytes, bytes, vm.StackItem],
                                        call_flags=(contracts.CallFlags.WRITE_STATES
@@ -135,8 +146,14 @@ class ManagementContract(NativeContract):
     def contract_create(self,
                         engine: contracts.ApplicationEngine,
                         nef_file: bytes,
-                        manifest: bytes,
-                        data: vm.StackItem) -> None:
+                        manifest: bytes) -> None:
+        self.contract_create_with_data(engine, nef_file, manifest, vm.NullStackItem())
+
+    def contract_create_with_data(self,
+                                  engine: contracts.ApplicationEngine,
+                                  nef_file: bytes,
+                                  manifest: bytes,
+                                  data: vm.StackItem) -> None:
         if not isinstance(engine.script_container, payloads.Transaction):
             raise ValueError("Cannot create contract without a Transaction script container")
 
