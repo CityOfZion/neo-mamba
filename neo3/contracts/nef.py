@@ -8,27 +8,21 @@ from neo3 import contracts
 class NEF(serialization.ISerializable):
     def __init__(self,
                  compiler_name: str = None,
-                 version: str = None,
                  script: bytes = None,
                  tokens: List[MethodToken] = None):
         """
         Create a Neo Executable Format file.
 
         Args:
-            compiler_name: human readable name of the compiler used to create the script data. Automatically limited to
-            32 bytes
-            version: compiler version information
+            compiler_name: human readable name of the compiler and version used to create the script data.
+            Automatically limited to 64 bytes
             script: a byte array of raw VM opcodes.
         """
         self.magic = 0x3346454E
         if compiler_name is None:
             self.compiler = 'unknown'
         else:
-            self.compiler = compiler_name[:32] + bytearray(32 - len(compiler_name)).decode('utf-8')
-        if version is None:
-            self.version = "unknown"
-        else:
-            self.version = version[:32] + bytearray(32 - len(version)).decode('utf-8')
+            self.compiler = compiler_name[:64] + bytearray(64 - len(compiler_name)).decode('utf-8')
         self.script = script if script else b''
         self._checksum = 0
         self.tokens = [] if tokens is None else tokens
@@ -38,8 +32,7 @@ class NEF(serialization.ISerializable):
     def __len__(self):
         return (
             s.uint32  # magic
-            + 32  # compiler
-            + 32  # version
+            + 64  # compiler
             + 2  # reserved
             + utils.get_var_size(self.tokens)
             + 2  # reserved
@@ -51,7 +44,6 @@ class NEF(serialization.ISerializable):
             return False
         return (self.magic == other.magic
                 and self.compiler == other.compiler
-                and self.version == other.version
                 and self.script == other.script
                 and self.checksum == other.checksum)
 
@@ -70,7 +62,6 @@ class NEF(serialization.ISerializable):
         """
         writer.write_uint32(self.magic)
         writer.write_bytes(self.compiler.encode('utf-8'))
-        writer.write_bytes(self.version.encode('utf-8'))
         writer.write_bytes(b'\x00\x00')
         writer.write_serializable_list(self.tokens)
         writer.write_bytes(b'\x00\x00')
@@ -86,8 +77,7 @@ class NEF(serialization.ISerializable):
         """
         if reader.read_uint32() != self.magic:
             raise ValueError("Deserialization error - Incorrect magic")
-        self.compiler = reader.read_bytes(32).decode('utf-8')
-        self.version = reader.read_bytes(32).decode('utf-8')
+        self.compiler = reader.read_bytes(64).decode('utf-8')
         if reader.read_uint16() != 0:
             raise ValueError("Reserved bytes must be 0")
         self.tokens = reader.read_serializable_list(MethodToken)
