@@ -305,10 +305,9 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
                                    script: vm.Script,
                                    call_flags: contracts.CallFlags,
                                    initial_position: int = 0,
-                                   pcount: int = 0,
                                    rvcount: int = -1,
                                    contract_state: Optional[storage.ContractState] = None):
-        context = super(ApplicationEngine, self).load_script(script, pcount, rvcount, initial_position)
+        context = super(ApplicationEngine, self).load_script(script, rvcount, initial_position)
         context.call_flags = int(call_flags)
         if contract_state is not None:
             self._context_state.update({context: contract_state})
@@ -341,8 +340,7 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
                       contract: storage.ContractState,
                       method: str,
                       flags: contracts.CallFlags,
-                      has_return_value: bool = False,
-                      pcount: int = 0) -> Optional[vm.ExecutionContext]:
+                      has_return_value: bool = False) -> Optional[vm.ExecutionContext]:
         method_descriptor = contract.manifest.abi.get_method(method)
         if method_descriptor is None:
             return None
@@ -350,7 +348,6 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
         context = self.load_script_with_callflags(vm.Script(contract.script),
                                                   flags,
                                                   method_descriptor.offset,
-                                                  pcount,
                                                   int(has_return_value),
                                                   contract)
         # configure state
@@ -435,8 +432,7 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
         context_new = self.load_contract(target_contract,
                                          method_descriptor.name,
                                          flags & calling_flags,
-                                         has_return_value,
-                                         len(args))
+                                         has_return_value)
         if context_new is None:
             raise ValueError
         context_new.calling_scripthash_bytes = calling_script_hash_bytes

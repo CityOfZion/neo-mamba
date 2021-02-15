@@ -9,7 +9,7 @@ from neo3.core import serialization, IInteroperable, types, msgrouter
 
 class NFTState(IInteroperable, serialization.ISerializable):
     def __init__(self, owner: types.UInt160, name: str, description: str):
-        self.owner = owner
+        self._owner = owner
         self.name = name
         self.description = description
         # I don't understand where this ID is coming from as its abstract in C# and not overridden
@@ -34,11 +34,11 @@ class NFTState(IInteroperable, serialization.ISerializable):
 
     @property
     def owner(self):
-        return self.owner
+        return self._owner
 
     @owner.setter
     def owner(self, new_value: types.UInt160):
-        self.owner = new_value
+        self._owner = new_value
         self.storage_item.value = self.to_array()
 
     @classmethod
@@ -53,7 +53,7 @@ class NFTState(IInteroperable, serialization.ISerializable):
         writer.write_var_string(self.description)
 
     def deserialize(self, reader: serialization.BinaryReader) -> None:
-        self.owner = reader.read_serializable(types.UInt160)
+        self._owner = reader.read_serializable(types.UInt160)
         self.name = reader.read_var_string()
         self.description = reader.read_var_string()
 
