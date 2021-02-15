@@ -53,7 +53,7 @@ class ExtensiblePayload(payloads.IInventory):
         self.category = reader.read_var_string(32)
         self.valid_block_start = reader.read_uint32()
         self.valid_block_end = reader.read_uint32()
-        if self.valid_block_start > self.valid_block_end:
+        if self.valid_block_start >= self.valid_block_end:
             raise ValueError("Deserialization error - valid_block_starts is bigger than valid_block_end")
         self.sender = reader.read_serializable(types.UInt160)
         self.data = reader.read_var_bytes(0xFFFF)
