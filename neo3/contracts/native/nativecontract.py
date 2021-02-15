@@ -1268,7 +1268,7 @@ class NeoToken(FungibleToken):
 
         self._register_contract_method(self.register_candidate,
                                        "registerCandidate",
-                                       5000000,
+                                       1000_00000000,
                                        parameter_types=[cryptography.ECPoint],
                                        parameter_names=["public_key"],
                                        return_type=bool,
