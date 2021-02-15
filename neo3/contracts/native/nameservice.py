@@ -163,6 +163,9 @@ class NameService(NonFungibleToken):
                 engine.snapshot.storages.delete(key2)
             self.burn(engine, self.key_token + key.key[5:])
 
+    def on_transferred(self, engine: contracts.ApplicationEngine, from_account: types.UInt160, token: NFTState) -> None:
+        token.owner = types.UInt160.zero()
+
     def add_root(self, engine: contracts.ApplicationEngine, root: str) -> None:
         if not self.REGEX_ROOT.match(root):
             raise ValueError("Regex failure - root not found")

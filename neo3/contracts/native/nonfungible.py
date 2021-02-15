@@ -15,6 +15,7 @@ class NFTState(IInteroperable, serialization.ISerializable):
         # I don't understand where this ID is coming from as its abstract in C# and not overridden
         # we'll probably figure out once we implement the name service in a later PR
         self.id: bytes = b''
+        self.storage_item = storage.StorageItem(b'')
 
     @classmethod
     def from_stack_item(cls, stack_item: vm.StackItem):
@@ -30,6 +31,21 @@ class NFTState(IInteroperable, serialization.ISerializable):
             vm.ByteStringStackItem(self.name),
             vm.ByteStringStackItem(self.description)
         ])
+
+    @property
+    def owner(self):
+        return self.owner
+
+    @owner.setter
+    def owner(self, new_value: types.UInt160):
+        self.owner = new_value
+        self.storage_item.value = self.to_array()
+
+    @classmethod
+    def from_storage(cls, item: storage.StorageItem):
+        c = cls.deserialize_from_bytes(item.value)
+        c.storage_item = item
+        return c
 
     def serialize(self, writer: serialization.BinaryWriter) -> None:
         writer.write_serializable(self.owner)
@@ -216,28 +232,34 @@ class NonFungibleToken(NativeContract):
         if account_to == types.UInt160.zero():
             raise ValueError("To account can't be zero")
 
-        storage_item = engine.snapshot.storages.try_get(self.key_token + token_id, read_only=False)
+        key_token = self.key_token + token_id
+        storage_item = engine.snapshot.storages.try_get(key_token, read_only=True)
         if storage_item is None:
             raise ValueError("Token state not found")
         token_state = NFTState.deserialize_from_bytes(storage_item.value)
         if token_state.owner != engine.calling_scripthash and engine.checkwitness(token_state.owner):
             return False
         if token_state.owner != account_to:
+            token = NFTState.from_stack_item(engine.snapshot.storages.get(key_token, read_only=False))
             key_from = self.key_account + token_state.owner.to_array
             account_state = NFTAccountState.from_storage(engine.snapshot.storages.get(key_from))
             account_state.remove(token_id)
             if account_state.balance == 0:
                 engine.snapshot.storages.delete(key_from)
-            token_state.owner = account_to
+            token.owner = account_to
             key_to = self.key_account + account_to.to_array()
             storage_item = engine.snapshot.storages.try_get(key_to, read_only=False)
             if storage_item is None:
                 storage_item = storage.StorageItem(NFTAccountState().to_array())
                 engine.snapshot.storages.put(key_to, storage_item)
             NFTAccountState.from_storage(storage_item).add(token_id)
+            self.on_transferred(engine, token.owner, token)
 
         self._post_transfer(engine, token_state.owner, account_to, token_id)
         return True
+
+    def on_transferred(self, engine: contracts.ApplicationEngine, from_account: types.UInt160, token: NFTState) -> None:
+        pass
 
     def _post_transfer(self,
                        engine: contracts.ApplicationEngine,
