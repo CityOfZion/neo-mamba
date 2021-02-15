@@ -386,35 +386,40 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
     def context_unloaded(self, context: vm.ExecutionContext) -> None:
         self._context_state.pop(context, None)
 
-    def _contract_call_internal(engine: contracts.ApplicationEngine,
+    def _contract_call_internal(self,
                                 contract_hash: types.UInt160,
                                 method: str,
                                 flags: contracts.CallFlags,
                                 has_return_value: bool,
                                 args: List[vm.StackItem]) -> vm.ExecutionContext:
-        if method.startswith('_'):
-            raise ValueError("[System.Contract.Call] Method not allowed to start with _")
-
-        target_contract = contracts.ManagementContract().get_contract(engine.snapshot, contract_hash)
+        target_contract = contracts.ManagementContract().get_contract(self.snapshot, contract_hash)
         if target_contract is None:
             raise ValueError("[System.Contract.Call] Can't find target contract")
 
         method_descriptor = target_contract.manifest.abi.get_method(method)
         if method_descriptor is None:
             raise ValueError(f"[System.Contract.Call] Method '{method}' does not exist on target contract")
+        return self._contract_call_internal2(target_contract, method_descriptor, flags, has_return_value, args)
 
+    def _contract_call_internal2(self,
+                                 target_contract: storage.ContractState,
+                                 method_descriptor: contracts.ContractMethodDescriptor,
+                                 flags: contracts.CallFlags,
+                                 has_return_value: bool,
+                                 args: List[vm.StackItem]):
         if method_descriptor.safe:
             flags &= ~contracts.CallFlags.WRITE_STATES
         else:
-            current_contract = contracts.ManagementContract().get_contract(engine.snapshot, engine.current_scripthash)
-            if current_contract and not current_contract.can_call(target_contract, method):
+            current_contract = contracts.ManagementContract().get_contract(self.snapshot, self.current_scripthash)
+            if current_contract and not current_contract.can_call(target_contract, method_descriptor.name):
                 raise ValueError(
-                    f"[System.Contract.Call] Not allowed to call target method '{method}' according to manifest")
+                    f"[System.Contract.Call] Not allowed to call target method '{method_descriptor.name}' according "
+                    f"to manifest")
 
-        counter = engine._invocation_counter.get(target_contract.hash, 0)
-        engine._invocation_counter.update({target_contract.hash: counter + 1})
+        counter = self._invocation_counter.get(target_contract.hash, 0)
+        self._invocation_counter.update({target_contract.hash: counter + 1})
 
-        state = engine.current_context
+        state = self.current_context
         calling_script_hash_bytes = state.scripthash_bytes
         calling_flags = state.call_flags
 
@@ -424,11 +429,14 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
             raise ValueError(
                 f"[System.Contract.Call] Invalid number of contract arguments. Expected {expected_len} actual {arg_len}")  # noqa
 
-        context_new = engine.load_contract(target_contract,
-                                           method_descriptor.name,
-                                           flags & calling_flags,
-                                           has_return_value,
-                                           len(args))
+        if has_return_value ^ (method_descriptor.return_type != contracts.ContractParameterType.VOID):
+            raise ValueError("Return value type does not match")
+
+        context_new = self.load_contract(target_contract,
+                                         method_descriptor.name,
+                                         flags & calling_flags,
+                                         has_return_value,
+                                         len(args))
         if context_new is None:
             raise ValueError
         context_new.calling_scripthash_bytes = calling_script_hash_bytes

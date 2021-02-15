@@ -8,26 +8,28 @@ from neo3.contracts.interop import register
 
 
 @register("System.Contract.Call", 1 << 15, contracts.CallFlags.ALLOW_CALL,
-          [types.UInt160, str, contracts.CallFlags, bool, int])
+          [types.UInt160, str, contracts.CallFlags, vm.ArrayStackItem])
 def contract_call(engine: contracts.ApplicationEngine,
                   contract_hash: types.UInt160,
                   method: str,
                   call_flags: contracts.CallFlags,
-                  has_return_value: bool,
-                  pcount: int) -> None:
+                  args: vm.ArrayStackItem) -> None:
     if method.startswith("_"):
         raise ValueError("Invalid method name")
-    # unlike C# we don't need this check as Python doesn't allow creating invalid enums
-    # and will thrown an exception while converting the arguments for the function
-    # if ((callFlags & ~CallFlags.All) != 0)
-    #     throw new ArgumentOutOfRangeException(nameof(callFlags));
-    if pcount > len(engine.current_context.evaluation_stack):
-        raise ValueError
-    args: List[vm.StackItem] = []
-    for _ in range(pcount):
-        args.append(engine.pop())
 
-    engine._contract_call_internal(contract_hash, method, call_flags, has_return_value, args)
+    target_contract = contracts.ManagementContract().get_contract(engine.snapshot, contract_hash)
+    if target_contract is None:
+        raise ValueError("[System.Contract.Call] Can't find target contract")
+
+    method_descriptor = target_contract.manifest.abi.get_method(method)
+    if method_descriptor is None:
+        raise ValueError(f"[System.Contract.Call] Method '{method}' does not exist on target contract")
+
+    has_return_value = method_descriptor.return_type != contracts.ContractParameterType.VOID
+    if not has_return_value:
+        engine.current_context.evaluation_stack.push(vm.NullStackItem())
+
+    engine._contract_call_internal2(target_contract, method_descriptor, call_flags, has_return_value, list(args))
 
 
 @register("System.Contract.IsStandard", 1 << 10, contracts.CallFlags.READ_STATES, [types.UInt160])

@@ -28,8 +28,7 @@ class ScriptBuilder(_ScriptBuilder):  # type: ignore
         self.emit_syscall(_syscall_name_to_int("System.Contract.Call"))
 
     def emit_dynamic_call(self, script_hash, operation: str, has_return_value: bool) -> None:
-        self.emit_push(0)
-        self.emit_push(int(has_return_value))
+        self.emit(OpCode.NEWARRAY0)
         self.emit_push(0xF)  # CallFlags.ALL
         self.emit_push(operation)
         self.emit_push(script_hash.to_array())
@@ -39,7 +38,7 @@ class ScriptBuilder(_ScriptBuilder):  # type: ignore
         for arg in reversed(args):
             self.emit_push(arg)
         self.emit_push(len(args))
-        self.emit_push(int(has_return_value))
+        self.emit(OpCode.PACK)
         self.emit_push(0xF)  # CallFlags.ALL
         self.emit_push(operation)
         self.emit_push(script_hash.to_array())
