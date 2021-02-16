@@ -89,6 +89,6 @@ def call_native(engine: contracts.ApplicationEngine, contract_id: int) -> None:
     if contract is None:
         raise ValueError(f"Can't find native contract with id {contract_id}")
 
-    if contract.active_block_index > engine.snapshot.block_height:
+    if contract.active_block_index > engine.snapshot.best_block_height:
         raise ValueError(f"Native contract is not active until blockheight {contract.active_block_index}")
     contract.invoke(engine)

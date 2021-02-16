@@ -37,7 +37,7 @@ class DesignationContract(NativeContract):
                                snapshot: storage.Snapshot,
                                role: DesignateRole,
                                index: int) -> List[cryptography.ECPoint]:
-        if snapshot.block_height + 1 < index:
+        if snapshot.best_block_height + 1 < index:
             raise ValueError("[DesignateContract] Designate list index out of range")
 
         key = self.create_key(role.to_bytes(1, 'little') + vm.BigInteger(index).to_array()).to_array()

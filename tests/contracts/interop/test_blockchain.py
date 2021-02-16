@@ -41,7 +41,7 @@ class BlockchainInteropTestCase(unittest.TestCase):
         # first add a block and update the snapshot
         # normally this would be done while persisting in Blockchain
         testblock = test_block()
-        engine.snapshot.block_height = testblock.index
+        engine.snapshot.best_block_height = testblock.index
         engine.snapshot.blocks.put(testblock)
         engine.push(vm.ByteStringStackItem(testblock.hash().to_array()))
         engine.invoke_syscall_by_name("System.Blockchain.GetBlock")
@@ -72,7 +72,7 @@ class BlockchainInteropTestCase(unittest.TestCase):
         # first add a block and update the snapshot
         # normally this would be done while persisting in Blockchain
         testblock = test_block()
-        engine.snapshot.block_height = testblock.index
+        engine.snapshot.best_block_height = testblock.index
         engine.snapshot.blocks.put(testblock)
         engine.push(vm.IntegerStackItem(-1))  # index
         engine.push(vm.ByteStringStackItem(testblock.hash().to_array()))  # hash
@@ -115,7 +115,7 @@ class BlockchainInteropTestCase(unittest.TestCase):
 
         # now get a valid tx
         testblock = test_block()
-        engine.snapshot.block_height = testblock.index
+        engine.snapshot.best_block_height = testblock.index
         testblock_tx = testblock.transactions[0]
         engine.snapshot.transactions.put(testblock_tx)
         engine.push(vm.ByteStringStackItem(testblock_tx.hash().to_array()))
@@ -139,7 +139,7 @@ class BlockchainInteropTestCase(unittest.TestCase):
 
         # now get a valid tx
         testblock = test_block()
-        engine.snapshot.block_height = testblock.index
+        engine.snapshot.best_block_height = testblock.index
         testblock_tx = testblock.transactions[0]
         engine.snapshot.transactions.put(testblock_tx)
         engine.push(vm.ByteStringStackItem(testblock_tx.hash().to_array()))

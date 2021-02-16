@@ -73,7 +73,7 @@ class OracleResponse(payloads.TransactionAttribute):
         oracle_account = contracts.Contract.get_consensus_address(
             contracts.DesignationContract().get_designated_by_role(snapshot,
                                                                    contracts.DesignateRole.ORACLE,
-                                                                   snapshot.block_height + 1)
+                                                                   snapshot.best_block_height + 1)
         )
         return any(map(lambda signer: signer.account == oracle_account, tx.signers))
 

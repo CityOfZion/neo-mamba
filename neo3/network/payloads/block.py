@@ -162,7 +162,7 @@ class Header(_BlockBase):
                    payloads.Witness(b'', b''))
 
 
-class Block(_BlockBase, payloads.IInventory, IInteroperable):
+class Block(_BlockBase, payloads.IInventory):
     """
     The famous Block. I transfer chain state.
     """
@@ -299,25 +299,6 @@ class Block(_BlockBase, payloads.IInventory, IInteroperable):
         self.consensus_data = replica.consensus_data
         self.transactions = replica.transactions
 
-    def to_stack_item(self, reference_counter: vm.ReferenceCounter) -> vm.StackItem:
-        """
-        Convert self to a VM stack item.
-
-        Args:
-            reference_counter: ExecutionEngine reference counter
-        """
-        array = vm.ArrayStackItem(reference_counter)
-        block_hash = vm.ByteStringStackItem(self.hash().to_array())
-        version = vm.IntegerStackItem(self.version)
-        prev_hash = vm.ByteStringStackItem(self.prev_hash.to_array())
-        merkle_root = vm.ByteStringStackItem(self.merkle_root.to_array())
-        timestamp = vm.IntegerStackItem(self.timestamp)
-        index = vm.IntegerStackItem(self.index)
-        next_consensus = vm.ByteStringStackItem(self.next_consensus.to_array())
-        tx_len = vm.IntegerStackItem(len(self.transactions))
-        array.append([block_hash, version, prev_hash, merkle_root, timestamp, index, next_consensus, tx_len])
-        return array
-
     @classmethod
     def _serializable_init(cls):
         return cls(0,
@@ -329,7 +310,7 @@ class Block(_BlockBase, payloads.IInventory, IInteroperable):
                    payloads.ConsensusData())
 
 
-class TrimmedBlock(_BlockBase, IClonable):
+class TrimmedBlock(_BlockBase):
     """
     A size reduced Block instance.
 
@@ -372,27 +353,6 @@ class TrimmedBlock(_BlockBase, IClonable):
         self.hashes = reader.read_serializable_list(types.UInt256)
         if len(self.hashes) > 0:
             self.consensus_data = reader.read_serializable(payloads.ConsensusData)
-
-    def from_replica(self, replica: TrimmedBlock) -> None:
-        """
-        Shallow copy attributes from a reference object.
-        """
-        super().from_replica(replica)
-        self.version = replica.version
-        self.prev_hash = replica.prev_hash
-        self.merkle_root = replica.merkle_root
-        self.timestamp = replica.timestamp
-        self.index = replica.index
-        self.next_consensus = replica.next_consensus
-        self.witness = replica.witness
-        self.hashes = replica.hashes
-        self.consensus_data = replica.consensus_data
-
-    def clone(self) -> TrimmedBlock:
-        """
-        Deep copy
-        """
-        return deepcopy(self)
 
     @classmethod
     def _serializable_init(cls):

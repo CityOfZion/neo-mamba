@@ -1,6 +1,6 @@
 from __future__ import annotations
 import enum
-from typing import List, Optional, Type
+from typing import List, Optional, Type, Union
 from enum import IntEnum
 from neo3.core import types, IJson, IInteroperable, serialization
 from neo3 import contracts, vm
@@ -41,8 +41,20 @@ class ContractParameterType(IntEnum):
             return ContractParameterType.INTEGER
         elif class_type in [bytes, bytearray, vm.BufferStackItem, vm.ByteStringStackItem]:
             return ContractParameterType.BYTEARRAY
-        if hasattr(class_type, '__origin__') and class_type.__origin__ == list:  # type: ignore
-            return ContractParameterType.ARRAY
+        elif hasattr(class_type, '__origin__'):
+            if class_type.__origin__ == list:  # type: ignore
+                return ContractParameterType.ARRAY
+            if class_type.__origin__ == Union:  # type: ignore
+                # handle typing.Optional[type], Optional is an alias for Union[x, None]
+                # only support specifying 1 type
+                if len(class_type.__args__) != 2:  # type: ignore
+                    raise ValueError(f"Don't know how to convert {class_type}")
+                for i in class_type.__args__:  # type: ignore
+                    if i is None:
+                        continue
+                    return cls.from_type(i)
+            raise ValueError
+
         elif issubclass(class_type, serialization.ISerializable):
             return ContractParameterType.BYTEARRAY
         elif class_type == str:

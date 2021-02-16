@@ -51,6 +51,7 @@ class NativeContract(convenience._Singleton):
         self._policy = PolicyContract()
         self._nameservice = contracts.NameService()
         self._oracle = contracts.OracleContract()
+        self._ledger = contracts.LedgerContract()
 
         sb = vm.ScriptBuilder()
         sb.emit_push(self.id)
@@ -1394,7 +1395,7 @@ class NeoToken(FungibleToken):
         super(NeoToken, self).on_persist(engine)
 
         # set next committee
-        if self._should_refresh_committee(engine.snapshot.block_height):
+        if self._should_refresh_committee(engine.snapshot.persisting_block.index):
             validators = self._compute_committee_members(engine.snapshot)
             self._committee_state.update(engine.snapshot, validators)
 
@@ -1644,7 +1645,7 @@ class NeoToken(FungibleToken):
         return True
 
     def get_gas_per_block(self, snapshot: storage.Snapshot) -> vm.BigInteger:
-        index = snapshot.persisting_block.index
+        index = snapshot.best_block_height + 1
         gas_bonus_state = GasBonusState.from_snapshot(snapshot)
         for record in reversed(gas_bonus_state):  # type: _GasRecord
             if record.index <= index:

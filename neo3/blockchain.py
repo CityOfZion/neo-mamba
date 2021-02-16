@@ -20,7 +20,7 @@ class Blockchain(convenience._Singleton):
         sb = vm.ScriptBuilder().emit_syscall(syscall_name_to_int("System.Contract.NativePostPersist"))
         self.native_postpersist_script = sb.to_array()
 
-        if self.currentSnapshot.block_height < 0 and store_genesis_block:
+        if self.currentSnapshot.best_block_height < 0 and store_genesis_block:
             self.persist(self.genesis_block)
 
     @property
@@ -32,7 +32,7 @@ class Blockchain(convenience._Singleton):
 
     @property
     def height(self):
-        return self.currentSnapshot.block_height
+        return self.currentSnapshot.best_block_height
 
     @staticmethod
     def _create_genesis_block() -> payloads.Block:
@@ -69,8 +69,6 @@ class Blockchain(convenience._Singleton):
 
     def persist(self, block: payloads.Block):
         with self.backend.get_snapshotview() as snapshot:
-            snapshot.block_height = block.index
-            snapshot.blocks.put(block)
             snapshot.persisting_block = block
 
             engine = contracts.ApplicationEngine(contracts.TriggerType.ON_PERSIST,
@@ -100,6 +98,14 @@ class Blockchain(convenience._Singleton):
             engine.load_script(vm.Script(self.native_postpersist_script))
             if engine.execute() != vm.VMState.HALT:
                 raise ValueError(f"Failed postPersist in native contracts: {engine.exception_message}")
+            """
+            LedgerContract updates the current block in the post_persist event
+            this means transactions in the persisting block that call LedgerContract.current_hash/current_index()
+            will get refer the (previous) block hash/index, not the block they're included in.
+
+            Therefore we wait with persisting the block until here
+            """
+            snapshot.blocks.put(block)
             snapshot.commit()
             self._current_snapshot = snapshot
         msgrouter.on_block_persisted(block)

@@ -60,7 +60,19 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
 
         if isinstance(self.script_container, payloads.Transaction):
             tx = self.script_container
-            for s in tx.signers:
+
+            response = tx.try_get_attribute(payloads.OracleResponse)
+            if response is None:
+                signers = tx.signers
+            else:
+                signers = []
+                request = contracts.OracleContract().get_request(self.snapshot, response.id)
+                if request:
+                    tmp_tx = contracts.LedgerContract().get_tx_for_contract(self.snapshot, request.original_tx_id)
+                    if tmp_tx:
+                        signers = tmp_tx.signers
+
+            for s in signers:
                 if s.account == hash_:
                     signer = s
                     break

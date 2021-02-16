@@ -158,14 +158,14 @@ class RawView:
         return RawTXAccess(self._db)
 
     @property
-    def block_height(self):
+    def best_block_height(self):
         try:
             return self._db._internal_bestblockheight_get()
         except KeyError:
             return -1
 
-    @block_height.setter
-    def block_height(self, value):
+    @best_block_height.setter
+    def best_block_height(self, value):
         raise AttributeError("Can't set attribute on a raw view. view.blocks.put() automatically updates the height "
                              "when applicable")
 

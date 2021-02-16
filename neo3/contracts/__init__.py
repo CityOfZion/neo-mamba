@@ -27,7 +27,8 @@ from .native import (NativeContract,
                      ManagementContract,
                      NonFungibleToken,
                      NFTState,
-                     NameService)
+                     NameService,
+                     LedgerContract)
 from .applicationengine import ApplicationEngine
 
 
@@ -50,4 +51,6 @@ __all__ = ['ContractParameterType',
            'ApplicationEngine',
            'syscall_name_to_int',
            'DesignationContract',
-           'DesignateRole']
+           'DesignateRole',
+           'NameService',
+           'LedgerContract']

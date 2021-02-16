@@ -27,14 +27,14 @@ class Snapshot:
         return self._tx_cache
 
     @property
-    def block_height(self) -> int:
+    def best_block_height(self) -> int:
         try:
             return self._block_height_cache.get()
         except KeyError:
             return -1
 
-    @block_height.setter
-    def block_height(self, value) -> None:
+    @best_block_height.setter
+    def best_block_height(self, value) -> None:
         self._block_height_cache.put(value)
 
     def commit(self):

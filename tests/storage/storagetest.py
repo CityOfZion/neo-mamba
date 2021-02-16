@@ -20,14 +20,14 @@ class AbstractBlockStorageTest(abc.ABC, unittest.TestCase):
     def test_rawview_bestblockheight(self):
 
         raw_view = self.db.get_rawview()
-        self.assertEqual(-1, raw_view.block_height)
+        self.assertEqual(-1, raw_view.best_block_height)
 
         raw_view.blocks.put(self.block1)
-        self.assertEqual(1, raw_view.block_height)
+        self.assertEqual(1, raw_view.best_block_height)
 
         with self.assertRaises(AttributeError):
-            raw_view.block_height = 2
-        self.assertEqual(1, raw_view.block_height)
+            raw_view.best_block_height = 2
+        self.assertEqual(1, raw_view.best_block_height)
 
     def setUp(self) -> None:
         self.db = self.db_factory()
@@ -306,29 +306,29 @@ class AbstractBlockStorageTest(abc.ABC, unittest.TestCase):
 
     def test_snapshot_bestblockheight(self):
         snapshot_view = self.db.get_snapshotview()
-        self.assertEqual(-1, snapshot_view.block_height)
+        self.assertEqual(-1, snapshot_view.best_block_height)
 
-        snapshot_view.block_height = 2
-        self.assertEqual(2, snapshot_view.block_height)
+        snapshot_view.best_block_height = 2
+        self.assertEqual(2, snapshot_view.best_block_height)
 
         # nothing yet in raw view
         raw_view = self.db.get_rawview()
-        self.assertEqual(-1, raw_view.block_height)
+        self.assertEqual(-1, raw_view.best_block_height)
 
         clone_view = snapshot_view.clone()
-        self.assertEqual(2, clone_view.block_height)
+        self.assertEqual(2, clone_view.best_block_height)
 
-        clone_view.block_height = 3
-        self.assertEqual(3, clone_view.block_height)
-        self.assertEqual(2, snapshot_view.block_height)
-        self.assertEqual(-1, raw_view.block_height)
+        clone_view.best_block_height = 3
+        self.assertEqual(3, clone_view.best_block_height)
+        self.assertEqual(2, snapshot_view.best_block_height)
+        self.assertEqual(-1, raw_view.best_block_height)
 
         clone_view.commit()
-        self.assertEqual(3, snapshot_view.block_height)
-        self.assertEqual(-1, raw_view.block_height)
+        self.assertEqual(3, snapshot_view.best_block_height)
+        self.assertEqual(-1, raw_view.best_block_height)
 
         snapshot_view.commit()
-        self.assertEqual(3, raw_view.block_height)
+        self.assertEqual(3, raw_view.best_block_height)
 
     def test_snapshot_bestblockheight_2(self):
         snapshot_view = self.db.get_snapshotview()
@@ -336,7 +336,7 @@ class AbstractBlockStorageTest(abc.ABC, unittest.TestCase):
         snapshot_view.commit()
 
         raw_view = self.db.get_rawview()
-        self.assertEqual(self.block1.index, raw_view.block_height)
+        self.assertEqual(self.block1.index, raw_view.best_block_height)
 
 
 class AbstractContractStorageTest(abc.ABC, unittest.TestCase):
