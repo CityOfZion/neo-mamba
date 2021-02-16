@@ -313,7 +313,7 @@ class PolicyContract(NativeContract):
         self._register_contract_method(self.get_max_transactions_per_block,
                                        "getMaxTransactionsPerBlock",
                                        1000000,
-                                       return_type=int,
+                                       return_type=None,
                                        call_flags=contracts.CallFlags.READ_STATES,
                                        add_snapshot=True,
                                        )
@@ -359,7 +359,7 @@ class PolicyContract(NativeContract):
         self._register_contract_method(self._set_max_block_size,
                                        "setMaxBlockSize",
                                        3000000,
-                                       return_type=bool,
+                                       return_type=None,
                                        parameter_types=[int],
                                        parameter_names=["value"],
                                        add_engine=True,
@@ -367,7 +367,7 @@ class PolicyContract(NativeContract):
         self._register_contract_method(self._set_max_transactions_per_block,
                                        "setMaxTransactionsPerBlock",
                                        3000000,
-                                       return_type=bool,
+                                       return_type=None,
                                        parameter_types=[int],
                                        parameter_names=["value"],
                                        add_engine=True,
@@ -375,7 +375,7 @@ class PolicyContract(NativeContract):
         self._register_contract_method(self._set_max_block_system_fee,
                                        "setMaxBlockSystemFee",
                                        3000000,
-                                       return_type=bool,
+                                       return_type=None,
                                        parameter_types=[int],
                                        parameter_names=["value"],
                                        add_engine=True,
@@ -383,7 +383,7 @@ class PolicyContract(NativeContract):
         self._register_contract_method(self._set_fee_per_byte,
                                        "setFeePerByte",
                                        3000000,
-                                       return_type=bool,
+                                       return_type=None,
                                        parameter_types=[int],
                                        parameter_names=["value"],
                                        add_engine=True,
@@ -407,7 +407,7 @@ class PolicyContract(NativeContract):
         self._register_contract_method(self._set_exec_fee_factor,
                                        "setExecFeeFactor",
                                        3000000,
-                                       return_type=bool,
+                                       return_type=None,
                                        add_engine=True,
                                        add_snapshot=False,
                                        call_flags=contracts.CallFlags.WRITE_STATES
@@ -415,7 +415,7 @@ class PolicyContract(NativeContract):
         self._register_contract_method(self._set_storage_price,
                                        "setStoragePrice",
                                        3000000,
-                                       return_type=bool,
+                                       return_type=None,
                                        add_engine=True,
                                        add_snapshot=False,
                                        call_flags=contracts.CallFlags.WRITE_STATES
@@ -498,7 +498,7 @@ class PolicyContract(NativeContract):
         else:
             return True
 
-    def _set_max_block_size(self, engine: contracts.ApplicationEngine, value: int) -> bool:
+    def _set_max_block_size(self, engine: contracts.ApplicationEngine, value: int) -> None:
         """
         Should only be called through syscalls
         """
@@ -506,7 +506,7 @@ class PolicyContract(NativeContract):
             raise ValueError("New blocksize exceeds PAYLOAD_MAX_SIZE")
 
         if not self._check_committee(engine):
-            return False
+            raise ValueError("Check committee failed")
 
         storage_key = self.create_key(self._PREFIX_MAX_BLOCK_SIZE)
         storage_item = engine.snapshot.storages.try_get(
@@ -517,9 +517,8 @@ class PolicyContract(NativeContract):
             storage_item = storage.StorageItem(b'')
             engine.snapshot.storages.update(storage_key, storage_item)
         storage_item.value = value.to_bytes((value.bit_length() + 7) // 8, 'little', signed=True)
-        return True
 
-    def _set_max_transactions_per_block(self, engine: contracts.ApplicationEngine, value: int) -> bool:
+    def _set_max_transactions_per_block(self, engine: contracts.ApplicationEngine, value: int) -> None:
         """
         Should only be called through syscalls
         """
@@ -527,7 +526,7 @@ class PolicyContract(NativeContract):
             raise ValueError("New value exceeds MAX_TRANSACTIONS_PER_BLOCK")
 
         if not self._check_committee(engine):
-            return False
+            raise ValueError("Check committee failed")
 
         storage_key = self.create_key(self._PREFIX_MAX_TRANSACTIONS_PER_BLOCK)
         storage_item = engine.snapshot.storages.try_get(
@@ -539,18 +538,17 @@ class PolicyContract(NativeContract):
             engine.snapshot.storages.update(storage_key, storage_item)
 
         storage_item.value = value.to_bytes((value.bit_length() + 7) // 8, 'little', signed=True)
-        return True
 
-    def _set_max_block_system_fee(self, engine: contracts.ApplicationEngine, value: int) -> bool:
+    def _set_max_block_system_fee(self, engine: contracts.ApplicationEngine, value: int) -> None:
         """
         Should only be called through syscalls
         """
         # unknown magic value
         if value <= 4007600:
-            return False
+            raise ValueError("Invalid new system fee")
 
         if not self._check_committee(engine):
-            return False
+            raise ValueError("Check committee failed")
 
         storage_key = self.create_key(self._PREFIX_MAX_BLOCK_SYSTEM_FEE)
         storage_item = engine.snapshot.storages.try_get(
@@ -562,9 +560,8 @@ class PolicyContract(NativeContract):
             engine.snapshot.storages.update(storage_key, storage_item)
 
         storage_item.value = value.to_bytes((value.bit_length() + 7) // 8, 'little', signed=True)
-        return True
 
-    def _set_fee_per_byte(self, engine: contracts.ApplicationEngine, value: int) -> bool:
+    def _set_fee_per_byte(self, engine: contracts.ApplicationEngine, value: int) -> None:
         """
         Should only be called through syscalls
         """
@@ -572,7 +569,7 @@ class PolicyContract(NativeContract):
             raise ValueError("New value exceeds FEE_PER_BYTE limits")
 
         if not self._check_committee(engine):
-            return False
+            raise ValueError("Check committee failed")
 
         storage_key = self.create_key(self._PREFIX_FEE_PER_BYTE)
         storage_item = engine.snapshot.storages.try_get(
@@ -584,7 +581,6 @@ class PolicyContract(NativeContract):
             engine.snapshot.storages.update(storage_key, storage_item)
 
         storage_item.value = value.to_bytes((value.bit_length() + 7) // 8, 'little', signed=True)
-        return True
 
     def _block_account(self, engine: contracts.ApplicationEngine, account: types.UInt160) -> bool:
         """
@@ -628,11 +624,11 @@ class PolicyContract(NativeContract):
             return self.DEFAULT_STORAGE_PRICE
         return int(vm.BigInteger(storage_item.value))
 
-    def _set_exec_fee_factor(self, engine: contracts.ApplicationEngine, value: int) -> bool:
+    def _set_exec_fee_factor(self, engine: contracts.ApplicationEngine, value: int) -> None:
         if value == 0 or value > self.MAX_EXEC_FEE_FACTOR:
             raise ValueError("New exec fee value out of range")
         if not self._check_committee(engine):
-            return False
+            raise ValueError("Check committee failed")
         storage_key = self.create_key(self._PREFIX_EXEC_FEE_FACTOR)
         storage_item = engine.snapshot.storages.try_get(storage_key, read_only=False)
         if storage_item is None:
@@ -640,13 +636,12 @@ class PolicyContract(NativeContract):
         else:
             storage_item.value = vm.BigInteger(value).to_array()
         engine.snapshot.storages.update(storage_key, storage_item)
-        return True
 
-    def _set_storage_price(self, engine: contracts.ApplicationEngine, value: int) -> bool:
+    def _set_storage_price(self, engine: contracts.ApplicationEngine, value: int) -> None:
         if value == 0 or value > self.MAX_STORAGE_PRICE:
             raise ValueError("New storage price value out of range")
         if not self._check_committee(engine):
-            return False
+            raise ValueError("Check committee failed")
         storage_key = self.create_key(self._PREFIX_STORAGE_PRICE)
         storage_item = engine.snapshot.storages.try_get(storage_key, read_only=False)
         if storage_item is None:
@@ -654,7 +649,6 @@ class PolicyContract(NativeContract):
         else:
             storage_item.value = vm.BigInteger(value).to_array()
         engine.snapshot.storages.update(storage_key, storage_item)
-        return True
 
 
 class FungibleToken(NativeContract):
@@ -1301,7 +1295,7 @@ class NeoToken(FungibleToken):
                                        5000000,
                                        parameter_types=[vm.BigInteger],
                                        parameter_names=["gas_per_block"],
-                                       return_type=bool,
+                                       return_type=None,
                                        add_engine=True,
                                        add_snapshot=False,
                                        call_flags=contracts.CallFlags.WRITE_STATES
@@ -1629,12 +1623,12 @@ class NeoToken(FungibleToken):
             results.update({candidate[0]: candidate[1]})
         return results
 
-    def _set_gas_per_block(self, engine: contracts.ApplicationEngine, gas_per_block: vm.BigInteger) -> bool:
+    def _set_gas_per_block(self, engine: contracts.ApplicationEngine, gas_per_block: vm.BigInteger) -> None:
         if gas_per_block > 0 or gas_per_block > 10 * self._gas.factor:
             raise ValueError("new gas per block value exceeds limits")
 
         if not self._check_committee(engine):
-            return False
+            raise ValueError("Check committee failed")
 
         index = engine.snapshot.persisting_block.index + 1
         gas_bonus_state = GasBonusState.from_snapshot(engine.snapshot)
@@ -1642,7 +1636,6 @@ class NeoToken(FungibleToken):
             gas_bonus_state[-1] = _GasRecord(index, gas_per_block)
         else:
             gas_bonus_state.append(_GasRecord(index, gas_per_block))
-        return True
 
     def get_gas_per_block(self, snapshot: storage.Snapshot) -> vm.BigInteger:
         index = snapshot.best_block_height + 1
