@@ -109,11 +109,18 @@ class ContractParameterDefinition(IJson):
 
         Raises:
             KeyError: if the data supplied does not contain the necessary keys.
+            ValueError: if the manifest name property has an incorrect format.
+            ValueError: if the type is VOID.
         """
-        return cls(
+        c = cls(
             name=json['name'],
             type=contracts.ContractParameterType[json['type'].upper()]
         )
+        if c.name is None or len(c.name) == 0:
+            raise ValueError("Format error - invalid 'name'")
+        if c.type == contracts.ContractParameterType.VOID:
+            raise ValueError("Format error - parameter type VOID is not allowed")
+        return c
 
 
 class ContractEventDescriptor(IJson):
@@ -155,11 +162,15 @@ class ContractEventDescriptor(IJson):
 
         Raises:
             KeyError: if the data supplied does not contain the necessary key.
+            ValueError: if the 'name' property has an incorrect format
         """
-        return cls(
+        c = cls(
             name=json['name'],
             parameters=list(map(lambda p: ContractParameterDefinition.from_json(p), json['parameters']))
         )
+        if c.name is None or len(c.name) == 0:
+            raise ValueError("Format error - invalid 'name'")
+        return c
 
 
 class ContractMethodDescriptor(ContractEventDescriptor, IJson):
@@ -215,14 +226,21 @@ class ContractMethodDescriptor(ContractEventDescriptor, IJson):
 
         Raises:
             KeyError: if the data supplied does not contain the necessary keys.
+            ValueError: if the manifest name property has an incorrect format.
+            ValueError: if the offset is negative.
         """
-        return cls(
+        c = cls(
             name=json['name'],
             offset=json['offset'],
             parameters=list(map(lambda p: contracts.ContractParameterDefinition.from_json(p), json['parameters'])),
             return_type=contracts.ContractParameterType[json['returntype'].upper()],
             safe=json['safe']
         )
+        if c.name is None or len(c.name) == 0:
+            raise ValueError("Format error - invalid 'name'")
+        if c.offset < 0:
+            raise ValueError("Format error - negative offset not allowed")
+        return c
 
     def __repr__(self):
         return f"<{self.__class__.__name__} at {hex(id(self))}> {self.name}"
@@ -295,8 +313,12 @@ class ContractABI(IJson):
 
         Raises:
             KeyError: if the data supplied does not contain the necessary keys.
+            ValuError: if the contract has no methods
         """
-        return cls(
+        c = cls(
             methods=list(map(lambda m: contracts.ContractMethodDescriptor.from_json(m), json['methods'])),
             events=list(map(lambda e: contracts.ContractEventDescriptor.from_json(e), json['events'])),
         )
+        if len(c.methods) == 0:
+            raise ValueError("Invalid contract - contract has no methods")
+        return c

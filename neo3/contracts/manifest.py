@@ -3,7 +3,6 @@ import base64
 import binascii
 import orjson as json
 from typing import List, Callable
-from enum import IntFlag
 from neo3 import contracts, storage
 from neo3.core import serialization, types, IJson, cryptography, utils
 from neo3.core.serialization import BinaryReader, BinaryWriter
@@ -56,11 +55,15 @@ class ContractGroup(IJson):
 
         Raises:
             KeyError: if the data supplied does not contain the necessary keys.
+            ValueError: if the signature length is not 64.
         """
-        return cls(
+        c = cls(
             public_key=cryptography.ECPoint.deserialize_from_bytes(binascii.unhexlify(json['pubkey'])),
             signature=base64.b64decode(json['signature'].encode('utf8'))
         )
+        if len(c.signature) != 64:
+            raise ValueError("Format error - invalid signature length")
+        return c
 
 
 class ContractPermission(IJson):
@@ -127,10 +130,14 @@ class ContractPermission(IJson):
 
         Raises:
             KeyError: if the data supplied does not contain the necessary keys.
+            ValueError: if a method is zero length.
         """
         cpd = contracts.ContractPermissionDescriptor.from_json(json)
         json_wildcard = {'wildcard': json['methods']}
         methods = WildcardContainer.from_json(json_wildcard)
+        for m in methods:
+            if len(m) == 0:
+                raise ValueError("Format error - methods cannot have length 0")
         return cls(cpd, methods)
 
 
@@ -359,10 +366,17 @@ class ContractManifest(serialization.ISerializable, IJson):
 
         Raise:
             KeyError: if the data supplied does not contain the necessary keys.
+            ValueError: if the manifest name property has an incorrect format.
+            ValueError: if the manifest support standards contains an string
         """
-        instance = cls(types.UInt160.zero())
-        instance._deserialize_from_json(json)
-        return instance
+        manifest = cls(types.UInt160.zero())
+        manifest._deserialize_from_json(json)
+        if manifest.name is None or len(manifest.name) == 0:
+            raise ValueError("Format error - invalid 'name'")
+        for s in manifest.supported_standards:
+            if len(s) == 0:
+                raise ValueError("Format error - supported standards cannot be zero length")
+        return manifest
 
     def is_valid(self, contract_hash: types.UInt160) -> bool:
         """

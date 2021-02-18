@@ -1,11 +1,10 @@
 from __future__ import annotations
 import json
 from . import NativeContract
-from typing import Optional, List
+from typing import Optional, Dict
 from neo3 import storage, contracts, vm
 from neo3.core import to_script_hash, types, msgrouter
 from neo3.network import payloads
-from neo3.contracts.interop import register
 
 
 class ManagementContract(NativeContract):
@@ -167,6 +166,9 @@ class ManagementContract(NativeContract):
 
         nef = contracts.NEF.deserialize_from_bytes(nef_file)
         parsed_manifest = contracts.ContractManifest.from_json(json.loads(manifest.decode()))
+        if not self.validate(vm.Script(nef.script), parsed_manifest.abi):
+            raise ValueError("Invalid script or manifest")
+
         sb = vm.ScriptBuilder()
         sb.emit(vm.OpCode.ABORT)
         sb.emit_push(engine.script_container.sender.to_array())
@@ -230,6 +232,10 @@ class ManagementContract(NativeContract):
             raise ValueError("Error: manifest does not match with script")
 
         contract.manifest = manifest_new
+
+        if not self.validate(vm.Script(contract.nef.script), contract.manifest.abi):
+            raise ValueError("Invalid script or manifest")
+
         contract.update_counter += 1
 
         if len(nef_file) != 0:
@@ -278,3 +284,68 @@ class ManagementContract(NativeContract):
             raise ValueError
         key = self.create_key(self._PREFIX_MINIMUM_DEPLOYMENT_FEE)
         engine.snapshot.storages.update(key, storage.StorageItem(vm.BigInteger(value).to_array()))
+
+    @staticmethod
+    def validate(script: vm.Script, abi: contracts.ContractABI) -> bool:
+        """
+        Validate the script for correctness
+
+        Args:
+            script: smart contract script
+            abi: smart contract ABI
+
+        Returns:
+            True if valid. False otherwise.
+        """
+        instructions: Dict[int, vm.Instruction] = {}
+        ip = 0
+        while ip < len(script):
+            ins = script.get_instruction(ip)
+            instructions.update({ip: ins})
+            ip += len(ins)
+
+        op = vm.OpCode
+        for ip, instruction in instructions.items():
+            if instruction.opcode in [op.JMP, op.JMPIF, op.JMPIFNOT, op.JMPEQ, op.JMPNE,
+                                      op.JMPGT, op.JMPGE, op.JMPLT, op.JMPLE]:
+                if ip + instruction.token_i8 not in instructions:
+                    return False
+                break
+            elif instruction.opcode in [op.PUSHA, op.JMP_L, op.JMPIF_L, op.JMPEQ_L, op.JMPNE_L, op.JMPGT_L,
+                                        op.JMPLT_L, op.JMPLE_L, op.CALL_L, op.ENDTRY_L]:
+                if ip + instruction.token_i32 not in instructions:
+                    return False
+                break
+            elif instruction.opcode == op.TRY:
+                if ip + instruction.token_i8 not in instructions:
+                    return False
+                if ip + instruction.token_i8_1 not in instructions:
+                    return False
+                break
+            elif instruction.opcode == op.TRY_L:
+                if ip + instruction.token_i32 not in instructions:
+                    return False
+                if ip + instruction.token_i32_1 not in instructions:
+                    return False
+                break
+            elif instruction.opcode in [op.NEWARRAY_T, op.ISTYPE, op.CONVERT]:
+                type_ = vm.StackItemType(instruction.token_u8)
+                # this is a specific issue with pybind11 (2.5.0) not using real enums. Pure python enums would fail to
+                # construct when using an invalid value. Monitor pybind versions to see if they move towards real enums
+                if type_.name == '???':
+                    return False
+                if instruction.opcode != op.NEWARRAY_T and type_ == vm.StackItemType.ANY:
+                    return False
+                break
+
+        for method in abi.methods:
+            if method.offset not in instructions:
+                return False
+
+        tmp_list = []
+        for event in abi.events:
+            if event.name in tmp_list:
+                return False
+            else:
+                tmp_list.append(event.name)
+        return True
