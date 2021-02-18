@@ -268,7 +268,7 @@ class NonFungibleToken(NativeContract):
         return True
 
     def tokens(self, snapshot: storage.Snapshot) -> interop.IIterator:
-        result = snapshot.storages.find(self._PREFIX_TOKEN)
+        result = snapshot.storages.find(self.key_token.to_array())
         options = interop.FindOptions
         # this deviates from C#, but we can't use a 'null' as reference counter.
         reference_counter = vm.ReferenceCounter()
