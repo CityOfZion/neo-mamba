@@ -92,12 +92,6 @@ class NameServiceTestCase(unittest.TestCase):
 
         with self.assertRaises(ValueError) as context:
             nameservice.is_available(snapshot, "neo.org")
-        self.assertEqual("Can't find roots in storage", str(context.exception))
-
-        # create an empty roots list
-        snapshot.storages.put(nameservice.key_roots, storage.StorageItem(b'\x00'))
-        with self.assertRaises(ValueError) as context:
-            nameservice.is_available(snapshot, "neo.org")
         self.assertEqual("'org' is not a registered root", str(context.exception))
 
         # store "com" as a registered root, thus leaving "org" available

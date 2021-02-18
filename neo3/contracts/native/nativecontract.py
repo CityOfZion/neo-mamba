@@ -300,6 +300,14 @@ class PolicyContract(NativeContract):
     _PREFIX_EXEC_FEE_FACTOR = b'\x12'
     _PREFIX_STORAGE_PRICE = b'\x13'
 
+    key_max_transactions_per_block = storage.StorageKey(_id, _PREFIX_MAX_TRANSACTIONS_PER_BLOCK)
+    key_fee_per_byte = storage.StorageKey(_id, _PREFIX_FEE_PER_BYTE)
+    key_blocked_account = storage.StorageKey(_id, _PREFIX_BLOCKED_ACCOUNT)
+    key_max_block_size = storage.StorageKey(_id, _PREFIX_MAX_BLOCK_SIZE)
+    key_max_block_system_fee = storage.StorageKey(_id, _PREFIX_MAX_BLOCK_SYSTEM_FEE)
+    key_exec_fee_factor = storage.StorageKey(_id, _PREFIX_EXEC_FEE_FACTOR)
+    key_storage_price = storage.StorageKey(_id, _PREFIX_STORAGE_PRICE)
+
     def init(self):
         super(PolicyContract, self).init()
 
@@ -421,6 +429,20 @@ class PolicyContract(NativeContract):
                                        call_flags=contracts.CallFlags.WRITE_STATES
                                        )
 
+    def _int_to_bytes(self, value: int) -> bytes:
+        return value.to_bytes((value.bit_length() + 7 + 1) // 8, 'little', signed=True)  # +1 for signed
+
+    def _initialize(self, engine: contracts.ApplicationEngine) -> None:
+        def _to_si(value: int) -> storage.StorageItem:
+            return storage.StorageItem(self._int_to_bytes(value))
+
+        engine.snapshot.storages.put(self.key_max_transactions_per_block, _to_si(512))
+        engine.snapshot.storages.put(self.key_fee_per_byte, _to_si(1000))
+        engine.snapshot.storages.put(self.key_max_block_size, _to_si(1024 * 256))
+        engine.snapshot.storages.put(self.key_max_block_system_fee, _to_si(int(GasToken().factor * 9000)))
+        engine.snapshot.storages.put(self.key_exec_fee_factor, _to_si(self.DEFAULT_EXEC_FEE_FACTOR))
+        engine.snapshot.storages.put(self.key_storage_price, _to_si(self.DEFAULT_STORAGE_PRICE))
+
     def get_max_block_size(self, snapshot: storage.Snapshot) -> int:
         """
         Retrieve the configured maximum size of a Block.
@@ -428,12 +450,10 @@ class PolicyContract(NativeContract):
         Returns:
             int: maximum number of bytes.
         """
-        data = snapshot.storages.try_get(
+        data = snapshot.storages.get(
             self.create_key(self._PREFIX_MAX_BLOCK_SIZE),
             read_only=True
         )
-        if data is None:
-            return 1024 * 256
         return int.from_bytes(data.value, 'little', signed=True)
 
     def get_max_transactions_per_block(self, snapshot: storage.Snapshot) -> int:
@@ -443,12 +463,7 @@ class PolicyContract(NativeContract):
         Returns:
             int: maximum number of transaction.
         """
-        data = snapshot.storages.try_get(
-            self.create_key(self._PREFIX_MAX_TRANSACTIONS_PER_BLOCK),
-            read_only=True
-        )
-        if data is None:
-            return 512
+        data = snapshot.storages.get(self.key_max_transactions_per_block, read_only=True)
         return int.from_bytes(data.value, 'little', signed=True)
 
     def get_max_block_system_fee(self, snapshot: storage.Snapshot) -> int:
@@ -458,13 +473,7 @@ class PolicyContract(NativeContract):
         Returns:
             int: maximum system fee.
         """
-        data = snapshot.storages.try_get(
-            self.create_key(self._PREFIX_MAX_BLOCK_SYSTEM_FEE),
-            read_only=True
-        )
-        if data is None:
-            x = GasToken().factor * 9000
-            return int(x)
+        data = snapshot.storages.get(self.key_max_block_system_fee, read_only=True)
         return int.from_bytes(data.value, 'little', signed=True)
 
     def get_fee_per_byte(self, snapshot: storage.Snapshot) -> int:
@@ -474,12 +483,7 @@ class PolicyContract(NativeContract):
         Returns:
             int: maximum fee.
         """
-        data = snapshot.storages.try_get(
-            self.create_key(self._PREFIX_FEE_PER_BYTE),
-            read_only=True
-        )
-        if data is None:
-            return 1000
+        data = snapshot.storages.get(self.key_fee_per_byte, read_only=True)
         return int.from_bytes(data.value, 'little', signed=True)
 
     def is_blocked(self, snapshot: storage.Snapshot, account: types.UInt160) -> bool:
@@ -489,10 +493,7 @@ class PolicyContract(NativeContract):
         Transaction from blocked accounts will be rejected by the consensus nodes.
         """
 
-        si = snapshot.storages.try_get(
-            self.create_key(self._PREFIX_BLOCKED_ACCOUNT + account.to_array()),
-            read_only=True
-        )
+        si = snapshot.storages.try_get(self.key_blocked_account + account.to_array(), read_only=True)
         if si is None:
             return False
         else:
@@ -508,15 +509,8 @@ class PolicyContract(NativeContract):
         if not self._check_committee(engine):
             raise ValueError("Check committee failed")
 
-        storage_key = self.create_key(self._PREFIX_MAX_BLOCK_SIZE)
-        storage_item = engine.snapshot.storages.try_get(
-            storage_key,
-            read_only=False
-        )
-        if storage_item is None:
-            storage_item = storage.StorageItem(b'')
-            engine.snapshot.storages.update(storage_key, storage_item)
-        storage_item.value = value.to_bytes((value.bit_length() + 7) // 8, 'little', signed=True)
+        storage_item = engine.snapshot.storages.get(self.key_max_block_size, read_only=False)
+        storage_item.value = self._int_to_bytes(value)
 
     def _set_max_transactions_per_block(self, engine: contracts.ApplicationEngine, value: int) -> None:
         """
@@ -528,16 +522,8 @@ class PolicyContract(NativeContract):
         if not self._check_committee(engine):
             raise ValueError("Check committee failed")
 
-        storage_key = self.create_key(self._PREFIX_MAX_TRANSACTIONS_PER_BLOCK)
-        storage_item = engine.snapshot.storages.try_get(
-            storage_key,
-            read_only=False
-        )
-        if storage_item is None:
-            storage_item = storage.StorageItem(b'')
-            engine.snapshot.storages.update(storage_key, storage_item)
-
-        storage_item.value = value.to_bytes((value.bit_length() + 7) // 8, 'little', signed=True)
+        storage_item = engine.snapshot.storages.get(self.key_max_transactions_per_block, read_only=False)
+        storage_item.value = self._int_to_bytes(value)
 
     def _set_max_block_system_fee(self, engine: contracts.ApplicationEngine, value: int) -> None:
         """
@@ -550,16 +536,8 @@ class PolicyContract(NativeContract):
         if not self._check_committee(engine):
             raise ValueError("Check committee failed")
 
-        storage_key = self.create_key(self._PREFIX_MAX_BLOCK_SYSTEM_FEE)
-        storage_item = engine.snapshot.storages.try_get(
-            storage_key,
-            read_only=False
-        )
-        if storage_item is None:
-            storage_item = storage.StorageItem(b'')
-            engine.snapshot.storages.update(storage_key, storage_item)
-
-        storage_item.value = value.to_bytes((value.bit_length() + 7) // 8, 'little', signed=True)
+        storage_item = engine.snapshot.storages.get(self.key_max_block_system_fee, read_only=False)
+        storage_item.value = self._int_to_bytes(value)
 
     def _set_fee_per_byte(self, engine: contracts.ApplicationEngine, value: int) -> None:
         """
@@ -571,16 +549,8 @@ class PolicyContract(NativeContract):
         if not self._check_committee(engine):
             raise ValueError("Check committee failed")
 
-        storage_key = self.create_key(self._PREFIX_FEE_PER_BYTE)
-        storage_item = engine.snapshot.storages.try_get(
-            storage_key,
-            read_only=False
-        )
-        if storage_item is None:
-            storage_item = storage.StorageItem(b'')
-            engine.snapshot.storages.update(storage_key, storage_item)
-
-        storage_item.value = value.to_bytes((value.bit_length() + 7) // 8, 'little', signed=True)
+        storage_item = engine.snapshot.storages.get(self.key_fee_per_byte, read_only=False)
+        storage_item.value = self._int_to_bytes(value)
 
     def _block_account(self, engine: contracts.ApplicationEngine, account: types.UInt160) -> bool:
         """
@@ -588,10 +558,10 @@ class PolicyContract(NativeContract):
         """
         if not self._check_committee(engine):
             return False
-        storage_key = self.create_key(self._PREFIX_BLOCKED_ACCOUNT + account.to_array())
+        storage_key = self.key_blocked_account + account.to_array()
         storage_item = engine.snapshot.storages.try_get(storage_key, read_only=False)
         if storage_item is None:
-            storage_item = storage.StorageItem(b'\x01')
+            storage_item = storage.StorageItem(b'\x00')
             engine.snapshot.storages.update(storage_key, storage_item)
         else:
             return False
@@ -604,7 +574,7 @@ class PolicyContract(NativeContract):
         """
         if not self._check_committee(engine):
             return False
-        storage_key = self.create_key(self._PREFIX_BLOCKED_ACCOUNT + account.to_array())
+        storage_key = self.key_blocked_account + account.to_array()
         storage_item = engine.snapshot.storages.try_get(storage_key, read_only=False)
         if storage_item is None:
             return False
@@ -613,15 +583,11 @@ class PolicyContract(NativeContract):
         return True
 
     def get_exec_fee_factor(self, snapshot: storage.Snapshot) -> int:
-        storage_item = snapshot.storages.try_get(self.create_key(self._PREFIX_EXEC_FEE_FACTOR))
-        if storage_item is None:
-            return self.DEFAULT_EXEC_FEE_FACTOR
+        storage_item = snapshot.storages.get(self.key_exec_fee_factor, read_only=True)
         return int(vm.BigInteger(storage_item.value))
 
     def get_storage_price(self, snapshot: storage.Snapshot) -> int:
-        storage_item = snapshot.storages.try_get(self.create_key(self._PREFIX_STORAGE_PRICE))
-        if storage_item is None:
-            return self.DEFAULT_STORAGE_PRICE
+        storage_item = snapshot.storages.get(self.key_storage_price, read_only=True)
         return int(vm.BigInteger(storage_item.value))
 
     def _set_exec_fee_factor(self, engine: contracts.ApplicationEngine, value: int) -> None:
@@ -629,26 +595,16 @@ class PolicyContract(NativeContract):
             raise ValueError("New exec fee value out of range")
         if not self._check_committee(engine):
             raise ValueError("Check committee failed")
-        storage_key = self.create_key(self._PREFIX_EXEC_FEE_FACTOR)
-        storage_item = engine.snapshot.storages.try_get(storage_key, read_only=False)
-        if storage_item is None:
-            storage_item = storage.StorageItem(vm.BigInteger(value).to_array())
-        else:
-            storage_item.value = vm.BigInteger(value).to_array()
-        engine.snapshot.storages.update(storage_key, storage_item)
+        storage_item = engine.snapshot.storages.get(self.key_exec_fee_factor, read_only=False)
+        storage_item.value = vm.BigInteger(value).to_array()
 
     def _set_storage_price(self, engine: contracts.ApplicationEngine, value: int) -> None:
         if value == 0 or value > self.MAX_STORAGE_PRICE:
             raise ValueError("New storage price value out of range")
         if not self._check_committee(engine):
             raise ValueError("Check committee failed")
-        storage_key = self.create_key(self._PREFIX_STORAGE_PRICE)
-        storage_item = engine.snapshot.storages.try_get(storage_key, read_only=False)
-        if storage_item is None:
-            storage_item = storage.StorageItem(vm.BigInteger(value).to_array())
-        else:
-            storage_item.value = vm.BigInteger(value).to_array()
-        engine.snapshot.storages.update(storage_key, storage_item)
+        storage_item = engine.snapshot.storages.get(self.key_storage_price, read_only=False)
+        storage_item.value = vm.BigInteger(value).to_array()
 
 
 class FungibleToken(NativeContract):

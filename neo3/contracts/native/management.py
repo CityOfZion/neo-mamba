@@ -113,17 +113,13 @@ class ManagementContract(NativeContract):
             self.key_min_deploy_fee,
             storage.StorageItem(vm.BigInteger(10_00000000).to_array())
         )
+        engine.snapshot.storages.put(self.key_next_id, storage.StorageItem(b'\x00'))
 
     def get_next_available_id(self, snapshot: storage.Snapshot) -> int:
         key = self.create_key(self._PREFIX_NEXT_AVAILABLE_ID)
-        item = snapshot.storages.try_get(key, read_only=False)
-        if item is None:
-            value = vm.BigInteger(1)
-            item = storage.StorageItem(value.to_array())
-        else:
-            value = vm.BigInteger(item.value) + 1
-            item.value = value.to_array()
-        snapshot.storages.update(key, item)
+        item = snapshot.storages.get(key, read_only=False)
+        value = vm.BigInteger(item.value) + 1
+        item.value = value.to_array()
         return int(value)
 
     def on_persist(self, engine: contracts.ApplicationEngine) -> None:

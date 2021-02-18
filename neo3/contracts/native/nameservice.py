@@ -152,6 +152,7 @@ class NameService(NonFungibleToken):
     def _initialize(self, engine: contracts.ApplicationEngine) -> None:
         super(NameService, self)._initialize(engine)
         engine.snapshot.storages.put(self.key_domain_price, storage.StorageItem(vm.BigInteger(1000000000).to_array()))
+        engine.snapshot.storages.put(self.key_roots, storage.StorageItem(b'\x00'))
 
     def on_persist(self, engine: contracts.ApplicationEngine) -> None:
         now = vm.BigInteger((engine.snapshot.persisting_block.timestamp // 1000) + 1)
@@ -171,11 +172,7 @@ class NameService(NonFungibleToken):
             raise ValueError("Regex failure - root not found")
         if not self._check_committee(engine):
             raise ValueError("Check committee failed")
-        storage_item_roots = engine.snapshot.storages.try_get(self.key_roots, read_only=False)
-        if storage_item_roots is None:
-            storage_item_roots = storage.StorageItem(b'\x00')
-            engine.snapshot.storages.put(self.key_roots, storage_item_roots)
-
+        storage_item_roots = engine.snapshot.storages.get(self.key_roots, read_only=False)
         roots = StringList.from_storage(storage_item_roots)
         if root in roots:
             raise ValueError("The name already exists")
@@ -201,10 +198,7 @@ class NameService(NonFungibleToken):
         storage_item = snapshot.storages.try_get(self.key_token + name.encode(), read_only=True)
         if storage_item:
             return False
-        storage_item_roots = snapshot.storages.try_get(self.key_roots, read_only=True)
-        if storage_item_roots is None:
-            raise ValueError("Can't find roots in storage")
-
+        storage_item_roots = snapshot.storages.get(self.key_roots, read_only=True)
         roots = StringList.from_storage(storage_item_roots)
         if names[1] not in roots:
             raise ValueError(f"'{names[1]}' is not a registered root")

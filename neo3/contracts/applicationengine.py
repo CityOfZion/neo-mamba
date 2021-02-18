@@ -45,8 +45,12 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
         self._invocation_counter: Dict[types.UInt160, int] = {}
         #: Notifications (Notify SYSCALLs) that occured while executing the script.
         self.notifications: List[Tuple[payloads.IVerifiable, types.UInt160, bytes, vm.ArrayStackItem]] = []
-        self.exec_fee_factor = contracts.PolicyContract().get_exec_fee_factor(snapshot)
-        self.STORAGE_PRICE = contracts.PolicyContract().get_storage_price(snapshot)
+        if self.snapshot is None or self.snapshot.persisting_block is None or self.snapshot.persisting_block.index == 0:
+            self.exec_fee_factor = contracts.PolicyContract().DEFAULT_EXEC_FEE_FACTOR
+            self.STORAGE_PRICE = contracts.PolicyContract().DEFAULT_STORAGE_PRICE
+        else:
+            self.exec_fee_factor = contracts.PolicyContract().get_exec_fee_factor(snapshot)
+            self.STORAGE_PRICE = contracts.PolicyContract().get_storage_price(snapshot)
 
         self._context_state: Dict[vm.ExecutionContext, storage.ContractState] = {}
 

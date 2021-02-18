@@ -164,6 +164,9 @@ class NonFungibleToken(NativeContract):
                                        call_flags=(contracts.CallFlags.WRITE_STATES
                                                    | contracts.CallFlags.ALLOW_NOTIFY))
 
+    def _initialize(self, engine: contracts.ApplicationEngine) -> None:
+        engine.snapshot.storages.put(self.key_total_suppply, storage.StorageItem(b'\x00'))
+
     def mint(self, engine: contracts.ApplicationEngine, token: NFTState) -> None:
         engine.snapshot.storages.put(self.key_token + token.id, storage.StorageItem(token.to_array()))
         sk_account = self.key_account + token.id
@@ -176,13 +179,9 @@ class NonFungibleToken(NativeContract):
         account = NFTAccountState.from_storage(si_account)
         account.add(token.id)
 
-        si_total_supply = engine.snapshot.storages.try_get(self.key_total_suppply, read_only=False)
-        if si_total_supply is None:
-            si_total_supply = storage.StorageItem(vm.BigInteger.one().to_array())
-        else:
-            new_value = vm.BigInteger(si_total_supply.value) + 1
-            si_total_supply.value = new_value.to_array()
-        engine.snapshot.storages.update(self.key_total_suppply, si_total_supply)
+        si_total_supply = engine.snapshot.storages.get(self.key_total_suppply, read_only=False)
+        new_value = vm.BigInteger(si_total_supply.value) + 1
+        si_total_supply.value = new_value.to_array()
 
         self._post_transfer(engine, types.UInt160.zero(), token.owner, token.id)
 
@@ -208,11 +207,8 @@ class NonFungibleToken(NativeContract):
         self._post_transfer(engine, token.owner, types.UInt160.zero(), token_id)
 
     def total_supply(self, snapshot: storage.Snapshot) -> vm.BigInteger:
-        storage_item = snapshot.storages.try_get(self.key_total_suppply)
-        if storage_item is None:
-            return vm.BigInteger.zero()
-        else:
-            return vm.BigInteger(storage_item.value)
+        storage_item = snapshot.storages.get(self.key_total_suppply)
+        return vm.BigInteger(storage_item.value)
 
     def owner_of(self, snapshot: storage.Snapshot, token_id: bytes) -> types.UInt160:
         storage_item = snapshot.storages.get(self.key_token + token_id, read_only=True)
