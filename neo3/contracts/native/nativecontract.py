@@ -809,7 +809,7 @@ class FungibleToken(NativeContract):
             from_: vm.StackItem = vm.NullStackItem()
         else:
             from_ = vm.ByteStringStackItem(account_from.to_array())
-        engine.call_from_native(self.hash, account_to, "onPayment", [from_, vm.IntegerStackItem(amount), data])
+        engine.call_from_native(self.hash, account_to, "onNEP17Payment", [from_, vm.IntegerStackItem(amount), data])
 
     def transfer(self,
                  engine: contracts.ApplicationEngine,

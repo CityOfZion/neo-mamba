@@ -306,3 +306,7 @@ class NonFungibleToken(NativeContract):
         state.append(vm.ByteStringStackItem(token_id))
 
         msgrouter.interop_notify(self.hash, "Transfer", state)
+
+        if account_to != types.UInt160.zero() and \
+                contracts.ManagementContract().get_contract(engine.snapshot, account_to) is not None:
+            engine.call_from_native(self.hash, account_to, "onNEP17Payment", list(state))
