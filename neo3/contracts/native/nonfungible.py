@@ -5,6 +5,7 @@ from typing import List, cast, Optional
 from . import NativeContract
 from neo3 import storage, contracts, cryptography, vm
 from neo3.core import serialization, IInteroperable, types, msgrouter
+from neo3.contracts import interop
 
 
 class NFTState(IInteroperable, serialization.ISerializable):
@@ -163,6 +164,18 @@ class NonFungibleToken(NativeContract):
                                        add_snapshot=False,
                                        call_flags=(contracts.CallFlags.WRITE_STATES
                                                    | contracts.CallFlags.ALLOW_NOTIFY))
+        self._register_contract_method(self.tokens,
+                                       "tokens",
+                                       1000000,
+                                       return_type=interop.IIterator,
+                                       add_snapshot=True,
+                                       call_flags=contracts.CallFlags.READ_STATES)
+        self._register_contract_method(self.tokens_of,
+                                       "tokensOf",
+                                       1000000,
+                                       return_type=interop.IIterator,
+                                       add_snapshot=True,
+                                       call_flags=contracts.CallFlags.READ_STATES)
 
     def _initialize(self, engine: contracts.ApplicationEngine) -> None:
         engine.snapshot.storages.put(self.key_total_suppply, storage.StorageItem(b'\x00'))
@@ -253,6 +266,24 @@ class NonFungibleToken(NativeContract):
 
         self._post_transfer(engine, token_state.owner, account_to, token_id)
         return True
+
+    def tokens(self, snapshot: storage.Snapshot) -> interop.IIterator:
+        result = snapshot.storages.find(self._PREFIX_TOKEN)
+        options = interop.FindOptions
+        # this deviates from C#, but we can't use a 'null' as reference counter.
+        reference_counter = vm.ReferenceCounter()
+        return interop.StorageIterator(result,
+                                       options.VALUES_ONLY | options.DESERIALIZE_VALUES | options.PICK_FIELD1,
+                                       reference_counter)
+
+    def tokens_of(self, snapshot: storage.Snapshot, owner: types.UInt160) -> interop.IIterator:
+        storage_item_account = snapshot.storages.try_get(self.key_account + owner.to_array(), read_only=True)
+        reference_counter = vm.ReferenceCounter()
+        if storage_item_account is None:
+            return interop.ArrayWrapper(vm.ArrayStackItem(reference_counter))
+        account = NFTAccountState.from_storage(storage_item_account)
+        tokens: List[vm.StackItem] = list(map(lambda t: vm.ByteStringStackItem(t), account.tokens))
+        return interop.ArrayWrapper(vm.ArrayStackItem(reference_counter, tokens))
 
     def on_transferred(self, engine: contracts.ApplicationEngine, from_account: types.UInt160, token: NFTState) -> None:
         pass
