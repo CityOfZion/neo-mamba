@@ -15,4 +15,4 @@ from .snapshot import CloneSnapshot, Snapshot
 from .storageitem import StorageItem, StorageFlags, FungibleTokenStorageState
 from .storagekey import StorageKey
 from .contractstate import ContractState
-from .utils import NEOByteCompare, NEOSeekSort
+from .utils import NEOByteCompare, NEOSeekSort, create_find_prefix

@@ -29,11 +29,12 @@ class StorageKey(serialization.ISerializable):
 
     def serialize(self, writer: serialization.BinaryWriter) -> None:
         writer.write_int32(self.id)
-        writer.write_var_bytes(self.key)
+        writer.write_bytes(self.key)
 
     def deserialize(self, reader: serialization.BinaryReader) -> None:
         self.id = reader.read_int32()
-        self.key = reader.read_var_bytes()
+        remaining_stream_size = len(reader) - reader._stream.tell()
+        self.key = reader.read_bytes(remaining_stream_size)
 
     @classmethod
     def _serializable_init(cls):

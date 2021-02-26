@@ -1,7 +1,7 @@
 from __future__ import annotations
 from contextlib import suppress
 from copy import deepcopy
-from typing import List, Iterator, Tuple
+from typing import List, Iterator, Tuple, Optional
 from neo3 import storage, storage_logger as logger
 from neo3.core import types, serialization
 from neo3.network import payloads
@@ -17,8 +17,9 @@ class DBPrefixes:
     BLOCKS_HEIGHT_MAP = b'\x02'
     BLOCKS_BEST_HEIGHT = b'\x03'
     CONTRACTS = b'\x04'
-    STORAGES = b'\x05'
-    TRANSACTIONS = b'\x06'
+    CONTRACT_ID = b'\x05'
+    STORAGES = b'\x06'
+    TRANSACTIONS = b'\x07'
 
 
 class LevelDB(storage.IDBImplementation):
@@ -126,6 +127,23 @@ class LevelDB(storage.IDBImplementation):
             for block in res:
                 yield deepcopy(block)
 
+    def _internal_contractid_get(self):
+        id_bytes = self._real_db.get(DBPrefixes.CONTRACT_ID)
+        if id_bytes is None:
+            raise KeyError
+        return int.from_bytes(id_bytes, 'little')
+
+    def _internal_contractid_put(self, contract_id: int, batch=None):
+        if batch:
+            db = batch
+        else:
+            db = self._real_db
+
+        db.put(DBPrefixes.CONTRACT_ID, contract_id.to_bytes(4, 'little'))
+
+    def _internal_contractid_update(self, contract_id: int, batch=None):
+        self._internal_contractid_put(contract_id, batch)
+
     def _internal_contract_put(self, contract: storage.ContractState, batch=None):
         if batch:
             db = batch
@@ -190,10 +208,10 @@ class LevelDB(storage.IDBImplementation):
 
         return storage.StorageItem.deserialize_from_bytes(storage_bytes)
 
-    def _internal_storage_all(self, contract_hash: types.UInt160 = None):
+    def _internal_storage_all(self, contract_id: Optional[int] = None):
         prefix = DBPrefixes.STORAGES
-        if contract_hash is not None:
-            prefix = DBPrefixes.STORAGES + contract_hash.to_array()
+        if contract_id is not None:
+            prefix = DBPrefixes.STORAGES + contract_id.to_bytes(4, 'little', signed=True)
 
         res = {}
         with self._real_db.iterator(prefix=prefix, include_key=True, include_value=True) as it:
@@ -207,13 +225,13 @@ class LevelDB(storage.IDBImplementation):
         for k, v in res.items():
             yield deepcopy(k), deepcopy(v)
 
-    def _internal_storage_find(self, contract_hash: types.UInt160, key_prefix: bytes):
-        prefix = DBPrefixes.STORAGES + contract_hash.to_array() + key_prefix
+    def _internal_storage_find(self, key_prefix: bytes):
+        prefix = DBPrefixes.STORAGES + key_prefix
 
         res = {}
         with self._real_db.iterator(prefix=prefix, include_key=True, include_value=True) as it:
             for key, value in it:
-                # strip off prefix
+                # strip off STORAGES table prefix
                 k = storage.StorageKey.deserialize_from_bytes(key[1:])
                 v = storage.StorageItem.deserialize_from_bytes(value)
                 res[k] = v
@@ -223,10 +241,46 @@ class LevelDB(storage.IDBImplementation):
             yield k, v
 
     def _internal_storage_seek(self,
-                               contract_hash: types.UInt160,
                                key_prefix: bytes,
                                seek_direction="forward") -> Iterator[Tuple[storage.StorageKey, storage.StorageItem]]:
-        raise NotImplementedError()
+
+        target = DBPrefixes.STORAGES + key_prefix
+
+        res = {}
+        with self._real_db.raw_iterator() as it:
+            if seek_direction == "forward":
+                it.seek(target)
+                while it.valid():
+                    key = it.key()
+                    if len(key) < 1 or key[0] != DBPrefixes.STORAGES[0]:
+                        break
+
+                    k = storage.StorageKey.deserialize_from_bytes(key[1:])
+                    v = storage.StorageItem.deserialize_from_bytes(it.value())
+                    res[k] = v
+
+                    it.next()
+            else:
+                it.seek(target)
+                if not it.valid():
+                    it.seek_to_last()
+                elif it.key() > target:
+                    it.prev()
+
+                while it.valid():
+                    key = it.key()
+                    if len(key) < 1 or key[0] != DBPrefixes.STORAGES[0]:
+                        break
+
+                    k = storage.StorageKey.deserialize_from_bytes(key[1:])
+                    v = storage.StorageItem.deserialize_from_bytes(it.value())
+                    res[k] = v
+
+                    it.prev()
+
+        # yielding outside of iterator to make sure the LevelDB iterator is closed and not leaking resources
+        for k, v in res.items():
+            yield k, v
 
     def _internal_transaction_put(self, transaction: payloads.Transaction, batch=None):
         if batch:
@@ -371,7 +425,7 @@ class LevelDBCachedContractAccess(storage.CachedContractAccess):
                 self._db._internal_contract_update(trackable.item, self._batch)
                 trackable.state = storage.TrackState.NONE
             elif trackable.state == storage.TrackState.DELETED:
-                self._db._internal_contract_delete(trackable.item.script_hash(), self._batch)
+                self._db._internal_contract_delete(trackable.item.hash, self._batch)
                 keys_to_delete.append(trackable.key)
         for key in keys_to_delete:
             with suppress(KeyError):

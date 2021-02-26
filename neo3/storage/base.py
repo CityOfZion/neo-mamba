@@ -3,6 +3,7 @@ import abc
 from neo3.core import types
 from neo3 import storage
 from typing import Tuple, Optional, Iterator, TYPE_CHECKING
+
 if TYPE_CHECKING:
     from neo3.network import payloads
 
@@ -136,17 +137,15 @@ class IDBImplementation(abc.ABC):
             return None
 
     @abc.abstractmethod
-    def _internal_storage_all(self, contract_script_hash: types.UInt160 = None) -> Iterator[
-            Tuple[storage.StorageKey, storage.StorageItem]]:
+    def _internal_storage_all(self, contract_id: Optional[int] = None) -> Iterator[Tuple[storage.StorageKey,
+                                                                                         storage.StorageItem]]:
         """ Return all storage pairs for a given smart contract stored in the real backend (readonly). """
 
     @abc.abstractmethod
-    def _internal_storage_find(self, contract_script_hash: types.UInt160,
-                               key_prefix: bytes) -> Iterator[Tuple[storage.StorageKey, storage.StorageItem]]:
-        """ Find key/value pairs for a given smart contract by a given key prefix. """
+    def _internal_storage_find(self, key_prefix: bytes) -> Iterator[Tuple[storage.StorageKey, storage.StorageItem]]:
+        """ Find the storage pairs where the key property of the deserialized StorageKey starts with key_prefix. """
 
     def _internal_storage_seek(self,
-                               contract_scrip_hash: types.UInt160,
                                key_prefix: bytes,
                                seek_direction="forward") -> Iterator[Tuple[storage.StorageKey, storage.StorageItem]]:
         """ """
@@ -388,29 +387,27 @@ class RawStorageAccess:
         """
         self._db._internal_storage_delete(key)
 
-    def all(self, contract_script_hash: types.UInt160 = None) -> Iterator[Tuple[storage.StorageKey,
-                                                                                storage.StorageItem]]:
+    def all(self, contract_id: Optional[int] = None) -> Iterator[Tuple[storage.StorageKey,
+                                                                       storage.StorageItem]]:
         """
         Retrieve all storage key/value pairs.
 
         Args:
-            contract_script_hash: smart contract script hash to limit results to. If not specified, returns for all
+            contract_id: smart contract unique identifier to limit results to. If not specified, returns for all
             contracts.
         """
-        for k, v in self._db._internal_storage_all(contract_script_hash):
+        for k, v in self._db._internal_storage_all(contract_id):
             yield k, v
 
-    def find(self, contract_script_hash: types.UInt160, key_prefix: bytes) -> Iterator[Tuple[storage.StorageKey,
-                                                                                             storage.StorageItem]]:
+    def find(self, key_prefix: bytes) -> Iterator[Tuple[storage.StorageKey, storage.StorageItem]]:
         """
-        Retrieve all storage key/value pairs.
+        Find the storage pairs where the key property of the deserialized StorageKey starts with key_prefix.
 
         Args:
-            contract_script_hash: script hash of smart contract to search storage of.
             key_prefix: the prefix part of the storage.StorageKey.key to look for.
 
         """
-        for k, v in self._db._internal_storage_find(contract_script_hash, key_prefix):
+        for k, v in self._db._internal_storage_find(key_prefix):
             yield k, v
 
 

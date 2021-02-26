@@ -257,15 +257,7 @@ class ContractManifest(serialization.ISerializable, IJson):
     #: The maximum byte size after serialization to be considered valid a valid contract.
     MAX_LENGTH = 0xFFFF
 
-    def __init__(self, contract_hash: types.UInt160 = types.UInt160.zero()):
-        """
-        Creates a default contract manifest if no arguments are supplied.
-
-        A default contract may not be called by any other contracts
-
-        Args:
-            contract_hash: the contract script hash to create a manifest for.
-        """
+    def __init__(self):
         #: Contract name
         self.name: str = ""
         #: A group represents a set of mutually trusted contracts. A contract will trust and allow any contract in the
@@ -369,7 +361,7 @@ class ContractManifest(serialization.ISerializable, IJson):
             ValueError: if the manifest name property has an incorrect format.
             ValueError: if the manifest support standards contains an string
         """
-        manifest = cls(types.UInt160.zero())
+        manifest = cls()
         manifest._deserialize_from_json(json)
         if manifest.name is None or len(manifest.name) == 0:
             raise ValueError("Format error - invalid 'name'")

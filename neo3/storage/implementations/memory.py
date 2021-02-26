@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Iterator, Tuple, Dict, List
+from typing import Iterator, Tuple, Dict, List, Optional
 from neo3 import storage
 from neo3.core import types
 from neo3.network import payloads
@@ -154,26 +154,24 @@ class MemoryDB(storage.IDBImplementation):
 
         return deepcopy(value)
 
-    def _internal_storage_all(self, contract_script_hash: types.UInt160 = None) -> Iterator[Tuple[storage.StorageKey,
-                                                                                                  storage.StorageItem]]:
+    def _internal_storage_all(self, contract_id: Optional[int] = None) -> Iterator[Tuple[storage.StorageKey,
+                                                                                         storage.StorageItem]]:
         for k, v in self.db[self.STORAGE].items():
-            if contract_script_hash:
-                if contract_script_hash == k.contract:
+            if contract_id:
+                if contract_id == k.id:
                     yield deepcopy(k), deepcopy(v)
             else:
                 yield deepcopy(k), deepcopy(v)
 
-    def _internal_storage_find(self, contract_script_hash: types.UInt160,
-                               key_prefix: bytes) -> Iterator[Tuple[storage.StorageKey, storage.StorageItem]]:
+    def _internal_storage_find(self, key_prefix: bytes) -> Iterator[Tuple[storage.StorageKey, storage.StorageItem]]:
         script_hash_len = 20
         for k, v in self.db[self.STORAGE].items():
-            # k is of type StorageKey, which starts with a 20-byte script hash.
+            # k is of type StorageKey, which starts with a 4-byte contract id.
             # We skip this and search only in the `key` attribute
-            if k.to_array()[script_hash_len:].startswith(key_prefix):
+            if k.to_array().startswith(key_prefix):
                 yield deepcopy(k), deepcopy(v)
 
     def _internal_storage_seek(self,
-                               contract_scrip_hash: types.UInt160,
                                key_prefix: bytes,
                                seek_direction="forward") -> Iterator[Tuple[storage.StorageKey, storage.StorageItem]]:
         if seek_direction == "forward":
@@ -182,7 +180,7 @@ class MemoryDB(storage.IDBImplementation):
             view = reversed(self.db[self.STORAGE].items())
         matches = []
         for key, value in view:  # type: storage.StorageKey, storage.StorageItem
-            if key.key.startswith(key_prefix):
+            if key.to_array().startswith(key_prefix):
                 matches.append((key, value))
         return iter(matches)
 
@@ -255,7 +253,7 @@ class MemorySnapshot(storage.Snapshot):
         self._contract_cache = MemoryDBCachedContractAccess(db, self._batch)
         self._tx_cache = MemoryDBCachedTXAccess(db, self._batch)
         self._block_height_cache = MemoryBestBlockHeightAttribute(db, self._batch)
-        self._contract_id_cache = MemoryBestContractIDAttribute(db, self._batch)
+        self._contract_id_cache = MemoryContractIDAttribute(db, self._batch)
 
     def commit(self) -> None:
         super(MemorySnapshot, self).commit()
@@ -336,7 +334,7 @@ class MemoryDBCachedContractAccess(storage.CachedContractAccess):
                 self._db._internal_contract_update(trackable.item, self._batch)
                 trackable.state = storage.TrackState.NONE
             elif trackable.state == storage.TrackState.DELETED:
-                self._db._internal_contract_delete(trackable.item.script_hash(), self._batch)
+                self._db._internal_contract_delete(trackable.item.hash, self._batch)
                 keys_to_delete.append(trackable.key)
         for key in keys_to_delete:
             with suppress(KeyError):

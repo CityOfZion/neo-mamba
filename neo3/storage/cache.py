@@ -430,8 +430,8 @@ class CachedStorageAccess(CachedAccess):
         """
         super(CachedStorageAccess, self)._delete(key)
 
-    def all(self, contract_script_hash: types.UInt160 = None) -> Iterator[Tuple[storage.StorageKey,
-                                                                                storage.StorageItem]]:
+    def all(self, contract_id: Optional[int] = None) -> Iterator[Tuple[storage.StorageKey,
+                                                                       storage.StorageItem]]:
         """
         Retrieve all storage key/value pairs, sorted by key (readonly).
 
@@ -439,12 +439,12 @@ class CachedStorageAccess(CachedAccess):
             Return values are sorted to give deterministic behaviour in smart contracts.
 
         Args:
-            contract_script_hash: smart contract script hash to limit results to. If not specified, returns for all
+            contract_id: smart contract id to limit results to. If not specified, returns for all
             contracts.
             read_only: set to True to safeguard against return value modifications being persisted when committing.
         """
         pairs = []
-        for k, v in self._internal_all(contract_script_hash):
+        for k, v in self._internal_all(contract_id):
             if k not in self._dictionary:
                 pairs.append((k, v))
 
@@ -485,7 +485,7 @@ class CachedStorageAccess(CachedAccess):
 
     def seek(self, key_prefix: bytes, direction="forward"
              ) -> Iterator[Tuple[storage.StorageKey, storage.StorageItem]]:
-
+        # always read only
         comperator = storage.NEOByteCompare(direction)
         results: List[Tuple[storage.StorageKey, storage.StorageItem]] = []
         for key, value in self._dictionary.items():
@@ -496,10 +496,13 @@ class CachedStorageAccess(CachedAccess):
         cached_keys = self._dictionary.keys()
         for key, value in self._internal_seek(key_prefix, "forward"):
             if key not in cached_keys:
-                results.append((key, value))
-        results.sort(key=cmp_to_key(partial(storage.NEOSeekSort, comperator.compare)))  # type: ignore
+                results.append((deepcopy(key), deepcopy(value)))
 
-        return iter(results)
+        if direction == "forward":
+            r = sorted(results, key=lambda pair: pair[0].key)
+        else:
+            r = sorted(results, key=lambda pair: pair[0].key, reverse=True)
+        return iter(r)
 
 
 class CachedTXAccess(CachedAccess):
@@ -662,12 +665,12 @@ class CloneContractCache(CachedContractAccess):
                 self.inner_cache.put(trackable.item)
                 trackable.state = storage.TrackState.NONE
             elif trackable.state == TrackState.CHANGED:
-                item = self.inner_cache.try_get(trackable.item.script_hash(), read_only=False)
+                item = self.inner_cache.try_get(trackable.item.hash, read_only=False)
                 if item:
                     item.from_replica(trackable.item)
                 trackable.state = storage.TrackState.NONE
             elif trackable.state == TrackState.DELETED:
-                self.inner_cache.delete(trackable.item.script_hash())
+                self.inner_cache.delete(trackable.item.hash)
                 keys_to_delete.append(trackable.key)
         for key in keys_to_delete:
             with suppress(KeyError):

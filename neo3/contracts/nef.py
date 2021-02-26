@@ -61,7 +61,7 @@ class NEF(serialization.ISerializable):
             writer: instance.
         """
         writer.write_uint32(self.magic)
-        writer.write_bytes(self.compiler.encode('utf-8'))
+        writer.write_bytes(self.compiler.encode('utf-8').ljust(64, b'\x00'))
         writer.write_bytes(b'\x00\x00')
         writer.write_serializable_list(self.tokens)
         writer.write_bytes(b'\x00\x00')

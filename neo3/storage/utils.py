@@ -28,3 +28,7 @@ def NEOSeekSort(comperator_func,
                 pair_y: Tuple[storage.StorageKey, storage.StorageItem],
                 pair_x: Tuple[storage.StorageKey, storage.StorageItem]) -> int:
     return comperator_func(pair_x[0].key, pair_y[0].key)
+
+
+def create_find_prefix(id: int, prefix: bytes) -> bytes:
+    return id.to_bytes(4, 'little', signed=True) + prefix

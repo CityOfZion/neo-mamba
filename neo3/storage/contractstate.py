@@ -24,10 +24,10 @@ class ContractState(serialization.ISerializable, IClonable, IInteroperable):
 
     def __len__(self):
         return (s.uint32  # id
-                + utils.get_var_size(self.nef)
+                + len(self.nef.to_array())
                 + len(self.manifest)
                 + s.uint16  # update counter
-                + utils.get_var_size(self.hash))
+                + len(self.hash))
 
     def __eq__(self, other):
         if other is None:
@@ -42,6 +42,10 @@ class ContractState(serialization.ISerializable, IClonable, IInteroperable):
     @property
     def script(self) -> bytes:
         return self.nef.script
+
+    @script.setter
+    def script(self, value: bytes) -> None:
+        self.nef.script = value
 
     def serialize(self, writer: BinaryWriter) -> None:
         writer.write_int32(self.id)
