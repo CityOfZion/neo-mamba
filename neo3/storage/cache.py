@@ -272,6 +272,91 @@ class CachedBlockAccess(CachedAccess):
         return None
 
 
+# It is currently unclear why these do not persist when they're class attributes to CachedContractAccess
+# Keeping them here for the time being
+_gas_token_contract_state = None
+_neo_token_contract_state = None
+
+
+class CachedContractAccess(CachedAccess):
+    _gas_token_script_hash = types.UInt160.from_string("f61eebf573ea36593fd43aa150c055ad7906ab83")
+    _neo_token_script_hash = types.UInt160.from_string("70e2301955bf1e74cbb31d18c2f96972abadb328")
+
+    def __init__(self, db):
+        super(CachedContractAccess, self).__init__(db)
+        self._internal_get = self._db._internal_contract_get
+        self._internal_try_get = self._db._internal_contract_try_get
+        self._internal_all = self._db._internal_contract_all
+
+    def put(self, contract: storage.ContractState) -> None:
+        """	
+        Store a contract.	
+        Args:	
+            contract: contract state instance.
+        Raises:	
+            ValueError: if a duplicate item is found.	
+        """
+        super(CachedContractAccess, self)._put(contract.hash, contract)
+
+    def get(self, hash: types.UInt160, read_only=False) -> storage.ContractState:
+        """
+        Retrieve a contract.
+        Args:
+            hash: unique contract identifier.
+            read_only: set to True to safeguard against return value modifications being persisted when committing.
+        Raises:
+            KeyError: if the item is not found.
+        """
+        global _gas_token_contract_state, _neo_token_contract_state
+        if hash == self._gas_token_script_hash:
+            if _gas_token_contract_state is None:
+                _gas_token_contract_state = super(CachedContractAccess, self)._get(hash, read_only)
+            return _gas_token_contract_state
+        elif hash == self._neo_token_script_hash:
+            if _neo_token_contract_state is None:
+                _neo_token_contract_state = super(CachedContractAccess, self)._get(hash, read_only)
+            return _neo_token_contract_state
+        return super(CachedContractAccess, self)._get(hash, read_only)
+
+    def try_get(self, hash: types.UInt160, read_only=False) -> Optional[storage.ContractState]:
+        """
+        Try to retrieve a contract.
+        Args:
+            hash: unique contract identifier.
+            read_only: set to True to safeguard against return value modifications being persisted when committing.
+        """
+        try:
+            return self.get(hash, read_only)
+        except KeyError:
+            return None
+
+    def delete(self, hash: types.UInt160) -> None:
+        """
+        Remove a transaction.
+        Args:
+            hash: unique contract identifier.
+        """
+        super(CachedContractAccess, self)._delete(hash)
+
+    def all(self) -> Iterator[storage.ContractState]:
+        """	
+        Retrieve all contracts (readonly)	
+        """
+        contracts = []
+        for contract in self._internal_all():  # type: storage.ContractState
+            if contract.hash not in self._dictionary:
+                contracts.append(contract)
+
+        for k, v in self._dictionary.items():
+            if v.state != TrackState.DELETED:
+                contracts.append(deepcopy(v.item))
+
+        contracts.sort(key=lambda contract: contract.hash.to_array())
+        for contract in contracts:
+            yield contract
+        return None
+
+
 class CachedStorageAccess(CachedAccess):
     def __init__(self, db):
         super(CachedStorageAccess, self).__init__(db)
@@ -540,6 +625,49 @@ class CloneBlockCache(CachedBlockAccess):
                 trackable.state = storage.TrackState.NONE
             elif trackable.state == TrackState.DELETED:
                 self.inner_cache.delete(trackable.item.hash())
+                keys_to_delete.append(trackable.key)
+        for key in keys_to_delete:
+            with suppress(KeyError):
+                self._dictionary.pop(key)
+        self._changeset.clear()
+
+
+class CloneContractCache(CachedContractAccess):
+    def __init__(self, db, inner_cache: CachedContractAccess):
+        super(CloneContractCache, self).__init__(db)
+        self.inner_cache = inner_cache
+        self._internal_get = self._inner_cache_get
+        self._internal_try_get = self._inner_cache_try_get
+        self._internal_all = self._inner_cache_all
+
+    def _inner_cache_try_get(self, hash, read_only=True):
+        try:
+            return self._inner_cache_get(hash, read_only)
+        except KeyError:
+            return None
+
+    def _inner_cache_get(self, hash, read_only=True):
+        return self.inner_cache.get(hash, read_only)
+
+    def _inner_cache_all(self):
+        return self.inner_cache.all()
+
+    def commit(self) -> None:
+        """	
+        Persist changes to the parent snapshot.	
+        """
+        keys_to_delete: List[types.UInt160] = []
+        for trackable in self.get_changeset():  # trackable.item: storage.ContractState
+            if trackable.state == TrackState.ADDED:
+                self.inner_cache.put(trackable.item)
+                trackable.state = storage.TrackState.NONE
+            elif trackable.state == TrackState.CHANGED:
+                item = self.inner_cache.try_get(trackable.item.script_hash(), read_only=False)
+                if item:
+                    item.from_replica(trackable.item)
+                trackable.state = storage.TrackState.NONE
+            elif trackable.state == TrackState.DELETED:
+                self.inner_cache.delete(trackable.item.script_hash())
                 keys_to_delete.append(trackable.key)
         for key in keys_to_delete:
             with suppress(KeyError):

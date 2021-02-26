@@ -16,6 +16,7 @@ class DBPrefixes:
     BLOCKS = b'\x01'
     BLOCKS_HEIGHT_MAP = b'\x02'
     BLOCKS_BEST_HEIGHT = b'\x03'
+    CONTRACTS = b'\x04'
     STORAGES = b'\x05'
     TRANSACTIONS = b'\x06'
 
@@ -125,6 +126,44 @@ class LevelDB(storage.IDBImplementation):
             for block in res:
                 yield deepcopy(block)
 
+    def _internal_contract_put(self, contract: storage.ContractState, batch=None):
+        if batch:
+            db = batch
+        else:
+            db = self._real_db
+
+        db.put(DBPrefixes.CONTRACTS + contract.hash.to_array(), contract.to_array())
+
+    def _internal_contract_update(self, contract: storage.ContractState, batch=None):
+        self._internal_contract_put(contract, batch)
+
+    def _internal_contract_delete(self, hash: types.UInt160, batch=None):
+        if batch:
+            db = batch
+        else:
+            db = self._real_db
+
+        db.delete(DBPrefixes.CONTRACTS + hash.to_array())
+
+    def _internal_contract_get(self, hash: types.UInt160):
+        contract_bytes = self._real_db.get(DBPrefixes.CONTRACTS + hash.to_array())
+        if contract_bytes is None:
+            raise KeyError
+
+        return storage.ContractState.deserialize_from_bytes(contract_bytes)
+
+    def _internal_contract_all(self):
+        res = []
+        with self._real_db.iterator(prefix=DBPrefixes.CONTRACTS, include_key=False, include_value=True) as it:
+            for value in it:
+                # strip off prefix
+                v = storage.ContractState.deserialize_from_bytes(value)
+                res.append(v)
+
+        # yielding outside of iterator to make sure the LevelDB iterator is closed and not leaking resources
+        for contract in res:
+            yield deepcopy(contract)
+
     def _internal_storage_put(self, key: storage.StorageKey, value: storage.StorageItem, batch=None):
         if batch:
             db = batch
@@ -151,10 +190,10 @@ class LevelDB(storage.IDBImplementation):
 
         return storage.StorageItem.deserialize_from_bytes(storage_bytes)
 
-    def _internal_storage_all(self, contract_script_hash: types.UInt160 = None):
+    def _internal_storage_all(self, contract_hash: types.UInt160 = None):
         prefix = DBPrefixes.STORAGES
-        if contract_script_hash is not None:
-            prefix = DBPrefixes.STORAGES + contract_script_hash.to_array()
+        if contract_hash is not None:
+            prefix = DBPrefixes.STORAGES + contract_hash.to_array()
 
         res = {}
         with self._real_db.iterator(prefix=prefix, include_key=True, include_value=True) as it:
@@ -168,8 +207,8 @@ class LevelDB(storage.IDBImplementation):
         for k, v in res.items():
             yield deepcopy(k), deepcopy(v)
 
-    def _internal_storage_find(self, contract_script_hash: types.UInt160, key_prefix: bytes):
-        prefix = DBPrefixes.STORAGES + contract_script_hash.to_array() + key_prefix
+    def _internal_storage_find(self, contract_hash: types.UInt160, key_prefix: bytes):
+        prefix = DBPrefixes.STORAGES + contract_hash.to_array() + key_prefix
 
         res = {}
         with self._real_db.iterator(prefix=prefix, include_key=True, include_value=True) as it:
@@ -184,7 +223,7 @@ class LevelDB(storage.IDBImplementation):
             yield k, v
 
     def _internal_storage_seek(self,
-                               contract_scrip_hash: types.UInt160,
+                               contract_hash: types.UInt160,
                                key_prefix: bytes,
                                seek_direction="forward") -> Iterator[Tuple[storage.StorageKey, storage.StorageItem]]:
         raise NotImplementedError()
@@ -248,9 +287,11 @@ class LevelDBSnapshot(storage.Snapshot):
         self._batch = db._real_db.write_batch()
 
         self._block_cache = LevelDBCachedBlockAccess(db, self._batch)
+        self._contract_cache = LevelDBCachedContractAccess(db, self._batch)
         self._storage_cache = LevelDBCachedStorageAccess(db, self._batch)
         self._tx_cache = LevelDBCachedTXAccess(db, self._batch)
         self._block_height_cache = LevelDBBestBlockHeightAttribute(db, self._batch)
+        self._contract_id_cache = LevelDBContractIDAttribute(db, self._batch)
 
     def commit(self) -> None:
         super(LevelDBSnapshot, self).commit()
@@ -300,6 +341,45 @@ class LevelDBCachedBlockAccess(storage.CachedBlockAccess):
 
     def create_snapshot(self):
         return storage.CloneBlockCache(self._db, self)
+
+
+class LevelDBContractIDAttribute(storage.AttributeCache):
+    def __init__(self, db, batch):
+        super(LevelDBContractIDAttribute, self).__init__()
+        self._db = db
+        self._batch = batch
+
+    def _get_internal(self):
+        return self._db._internal_contractid_get()
+
+    def _update_internal(self, value):
+        self._db._internal_contractid_update(value, self._batch)
+
+
+class LevelDBCachedContractAccess(storage.CachedContractAccess):
+    def __init__(self, db, batch):
+        super(LevelDBCachedContractAccess, self).__init__(db)
+        self._batch = batch
+
+    def commit(self) -> None:
+        keys_to_delete: List[types.UInt160] = []
+        for trackable in self.get_changeset():  # trackable.item: storage.ContractState
+            if trackable.state == storage.TrackState.ADDED:
+                self._db._internal_contract_put(trackable.item, self._batch)
+                trackable.state = storage.TrackState.NONE
+            elif trackable.state == storage.TrackState.CHANGED:
+                self._db._internal_contract_update(trackable.item, self._batch)
+                trackable.state = storage.TrackState.NONE
+            elif trackable.state == storage.TrackState.DELETED:
+                self._db._internal_contract_delete(trackable.item.script_hash(), self._batch)
+                keys_to_delete.append(trackable.key)
+        for key in keys_to_delete:
+            with suppress(KeyError):
+                self._dictionary.pop(key)
+        self._changeset.clear()
+
+    def create_snapshot(self):
+        return storage.CloneContractCache(self._db, self)
 
 
 class LevelDBCachedStorageAccess(storage.CachedStorageAccess):

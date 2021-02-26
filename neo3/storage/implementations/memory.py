@@ -11,6 +11,8 @@ class MemoryDB(storage.IDBImplementation):
     BLOCK = 'blocks'
     BLOCK_HEIGHT_MAP = 'blocksmap'
     BLOCK_BEST_HEIGHT = 'blockheight'
+    CONTRACT = 'contracts'
+    CONTRACT_ID = 'contract_id'
     STORAGE = 'storages'
     TX = 'transactions'
 
@@ -18,6 +20,7 @@ class MemoryDB(storage.IDBImplementation):
         self.db: Dict[str, dict] = {
             self.BLOCK: {},
             self.BLOCK_HEIGHT_MAP: {},
+            self.CONTRACT: {},
             self.STORAGE: {},
             self.TX: {}
         }
@@ -82,6 +85,47 @@ class MemoryDB(storage.IDBImplementation):
     def _internal_block_all(self) -> Iterator[payloads.Block]:
         for block in self.db[self.BLOCK].values():
             yield deepcopy(block)
+
+    def _internal_contractid_get(self):
+        if self._contract_id == -1:
+            raise KeyError
+        return self._contract_id
+
+    def _internal_contractid_put(self, new_id: int, batch=None):
+        if batch:
+            batch.put(self.CONTRACT_ID, new_id, new_id)
+        else:
+            self._contract_id = new_id
+
+    def _internal_contractid_update(self, new_id: int, batch=None):
+        self._internal_contractid_update(new_id, batch)
+
+    def _internal_contract_put(self, contract: storage.ContractState, batch: WriteBatch = None) -> None:
+        if batch:
+            batch.put(self.CONTRACT, contract.hash, contract)
+        else:
+            self.db[self.CONTRACT][contract.hash] = contract
+
+    def _internal_contract_update(self, contract: storage.ContractState, batch: WriteBatch = None) -> None:
+        self._internal_contract_put(contract, batch)
+
+    def _internal_contract_delete(self, hash: types.UInt160, batch: WriteBatch = None) -> None:
+        if batch:
+            batch.delete(self.CONTRACT, hash)
+        else:
+            with suppress(KeyError):
+                self.db[self.CONTRACT].pop(hash)
+
+    def _internal_contract_get(self, contract_hash: types.UInt160) -> storage.ContractState:
+        value = self.db[self.CONTRACT].get(contract_hash, None)
+        if value is None:
+            raise KeyError
+
+        return deepcopy(value)
+
+    def _internal_contract_all(self) -> Iterator[storage.ContractState]:
+        for contract in self.db[self.CONTRACT].values():
+            yield deepcopy(contract)
 
     def _internal_storage_put(self, key: storage.StorageKey,
                               value: storage.StorageItem,
@@ -208,8 +252,10 @@ class MemorySnapshot(storage.Snapshot):
 
         self._block_cache = MemoryDBCachedBlockAccess(db, self._batch)
         self._storage_cache = MemoryDBCachedStorageAccess(db, self._batch)
+        self._contract_cache = MemoryDBCachedContractAccess(db, self._batch)
         self._tx_cache = MemoryDBCachedTXAccess(db, self._batch)
         self._block_height_cache = MemoryBestBlockHeightAttribute(db, self._batch)
+        self._contract_id_cache = MemoryBestContractIDAttribute(db, self._batch)
 
     def commit(self) -> None:
         super(MemorySnapshot, self).commit()
@@ -260,6 +306,45 @@ class MemoryDBCachedBlockAccess(storage.CachedBlockAccess):
 
     def create_snapshot(self):
         return storage.CloneBlockCache(self._db, self)
+
+
+class MemoryContractIDAttribute(storage.AttributeCache):
+    def __init__(self, db, batch):
+        super(MemoryContractIDAttribute, self).__init__()
+        self._db = db
+        self._batch = batch
+
+    def _get_internal(self):
+        return self._db._internal_contractid_get()
+
+    def _update_internal(self, value):
+        self._db._internal_contractid_update(value, self._batch)
+
+
+class MemoryDBCachedContractAccess(storage.CachedContractAccess):
+    def __init__(self, db, batch):
+        super(MemoryDBCachedContractAccess, self).__init__(db)
+        self._batch = batch
+
+    def commit(self) -> None:
+        keys_to_delete: List[types.UInt160] = []
+        for trackable in self.get_changeset():  # trackable.item: storage.ContractState
+            if trackable.state == storage.TrackState.ADDED:
+                self._db._internal_contract_put(trackable.item, self._batch)
+                trackable.state = storage.TrackState.NONE
+            elif trackable.state == storage.TrackState.CHANGED:
+                self._db._internal_contract_update(trackable.item, self._batch)
+                trackable.state = storage.TrackState.NONE
+            elif trackable.state == storage.TrackState.DELETED:
+                self._db._internal_contract_delete(trackable.item.script_hash(), self._batch)
+                keys_to_delete.append(trackable.key)
+        for key in keys_to_delete:
+            with suppress(KeyError):
+                self._dictionary.pop(key)
+        self._changeset.clear()
+
+    def create_snapshot(self):
+        return storage.CloneContractCache(self._db, self)
 
 
 class MemoryDBCachedStorageAccess(storage.CachedStorageAccess):

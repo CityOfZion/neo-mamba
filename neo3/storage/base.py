@@ -69,6 +69,47 @@ class IDBImplementation(abc.ABC):
         """ Return all blocks stored in the real backend (readonly). """
 
     @abc.abstractmethod
+    def _internal_contractid_get(self):
+        """ Get the id of the lastest stored contract. """
+
+    @abc.abstractmethod
+    def _internal_contractid_put(self, contract_id: int):
+        """ Persist a new lastest stored contract id. """
+
+    @abc.abstractmethod
+    def _internal_contractid_update(self, contract_id: int):
+        """ Update the existing latest stored contract id. """
+
+    @abc.abstractmethod
+    def _internal_contract_put(self, contract: storage.ContractState) -> None:
+        """ Persist a contract in the real backend. """
+
+    @abc.abstractmethod
+    def _internal_contract_update(self, contract: storage.ContractState) -> None:
+        """ Update a contract in the real backend. """
+
+    @abc.abstractmethod
+    def _internal_contract_delete(self, hash: types.UInt160) -> None:
+        """ Delete a contract from the real backend. """
+
+    @abc.abstractmethod
+    def _internal_contract_get(self, hash: types.UInt160) -> storage.ContractState:
+        """
+        Get a contract from the real backend.
+        Must raise KeyError if not found. Return value must be read only.
+        """
+
+    def _internal_contract_try_get(self, hash: types.UInt160) -> Optional[storage.ContractState]:
+        try:
+            return self._internal_contract_get(hash)
+        except KeyError:
+            return None
+
+    @abc.abstractmethod
+    def _internal_contract_all(self) -> Iterator[storage.ContractState]:
+        """ Return all contracts stored in the real backend (readonly). """
+
+    @abc.abstractmethod
     def _internal_storage_put(self, key: storage.StorageKey, value: storage.StorageItem) -> None:
         """ Persist a storage key/value pair in the real backend. """
 
@@ -150,6 +191,10 @@ class RawView:
         return RawBlockAccess(self._db)
 
     @property
+    def contracts(self):
+        return RawContractAccess(self._db)
+
+    @property
     def storages(self):
         return RawStorageAccess(self._db)
 
@@ -168,6 +213,17 @@ class RawView:
     def best_block_height(self, value):
         raise AttributeError("Can't set attribute on a raw view. view.blocks.put() automatically updates the height "
                              "when applicable")
+
+    @property
+    def contract_id(self) -> int:
+        try:
+            return self._db._internal_contractid_get()
+        except KeyError:
+            return -1
+
+    @contract_id.setter
+    def contract_id(self, value) -> None:
+        self._db._internal_contractid_update(value)
 
 
 class RawBlockAccess:
@@ -240,6 +296,52 @@ class RawBlockAccess:
         """
         for block in self._db._internal_block_all():
             yield block
+
+
+class RawContractAccess:
+    def __init__(self, db: IDBImplementation):
+        self._db = db
+
+    def put(self, contract: storage.ContractState) -> None:
+        """
+        Store a contract.
+        Args:
+            contract: contract state instance.
+        """
+        self._db._internal_contract_put(contract)
+
+    def get(self, hash: types.UInt160) -> storage.ContractState:
+        """
+        Retrieve a contract.
+        Args:
+            hash: unique contract identifier.
+        Raises:
+            KeyError: if the item is not found.
+        """
+        return self._db._internal_contract_get(hash)
+
+    def try_get(self, hash: types.UInt160) -> Optional[storage.ContractState]:
+        """
+        Try to retrieve a contract.
+        Args:
+            hash: unique contract identifier.
+        """
+        return self._db._internal_contract_try_get(hash)
+
+    def delete(self, hash: types.UInt160) -> None:
+        """
+        Remove a contract.
+        Args:
+            hash: unique contract identifier.
+        """
+        self._db._internal_contract_delete(hash)
+
+    def all(self) -> Iterator[storage.ContractState]:
+        """
+        Retrieve all stored contracts.
+        """
+        for contract in self._db._internal_contract_all():
+            yield contract
 
 
 class RawStorageAccess:
