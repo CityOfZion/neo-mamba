@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import cast
+from typing import cast, Union, Type, Optional, Callable, TypeVar
 from enum import IntFlag
 from neo3 import vm
 from neo3.core import serialization, utils, IClonable, IInteroperable, Size as s
@@ -13,8 +13,9 @@ class StorageFlags(IntFlag):
 
 class StorageItem(serialization.ISerializable, IClonable):
     def __init__(self, value: bytes, is_constant=False):
-        self.value = value
+        self._value = value
         self.is_constant = is_constant
+        self._cache: Optional[serialization.ISerializable] = None
 
     def __len__(self):
         return utils.get_var_size(self.value) + s.uint8
@@ -23,6 +24,17 @@ class StorageItem(serialization.ISerializable, IClonable):
         if not isinstance(other, type(self)):
             return False
         return self.value == other.value
+
+    @property
+    def value(self) -> bytes:
+        if self._cache:
+            return self._cache.to_array()
+        return self._value
+
+    @value.setter
+    def value(self, new_value: bytes) -> None:
+        self._value = new_value
+        self._cache = None
 
     def serialize(self, writer: serialization.BinaryWriter) -> None:
         writer.write_var_bytes(self.value)
@@ -39,6 +51,14 @@ class StorageItem(serialization.ISerializable, IClonable):
         self.value = replica.value
         self.is_constant = replica.is_constant
 
+    def get(self, type_: Type[serialization.ISerializable]):
+        if self._cache and type(self._cache) == type_:
+            return self._cache
+
+        t = type_._serializable_init()
+        self._cache = t.deserialize_from_bytes(self.value)
+        return self._cache
+
     @classmethod
     def _serializable_init(cls):
         return cls(b'')
@@ -54,43 +74,25 @@ class FungibleTokenStorageState(IInteroperable, serialization.ISerializable):
 
     def __init__(self):
         super(FungibleTokenStorageState, self).__init__()
-        self._balance: vm.BigInteger = vm.BigInteger.zero()
-        self._storage_item = StorageItem(b'')
+        self.balance: vm.BigInteger = vm.BigInteger.zero()
 
     def __len__(self):
-        return len(self._balance.to_array())
-
-    @classmethod
-    def from_storage(cls, storage_item: StorageItem):
-        state = cls()
-        state._storage_item = storage_item
-        with serialization.BinaryReader(storage_item.value) as reader:
-            state.deserialize(reader)
-        return state
-
-    @property
-    def balance(self) -> vm.BigInteger:
-        return self._balance
-
-    @balance.setter
-    def balance(self, value: vm.BigInteger) -> None:
-        self._balance = value
-        self._storage_item.value = self.to_array()
+        return len(self.balance.to_array())
 
     def serialize(self, writer: BinaryWriter) -> None:
-        writer.write_var_bytes(self._balance.to_array())
+        writer.write_var_bytes(self.balance.to_array())
 
     def deserialize(self, reader: BinaryReader) -> None:
-        self._balance = vm.BigInteger(reader.read_var_bytes())
+        self.balance = vm.BigInteger(reader.read_var_bytes())
 
     def to_stack_item(self, reference_counter: vm.ReferenceCounter) -> vm.StackItem:
-        s = vm.StructStackItem(reference_counter)
-        s.append(vm.IntegerStackItem(self._balance))
-        return s
+        struct = vm.StructStackItem(reference_counter)
+        struct.append(vm.IntegerStackItem(self.balance))
+        return struct
 
     @classmethod
     def from_stack_item(cls, stack_item: vm.StackItem):
         si = cast(vm.StructStackItem, stack_item)
         c = cls()
-        c._balance = si[0].to_biginteger()
+        c.balance = si[0].to_biginteger()
         return c

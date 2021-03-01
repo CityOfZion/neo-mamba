@@ -1,9 +1,8 @@
 from __future__ import annotations
-from typing import List, Callable, Dict, Tuple, Iterator, Any, cast, Optional
+from typing import List, Callable, Dict, Tuple, Any, Optional
 from neo3 import contracts, vm, storage, settings
 from neo3.core import types, to_script_hash, serialization, cryptography, msgrouter, Size as s
 from neo3.network import message, convenience
-from enum import IntFlag
 from collections import Sequence
 
 
@@ -285,7 +284,7 @@ class NativeContract(convenience._Singleton):
 
 
 class PolicyContract(NativeContract):
-    _id: int = -4
+    _id: int = -5
 
     DEFAULT_EXEC_FEE_FACTOR = 30
     MAX_EXEC_FEE_FACTOR = 1000
@@ -611,8 +610,8 @@ class FungibleToken(NativeContract):
     _id: int = -99999
     _decimals: int = -1
 
-    _PREFIX_ACCOUNT = b'\x14'
-    _PREFIX_TOTAL_SUPPLY = b'\x0B'
+    key_account = storage.StorageKey(_id, b'\x14')
+    key_total_supply = storage.StorageKey(_id, b'\x0B')
 
     _state = storage.FungibleTokenStorageState
     _symbol: str = ""
@@ -688,22 +687,21 @@ class FungibleToken(NativeContract):
         if amount == vm.BigInteger.zero():
             return
 
-        storage_key = self.create_key(self._PREFIX_ACCOUNT + account.to_array())
+        storage_key = self.key_account + account
         storage_item = engine.snapshot.storages.try_get(storage_key, read_only=False)
 
         if storage_item is None:
             storage_item = storage.StorageItem(self._state().to_array())
             engine.snapshot.storages.put(storage_key, storage_item)
 
-        state = self._state.from_storage(storage_item)
+        state = storage_item.get(self._state)
         self.on_balance_changing(engine, account, state, amount)
         state.balance += amount
 
-        storage_key = self.create_key(self._PREFIX_TOTAL_SUPPLY)
-        storage_item = engine.snapshot.storages.try_get(storage_key, read_only=False)
+        storage_item = engine.snapshot.storages.try_get(self.key_total_supply, read_only=False)
         if storage_item is None:
             storage_item = storage.StorageItem(amount.to_array())
-            engine.snapshot.storages.put(storage_key, storage_item)
+            engine.snapshot.storages.put(self.key_total_supply, storage_item)
         else:
             old_value = vm.BigInteger(storage_item.value)
             storage_item.value = (amount + old_value).to_array()
@@ -725,10 +723,10 @@ class FungibleToken(NativeContract):
         if amount == vm.BigInteger.zero():
             return
 
-        storage_key = self.create_key(self._PREFIX_ACCOUNT + account.to_array())
+        storage_key = self.key_account + account
         storage_item = engine.snapshot.storages.get(storage_key, read_only=False)
 
-        state = self._state.from_storage(storage_item)
+        state = storage_item.get(self._state)
         if state.balance < amount:
             raise ValueError(f"Insufficient balance. Requesting to burn {amount}, available {state.balance}")
 
@@ -739,20 +737,18 @@ class FungibleToken(NativeContract):
             state.balance -= amount
             engine.snapshot.storages.update(storage_key, storage_item)
 
-        storage_key = self.create_key(self._PREFIX_TOTAL_SUPPLY)
-        storage_item = engine.snapshot.storages.get(storage_key, read_only=False)
+        storage_item = engine.snapshot.storages.get(self.key_total_supply, read_only=False)
         old_value = vm.BigInteger(storage_item.value)
         new_value = old_value - amount
         if new_value == vm.BigInteger.zero():
-            engine.snapshot.storages.delete(storage_key)
+            engine.snapshot.storages.delete(self.key_total_supply)
         else:
             storage_item.value = new_value.to_array()
         self._post_transfer(engine, account, types.UInt160.zero(), amount, vm.NullStackItem(), False)
 
     def total_supply(self, snapshot: storage.Snapshot) -> vm.BigInteger:
         """ Get the total deployed tokens. """
-        storage_key = self.create_key(self._PREFIX_TOTAL_SUPPLY)
-        storage_item = snapshot.storages.try_get(storage_key)
+        storage_item = snapshot.storages.try_get(self.key_total_supply)
         if storage_item is None:
             return vm.BigInteger.zero()
         else:
@@ -771,8 +767,7 @@ class FungibleToken(NativeContract):
 
         Note: The returned value is still in internal format. Divide the results by the contract's `decimals`
         """
-        storage_key = self.create_key(self._PREFIX_ACCOUNT + account.to_array())
-        storage_item = snapshot.storages.try_get(storage_key)
+        storage_item = snapshot.storages.try_get(self.key_total_supply + account)
         if storage_item is None:
             return vm.BigInteger.zero()
         else:
@@ -835,13 +830,13 @@ class FungibleToken(NativeContract):
         if account_from != engine.calling_scripthash and not engine.checkwitness(account_from):
             return False
 
-        storage_key_from = self.create_key(self._PREFIX_ACCOUNT + account_from.to_array())
+        storage_key_from = self.key_account + account_from
         storage_item_from = engine.snapshot.storages.try_get(storage_key_from, read_only=False)
 
         if storage_item_from is None:
             return False
 
-        state_from = self._state.from_storage(storage_item_from)
+        state_from = storage_item_from.get(self._state)
         if amount == vm.BigInteger.zero():
             self.on_balance_changing(engine, account_from, state_from, amount)
         else:
@@ -857,18 +852,17 @@ class FungibleToken(NativeContract):
                 else:
                     state_from.balance -= amount
 
-                storage_key_to = self.create_key(self._PREFIX_ACCOUNT + account_to.to_array())
+                storage_key_to = self.key_account + account_to
                 storage_item_to = engine.snapshot.storages.try_get(storage_key_to, read_only=False)
                 if storage_item_to is None:
-                    storage_item_to = storage.StorageItem(b'')
-                    state_to = self._state()
-                else:
-                    state_to = self._state.deserialize_from_bytes(storage_item_to.value)
+                    storage_item_to = storage.StorageItem(self._state().to_array())
+                    engine.snapshot.storages.put(storage_key_to, storage_item_to)
+
+                state_to = storage_item_to.get(self._state)
 
                 self.on_balance_changing(engine, account_to, state_to, amount)
                 state_to.balance += amount
-                storage_item_to.value = state_to.to_array()
-                engine.snapshot.storages.update(storage_key_to, storage_item_to)
+
         self._post_transfer(engine, account_from, account_to, amount, data, True)
         return True
 
@@ -882,107 +876,46 @@ class FungibleToken(NativeContract):
 class _NeoTokenStorageState(storage.FungibleTokenStorageState):
     """
     Helper class for storing voting and bonus GAS state
-
-    Use the from_storage() method if you're working with a DB snapshot and intend to modify the state values.
-    It will ensure that the cache is updated automatically.
     """
 
     def __init__(self):
         super(_NeoTokenStorageState, self).__init__()
-        self._vote_to: cryptography.ECPoint = cryptography.ECPoint.deserialize_from_bytes(
-            b'\x00')
-        self._balance_height: int = 0
-        self._storage_item = storage.StorageItem(b'')
+        self.vote_to: cryptography.ECPoint = cryptography.ECPoint.deserialize_from_bytes(b'\x00')
+        self.balance_height: int = 0
 
     def __len__(self):
         return super(_NeoTokenStorageState, self).__len__() + len(self.vote_to) + s.uint32
 
-    @classmethod
-    def from_storage(cls, storage_item: storage.StorageItem):
-        state = cls()
-        state._storage_item = storage_item
-        with serialization.BinaryReader(storage_item.value) as reader:
-            state.deserialize(reader)
-        return state
-
-    @property
-    def balance_height(self) -> int:
-        return self._balance_height
-
-    @balance_height.setter
-    def balance_height(self, value: int) -> None:
-        self._balance_height = value
-        self._storage_item.value = self.to_array()
-
-    @property
-    def vote_to(self) -> cryptography.ECPoint:
-        return self._vote_to
-
-    @vote_to.setter
-    def vote_to(self, public_key: cryptography.ECPoint) -> None:
-        self._vote_to = public_key
-        self._storage_item.value = self.to_array()
-
     def serialize(self, writer: serialization.BinaryWriter) -> None:
         super(_NeoTokenStorageState, self).serialize(writer)
-        writer.write_serializable(self._vote_to)
-        writer.write_uint32(self._balance_height)
+        writer.write_serializable(self.vote_to)
+        writer.write_uint32(self.balance_height)
 
     def deserialize(self, reader: serialization.BinaryReader) -> None:
         super(_NeoTokenStorageState, self).deserialize(reader)
-        self._vote_to = reader.read_serializable(cryptography.ECPoint)  # type: ignore
-        self._balance_height = reader.read_uint32()
+        self.vote_to = reader.read_serializable(cryptography.ECPoint)  # type: ignore
+        self.balance_height = reader.read_uint32()
 
 
 class _CandidateState(serialization.ISerializable):
     """
     Helper class for storing consensus candidates and their votes
-
-    Use the from_storage() method if you're working with a DB snapshot and intend to modify the state values.
-    It will ensure that the cache is updated automatically.
     """
 
     def __init__(self):
-        self._registered = True
-        self._votes = vm.BigInteger.zero()
-        self._storage_item = storage.StorageItem(b'')
+        self.registered = True
+        self.votes = vm.BigInteger.zero()
 
     def __len__(self):
-        return 1 + len(self._votes.to_array())
-
-    @classmethod
-    def from_storage(cls, storage_item: storage.StorageItem):
-        state = cls()
-        state._storage_item = storage_item
-        with serialization.BinaryReader(storage_item.value) as reader:
-            state.deserialize(reader)
-        return state
-
-    @property
-    def registered(self) -> bool:
-        return self._registered
-
-    @registered.setter
-    def registered(self, value: bool) -> None:
-        self._registered = value
-        self._storage_item.value = self.to_array()
-
-    @property
-    def votes(self) -> vm.BigInteger:
-        return self._votes
-
-    @votes.setter
-    def votes(self, value) -> None:
-        self._votes = value
-        self._storage_item.value = self.to_array()
+        return 1 + len(self.votes.to_array())
 
     def serialize(self, writer: serialization.BinaryWriter) -> None:
-        writer.write_bool(self._registered)
-        writer.write_var_bytes(self._votes.to_array())
+        writer.write_bool(self.registered)
+        writer.write_var_bytes(self.votes.to_array())
 
     def deserialize(self, reader: serialization.BinaryReader) -> None:
-        self._registered = reader.read_bool()
-        self._votes = vm.BigInteger(reader.read_var_bytes())
+        self.registered = reader.read_bool()
+        self.votes = vm.BigInteger(reader.read_var_bytes())
 
 
 class _CommitteeState(serialization.ISerializable):
@@ -1036,38 +969,19 @@ class _CommitteeState(serialization.ISerializable):
 
 class _GasRecord(serialization.ISerializable):
     def __init__(self, index: int, gas_per_block: vm.BigInteger):
-        self._index = index
-        self._gas_per_block = gas_per_block
-        self._storage_item = storage.StorageItem(b'')
+        self.index = index
+        self.gas_per_block = gas_per_block
 
     def __len__(self):
-        return s.uint32 + len(self._gas_per_block.to_array())
-
-    @property
-    def index(self):
-        return self._index
-
-    @index.setter
-    def index(self, value: int):
-        self._index = value
-        self._storage_item.value = self.to_array()
-
-    @property
-    def gas_per_block(self):
-        return self._gas_per_block
-
-    @gas_per_block.setter
-    def gas_per_block(self, value: vm.BigInteger) -> None:
-        self._gas_per_block = value
-        self._storage_item.value = self.to_array()
+        return s.uint32 + len(self.gas_per_block.to_array())
 
     def serialize(self, writer: serialization.BinaryWriter) -> None:
-        writer.write_uint32(self._index)
-        writer.write_var_bytes(self._gas_per_block.to_array())
+        writer.write_uint32(self.index)
+        writer.write_var_bytes(self.gas_per_block.to_array())
 
     def deserialize(self, reader: serialization.BinaryReader) -> None:
-        self._index = reader.read_uint32()
-        self._gas_per_block = vm.BigInteger(reader.read_var_bytes())
+        self.index = reader.read_uint32()
+        self.gas_per_block = vm.BigInteger(reader.read_var_bytes())
 
     @classmethod
     def _serializable_init(cls):
@@ -1078,7 +992,6 @@ class GasBonusState(serialization.ISerializable, Sequence):
     def __init__(self, initial_record: _GasRecord = None):
         self._storage_key = storage.StorageKey(NeoToken().id, NeoToken()._PREFIX_GAS_PER_BLOCK)
         self._records: List[_GasRecord] = [initial_record] if initial_record else []
-        self._storage_item = storage.StorageItem(b'')
         self._iter = iter(self._records)
 
     def __len__(self):
@@ -1089,29 +1002,21 @@ class GasBonusState(serialization.ISerializable, Sequence):
         return self
 
     def __next__(self) -> _GasRecord:
-        value = next(self._iter)
-        value._storage_item = self._storage_item
-        return value
+        return next(self._iter)
 
     def __getitem__(self, item):
         return self._records.__getitem__(item)
 
     def __setitem__(self, key, record: _GasRecord) -> None:
         self._records[key] = record
-        self._storage_item.value = self.to_array()
 
     @classmethod
     def from_snapshot(cls, snapshot: storage.Snapshot):
-        record = cls()
-        record._storage_item = snapshot.storages.get(
-            storage.StorageKey(NeoToken().id, NeoToken()._PREFIX_GAS_PER_BLOCK))
-        with serialization.BinaryReader(record._storage_item.value) as reader:
-            record.deserialize(reader)
-        return record
+        storage_item = snapshot.storages.get(storage.StorageKey(NeoToken().id, NeoToken()._PREFIX_GAS_PER_BLOCK))
+        return storage_item.get(cls)
 
     def append(self, record: _GasRecord) -> None:
         self._records.append(record)
-        self._storage_item.value = self.to_array()
 
     def serialize(self, writer: serialization.BinaryWriter) -> None:
         writer.write_serializable_list(self._records)
@@ -1121,16 +1026,17 @@ class GasBonusState(serialization.ISerializable, Sequence):
 
 
 class NeoToken(FungibleToken):
-    _id: int = -2
+    _id: int = -3
     _decimals: int = 0
 
     _PREFIX_COMMITTEE = b'\x0e'
-    _PREFIX_CANDIDATE = b'\x21'
-    _PREFIX_VOTERS_COUNT = b'\x01'
     _PREFIX_GAS_PER_BLOCK = b'\x29'
-    _PREFIX_VOTER_REWARD_PER_COMMITTEE = b'\x17'
 
-    key_candidate = storage.StorageKey(_id, _PREFIX_CANDIDATE)
+    key_committee = storage.StorageKey(_id, _PREFIX_COMMITTEE)
+    key_candidate = storage.StorageKey(_id, b'\x21')
+    key_voters_count = storage.StorageKey(_id, b'\x01')
+    key_gas_per_block = storage.StorageKey(_id, _PREFIX_GAS_PER_BLOCK)
+    key_voter_reward_per_committee = storage.StorageKey(_id, b'\x17')
 
     _NEO_HOLDER_REWARD_RATIO = 10
     _COMMITTEE_REWARD_RATIO = 10
@@ -1155,11 +1061,9 @@ class NeoToken(FungibleToken):
         neo_holder_reward = self._calculate_neo_holder_reward(snapshot, value, start, end)
         if vote.is_zero():
             return neo_holder_reward
-
-        border = self.create_key(self._PREFIX_VOTER_REWARD_PER_COMMITTEE + vote.to_array()).to_array()
-        key_start = self.create_key(
-            self._PREFIX_VOTER_REWARD_PER_COMMITTEE + vote.to_array() + vm.BigInteger(start).to_array()
-        ).to_array()
+        border = (self.key_voter_reward_per_committee + vote).to_array()
+        start_bytes = vm.BigInteger(start).to_array()
+        key_start = (self.key_voter_reward_per_committee + vote + start_bytes).to_array()
 
         items = list(snapshot.storages.find_range(self.hash, key_start, border, "reverse"))
         if len(items) > 0:
@@ -1167,9 +1071,8 @@ class NeoToken(FungibleToken):
         else:
             start_reward_per_neo = vm.BigInteger.zero()
 
-        key_end = self.create_key(
-            self._PREFIX_VOTER_REWARD_PER_COMMITTEE + vote.to_array() + vm.BigInteger(end).to_array()
-        ).to_array()
+        end_bytes = vm.BigInteger(end).to_array()
+        key_end = (self.key_voter_reward_per_committee + vote + end_bytes).to_array()
 
         items = list(snapshot.storages.find_range(self.hash, key_end, border, "reverse"))
         if len(items) > 0:
@@ -1206,11 +1109,9 @@ class NeoToken(FungibleToken):
                          public_key: cryptography.ECPoint,
                          candidate: _CandidateState) -> None:
         if not candidate.registered and candidate.votes == 0:
-            storage_key = self.create_key(self._PREFIX_VOTER_REWARD_PER_COMMITTEE + public_key.to_array())
-            for k, v in snapshot.storages.find(storage_key):
+            for k, v in snapshot.storages.find(self.key_voter_reward_per_committee + public_key):
                 snapshot.storages.delete(k)
-            storage_key_candidate = self.create_key(self._PREFIX_CANDIDATE + public_key.to_array())
-            snapshot.storages.delete(storage_key_candidate)
+            snapshot.storages.delete(self.key_candidate + public_key)
 
     def init(self):
         super(NeoToken, self).init()
@@ -1297,16 +1198,10 @@ class NeoToken(FungibleToken):
         self._committee_state = _CommitteeState(engine.snapshot,
                                                 dict.fromkeys(settings.standby_validators, vm.BigInteger(0))
                                                 )
-        engine.snapshot.storages.put(
-            self.create_key(self._PREFIX_VOTERS_COUNT),
-            storage.StorageItem(b'\x00')
-        )
+        engine.snapshot.storages.put(self.key_voters_count, storage.StorageItem(b'\x00'))
 
         gas_bonus_state = GasBonusState(_GasRecord(0, GasToken().factor * 5))
-        engine.snapshot.storages.put(
-            self.create_key(NeoToken()._PREFIX_GAS_PER_BLOCK),
-            storage.StorageItem(gas_bonus_state.to_array())
-        )
+        engine.snapshot.storages.put(self.key_gas_per_block, storage.StorageItem(gas_bonus_state.to_array()))
         self.mint(engine,
                   contracts.Contract.get_consensus_address(settings.standby_validators),
                   self.total_amount,
@@ -1328,17 +1223,14 @@ class NeoToken(FungibleToken):
         if state.vote_to.is_zero():
             return
 
-        sk_voters_count = self.create_key(self._PREFIX_VOTERS_COUNT)
-        si_voters_count = engine.snapshot.storages.get(sk_voters_count, read_only=False)
+        si_voters_count = engine.snapshot.storages.get(self.key_voters_count, read_only=False)
         new_value = vm.BigInteger(si_voters_count.value) + amount
         si_voters_count.value = new_value.to_array()
 
-        sk_candidate = self.create_key(self._PREFIX_CANDIDATE + state.vote_to.to_array())
-        si_candidate = engine.snapshot.storages.get(sk_candidate, read_only=False)
-        candidate_state = _CandidateState.from_storage(si_candidate)
+        si_candidate = engine.snapshot.storages.get(self.key_candidate + state.vote_to, read_only=False)
+        candidate_state = si_candidate.get(_CandidateState)
         candidate_state.votes += amount
         self._candidates_dirty = True
-
         self._check_candidate(engine.snapshot, state.vote_to, candidate_state)
 
     def on_persist(self, engine: contracts.ApplicationEngine) -> None:
@@ -1368,13 +1260,11 @@ class NeoToken(FungibleToken):
                 member_votes = self._committee_state[member]
                 if member_votes > 0:
                     voter_sum_reward_per_neo = factor * voter_reward_of_each_committee / member_votes
-                    voter_reward_key = self.create_key(
-                        (self._PREFIX_VOTER_REWARD_PER_COMMITTEE + member.to_array()
-                         + vm.BigInteger(engine.snapshot.persisting_block.index + 1).to_array())
-                    )
-                    border = self.create_key(
-                        self._PREFIX_VOTER_REWARD_PER_COMMITTEE + member.to_array()
-                    ).to_array()
+                    voter_reward_key = (self.key_voter_reward_per_committee
+                                        + member
+                                        + vm.BigInteger(engine.snapshot.persisting_block.index + 1)
+                                        ).to_array()
+                    border = (self.key_voter_reward_per_committee + member).to_array()
                     result = engine.snapshot.storages.find_range(self.hash, voter_reward_key.to_array(), border)
                     if len(result) > 0:
                         result = result[0]
@@ -1395,12 +1285,10 @@ class NeoToken(FungibleToken):
             account: account to calculate bonus for
             end: ending block height to calculate bonus up to. You should use mostlikly use the current chain height.
         """
-        storage_item = snapshot.storages.try_get(
-            self.create_key(self._PREFIX_ACCOUNT + account.to_array())
-        )
+        storage_item = snapshot.storages.try_get(self.key_account + account)
         if storage_item is None:
             return vm.BigInteger.zero()
-        state = self._state.deserialize_from_bytes(storage_item.value)
+        state = storage_item.get(self._state)
         return self._calculate_bonus(snapshot, state.vote_to, state.balance, state.balance_height, end)
 
     def register_candidate(self,
@@ -1420,7 +1308,7 @@ class NeoToken(FungibleToken):
         if not engine.checkwitness(script_hash):
             return False
 
-        storage_key = self.create_key(self._PREFIX_CANDIDATE + public_key.to_array())
+        storage_key = self.key_candidate + public_key
         storage_item = engine.snapshot.storages.try_get(storage_key, read_only=False)
         if storage_item is None:
             state = _CandidateState()
@@ -1428,7 +1316,7 @@ class NeoToken(FungibleToken):
             storage_item = storage.StorageItem(state.to_array())
             engine.snapshot.storages.put(storage_key, storage_item)
         else:
-            state = _CandidateState.from_storage(storage_item)
+            state = storage_item.get(_CandidateState)
             state.registered = True
         self._candidates_dirty = True
         return True
@@ -1450,12 +1338,12 @@ class NeoToken(FungibleToken):
         if not engine.checkwitness(script_hash):
             return False
 
-        storage_key = self.create_key(self._PREFIX_CANDIDATE + public_key.to_array())
+        storage_key = self.key_candidate + public_key
         storage_item = engine.snapshot.storages.try_get(storage_key, read_only=False)
         if storage_item is None:
             return True
         else:
-            state = _CandidateState.from_storage(storage_item)
+            state = storage_item.get(_CandidateState)
             state.registered = False
             if state.votes == 0:
                 engine.snapshot.storages.delete(storage_key)
@@ -1480,33 +1368,32 @@ class NeoToken(FungibleToken):
         if not engine.checkwitness(account):
             return False
 
-        storage_key_account = self.create_key(self._PREFIX_ACCOUNT + account.to_array())
+        storage_key_account = self.key_account + account
         storage_item = engine.snapshot.storages.try_get(storage_key_account, read_only=False)
         if storage_item is None:
             return False
-        account_state = self._state.from_storage(storage_item)
+        account_state = storage_item.get(self._state)
 
-        storage_key_candidate = self.create_key(self._PREFIX_CANDIDATE + vote_to.to_array())
+        storage_key_candidate = self.key_candidate + vote_to
         storage_item_candidate = engine.snapshot.storages.try_get(storage_key_candidate, read_only=False)
         if storage_key_candidate is None:
             return False
 
-        candidate_state = _CandidateState.from_storage(storage_item_candidate)
+        candidate_state = storage_item_candidate.get(_CandidateState)
         if not candidate_state.registered:
             return False
 
         if account_state.vote_to.is_zero():
-            sk_voters_count = self.create_key(self._PREFIX_VOTERS_COUNT)
-            si_voters_count = engine.snapshot.storages.get(sk_voters_count, read_only=False)
+            si_voters_count = engine.snapshot.storages.get(self.key_voters_count, read_only=False)
 
             old_value = vm.BigInteger(si_voters_count.value)
             new_value = old_value + account_state.balance
             si_voters_count.value = new_value.to_array()
 
         if not account_state.vote_to.is_zero():
-            sk_validator = self.create_key(self._PREFIX_CANDIDATE + account_state.vote_to.to_array())
+            sk_validator = self.key_candidate + account_state.vote_to
             si_validator = engine.snapshot.storages.get(sk_validator, read_only=False)
-            validator_state = _CandidateState.from_storage(si_validator)
+            validator_state = si_validator.get(_CandidateState)
             validator_state.votes -= account_state.balance
 
             if not validator_state.registered and validator_state.votes == 0:
@@ -1559,8 +1446,7 @@ class NeoToken(FungibleToken):
         )
 
     def _compute_committee_members(self, snapshot: storage.Snapshot) -> Dict[cryptography.ECPoint, vm.BigInteger]:
-        storage_key = self.create_key(self._PREFIX_VOTERS_COUNT)
-        storage_item = snapshot.storages.get(storage_key, read_only=True)
+        storage_item = snapshot.storages.get(self.key_voters_count, read_only=True)
         voters_count = int(vm.BigInteger(storage_item.value))
         voter_turnout = voters_count / float(self.total_amount)
 
@@ -1616,7 +1502,7 @@ class NeoToken(FungibleToken):
 
 
 class GasToken(FungibleToken):
-    _id: int = -3
+    _id: int = -4
     _decimals: int = 8
 
     _state = storage.FungibleTokenStorageState

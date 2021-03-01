@@ -7,10 +7,7 @@ from neo3.network import payloads
 
 
 class LedgerContract(NativeContract):
-    _PREFIX_BLOCK = b'\x05'
-    _PREFIX_BLOCKHASH = b'\x09'
-    _PREFIX_CURRENT_BLOCK = b'\x0C'
-    _PREFIX_TRANSACTION = b'\x0A'
+    _id = -2
 
     def init(self):
         super(LedgerContract, self).init()

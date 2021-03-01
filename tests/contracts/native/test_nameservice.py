@@ -15,9 +15,9 @@ def test_name_service(operation: str, has_return_value=False, args=None):
     # now call the actual contract
     sb = vm.ScriptBuilder()
     if args is None:
-        sb.emit_dynamic_call(contracts.NameService().hash, operation, has_return_value)
+        sb.emit_dynamic_call(contracts.NameService().hash, operation)
     else:
-        sb.emit_dynamic_call_with_args(contracts.NameService().hash, operation, has_return_value, args)
+        sb.emit_dynamic_call_with_args(contracts.NameService().hash, operation, args)
 
     script = vm.Script(sb.to_array())
     engine.load_script(script)

@@ -1,7 +1,7 @@
 from __future__ import annotations
 import json
 from . import NativeContract
-from typing import Optional, Dict
+from typing import Optional
 from neo3 import storage, contracts, vm
 from neo3.core import to_script_hash, types, msgrouter
 from neo3.network import payloads
@@ -11,13 +11,7 @@ class ManagementContract(NativeContract):
     _id = -1
     _service_name = "ContractManagement"
 
-    _PREFIX_NEXT_AVAILABLE_ID = b'\x0F'
-    _PREFIX_CONTRACT = b'\x08'
-    _PREFIX_MINIMUM_DEPLOYMENT_FEE = b'\x14'
-
-    key_contract = storage.StorageKey(_id, _PREFIX_CONTRACT)
-    key_next_id = storage.StorageKey(_id, _PREFIX_NEXT_AVAILABLE_ID)
-    key_min_deploy_fee = storage.StorageKey(_id, _PREFIX_MINIMUM_DEPLOYMENT_FEE)
+    key_min_deploy_fee = storage.StorageKey(_id, b'\x14')
 
     def init(self):
         super(ManagementContract, self).init()
@@ -112,31 +106,26 @@ class ManagementContract(NativeContract):
             self.key_min_deploy_fee,
             storage.StorageItem(vm.BigInteger(10_00000000).to_array())
         )
-        engine.snapshot.storages.put(self.key_next_id, storage.StorageItem(b'\x01'))
+        engine.snapshot.contract_id = 1
 
     def get_next_available_id(self, snapshot: storage.Snapshot) -> int:
-        key = self.create_key(self._PREFIX_NEXT_AVAILABLE_ID)
-        item = snapshot.storages.get(key, read_only=False)
-        value = vm.BigInteger(item.value) + 1
-        item.value = value.to_array()
-        return int(value)
+        snapshot.contract_id += 1
+        return snapshot.contract_id
 
     def on_persist(self, engine: contracts.ApplicationEngine) -> None:
-        for contract in self._contracts.values():
+        # NEO implicitely expects a certain order of contract initialization
+        # Native contracts have negative values for `id`, so we reverse the results
+        sorted_contracts = sorted(self.registered_contracts, key=lambda contract: contract.id, reverse=True)
+        for contract in sorted_contracts:
             if contract.active_block_index != engine.snapshot.persisting_block.index:
                 continue
-            storage_key = self.create_key(self._PREFIX_CONTRACT + contract.hash.to_array())
-            storage_item = storage.StorageItem(
-                storage.ContractState(contract.id, contract.nef, contract.manifest, 0, contract.hash).to_array()
+            engine.snapshot.contracts.put(
+                storage.ContractState(contract.id, contract.nef, contract.manifest, 0, contract.hash)
             )
-            engine.snapshot.storages.put(storage_key, storage_item)
             contract._initialize(engine)
 
     def get_contract(self, snapshot: storage.Snapshot, hash_: types.UInt160) -> Optional[storage.ContractState]:
-        storage_item = snapshot.storages.try_get(self.key_contract + hash_.to_array(), read_only=True)
-        if storage_item is None:
-            return None
-        return storage.ContractState.deserialize_from_bytes(storage_item.value)
+        return snapshot.contracts.try_get(hash_)
 
     def contract_create(self,
                         engine: contracts.ApplicationEngine,
@@ -176,17 +165,14 @@ class ManagementContract(NativeContract):
         sb.emit_push(parsed_manifest.name)
         hash_ = to_script_hash(sb.to_array())
 
-        key = self.create_key(self._PREFIX_CONTRACT + hash_.to_array())
-        contract = engine.snapshot.storages.try_get(key)
-        if contract is not None:
+        existing_contract = engine.snapshot.contracts.try_get(hash_)
+        if existing_contract is not None:
             raise ValueError("Contract already exists")
 
         contract = storage.ContractState(self.get_next_available_id(engine.snapshot), nef, parsed_manifest, 0, hash_)
-
         if not contract.manifest.is_valid(hash_):
             raise ValueError("Error: invalid manifest")
-
-        engine.snapshot.storages.put(key, storage.StorageItem(contract.to_array()))
+        engine.snapshot.contracts.put(contract)
 
         engine.push(engine._native_to_stackitem(contract, storage.ContractState))
         method_descriptor = contract.manifest.abi.get_method("_deploy", 2)
@@ -210,12 +196,10 @@ class ManagementContract(NativeContract):
 
         engine.add_gas(engine.STORAGE_PRICE * (nef_len + manifest_len))
 
-        key = self.create_key(self._PREFIX_CONTRACT + engine.current_scripthash.to_array())
-        contract_storage_item = engine.snapshot.storages.try_get(key, read_only=False)
-        if contract_storage_item is None:
+        contract = engine.snapshot.contracts.try_get(engine.current_scripthash, read_only=False)
+        if contract is None:
             raise ValueError("Can't find contract to update")
 
-        contract = storage.ContractState.deserialize_from_bytes(contract_storage_item.value)
         if nef_len == 0:
             raise ValueError(f"Invalid NEF length: {nef_len}")
 
@@ -230,7 +214,6 @@ class ManagementContract(NativeContract):
             raise ValueError("Error: cannot change contract name")
         if not contract.manifest.is_valid(contract.hash):
             raise ValueError("Error: manifest does not match with script")
-
         contract.manifest = manifest_new
 
         self.validate(contract.nef.script, contract.manifest.abi)
@@ -254,8 +237,7 @@ class ManagementContract(NativeContract):
 
     def contract_destroy(self, engine: contracts.ApplicationEngine) -> None:
         hash_ = engine.current_scripthash
-        key = self.create_key(self._PREFIX_CONTRACT + hash_.to_array())
-        contract = engine.snapshot.storages.try_get(key)
+        contract = engine.snapshot.contracts.try_get(hash_)
 
         if contract is None:
             return
@@ -273,16 +255,14 @@ class ManagementContract(NativeContract):
                                  )
 
     def get_minimum_deployment_fee(self, snapshot: storage.Snapshot) -> int:
-        key = self.create_key(self._PREFIX_MINIMUM_DEPLOYMENT_FEE)
-        return int.from_bytes(snapshot.storages[key].value, 'little')
+        return int.from_bytes(snapshot.storages[self.key_min_deploy_fee].value, 'little')
 
     def _set_minimum_deployment_fee(self, engine: contracts.ApplicationEngine, value: int) -> None:
         if value < 0:
             raise ValueError("Can't set deployment fee to a negative value")
         if not self._check_committee(engine):
             raise ValueError
-        key = self.create_key(self._PREFIX_MINIMUM_DEPLOYMENT_FEE)
-        engine.snapshot.storages.update(key, storage.StorageItem(vm.BigInteger(value).to_array()))
+        engine.snapshot.storages.update(self.key_min_deploy_fee, storage.StorageItem(vm.BigInteger(value).to_array()))
 
     def validate(self, script: bytes, abi: contracts.ContractABI):
         s = vm.Script(script, True)

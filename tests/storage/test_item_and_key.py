@@ -1,5 +1,6 @@
 import unittest
-from neo3 import storage
+from neo3 import storage, vm
+from neo3.core import serialization, types
 
 
 class StorageKeyTest(unittest.TestCase):
@@ -38,6 +39,10 @@ class StorageKeyTest(unittest.TestCase):
         self.assertNotEqual(sk.key, new_sk.key)
         self.assertEqual(new_sk.key, b'\x01\x02')
 
+        # test with serializable type
+        new_sk2 = sk + types.UInt160.zero()
+        self.assertEqual(new_sk2.key, b'\x01' + b'\x00' * 20)
+
         with self.assertRaises(TypeError) as context:
             sk + 1
         self.assertEqual("unsupported operand type(s) for +: 'StorageKey' and 'int'", str(context.exception))
@@ -71,7 +76,6 @@ class StorageItemTest(unittest.TestCase):
         length_indicator = b'\x03'
         bool_false = b'\x00'
         self.assertEqual(length_indicator + si_data + bool_false, si.to_array())
-
         self.assertEqual(si, storage.StorageItem.deserialize_from_bytes(length_indicator + si_data + bool_false))
 
     def test_clone_from_replica(self):
@@ -84,3 +88,31 @@ class StorageItemTest(unittest.TestCase):
         si2 = storage.StorageItem(bytearray())
         si2.from_replica(si)
         self.assertEqual(si, si2)
+
+    def test_getting_serializable(self):
+        raw_value = b'\x01\x01'
+        si = storage.StorageItem(raw_value)
+        obj = si.get(TestSerializable)
+        self.assertEqual(str(vm.BigInteger(1)), str(obj.value))
+        self.assertEqual(raw_value, si.value)
+
+        new_raw_value = b'\x01\x02'
+        obj.value += 1
+        obj2 = si.get(TestSerializable)
+        self.assertEqual(id(obj), id(obj2))
+        self.assertEqual(vm.BigInteger(2), obj2.value)
+        self.assertEqual(new_raw_value, si.value)
+
+
+class TestSerializable(serialization.ISerializable):
+    def __init__(self):
+        self.value = vm.BigInteger(1)
+
+    def __len__(self):
+        return 4
+
+    def serialize(self, writer: serialization.BinaryWriter) -> None:
+        writer.write_var_bytes(self.value.to_array())
+
+    def deserialize(self, reader: serialization.BinaryReader) -> None:
+        self.value = vm.BigInteger(reader.read_var_bytes())

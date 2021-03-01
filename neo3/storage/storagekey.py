@@ -1,5 +1,6 @@
 import mmh3  # type: ignore
 from neo3.core import serialization, types, Size as s, utils
+from neo3 import vm
 
 
 class StorageKey(serialization.ISerializable):
@@ -24,6 +25,8 @@ class StorageKey(serialization.ISerializable):
     def __add__(self, other):
         if type(other) in [bytes, bytearray]:
             return StorageKey(self.id, self.key + other)
+        if isinstance(other, (serialization.ISerializable, vm.BigInteger)):
+            return StorageKey(self.id, self.key + other.to_array())
         else:
             return NotImplemented
 

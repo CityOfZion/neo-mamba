@@ -23,9 +23,8 @@ class NameState(NFTState):
                  expiration: int,
                  admin: Optional[types.UInt160] = None):
         super(NameState, self).__init__(owner, name, description)
-        self._expiration = expiration
-        self._admin = admin if admin else types.UInt160.zero()
-        self.storage_item = storage.StorageItem(b'')
+        self.expiration = expiration
+        self.admin = admin if admin else types.UInt160.zero()
         self.id = name.encode()
 
     def __len__(self):
@@ -33,37 +32,13 @@ class NameState(NFTState):
 
     def serialize(self, writer: serialization.BinaryWriter) -> None:
         super(NameState, self).serialize(writer)
-        writer.write_uint32(self._expiration)
-        writer.write_serializable(self._admin)
+        writer.write_uint32(self.expiration)
+        writer.write_serializable(self.admin)
 
     def deserialize(self, reader: serialization.BinaryReader) -> None:
         super(NameState, self).deserialize(reader)
-        self._expiration = reader.read_uint32()
-        self._admin = reader.read_serializable(types.UInt160)
-
-    @property
-    def admin(self):
-        return self._admin
-
-    @admin.setter
-    def admin(self, value):
-        self._admin = value
-        self.storage_item.value = self.to_array()
-
-    @property
-    def expiration(self):
-        return self._expiration
-
-    @expiration.setter
-    def expiration(self, value):
-        self._expiration = value
-        self.storage_item.value = self.to_array()
-
-    @classmethod
-    def from_storage(cls, item: storage.StorageItem):
-        c = cls.deserialize_from_bytes(item.value)
-        c.storage_item = item
-        return c
+        self.expiration = reader.read_uint32()
+        self.admin = reader.read_serializable(types.UInt160)
 
     @classmethod
     def _serializable_init(cls):
@@ -71,12 +46,11 @@ class NameState(NFTState):
 
 
 class StringList(list, serialization.ISerializable):
-    def __init__(self):
-        super().__init__()
-        self.storage_item = storage.StorageItem(b'')
+    def __len__(self):
+        return len(self.to_array())
 
     def serialize(self, writer: serialization.BinaryWriter) -> None:
-        writer.write_var_int(len(self))
+        writer.write_var_int(len(self[:]))
         for i in self:
             writer.write_var_string(i)
 
@@ -84,23 +58,9 @@ class StringList(list, serialization.ISerializable):
         for _ in range(reader.read_var_int()):
             self.append(reader.read_var_string())
 
-    def __setitem__(self, key, value):
-        super(StringList, self).__setitem__(key, value)
-        self.storage_item.value = self.to_array()
-
-    def append(self, __object) -> None:
-        super(StringList, self).append(__object)
-        self.storage_item.value = self.to_array()
-
-    @classmethod
-    def from_storage(cls, item: storage.StorageItem):
-        c = cls.deserialize_from_bytes(item.value)
-        c.storage_item = item
-        return c
-
 
 class NameService(NonFungibleToken):
-    _id = -7
+    _id = -8
     _symbol = "NNS"
     _service_name = None
 
@@ -173,7 +133,7 @@ class NameService(NonFungibleToken):
         if not self._check_committee(engine):
             raise ValueError("Check committee failed")
         storage_item_roots = engine.snapshot.storages.get(self.key_roots, read_only=False)
-        roots = StringList.from_storage(storage_item_roots)
+        roots = storage_item_roots.get(StringList)
         if root in roots:
             raise ValueError("The name already exists")
         roots.append(root)
@@ -199,7 +159,7 @@ class NameService(NonFungibleToken):
         if storage_item:
             return False
         storage_item_roots = snapshot.storages.get(self.key_roots, read_only=True)
-        roots = StringList.from_storage(storage_item_roots)
+        roots = storage_item_roots.get(StringList)
         if names[1] not in roots:
             raise ValueError(f"'{names[1]}' is not a registered root")
         return True
@@ -227,7 +187,7 @@ class NameService(NonFungibleToken):
         if len(names) != 2:
             raise ValueError("Invalid format")
         storage_item_state = engine.snapshot.storages.get(self.key_token + name.encode(), read_only=False)
-        state = NameState.from_storage(storage_item_state)
+        state = storage_item_state.get(NameState)
         state.expiration += self.ONE_YEAR
         return state.expiration
 
@@ -242,7 +202,8 @@ class NameService(NonFungibleToken):
         if admin != types.UInt160.zero() and not engine.checkwitness(admin):
             raise ValueError("New admin is not valid - check witness failed")
 
-        state = NameState.from_storage(engine.snapshot.storages.get(self.key_token + name.encode()))
+        storage_item = engine.snapshot.storages.get(self.key_token + name.encode())
+        state = storage_item.get(NameState)
         if not engine.checkwitness(state.owner):
             raise ValueError
 
@@ -275,7 +236,8 @@ class NameService(NonFungibleToken):
             ipaddress.IPv6Address(data)
 
         domain = '.'.join(name.split('.')[2:])
-        state = NameState.from_storage(engine.snapshot.storages.get(self.key_token + domain.encode()))
+        storage_item = engine.snapshot.storages.get(self.key_token + domain.encode())
+        state = storage_item.get(NameState)
         if not self._check_admin(engine, state):
             raise ValueError("Admin check failed")
 
@@ -306,7 +268,8 @@ class NameService(NonFungibleToken):
             raise ValueError("Regex failure - name is not valid")
 
         domain = '.'.join(name.split('.')[2:])
-        state = NameState.from_storage(engine.snapshot.storages.get(self.key_token + domain.encode()))
+        storage_item = engine.snapshot.storages.get(self.key_token + domain.encode())
+        state = storage_item.get(NameState)
         if not self._check_admin(engine, state):
             raise ValueError("Admin check failed")
 

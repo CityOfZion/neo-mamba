@@ -65,11 +65,8 @@ def native_on_persist(engine: contracts.ApplicationEngine) -> None:
     # NEO implicitely expects the ManagementContract to be called first *ugh*
     # because ManagementContract.on_persist will call _initialize() on all other native contracts
     # which is needed for the other contracts to work properly when their on_persist() is called
-    management = contracts.ManagementContract()
-    others: List[Any] = list(contracts.NativeContract()._contracts.values())
-    others.remove(management)
-    ordered_contracts = [management] + others
-    for contract in ordered_contracts:
+    sorted_contracts = sorted(contracts.NativeContract().registered_contracts, key=lambda c: c.id, reverse=True)
+    for contract in sorted_contracts:
         if contract.active_block_index <= engine.snapshot.persisting_block.index:
             contract.on_persist(engine)
 

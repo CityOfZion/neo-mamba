@@ -12,7 +12,7 @@ class DesignateRole(IntEnum):
 
 
 class DesignationContract(NativeContract):
-    _id = -4
+    _id = -6
     _service_name = "RoleManagement"
 
     def init(self):
@@ -41,7 +41,7 @@ class DesignationContract(NativeContract):
             raise ValueError("[DesignateContract] Designate list index out of range")
 
         key = self.create_key(role.to_bytes(1, 'little') + vm.BigInteger(index).to_array()).to_array()
-        boundary = self.create_key(role.to_bytes(1, 'little')) .to_array()
+        boundary = self.create_key(role.to_bytes(1, 'little')).to_array()
         for _, storage_item in snapshot.storages.find_range(key, boundary, "reverse"):
             with serialization.BinaryReader(storage_item.value) as reader:
                 return reader.read_serializable_list(cryptography.ECPoint)

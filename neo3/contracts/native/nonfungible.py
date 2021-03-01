@@ -1,22 +1,20 @@
 from __future__ import annotations
-from enum import IntEnum
 from contextlib import suppress
 from typing import List, cast, Optional
 from . import NativeContract
-from neo3 import storage, contracts, cryptography, vm
+from neo3 import storage, contracts, vm
 from neo3.core import serialization, IInteroperable, types, msgrouter
 from neo3.contracts import interop
 
 
 class NFTState(IInteroperable, serialization.ISerializable):
     def __init__(self, owner: types.UInt160, name: str, description: str):
-        self._owner = owner
+        self.owner = owner
         self.name = name
         self.description = description
         # I don't understand where this ID is coming from as its abstract in C# and not overridden
         # we'll probably figure out once we implement the name service in a later PR
         self.id: bytes = b''
-        self.storage_item = storage.StorageItem(b'')
 
     @classmethod
     def from_stack_item(cls, stack_item: vm.StackItem):
@@ -33,28 +31,13 @@ class NFTState(IInteroperable, serialization.ISerializable):
             vm.ByteStringStackItem(self.description)
         ])
 
-    @property
-    def owner(self):
-        return self._owner
-
-    @owner.setter
-    def owner(self, new_value: types.UInt160):
-        self._owner = new_value
-        self.storage_item.value = self.to_array()
-
-    @classmethod
-    def from_storage(cls, item: storage.StorageItem):
-        c = cls.deserialize_from_bytes(item.value)
-        c.storage_item = item
-        return c
-
     def serialize(self, writer: serialization.BinaryWriter) -> None:
         writer.write_serializable(self.owner)
         writer.write_var_string(self.name)
         writer.write_var_string(self.description)
 
     def deserialize(self, reader: serialization.BinaryReader) -> None:
-        self._owner = reader.read_serializable(types.UInt160)
+        self.owner = reader.read_serializable(types.UInt160)
         self.name = reader.read_var_string()
         self.description = reader.read_var_string()
 
@@ -189,7 +172,7 @@ class NonFungibleToken(NativeContract):
             si_account = storage.StorageItem(NFTAccountState().to_array())
             engine.snapshot.storages.put(sk_account, si_account)
 
-        account = NFTAccountState.from_storage(si_account)
+        account = si_account.get(NFTAccountState)
         account.add(token.id)
 
         si_total_supply = engine.snapshot.storages.get(self.key_total_suppply, read_only=False)
@@ -207,7 +190,7 @@ class NonFungibleToken(NativeContract):
         engine.snapshot.storages.delete(key_token)
 
         key_account = self.key_account + token.owner.to_array()
-        account_state = NFTAccountState.from_storage(engine.snapshot.storages.get(key_account))
+        account_state = engine.snapshot.storages.get(key_account).get(NFTAccountState)
         account_state.remove(token_id)
 
         if account_state.balance == 0:
@@ -251,7 +234,7 @@ class NonFungibleToken(NativeContract):
         if token_state.owner != account_to:
             token = NFTState.from_stack_item(engine.snapshot.storages.get(key_token, read_only=False))
             key_from = self.key_account + token_state.owner.to_array
-            account_state = NFTAccountState.from_storage(engine.snapshot.storages.get(key_from))
+            account_state = engine.snapshot.storages.get(key_from).get(NFTAccountState)
             account_state.remove(token_id)
             if account_state.balance == 0:
                 engine.snapshot.storages.delete(key_from)
@@ -261,7 +244,7 @@ class NonFungibleToken(NativeContract):
             if storage_item is None:
                 storage_item = storage.StorageItem(NFTAccountState().to_array())
                 engine.snapshot.storages.put(key_to, storage_item)
-            NFTAccountState.from_storage(storage_item).add(token_id)
+            storage_item.get(NFTAccountState).add(token_id)
             self.on_transferred(engine, token.owner, token)
 
         self._post_transfer(engine, token_state.owner, account_to, token_id)
@@ -281,7 +264,7 @@ class NonFungibleToken(NativeContract):
         reference_counter = vm.ReferenceCounter()
         if storage_item_account is None:
             return interop.ArrayWrapper(vm.ArrayStackItem(reference_counter))
-        account = NFTAccountState.from_storage(storage_item_account)
+        account = storage_item_account.get(NFTAccountState)
         tokens: List[vm.StackItem] = list(map(lambda t: vm.ByteStringStackItem(t), account.tokens))
         return interop.ArrayWrapper(vm.ArrayStackItem(reference_counter, tokens))
 
