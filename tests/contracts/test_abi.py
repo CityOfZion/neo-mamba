@@ -75,10 +75,15 @@ class ContractMethodDescriptorTestCase(unittest.TestCase):
         cls.expected = {"name": "MainMethod",
                         "offset": 0,
                         "parameters": [cls.parameters[0].to_json()],
-                        "returntype": "Boolean"}
+                        "returntype": "Boolean",
+                        "safe": True}
 
     def test_to_json(self):
-        cmd = contracts.ContractMethodDescriptor("MainMethod", 0, self.parameters, contracts.ContractParameterType.BOOLEAN)
+        cmd = contracts.ContractMethodDescriptor("MainMethod",
+                                                 0,
+                                                 self.parameters, contracts.ContractParameterType.BOOLEAN,
+                                                 True
+                                                 )
         self.assertEqual(self.expected, cmd.to_json())
 
     def test_from_json(self):
@@ -87,6 +92,7 @@ class ContractMethodDescriptorTestCase(unittest.TestCase):
         self.assertEqual(self.parameters, cmd.parameters)
         self.assertEqual(0, cmd.offset)
         self.assertEqual(contracts.ContractParameterType.BOOLEAN, cmd.return_type)
+        self.assertTrue(cmd.safe)
 
         with self.assertRaises(KeyError) as context:
             json_without_return_type = self.expected.copy()
@@ -111,7 +117,9 @@ class AbiTestCase(unittest.TestCase):
                 Name = "main_entry",
                 Offset = 0,
                 Parameters = new ContractParameterDefinition[0],
-                ReturnType = ContractParameterType.Integer}
+                ReturnType = ContractParameterType.Integer,
+                Safe = true
+            }
         };
         var events = new ContractEventDescriptor[]
         {
@@ -119,7 +127,6 @@ class AbiTestCase(unittest.TestCase):
         };
         var abi = new ContractAbi()
         {
-            Hash = UInt160.Zero,
             Methods = methods,
             Events = events
         };
@@ -129,7 +136,8 @@ class AbiTestCase(unittest.TestCase):
             name="main_entry",
             offset=0,
             parameters=[],
-            return_type=contracts.ContractParameterType.INTEGER
+            return_type=contracts.ContractParameterType.INTEGER,
+            safe=True
         )
         cls.methods = [cls.method1]
         cls.event = contracts.ContractEventDescriptor(
@@ -138,11 +146,10 @@ class AbiTestCase(unittest.TestCase):
         )
         cls.events = [cls.event]
         # captured from C#
-        cls.expected_json = {"hash":"0x0000000000000000000000000000000000000000","methods":[{"name":"main_entry","parameters":[],"offset":0,"returntype":"Integer"}],"events":[{"name":"main_event","parameters":[]}]}
+        cls.expected_json = {"methods":[{"name":"main_entry","parameters":[],"returntype":"Integer","offset":0,"safe":True}],"events":[{"name":"main_event","parameters":[]}]}
 
     def test_to_json(self):
         abi = contracts.ContractABI(
-            contract_hash=types.UInt160.zero(),
             methods=self.methods,
             events=self.events
         )
@@ -164,8 +171,7 @@ class AbiTestCase(unittest.TestCase):
 
     def test_get_method(self):
         abi = contracts.ContractABI.from_json(self.expected_json)
-        self.assertIsNone(abi.get_method("bad_method"))
-        method = abi.get_method("main_entry")
+        self.assertIsNone(abi.get_method("bad_method", 0))
+        method = abi.get_method("main_entry", 0)
         self.assertIsInstance(method, contracts.ContractMethodDescriptor)
         self.assertEqual("main_entry", method.name)
-

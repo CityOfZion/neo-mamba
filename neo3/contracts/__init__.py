@@ -13,10 +13,11 @@ from .abi import (ContractParameterType,
                   ContractEventDescriptor,
                   ContractParameterDefinition,
                   ContractABI)
-from .nef import NEF
+from .nef import (NEF, MethodToken)
 from .contract import Contract
 from .binaryserializer import BinarySerializer
 from .jsonserializer import (NEOJson, JSONSerializer)
+from .findoptions import FindOptions
 from .native import (NativeContract,
                      PolicyContract,
                      NeoToken,
@@ -53,4 +54,7 @@ __all__ = ['ContractParameterType',
            'DesignationContract',
            'DesignateRole',
            'NameService',
-           'LedgerContract']
+           'LedgerContract',
+           'NEF',
+           'MethodToken',
+           'FindOptions']

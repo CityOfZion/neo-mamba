@@ -95,8 +95,6 @@ class NativeContract(convenience._Singleton):
         Args:
             name: service name of the contract
 
-        Raise:
-            ValueError: if the contract is not registered on the chain and cannot be obtained
         """
         contract = cls._contracts.get(name, None)
         return contract
@@ -214,7 +212,7 @@ class NativeContract(convenience._Singleton):
             engine: the engine executing the smart contract
 
         Raises:
-             SystemError: if called using `Neo.Native.Call`, use `System.Contract.Call` instead
+             SystemError: if not called via `System.Contract.Call`
              ValueError: if the function to be called does not exist on the contract
              ValueError: if trying to call a function without having the correct CallFlags
         """
@@ -320,7 +318,7 @@ class PolicyContract(NativeContract):
         self._register_contract_method(self.get_max_transactions_per_block,
                                        "getMaxTransactionsPerBlock",
                                        1000000,
-                                       return_type=None,
+                                       return_type=int,
                                        call_flags=contracts.CallFlags.READ_STATES,
                                        add_snapshot=True,
                                        )
@@ -610,14 +608,15 @@ class FungibleToken(NativeContract):
     _id: int = -99999
     _decimals: int = -1
 
-    key_account = storage.StorageKey(_id, b'\x14')
-    key_total_supply = storage.StorageKey(_id, b'\x0B')
-
     _state = storage.FungibleTokenStorageState
     _symbol: str = ""
 
     def init(self):
         super(FungibleToken, self).init()
+
+        self.key_account = storage.StorageKey(self._id, b'\x14')
+        self.key_total_supply = storage.StorageKey(self._id, b'\x0B')
+
         self.manifest.supported_standards = ["NEP-17"]
         self.manifest.abi.events = [
             contracts.ContractEventDescriptor(
@@ -767,7 +766,7 @@ class FungibleToken(NativeContract):
 
         Note: The returned value is still in internal format. Divide the results by the contract's `decimals`
         """
-        storage_item = snapshot.storages.try_get(self.key_total_supply + account)
+        storage_item = snapshot.storages.try_get(self.key_account + account)
         if storage_item is None:
             return vm.BigInteger.zero()
         else:
@@ -1109,7 +1108,7 @@ class NeoToken(FungibleToken):
                          public_key: cryptography.ECPoint,
                          candidate: _CandidateState) -> None:
         if not candidate.registered and candidate.votes == 0:
-            for k, v in snapshot.storages.find(self.key_voter_reward_per_committee + public_key):
+            for k, v in snapshot.storages.find((self.key_voter_reward_per_committee + public_key).to_array()):
                 snapshot.storages.delete(k)
             snapshot.storages.delete(self.key_candidate + public_key)
 

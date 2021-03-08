@@ -1,5 +1,4 @@
 from __future__ import annotations
-from .findoptions import FindOptions
 from .service import InteropService, InteropDescriptor
 # having the decorator out of the __init__ ensures we can use it in the modules below on import
 # otherwise we get a circular import issue

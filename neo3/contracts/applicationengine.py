@@ -408,8 +408,18 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
 
         method_descriptor = target_contract.manifest.abi.get_method(method, len(args))
         if method_descriptor is None:
-            raise ValueError(f"[System.Contract.Call] Method '{method}' does not exist on target contract")
+            raise ValueError(f"[System.Contract.Call] Method '{method}' with {len(args)} arguments does not exist on "
+                             f"target contract")
         return self._contract_call_internal2(target_contract, method_descriptor, flags, has_return_value, args)
+
+    def load_context(self, context: vm.ExecutionContext) -> None:
+        if len(context.scripthash_bytes) == 0:
+            context.scripthash_bytes = to_script_hash(context.script._value).to_array()
+        contract_hash = types.UInt160(data=context.scripthash_bytes)
+        counter = self._invocation_counter.get(contract_hash, 0)
+        self._invocation_counter.update({contract_hash: counter + 1})
+
+        super(ApplicationEngine, self).load_context(context)
 
     def _contract_call_internal2(self,
                                  target_contract: storage.ContractState,

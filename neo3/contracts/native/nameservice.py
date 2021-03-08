@@ -120,7 +120,7 @@ class NameService(NonFungibleToken):
         end = (self.key_expiration + now.to_array()).to_array()
         for key, _ in engine.snapshot.storages.find_range(start, end):
             engine.snapshot.storages.delete(key)
-            for key2, _ in engine.snapshot.storages.find(self.key_record + key.key[5:]):
+            for key2, _ in engine.snapshot.storages.find((self.key_record + key.key[5:]).to_array()):
                 engine.snapshot.storages.delete(key2)
             self.burn(engine, self.key_token + key.key[5:])
 

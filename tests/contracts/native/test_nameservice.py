@@ -1,7 +1,7 @@
 import unittest
 from neo3 import vm, contracts, storage
 from neo3.core import types
-from ..interop.utils import test_engine, test_block, test_tx
+from tests.contracts.interop.utils import test_engine, test_block, test_tx
 
 
 def test_name_service(operation: str, has_return_value=False, args=None):

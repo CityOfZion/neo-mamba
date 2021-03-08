@@ -1,8 +1,6 @@
 from __future__ import annotations
-import hashlib
-import json
 from typing import cast
-from neo3.core import serialization, IClonable, utils, types, IInteroperable, Size as s, cryptography
+from neo3.core import serialization, IClonable, types, IInteroperable, Size as s
 from neo3.core.serialization import BinaryReader, BinaryWriter
 from neo3.contracts import manifest
 from neo3 import vm, contracts
@@ -33,6 +31,8 @@ class ContractState(serialization.ISerializable, IClonable, IInteroperable):
         if other is None:
             return False
         if type(self) != type(other):
+            return False
+        if self.hash != other.hash:
             return False
         return True
 

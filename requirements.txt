@@ -5,7 +5,7 @@ bitarray==1.0.1
 coverage>=5.0.2
 Events==0.3
 lz4==2.2.1
-neo3crypto==0.1
+neo3crypto==0.2
 neo3vm>=0.5.0
 neo3vm-stubs>=0.5.0
 mmh3==2.5.1
@@ -17,5 +17,5 @@ Sphinx==2.2.0
 sphinx-autodoc-typehints==1.7.0
 plyvel==1.2.0
 pycodestyle==2.5.0
-pybiginteger>=1.2.1
+pybiginteger>=1.2.3
 pybiginteger-stubs>=1.2.1

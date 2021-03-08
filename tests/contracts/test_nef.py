@@ -1,6 +1,7 @@
 import unittest
 import binascii
 from neo3 import contracts
+from neo3.core import types
 from copy import deepcopy
 
 
@@ -8,24 +9,32 @@ class NEFTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         """
-        Version v = new Version(1,2,3,4);
         var nef = new NefFile
         {
-            Version = v,
-            Compiler = "neo3-boa by COZ.io",
-            Script = new byte[] {1, 2, 3}
+            Compiler = "test-compiler 0.1",
+            Script = new byte[] {(byte) OpCode.RET},
+            Tokens = new MethodToken[]
+            {
+                new MethodToken()
+                {
+                    Hash = UInt160.Zero,
+                    Method = "test_method",
+                    ParametersCount = 0,
+                    HasReturnValue = true,
+                    CallFlags = CallFlags.None
+                }
+            }
         };
-
-        nef.ScriptHash = nef.Script.ToScriptHash();
         nef.CheckSum = NefFile.ComputeChecksum(nef);
         Console.WriteLine(nef.ToArray().ToHexString());
         Console.WriteLine(nef.Size);
         """
-        cls.expected = binascii.unhexlify(b'4e4546336e656f332d626f6120627920434f5a2e696f0000000000000000000000000000756e6b6e6f776e0000000000000000000000000000000000000000000000000003010203e084c94b')
-        cls.expected_length = 76
-        version = "unknown"
-        compiler = "neo3-boa by COZ.io"
-        cls.nef = contracts.NEF(compiler_name=compiler, version=version, script=b'\x01\x02\x03')
+        cls.expected = binascii.unhexlify(b'4e454633746573742d636f6d70696c657220302e31000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000b746573745f6d6574686f64000001000000014010993d46')
+        cls.expected_length = 115
+        compiler = "test-compiler 0.1"
+        ret = b'\x40'  # vm.OpCode.RET
+        tokens = [contracts.MethodToken(types.UInt160.zero(), "test_method", 0, True, contracts.CallFlags.NONE)]
+        cls.nef = contracts.NEF(compiler_name=compiler, script=ret, tokens=tokens)
 
     def test_serialization(self):
         self.assertEqual(self.expected, self.nef.to_array())
@@ -34,7 +43,6 @@ class NEFTestCase(unittest.TestCase):
         nef = contracts.NEF.deserialize_from_bytes(self.expected)
         self.assertEqual(self.nef.magic, nef.magic)
         self.assertEqual(self.nef.compiler, nef.compiler)
-        self.assertEqual(self.nef.version, nef.version)
         self.assertEqual(self.nef.script, nef.script)
         self.assertEqual(self.nef.checksum, nef.checksum)
 
@@ -62,9 +70,9 @@ class NEFTestCase(unittest.TestCase):
         self.assertEqual(self.expected_length, len(self.nef))
 
     def test_eq(self):
-        version = "uknown"
-        compiler = "neo3-boa by COZ.io"
-        nef = contracts.NEF(compiler_name=compiler, version=version, script=b'\x01\x02\x03')
-        nef2 = contracts.NEF(compiler_name=compiler, version=version, script=b'\x01\x02\x03')
+        compiler = "test-compiler 0.1"
+        ret = b'\x40'  # vm.OpCode.RET
+        nef = contracts.NEF(compiler_name=compiler, script=ret)
+        nef2 = contracts.NEF(compiler_name=compiler, script=ret)
         self.assertFalse(nef == object())
         self.assertTrue(nef == nef2)

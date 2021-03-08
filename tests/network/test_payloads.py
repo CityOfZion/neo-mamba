@@ -256,28 +256,6 @@ class BlockTestCase(unittest.TestCase):
         self.assertEqual(trimmed_block.hashes, deserialized_trimmed_block.hashes)
         self.assertEqual(2, len(deserialized_trimmed_block.hashes))
 
-        cloned_trimmed_block = trimmed_block.clone()
-        self.assertEqual(cloned_trimmed_block.prev_hash, trimmed_block.prev_hash)
-        self.assertNotEqual(id(cloned_trimmed_block.prev_hash), id(trimmed_block.prev_hash))
-
-        replica = payloads.TrimmedBlock._serializable_init()
-        replica.from_replica(trimmed_block)
-        self.assertEqual(id(replica.prev_hash), id(trimmed_block.prev_hash))
-
-    def test_from_replica(self):
-        b = payloads.Block._serializable_init()
-        b.from_replica(self.block)
-        self.assertEqual(self.block.version, b.version)
-        self.assertEqual(self.block.prev_hash, b.prev_hash)
-        self.assertEqual(self.block.timestamp, b.timestamp)
-        self.assertEqual(self.block.index, b.index)
-        self.assertEqual(self.block.next_consensus, b.next_consensus)
-        self.assertEqual(self.block.witness.invocation_script, b.witness.invocation_script)
-        self.assertEqual(self.block.witness.verification_script, b.witness.verification_script)
-        self.assertEqual(self.block.consensus_data.primary_index, b.consensus_data.primary_index)
-        self.assertEqual(self.block.consensus_data.nonce, b.consensus_data.nonce)
-        self.assertEqual(self.block.transactions, b.transactions)
-
 
 class ConsensusDataTestCase(unittest.TestCase):
     @classmethod

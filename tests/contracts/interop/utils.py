@@ -1,8 +1,17 @@
 import hashlib
 from typing import List
 from neo3.network import payloads
-from neo3.core import types, serialization
+from neo3.core import types, serialization, to_script_hash
 from neo3 import vm, contracts, blockchain, storage
+
+
+def contract_hash(sender: types.UInt160, checksum: int, name: str) -> types.UInt160:
+    sb = vm.ScriptBuilder()
+    sb.emit(vm.OpCode.ABORT)
+    sb.emit_push(sender.to_array())
+    sb.emit_push(checksum)
+    sb.emit_push(name)
+    return to_script_hash(sb.to_array())
 
 
 def syscall_name_to_int(name: str) -> int:
@@ -41,7 +50,7 @@ def test_tx(with_block_height=1, signers: List[types.UInt160]=None) -> payloads.
                               nonce=123,
                               system_fee=456,
                               network_fee=789,
-                              valid_until_block=1,
+                              valid_until_block=with_block_height + 1,
                               attributes=[],
                               signers=new_signers,
                               script=b'\x01',

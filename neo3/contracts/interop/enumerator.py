@@ -2,7 +2,7 @@ from __future__ import annotations
 import abc
 from typing import Union, Iterator, cast
 from neo3 import vm, contracts
-from neo3.contracts.interop import register, FindOptions
+from neo3.contracts.interop import register
 
 
 class IIterator(abc.ABC):
@@ -76,7 +76,7 @@ class MapWrapper(IIterator):
 
 
 class StorageIterator(IIterator):
-    def __init__(self, generator, options: FindOptions, reference_counter: vm.ReferenceCounter):
+    def __init__(self, generator, options: contracts.FindOptions, reference_counter: vm.ReferenceCounter):
         self.it = generator
         self.options = options
         self.reference_counter = reference_counter
@@ -95,25 +95,25 @@ class StorageIterator(IIterator):
             raise ValueError("Cannot call 'value' without having advanced the iterator at least once")
         key = self._pair[0].key
         value = self._pair[1].value
-        if FindOptions.REMOVE_PREFIX in self.options:
+        if contracts.FindOptions.REMOVE_PREFIX in self.options:
             key = key[1:]
 
-        if FindOptions.DESERIALIZE_VALUES in self.options:
+        if contracts.FindOptions.DESERIALIZE_VALUES in self.options:
             item: vm.StackItem = contracts.BinarySerializer.deserialize(value, 1024, len(value), self.reference_counter)
         else:
             item = vm.ByteStringStackItem(value)
 
-        if FindOptions.PICK_FIELD0 in self.options:
+        if contracts.FindOptions.PICK_FIELD0 in self.options:
             item = cast(vm.ArrayStackItem, item)
             item = item[0]
-        elif FindOptions.PICK_FIELD1 in self.options:
+        elif contracts.FindOptions.PICK_FIELD1 in self.options:
             item = cast(vm.ArrayStackItem, item)
             item = item[1]
 
-        if FindOptions.KEYS_ONLY in self.options:
+        if contracts.FindOptions.KEYS_ONLY in self.options:
             return vm.ByteStringStackItem(key)
 
-        if FindOptions.VALUES_ONLY in self.options:
+        if contracts.FindOptions.VALUES_ONLY in self.options:
             return vm.ByteStringStackItem(value)
 
         return vm.StructStackItem(self.reference_counter,

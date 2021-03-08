@@ -209,10 +209,9 @@ class ContractMethodDescriptor(ContractEventDescriptor, IJson):
         """
         json = super(ContractMethodDescriptor, self).to_json()
         json.update({
-            "offset": self.offset,
             "returntype": self.return_type.PascalCase(),
+            "offset": self.offset,
             "safe": self.safe
-
         })
         return json
 

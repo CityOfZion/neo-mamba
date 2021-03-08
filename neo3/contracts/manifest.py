@@ -2,7 +2,7 @@ from __future__ import annotations
 import base64
 import binascii
 import orjson as json
-from typing import List, Callable
+from typing import List, Callable, Optional
 from neo3 import contracts, storage
 from neo3.core import serialization, types, IJson, cryptography, utils
 from neo3.core.serialization import BinaryReader, BinaryWriter
@@ -257,9 +257,9 @@ class ContractManifest(serialization.ISerializable, IJson):
     #: The maximum byte size after serialization to be considered valid a valid contract.
     MAX_LENGTH = 0xFFFF
 
-    def __init__(self):
+    def __init__(self, name: Optional[str] = None):
         #: Contract name
-        self.name: str = ""
+        self.name: str = name if name else ""
         #: A group represents a set of mutually trusted contracts. A contract will trust and allow any contract in the
         #: same group to invoke it.
         self.groups: List[ContractGroup] = []
@@ -372,19 +372,19 @@ class ContractManifest(serialization.ISerializable, IJson):
 
     def is_valid(self, contract_hash: types.UInt160) -> bool:
         """
-        Test the manifest data for correctness and return the result.
+        Validates the if any in the manifest groups signed the requesting `contract_hash` as permissive.
 
-        - Compares the manifest ABI with the `contract_hash`
-        - Validates the manifest groups with the `contract_hash`
-
-        An example use-case is to create and update smart contracts in a safe manner on the chain.
+        An example use-case is to allow creation and updating of smart contracts by a select group.
 
         Args:
             contract_hash:
-
         """
         result = list(map(lambda g: g.is_valid(contract_hash), self.groups))
         return all(result)
+
+    def can_call(self, target_contract: storage.ContractState, target_method: str) -> bool:
+        results = list(map(lambda p: p.is_allowed(target_contract, target_method), self.permissions))
+        return any(results)
 
     @classmethod
     def _serializable_init(cls):

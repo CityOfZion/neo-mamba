@@ -41,12 +41,14 @@ def storage_get(engine: contracts.ApplicationEngine, context: storage.StorageCon
     return None
 
 
-@register("System.Storage.Find", 1 << 15, contracts.CallFlags.READ_STATES, [storage.StorageContext, bytes])
+@register("System.Storage.Find", 1 << 15, contracts.CallFlags.READ_STATES, [storage.StorageContext,
+                                                                            bytes,
+                                                                            contracts.FindOptions])
 def storage_find(engine: contracts.ApplicationEngine,
                  context: storage.StorageContext,
                  key: bytes,
-                 options: contracts.interop.FindOptions) -> IIterator:
-    opt = contracts.interop.FindOptions
+                 options: contracts.FindOptions) -> IIterator:
+    opt = contracts.FindOptions
     if opt.KEYS_ONLY in options and (
             opt.VALUES_ONLY in options
             or opt.DESERIALIZE_VALUES in options

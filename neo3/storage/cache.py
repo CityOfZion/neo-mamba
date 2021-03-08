@@ -499,9 +499,9 @@ class CachedStorageAccess(CachedAccess):
                 results.append((deepcopy(key), deepcopy(value)))
 
         if direction == "forward":
-            r = sorted(results, key=lambda pair: pair[0].key)
+            r = sorted(results, key=lambda pair: pair[0].to_array())
         else:
-            r = sorted(results, key=lambda pair: pair[0].key, reverse=True)
+            r = sorted(results, key=lambda pair: pair[0].to_array(), reverse=True)
         return iter(r)
 
 

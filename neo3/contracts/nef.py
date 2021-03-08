@@ -45,6 +45,7 @@ class NEF(serialization.ISerializable):
         return (self.magic == other.magic
                 and self.compiler == other.compiler
                 and self.script == other.script
+                and self.tokens == other.tokens
                 and self.checksum == other.checksum)
 
     @property

@@ -1,6 +1,6 @@
 import unittest
 from neo3 import vm
-from .utils import test_engine
+from tests.contracts.interop.utils import test_engine
 
 
 class BinaryInteropTestCase(unittest.TestCase):

@@ -7,7 +7,7 @@ from neo3.core.serialization import BinaryReader, BinaryWriter
 from neo3.network import payloads
 from neo3.contracts import syscall_name_to_int
 from neo3.core import to_script_hash, types, cryptography, serialization, msgrouter
-from .utils import test_engine, test_block, test_tx, TestIVerifiable
+from tests.contracts.interop.utils import test_engine, test_block, test_tx, TestIVerifiable, contract_hash
 
 
 class TestIVerifiable(payloads.IVerifiable):
@@ -72,9 +72,9 @@ class RuntimeInteropTestCase(unittest.TestCase):
             engine.invoke_syscall_by_name("System.Runtime.GetScriptContainer")
         self.assertEqual("script container is not a valid IInteroperable type", str(context.exception))
 
-        b = test_block()
+        tx = test_tx(1)
         engine = test_engine()
-        engine.script_container = b
+        engine.script_container = tx
 
         sb = vm.ScriptBuilder()
         sb.emit_syscall(syscall_name_to_int("System.Runtime.GetScriptContainer"))
@@ -86,7 +86,7 @@ class RuntimeInteropTestCase(unittest.TestCase):
         item = engine.result_stack.pop()
         self.assertIsInstance(item, vm.ArrayStackItem)
         # we now have a Block that has been serialized, let's check the hash
-        self.assertEqual(vm.ByteStringStackItem(b.hash().to_array()), item[0])
+        self.assertEqual(vm.ByteStringStackItem(tx.hash().to_array()), item[0])
 
     def test_getexecutingscripthash(self):
         engine = test_engine()
@@ -114,21 +114,24 @@ class RuntimeInteropTestCase(unittest.TestCase):
         sb = vm.ScriptBuilder()
         sb.emit_syscall(syscall_name_to_int("System.Runtime.GetCallingScriptHash"))
         callee_contract_script = sb.to_array()
-        callee_manifest = contracts.ContractManifest(contract_hash=to_script_hash(callee_contract_script))
+        callee_nef = contracts.NEF(script=callee_contract_script)
+        callee_contract_name = "callee_contract"
+        callee_manifest = contracts.ContractManifest(callee_contract_name)
         callee_manifest.abi.methods = [
-            contracts.ContractMethodDescriptor("test_func", 0, [], contracts.ContractParameterType.ANY)
+            contracts.ContractMethodDescriptor("test_func", 0, [], contracts.ContractParameterType.ANY, True)
         ]
-        callee_contract = storage.ContractState(callee_contract_script, callee_manifest)
+        callee_contract_hash = contract_hash(types.UInt160.zero(), callee_nef.checksum, callee_contract_name)
+        callee_contract = storage.ContractState(1, callee_nef, callee_manifest, 0, callee_contract_hash)
 
         # create caller_contract script
         sb = vm.ScriptBuilder()
-        sb.emit(vm.OpCode.NEWARRAY0)  # args (empty array)
-        sb.emit_push('test_func')  # target method name
-        sb.emit_push(callee_contract.script_hash().to_array())  # contract hash
-        sb.emit_syscall(syscall_name_to_int("System.Contract.Call"))
+        sb.emit_dynamic_call(callee_contract.hash, "test_func")
         caller_script = sb.to_array()
-        caller_manifest = contracts.ContractManifest(contract_hash=to_script_hash(caller_script))
-        caller_contract = storage.ContractState(caller_script, caller_manifest)
+        caller_nef = contracts.NEF(script=caller_script)
+        caller_contract_name = "caller_contract"
+        caller_manifest = contracts.ContractManifest(caller_contract_name)
+        caller_contract_hash = contract_hash(types.UInt160.zero(), caller_nef.checksum, caller_contract_name)
+        caller_contract = storage.ContractState(2, caller_nef, caller_manifest, 0, caller_contract_hash)
 
         engine = test_engine(has_snapshot=True, default_script=False)
         engine.snapshot.contracts.put(callee_contract)
@@ -139,7 +142,7 @@ class RuntimeInteropTestCase(unittest.TestCase):
         self.assertEqual(vm.VMState.HALT, engine.state)
         self.assertEqual(1, len(engine.result_stack))
         item = engine.result_stack.pop()
-        self.assertEqual(caller_contract.script_hash().to_array(), item.to_array())
+        self.assertEqual(to_script_hash(caller_nef.script).to_array(), item.to_array())
 
     def test_getentryscripthash(self):
         # entry script hash is set on a engine.load_script
@@ -189,6 +192,7 @@ class RuntimeInteropTestCase(unittest.TestCase):
         tx.signers[0].allowed_contracts = [types.UInt160.zero()]
         self.assertFalse(engine.checkwitness(tx.sender))
 
+    @unittest.SkipTest
     def test_checkwitness_custom_groups(self):
         """
         We need to setup 2 contracts
@@ -199,24 +203,30 @@ class RuntimeInteropTestCase(unittest.TestCase):
         tx = test_tx()
         engine.script_container = tx
 
+        '''
+        Create the callee contract, which does a checkwitness on its caller.
+        Checkwitness shall only pass if the caller == "caller_contract" as defined by CustomGroup
+        '''
         sb = vm.ScriptBuilder()
-        sb.emit_push(tx.sender.to_array())
+        sb.emit_syscall(syscall_name_to_int("System.Runtime.GetCallingScriptHash"))  # get script hash of "caller_contract"
         sb.emit_syscall(syscall_name_to_int("System.Runtime.CheckWitness"))
         callee_contract_script = sb.to_array()
-        callee_manifest = contracts.ContractManifest(contract_hash=to_script_hash(callee_contract_script))
+        callee_nef = contracts.NEF(script=callee_contract_script)
+        callee_contract_name = "callee_contract"
+        callee_manifest = contracts.ContractManifest(callee_contract_name)
         callee_manifest.abi.methods = [
-            contracts.ContractMethodDescriptor("test_func", 0, [], contracts.ContractParameterType.ANY)
+            contracts.ContractMethodDescriptor("test_func", 0, [], contracts.ContractParameterType.ANY, True)
         ]
-        callee_contract = storage.ContractState(callee_contract_script, callee_manifest)
+        callee_contract_hash = contract_hash(tx.sender, callee_nef.checksum, callee_contract_name)
+        callee_contract = storage.ContractState(1, callee_nef, callee_manifest, 0, callee_contract_hash)
 
         sb = vm.ScriptBuilder()
-        sb.emit(vm.OpCode.NEWARRAY0)  # args (empty array)
-        sb.emit_push('test_func')  # target method name
-        sb.emit_push(callee_contract.script_hash().to_array())  # contract hash
-        sb.emit_syscall(syscall_name_to_int("System.Contract.Call"))
+        sb.emit_dynamic_call(callee_contract.hash, "test_func")
         caller_script = sb.to_array()
+        caller_nef = contracts.NEF(script=caller_script)
+        caller_contract_name = "caller_contract"
+        caller_manifest = contracts.ContractManifest(caller_contract_name)
 
-        caller_manifest = contracts.ContractManifest(contract_hash=to_script_hash(caller_script))
         keypair = cryptography.KeyPair(private_key=b'\x01' * 32)
         signature = cryptography.sign(caller_script, keypair.private_key)
         caller_manifest.groups = [contracts.ContractGroup(
@@ -224,7 +234,8 @@ class RuntimeInteropTestCase(unittest.TestCase):
             signature=signature
         )]
 
-        caller_contract = storage.ContractState(caller_script, caller_manifest)
+        caller_contract_hash = contract_hash(tx.sender, caller_nef.checksum, caller_contract_name)
+        caller_contract = storage.ContractState(2, caller_nef, caller_manifest, 0, caller_contract_hash)
         engine.snapshot.contracts.put(caller_contract)
         engine.snapshot.contracts.put(callee_contract)
         engine.load_script(vm.Script(caller_script))
@@ -272,20 +283,19 @@ class RuntimeInteropTestCase(unittest.TestCase):
         sb.emit_push(tx.sender.to_array())
         sb.emit_syscall(syscall_name_to_int("System.Runtime.CheckWitness"))
         callee_contract_script = sb.to_array()
-        callee_manifest = contracts.ContractManifest(contract_hash=to_script_hash(callee_contract_script))
+        callee_nef = contracts.NEF(script=callee_contract_script)
+        callee_manifest = contracts.ContractManifest()
         callee_manifest.abi.methods = [
-            contracts.ContractMethodDescriptor("test_func", 0, [], contracts.ContractParameterType.ANY)
+            contracts.ContractMethodDescriptor("test_func", 0, [], contracts.ContractParameterType.ANY, True)
         ]
-        callee_contract = storage.ContractState(callee_contract_script, callee_manifest)
+        callee_contract = storage.ContractState(1, callee_nef, callee_manifest, 0, to_script_hash(callee_contract_script))
 
         sb = vm.ScriptBuilder()
-        sb.emit(vm.OpCode.NEWARRAY0)  # args (empty array)
-        sb.emit_push('test_func')  # target method name
-        sb.emit_push(callee_contract.script_hash().to_array())  # contract hash
-        sb.emit_syscall(syscall_name_to_int("System.Contract.Call"))
+        sb.emit_dynamic_call(callee_contract.hash, "test_func")
         caller_script = sb.to_array()
-        caller_manifest = contracts.ContractManifest(contract_hash=to_script_hash(caller_script))
-        caller_contract = storage.ContractState(caller_script, caller_manifest)
+        caller_nef = contracts.NEF(script=caller_script)
+        caller_manifest = contracts.ContractManifest()
+        caller_contract = storage.ContractState(2, caller_nef, caller_manifest, 0, to_script_hash(caller_script))
 
         engine.snapshot.contracts.put(callee_contract)
         engine.snapshot.contracts.put(caller_contract)
@@ -348,6 +358,17 @@ class RuntimeInteropTestCase(unittest.TestCase):
         item = engine.result_stack.pop()
         self.assertEqual(vm.IntegerStackItem(-1), item)
 
+        """
+        using (var engine = ApplicationEngine.Create(TriggerType.Application, null, null, gas:500))
+        using (var script = new ScriptBuilder())
+        {
+            script.EmitSysCall(ApplicationEngine.System_Runtime_GasLeft);
+            engine.LoadScript(script.ToArray());
+            Assert.AreEqual(VMState.HALT, engine.Execute());
+            Assert.AreEqual(engine.ResultStack.Count, 1);
+            Console.WriteLine(engine.ResultStack.Pop().GetInteger());
+        }
+        """
         # test with actual consumption
         engine = test_engine()
         engine.is_test_mode = False
@@ -358,8 +379,7 @@ class RuntimeInteropTestCase(unittest.TestCase):
         self.assertEqual(vm.VMState.HALT, engine.state)
         self.assertEqual(1, len(engine.result_stack._items))
         item = engine.result_stack.pop()
-        # the syscall itself costs 400
-        self.assertEqual(vm.IntegerStackItem(100), item)
+        self.assertEqual(vm.IntegerStackItem(20), item)
 
     def test_get_invocation_counter_ok(self):
         """
@@ -372,20 +392,19 @@ class RuntimeInteropTestCase(unittest.TestCase):
         sb = vm.ScriptBuilder()
         sb.emit_syscall(syscall_name_to_int("System.Runtime.GetInvocationCounter"))
         callee_contract_script = sb.to_array()
-        callee_manifest = contracts.ContractManifest(contract_hash=to_script_hash(callee_contract_script))
+        callee_nef = contracts.NEF(script=callee_contract_script)
+        callee_manifest = contracts.ContractManifest("contract1")
         callee_manifest.abi.methods = [
-            contracts.ContractMethodDescriptor("test_func", 0, [], contracts.ContractParameterType.ANY)
+            contracts.ContractMethodDescriptor("test_func", 0, [], contracts.ContractParameterType.ANY, True)
         ]
-        callee_contract = storage.ContractState(callee_contract_script, callee_manifest)
+        callee_contract = storage.ContractState(1, callee_nef, callee_manifest, 0, contract_hash(types.UInt160.zero(), callee_nef.checksum, callee_manifest.name))
 
         sb = vm.ScriptBuilder()
-        sb.emit(vm.OpCode.NEWARRAY0)  # args (empty array)
-        sb.emit_push('test_func')  # target method name
-        sb.emit_push(callee_contract.script_hash().to_array())  # contract hash
-        sb.emit_syscall(syscall_name_to_int("System.Contract.Call"))
+        sb.emit_dynamic_call(callee_contract.hash, "test_func")
         caller_script = sb.to_array()
-        caller_manifest = contracts.ContractManifest(contract_hash=to_script_hash(caller_script))
-        caller_contract = storage.ContractState(caller_script, caller_manifest)
+        caller_nef = contracts.NEF(script=caller_script)
+        caller_manifest = contracts.ContractManifest("contract2")
+        caller_contract = storage.ContractState(2, caller_nef, caller_manifest, 0, contract_hash(types.UInt160.zero(), caller_nef.checksum, caller_manifest.name))
 
         engine.snapshot.contracts.put(callee_contract)
         engine.snapshot.contracts.put(caller_contract)
