@@ -64,14 +64,10 @@ class NameService(NonFungibleToken):
     _symbol = "NNS"
     _service_name = None
 
-    _PREFIX_ROOTS = b'\x0a'
-    _PREFIX_DOMAIN_PRICE = b'\x16'
-    _PREFIX_EXPIRATION = b'\x14'
-    _PREFIX_RECORD = b'\x12'
-    key_roots = storage.StorageKey(_id, _PREFIX_ROOTS)
-    key_domain_price = storage.StorageKey(_id, _PREFIX_DOMAIN_PRICE)
-    key_expiration = storage.StorageKey(_id, _PREFIX_EXPIRATION)
-    key_record = storage.StorageKey(_id, _PREFIX_RECORD)
+    key_roots = storage.StorageKey(_id, b'\x0a')
+    key_domain_price = storage.StorageKey(_id, b'\x16')
+    key_expiration = storage.StorageKey(_id, b'\x14')
+    key_record = storage.StorageKey(_id, b'\x12')
 
     ONE_YEAR = 365 * 24 * 3600
     REGEX_ROOT = re.compile("^[a-z][a-z0-9]{0,15}$")

@@ -82,16 +82,12 @@ class NonFungibleToken(NativeContract):
     _service_name: Optional[str] = "NonfungibleToken"
     _symbol: str = ""
 
-    _PREFIX_TOTAL_SUPPLY = b'\x0b'
-    _PREFIX_TOKEN = b'\x05'
-    _PREFIX_ACCOUNT = b'\x07'
-
-    key_total_suppply = storage.StorageKey(_id, _PREFIX_TOTAL_SUPPLY)
-    key_token = storage.StorageKey(_id, _PREFIX_TOKEN)
-    key_account = storage.StorageKey(_id, _PREFIX_ACCOUNT)
-
     def init(self):
         super(NonFungibleToken, self).init()
+        self.key_total_suppply = storage.StorageKey(self._id, b'\x0b')
+        self.key_token = storage.StorageKey(self._id, b'\x05')
+        self.key_account = storage.StorageKey(self._id, b'\x07')
+
         self.manifest.abi.events = [
             contracts.ContractEventDescriptor(
                 "Transfer",

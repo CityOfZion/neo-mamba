@@ -153,7 +153,7 @@ class TestPolicyContract(unittest.TestCase):
         self.assertTrue(policy._block_account(engine, account))
         self.assertFalse(policy._unblock_account(engine, account_not_found))
         self.assertTrue(policy._unblock_account(engine, account))
-        storage_key = storage.StorageKey(policy.id, policy._PREFIX_BLOCKED_ACCOUNT + account.to_array())
+        storage_key = policy.key_blocked_account + account
         storage_item = engine.snapshot.storages.try_get(storage_key)
         self.assertIsNone(storage_item)
 

@@ -13,21 +13,13 @@ class PolicyContract(NativeContract):
     DEFAULT_STORAGE_PRICE = 100000
     MAX_STORAGE_PRICE = 10000000
 
-    _PREFIX_MAX_TRANSACTIONS_PER_BLOCK = b'\x17'
-    _PREFIX_FEE_PER_BYTE = b'\x0A'
-    _PREFIX_BLOCKED_ACCOUNT = b'\x0F'
-    _PREFIX_MAX_BLOCK_SIZE = b'\x0C'
-    _PREFIX_MAX_BLOCK_SYSTEM_FEE = b'\x11'
-    _PREFIX_EXEC_FEE_FACTOR = b'\x12'
-    _PREFIX_STORAGE_PRICE = b'\x13'
-
-    key_max_transactions_per_block = storage.StorageKey(_id, _PREFIX_MAX_TRANSACTIONS_PER_BLOCK)
-    key_fee_per_byte = storage.StorageKey(_id, _PREFIX_FEE_PER_BYTE)
-    key_blocked_account = storage.StorageKey(_id, _PREFIX_BLOCKED_ACCOUNT)
-    key_max_block_size = storage.StorageKey(_id, _PREFIX_MAX_BLOCK_SIZE)
-    key_max_block_system_fee = storage.StorageKey(_id, _PREFIX_MAX_BLOCK_SYSTEM_FEE)
-    key_exec_fee_factor = storage.StorageKey(_id, _PREFIX_EXEC_FEE_FACTOR)
-    key_storage_price = storage.StorageKey(_id, _PREFIX_STORAGE_PRICE)
+    key_max_transactions_per_block = storage.StorageKey(_id, b'\x17')
+    key_fee_per_byte = storage.StorageKey(_id, b'\x0A')
+    key_blocked_account = storage.StorageKey(_id, b'\x0F')
+    key_max_block_size = storage.StorageKey(_id, b'\x0C')
+    key_max_block_system_fee = storage.StorageKey(_id, b'\x11')
+    key_exec_fee_factor = storage.StorageKey(_id, b'\x12')
+    key_storage_price = storage.StorageKey(_id, b'\x13')
 
     def init(self):
         super(PolicyContract, self).init()
@@ -172,7 +164,7 @@ class PolicyContract(NativeContract):
             int: maximum number of bytes.
         """
         data = snapshot.storages.get(
-            self.create_key(self._PREFIX_MAX_BLOCK_SIZE),
+            self.key_max_block_size,
             read_only=True
         )
         return int.from_bytes(data.value, 'little', signed=True)

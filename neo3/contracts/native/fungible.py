@@ -322,7 +322,7 @@ class _CommitteeState(serialization.ISerializable):
     def __init__(self, snapshot: storage.Snapshot, validators: Dict[cryptography.ECPoint, vm.BigInteger]):
         self._snapshot = snapshot
         self._validators = validators
-        self._storage_key = storage.StorageKey(NeoToken().id, NeoToken()._PREFIX_COMMITTEE)
+        self._storage_key = NeoToken().key_committee
 
         with serialization.BinaryWriter() as writer:
             self.serialize(writer)
@@ -390,7 +390,7 @@ class _GasRecord(serialization.ISerializable):
 
 class GasBonusState(serialization.ISerializable, Sequence):
     def __init__(self, initial_record: _GasRecord = None):
-        self._storage_key = storage.StorageKey(NeoToken().id, NeoToken()._PREFIX_GAS_PER_BLOCK)
+        self._storage_key = NeoToken().key_gas_per_block
         self._records: List[_GasRecord] = [initial_record] if initial_record else []
         self._iter = iter(self._records)
 
@@ -412,7 +412,7 @@ class GasBonusState(serialization.ISerializable, Sequence):
 
     @classmethod
     def from_snapshot(cls, snapshot: storage.Snapshot):
-        storage_item = snapshot.storages.get(storage.StorageKey(NeoToken().id, NeoToken()._PREFIX_GAS_PER_BLOCK))
+        storage_item = snapshot.storages.get(NeoToken().key_gas_per_block)
         return storage_item.get(cls)
 
     def append(self, record: _GasRecord) -> None:
@@ -429,13 +429,10 @@ class NeoToken(FungibleToken):
     _id: int = -3
     _decimals: int = 0
 
-    _PREFIX_COMMITTEE = b'\x0e'
-    _PREFIX_GAS_PER_BLOCK = b'\x29'
-
-    key_committee = storage.StorageKey(_id, _PREFIX_COMMITTEE)
+    key_committee = storage.StorageKey(_id, b'\x0e')
     key_candidate = storage.StorageKey(_id, b'\x21')
     key_voters_count = storage.StorageKey(_id, b'\x01')
-    key_gas_per_block = storage.StorageKey(_id, _PREFIX_GAS_PER_BLOCK)
+    key_gas_per_block = storage.StorageKey(_id, b'\x29')
     key_voter_reward_per_committee = storage.StorageKey(_id, b'\x17')
 
     _NEO_HOLDER_REWARD_RATIO = 10
