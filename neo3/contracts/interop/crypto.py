@@ -21,19 +21,19 @@ def stackitem_to_hash_data(engine: contracts.ApplicationEngine, stack_item: vm.S
     return value
 
 
-@register("Neo.Crypto.RIPEMD160", 1 << 15, contracts.CallFlags.NONE, [vm.StackItem])
+@register("Neo.Crypto.RIPEMD160", 1 << 15, contracts.CallFlags.NONE)
 def do_ripemd160(engine: contracts.ApplicationEngine, stack_item: vm.StackItem) -> bytes:
     value = stackitem_to_hash_data(engine, stack_item)
     return hashlib.new('ripemd160', value).digest()
 
 
-@register("Neo.Crypto.SHA256", 1 << 15, contracts.CallFlags.NONE, [vm.StackItem])
+@register("Neo.Crypto.SHA256", 1 << 15, contracts.CallFlags.NONE)
 def do_sha256(engine: contracts.ApplicationEngine, stack_item: vm.StackItem) -> bytes:
     value = stackitem_to_hash_data(engine, stack_item)
     return hashlib.sha256(value).digest()
 
 
-@register("Neo.Crypto.VerifyWithECDsaSecp256r1", 1 << 15, contracts.CallFlags.NONE, [vm.StackItem, bytes, bytes])
+@register("Neo.Crypto.VerifyWithECDsaSecp256r1", 1 << 15, contracts.CallFlags.NONE)
 def verify_with_ECDSA_Secp256r1(engine: contracts.ApplicationEngine,
                                 stack_item: vm.StackItem,
                                 public_key: bytes,
@@ -42,7 +42,7 @@ def verify_with_ECDSA_Secp256r1(engine: contracts.ApplicationEngine,
     return cryptography.verify_signature(value, signature, public_key, cryptography.ECCCurve.SECP256R1)
 
 
-@register("Neo.Crypto.VerifyWithECDsaSecp256k1", 1 << 15, contracts.CallFlags.NONE, [vm.StackItem, bytes, bytes])
+@register("Neo.Crypto.VerifyWithECDsaSecp256k1", 1 << 15, contracts.CallFlags.NONE)
 def verify_with_ECDSA_Secp256k1(engine: contracts.ApplicationEngine,
                                 stack_item: vm.StackItem,
                                 public_key: bytes,
@@ -84,8 +84,7 @@ def _check_multisig(engine: contracts.ApplicationEngine,
     return True
 
 
-@register("Neo.Crypto.CheckMultisigWithECDsaSecp256r1", 0, contracts.CallFlags.NONE,
-          [vm.StackItem, List[bytes], List[bytes]])
+@register("Neo.Crypto.CheckMultisigWithECDsaSecp256r1", 0, contracts.CallFlags.NONE)
 def check_multisig_with_ECDSA_Secp256r1(engine: contracts.ApplicationEngine,
                                         stack_item: vm.StackItem,
                                         public_keys: List[bytes],
@@ -93,8 +92,7 @@ def check_multisig_with_ECDSA_Secp256r1(engine: contracts.ApplicationEngine,
     return _check_multisig(engine, stack_item, public_keys, signatures, cryptography.ECCCurve.SECP256R1)
 
 
-@register("Neo.Crypto.CheckMultisigWithECDsaSecp256k1", 0, contracts.CallFlags.NONE,
-          [vm.StackItem, List[bytes], List[bytes]])
+@register("Neo.Crypto.CheckMultisigWithECDsaSecp256k1", 0, contracts.CallFlags.NONE)
 def check_multisig_with_ECDSA_Secp256k1(engine: contracts.ApplicationEngine,
                                         stack_item: vm.StackItem,
                                         public_keys: List[bytes],

@@ -44,7 +44,7 @@ def get_entryscripthash(engine: contracts.ApplicationEngine) -> types.UInt160:
     return engine.entry_scripthash
 
 
-@register("System.Runtime.CheckWitness", 1 << 10, contracts.CallFlags.NONE, [bytes])
+@register("System.Runtime.CheckWitness", 1 << 10, contracts.CallFlags.NONE)
 def do_checkwitness(engine: contracts.ApplicationEngine, data: bytes) -> bool:
     if len(data) == 20:
         hash_ = types.UInt160(data)
@@ -64,14 +64,14 @@ def get_invocationcounter(engine: contracts.ApplicationEngine) -> int:
     return engine.get_invocation_counter()
 
 
-@register("System.Runtime.Log", 1 << 15, contracts.CallFlags.ALLOW_NOTIFY, [bytes])
+@register("System.Runtime.Log", 1 << 15, contracts.CallFlags.ALLOW_NOTIFY)
 def do_log(engine: contracts.ApplicationEngine, message: bytes) -> None:
     if len(message) > engine.MAX_NOTIFICATION_SIZE:
         raise ValueError(f"Log message length ({len(message)}) exceeds maximum allowed ({engine.MAX_NOTIFICATION_SIZE})")  # noqa
     msgrouter.interop_log(engine.script_container, message.decode('utf-8'))
 
 
-@register("System.Runtime.Notify", 1 << 15, contracts.CallFlags.ALLOW_NOTIFY, [bytes, vm.ArrayStackItem])
+@register("System.Runtime.Notify", 1 << 15, contracts.CallFlags.ALLOW_NOTIFY)
 def do_notify(engine: contracts.ApplicationEngine, event_name: bytes, state: vm.ArrayStackItem) -> None:
     """
 
@@ -90,7 +90,7 @@ def do_notify(engine: contracts.ApplicationEngine, event_name: bytes, state: vm.
     msgrouter.interop_notify(engine.current_scripthash, event_name.decode('utf-8'), state)
 
 
-@register("System.Runtime.GetNotifications", 1 << 8, contracts.CallFlags.NONE, [types.UInt160])
+@register("System.Runtime.GetNotifications", 1 << 8, contracts.CallFlags.NONE)
 def get_notifications(engine: contracts.ApplicationEngine, for_hash: types.UInt160) -> vm.ArrayStackItem:
     array = vm.ArrayStackItem(engine.reference_counter)
     for notification in engine.notifications:

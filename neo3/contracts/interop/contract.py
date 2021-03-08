@@ -7,8 +7,7 @@ from neo3.core import cryptography, types, to_script_hash
 from neo3.contracts.interop import register
 
 
-@register("System.Contract.Call", 1 << 15, contracts.CallFlags.ALLOW_CALL,
-          [types.UInt160, str, contracts.CallFlags, vm.ArrayStackItem])
+@register("System.Contract.Call", 1 << 15, contracts.CallFlags.ALLOW_CALL)
 def contract_call(engine: contracts.ApplicationEngine,
                   contract_hash: types.UInt160,
                   method: str,
@@ -32,7 +31,7 @@ def contract_call(engine: contracts.ApplicationEngine,
     engine._contract_call_internal2(target_contract, method_descriptor, call_flags, has_return_value, list(args))
 
 
-@register("System.Contract.IsStandard", 1 << 10, contracts.CallFlags.READ_STATES, [types.UInt160])
+@register("System.Contract.IsStandard", 1 << 10, contracts.CallFlags.READ_STATES)
 def contract_is_standard(engine: contracts.ApplicationEngine, hash_: types.UInt160) -> bool:
     contract = contracts.ManagementContract().get_contract(engine.snapshot, hash_)
     if contract:
@@ -52,7 +51,7 @@ def get_callflags(engine: contracts.ApplicationEngine) -> contracts.CallFlags:
     return contracts.CallFlags(engine.current_context.call_flags)
 
 
-@register("System.Contract.CreateStandardAccount", 1 << 8, contracts.CallFlags.NONE, [cryptography.ECPoint])
+@register("System.Contract.CreateStandardAccount", 1 << 8, contracts.CallFlags.NONE)
 def contract_create_standard_account(engine: contracts.ApplicationEngine,
                                      public_key: cryptography.ECPoint) -> types.UInt160:
     return to_script_hash(contracts.Contract.create_signature_redeemscript(public_key))
@@ -80,7 +79,7 @@ def native_post_persist(engine: contracts.ApplicationEngine) -> None:
             contract.post_persist(engine)
 
 
-@register("System.Contract.CallNative", 0, contracts.CallFlags.NONE, [int])
+@register("System.Contract.CallNative", 0, contracts.CallFlags.NONE)
 def call_native(engine: contracts.ApplicationEngine, contract_id: int) -> None:
     contract = contracts.NativeContract.get_contract_by_id(contract_id)
     if contract is None:

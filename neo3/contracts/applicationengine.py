@@ -2,7 +2,6 @@ from __future__ import annotations
 from neo3 import contracts, storage, vm
 from neo3.network import payloads
 from neo3.core import types, cryptography, IInteroperable, serialization, to_script_hash
-from neo3.contracts import interop
 from typing import Any, Dict, cast, List, Tuple, Type, Optional, Callable, Union
 import enum
 from dataclasses import dataclass
@@ -50,6 +49,8 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
             self.STORAGE_PRICE = contracts.PolicyContract().get_storage_price(snapshot)
 
         self._context_state: Dict[vm.ExecutionContext, contracts.ContractState] = {}
+        from neo3.contracts import interop
+        self.interop = interop
 
     def checkwitness(self, hash_: types.UInt160) -> bool:
         """
@@ -225,7 +226,7 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
         Returns:
             The result of the syscall handler
         """
-        descriptor = interop.InteropService.get_descriptor(method_id)
+        descriptor = self.interop.InteropService.get_descriptor(method_id)
         if descriptor is None:
             raise KeyError(f"Requested interop {method_id} is not valid")
 
@@ -332,7 +333,7 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
                          method: str,
                          args: List[vm.StackItem]) -> None:
         ctx = self.current_context
-        contract_call_descriptor = interop.InteropService.get_descriptor(
+        contract_call_descriptor = self.interop.InteropService.get_descriptor(
             contracts.syscall_name_to_int("contract_call_internal")
         )
         if contract_call_descriptor is None:

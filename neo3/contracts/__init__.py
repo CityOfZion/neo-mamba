@@ -18,6 +18,7 @@ from .contract import (Contract, ContractState)
 from .binaryserializer import BinarySerializer
 from .jsonserializer import (NEOJson, JSONSerializer)
 from .findoptions import FindOptions
+from .applicationengine import ApplicationEngine
 from .native import (NativeContract,
                      PolicyContract,
                      NeoToken,
@@ -30,7 +31,6 @@ from .native import (NativeContract,
                      NFTState,
                      NameService,
                      LedgerContract)
-from .applicationengine import ApplicationEngine
 
 
 def syscall_name_to_int(name: str) -> int:

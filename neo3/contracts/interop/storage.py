@@ -8,7 +8,7 @@ MAX_STORAGE_KEY_SIZE = 64
 MAX_STORAGE_VALUE_SIZE = 65535
 
 
-@register("System.Storage.GetContext", 1 << 4, contracts.CallFlags.READ_STATES, [])
+@register("System.Storage.GetContext", 1 << 4, contracts.CallFlags.READ_STATES)
 def get_context(engine: contracts.ApplicationEngine) -> storage.StorageContext:
     contract = contracts.ManagementContract().get_contract(engine.snapshot, engine.current_scripthash)
     if contract is None:
@@ -16,7 +16,7 @@ def get_context(engine: contracts.ApplicationEngine) -> storage.StorageContext:
     return storage.StorageContext(contract.id, False)
 
 
-@register("System.Storage.GetReadOnlyContext", 1 << 4, contracts.CallFlags.READ_STATES, [])
+@register("System.Storage.GetReadOnlyContext", 1 << 4, contracts.CallFlags.READ_STATES)
 def get_read_only_context(engine: contracts.ApplicationEngine) -> storage.StorageContext:
     contract = contracts.ManagementContract().get_contract(engine.snapshot, engine.current_scripthash)
     if contract is None:
@@ -24,7 +24,7 @@ def get_read_only_context(engine: contracts.ApplicationEngine) -> storage.Storag
     return storage.StorageContext(contract.id, True)
 
 
-@register("System.Storage.AsReadOnly", 1 << 4, contracts.CallFlags.READ_STATES, [storage.StorageContext])
+@register("System.Storage.AsReadOnly", 1 << 4, contracts.CallFlags.READ_STATES)
 def context_as_read_only(engine: contracts.ApplicationEngine,
                          context: storage.StorageContext) -> storage.StorageContext:
     if not context.is_read_only:
@@ -32,7 +32,7 @@ def context_as_read_only(engine: contracts.ApplicationEngine,
     return context
 
 
-@register("System.Storage.Get", 1 << 15, contracts.CallFlags.READ_STATES, [storage.StorageContext, bytes])
+@register("System.Storage.Get", 1 << 15, contracts.CallFlags.READ_STATES)
 def storage_get(engine: contracts.ApplicationEngine, context: storage.StorageContext, key: bytes) -> Optional[bytes]:
     storage_key = storage.StorageKey(context.id, key)
     item = engine.snapshot.storages.try_get(storage_key, read_only=True)
@@ -41,9 +41,7 @@ def storage_get(engine: contracts.ApplicationEngine, context: storage.StorageCon
     return None
 
 
-@register("System.Storage.Find", 1 << 15, contracts.CallFlags.READ_STATES, [storage.StorageContext,
-                                                                            bytes,
-                                                                            contracts.FindOptions])
+@register("System.Storage.Find", 1 << 15, contracts.CallFlags.READ_STATES)
 def storage_find(engine: contracts.ApplicationEngine,
                  context: storage.StorageContext,
                  key: bytes,
@@ -103,7 +101,7 @@ def _storage_put_internal(engine: contracts.ApplicationEngine,
     item.is_constant = is_constant
 
 
-@register("System.Storage.Put", 0, contracts.CallFlags.WRITE_STATES, [storage.StorageContext, bytes, bytes])
+@register("System.Storage.Put", 0, contracts.CallFlags.WRITE_STATES)
 def storage_put(engine: contracts.ApplicationEngine,
                 context: storage.StorageContext,
                 key: bytes,
@@ -111,8 +109,7 @@ def storage_put(engine: contracts.ApplicationEngine,
     _storage_put_internal(engine, context, key, value, storage.StorageFlags.NONE)
 
 
-@register("System.Storage.PutEx", 0, contracts.CallFlags.WRITE_STATES,
-          [storage.StorageContext, bytes, bytes, storage.StorageFlags])
+@register("System.Storage.PutEx", 0, contracts.CallFlags.WRITE_STATES)
 def storage_put_ex(engine: contracts.ApplicationEngine,
                    context: storage.StorageContext,
                    key: bytes,
@@ -121,7 +118,7 @@ def storage_put_ex(engine: contracts.ApplicationEngine,
     _storage_put_internal(engine, context, key, value, flags)
 
 
-@register("System.Storage.Delete", 0, contracts.CallFlags.WRITE_STATES, [storage.StorageContext, bytes])
+@register("System.Storage.Delete", 0, contracts.CallFlags.WRITE_STATES)
 def storage_delete(engine: contracts.ApplicationEngine, context: storage.StorageContext, key: bytes) -> None:
     if context.is_read_only:
         raise ValueError("Cannot delete from read-only storage context")

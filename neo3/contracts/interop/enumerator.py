@@ -123,7 +123,7 @@ class StorageIterator(IIterator):
                                   ])
 
 
-@register("System.Iterator.Create", 1 << 4, contracts.CallFlags.NONE, [vm.StackItem])
+@register("System.Iterator.Create", 1 << 4, contracts.CallFlags.NONE)
 def iterator_create(engine: contracts.ApplicationEngine, stack_item: vm.StackItem) -> IIterator:
     if isinstance(stack_item, vm.ArrayStackItem):
         return ArrayWrapper(stack_item)
@@ -135,11 +135,11 @@ def iterator_create(engine: contracts.ApplicationEngine, stack_item: vm.StackIte
         raise ValueError(f"Cannot create iterator from unsupported type: {type(stack_item)}")
 
 
-@register("System.Iterator.Next", 1 << 15, contracts.CallFlags.NONE, [IIterator])
+@register("System.Iterator.Next", 1 << 15, contracts.CallFlags.NONE)
 def iterator_next(engine: contracts.ApplicationEngine, iterator: IIterator) -> bool:
     return iterator.next()
 
 
-@register("System.Iterator.Value", 1 << 4, contracts.CallFlags.NONE, [IIterator])
+@register("System.Iterator.Value", 1 << 4, contracts.CallFlags.NONE)
 def iterator_value(engine: contracts.ApplicationEngine, iterator: IIterator) -> vm.StackItem:
     return iterator.value()
