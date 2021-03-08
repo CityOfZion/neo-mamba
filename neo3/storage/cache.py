@@ -6,7 +6,6 @@ from typing import Optional, Iterator, Tuple, TypeVar, Any, List, TYPE_CHECKING
 from neo3.core import types, serialization
 from neo3 import storage
 from contextlib import suppress
-from functools import cmp_to_key, partial
 
 if TYPE_CHECKING:
     from neo3.network import payloads

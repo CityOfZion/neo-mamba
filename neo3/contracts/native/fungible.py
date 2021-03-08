@@ -1,15 +1,46 @@
 from __future__ import annotations
 from .nativecontract import NativeContract
 from neo3 import storage, contracts, vm, settings
-from neo3.core import types, msgrouter, cryptography, serialization, to_script_hash, Size as s
-from typing import Tuple, List, Dict, Sequence
+from neo3.core import types, msgrouter, cryptography, serialization, to_script_hash, Size as s, IInteroperable
+from typing import Tuple, List, Dict, Sequence, cast
+
+
+class FungibleTokenStorageState(IInteroperable, serialization.ISerializable):
+    """
+    Helper class for NEP17 balance state
+    """
+
+    def __init__(self):
+        super(FungibleTokenStorageState, self).__init__()
+        self.balance: vm.BigInteger = vm.BigInteger.zero()
+
+    def __len__(self):
+        return len(self.balance.to_array())
+
+    def serialize(self, writer: serialization.BinaryWriter) -> None:
+        writer.write_var_bytes(self.balance.to_array())
+
+    def deserialize(self, reader: serialization.BinaryReader) -> None:
+        self.balance = vm.BigInteger(reader.read_var_bytes())
+
+    def to_stack_item(self, reference_counter: vm.ReferenceCounter) -> vm.StackItem:
+        struct = vm.StructStackItem(reference_counter)
+        struct.append(vm.IntegerStackItem(self.balance))
+        return struct
+
+    @classmethod
+    def from_stack_item(cls, stack_item: vm.StackItem):
+        si = cast(vm.StructStackItem, stack_item)
+        c = cls()
+        c.balance = si[0].to_biginteger()
+        return c
 
 
 class FungibleToken(NativeContract):
     _id: int = -99999
     _decimals: int = -1
 
-    _state = storage.FungibleTokenStorageState
+    _state = FungibleTokenStorageState
     _symbol: str = ""
 
     def init(self):
@@ -273,7 +304,7 @@ class FungibleToken(NativeContract):
         pass
 
 
-class _NeoTokenStorageState(storage.FungibleTokenStorageState):
+class _NeoTokenStorageState(FungibleTokenStorageState):
     """
     Helper class for storing voting and bonus GAS state
     """
@@ -902,7 +933,7 @@ class GasToken(FungibleToken):
     _id: int = -4
     _decimals: int = 8
 
-    _state = storage.FungibleTokenStorageState
+    _state = FungibleTokenStorageState
     _symbol = "GAS"
 
     def _initialize(self, engine: contracts.ApplicationEngine) -> None:

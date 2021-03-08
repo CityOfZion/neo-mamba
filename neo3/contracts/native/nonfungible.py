@@ -1,7 +1,7 @@
 from __future__ import annotations
 from contextlib import suppress
 from typing import List, cast, Optional
-from . import NativeContract
+from . import NativeContract, FungibleTokenStorageState
 from neo3 import storage, contracts, vm
 from neo3.core import serialization, IInteroperable, types, msgrouter
 from neo3.contracts import interop
@@ -49,7 +49,7 @@ class NFTState(IInteroperable, serialization.ISerializable):
         return cls(types.UInt160.zero(), "", "")
 
 
-class NFTAccountState(storage.FungibleTokenStorageState):
+class NFTAccountState(FungibleTokenStorageState):
     def __init__(self):
         super(NFTAccountState, self).__init__()
         self.tokens: List[bytes] = []

@@ -10,7 +10,6 @@ from contextlib import suppress
 
 
 class ApplicationEngine(vm.ApplicationEngineCpp):
-    _interop_calls: Dict[int, interop.InteropDescriptor] = {}
     #: Amount of free GAS added to the engine.
     GAS_FREE = 0
     #: Maximum length of event names for "System.Runtime.Notify" SYSCALLs.
@@ -19,8 +18,6 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
     MAX_NOTIFICATION_SIZE = 1024
     #: Maximum size of the smart contract script.
     MAX_CONTRACT_LENGTH = 1024 * 1024
-
-    #: Multiplier for determining the costs of storing the contract including its manifest.
 
     def __init__(self,
                  trigger: contracts.TriggerType,

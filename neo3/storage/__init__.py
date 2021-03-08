@@ -12,7 +12,7 @@ from .cache import (Trackable,
                     CloneStorageCache,
                     AttributeCache)
 from .snapshot import CloneSnapshot, Snapshot
-from .storageitem import StorageItem, StorageFlags, FungibleTokenStorageState
+from .storageitem import StorageItem, StorageFlags
 from .storagekey import StorageKey
 from .contractstate import ContractState
 from .utils import NEOByteCompare, NEOSeekSort, create_find_prefix
