@@ -1,4 +1,6 @@
-from .nativecontract import (NativeContract, PolicyContract, NeoToken, GasToken)
+from .nativecontract import NativeContract
+from .fungible import (FungibleToken, NeoToken, GasToken)
+from .policy import PolicyContract
 from .oracle import OracleContract
 from .designate import DesignateRole, DesignationContract
 from .management import ManagementContract
@@ -14,5 +16,6 @@ __all__ = ['NativeContract',
            'DesignationContract',
            'ManagementContract',
            'NameService',
-           'LedgerContract'
+           'LedgerContract',
+           'FungibleToken'
            ]
