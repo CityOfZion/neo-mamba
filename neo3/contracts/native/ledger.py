@@ -14,47 +14,31 @@ class LedgerContract(NativeContract):
         self._register_contract_method(self.current_hash,
                                        "currentHash",
                                        1000000,
-                                       return_type=types.UInt256,
-                                       add_snapshot=True,
                                        call_flags=contracts.CallFlags.READ_STATES
                                        )
         self._register_contract_method(self.current_index,
                                        "currentIndex",
                                        1000000,
-                                       return_type=int,
-                                       add_snapshot=True,
                                        call_flags=contracts.CallFlags.READ_STATES)
         self._register_contract_method(self.get_block,
                                        "getBlock",
                                        1000000,
-                                       return_type=Optional[payloads.TrimmedBlock],
-                                       parameter_types=[bytes],
                                        parameter_names=["block_index_or_hash"],
-                                       add_snapshot=True,
                                        call_flags=contracts.CallFlags.READ_STATES)
         self._register_contract_method(self.get_tx_for_contract,
                                        "getTransaction",
                                        1000000,
-                                       return_type=Optional[payloads.Transaction],
-                                       parameter_types=[types.UInt256],
                                        parameter_names=["tx_hash"],
-                                       add_snapshot=True,
                                        call_flags=contracts.CallFlags.READ_STATES)
         self._register_contract_method(self.get_tx_height,
                                        "getTransactionheight",
                                        1000000,
-                                       return_type=int,
-                                       add_snapshot=True,
-                                       parameter_types=[types.UInt256],
                                        parameter_names=["tx_hash"],
                                        call_flags=contracts.CallFlags.READ_STATES)
         self._register_contract_method(self.get_tx_from_block,
                                        "getTransactionFromBlock",
                                        2000000,
-                                       return_type=Optional[payloads.Transaction],
-                                       parameter_types=[bytes, int],
                                        parameter_names=["block_index_or_hash", "tx_index"],
-                                       add_snapshot=True,
                                        call_flags=contracts.CallFlags.READ_STATES)
 
     def on_persist(self, engine: contracts.ApplicationEngine) -> None:

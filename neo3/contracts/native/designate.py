@@ -20,17 +20,11 @@ class DesignationContract(NativeContract):
         self._register_contract_method(self.get_designated_by_role,
                                        "getDesignatedByRole",
                                        1000000,
-                                       return_type=List[cryptography.ECPoint],
-                                       add_engine=False,
-                                       add_snapshot=True,
                                        call_flags=contracts.CallFlags.READ_STATES)
 
         self._register_contract_method(self.designate_as_role,
                                        "designateAsRole",
                                        0,
-                                       return_type=None,
-                                       add_engine=True,
-                                       add_snapshot=False,
                                        call_flags=contracts.CallFlags.WRITE_STATES)
 
     def get_designated_by_role(self,

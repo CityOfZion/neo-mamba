@@ -26,9 +26,12 @@ class TestNativeContract(unittest.TestCase):
         self.assertIsInstance(contracts.NativeContract.get_contract_by_name("PolicyContract"), contracts.PolicyContract)
 
     def test_parameter_types_matched_parameter_names(self):
+        def dummy_func_no_params():
+            pass
+
         class NativeTestContract(contracts.NativeContract):
             def init(self):
-                self._register_contract_method(None, None, 0, None, parameter_types=[], parameter_names=["error"])
+                self._register_contract_method(dummy_func_no_params, "dummy_func", 0, parameter_names=["error"])
 
         with self.assertRaises(ValueError) as context:
             NativeTestContract()

@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import List, Callable, Dict, Tuple, Any, Optional
+from typing import List, Callable, Dict, Tuple, Any, Optional, get_type_hints
 from neo3 import contracts, vm, storage, settings
 from neo3.core import types, to_script_hash
 from neo3.network import convenience
@@ -72,20 +72,8 @@ class NativeContract(convenience._Singleton):
 
         self.active_block_index = settings.native_contract_activation.get(self.service_name, 0)
 
-        self._register_contract_method(self.on_persist,
-                                       "onPersist",
-                                       0,
-                                       return_type=None,
-                                       add_engine=True,
-                                       add_snapshot=False,
-                                       call_flags=contracts.CallFlags.WRITE_STATES)
-        self._register_contract_method(self.post_persist,
-                                       "postPersist",
-                                       0,
-                                       return_type=None,
-                                       add_engine=True,
-                                       add_snapshot=False,
-                                       call_flags=contracts.CallFlags.WRITE_STATES)
+        self._register_contract_method(self.on_persist, "onPersist", 0, call_flags=contracts.CallFlags.WRITE_STATES)
+        self._register_contract_method(self.post_persist, "postPersist", 0, call_flags=contracts.CallFlags.WRITE_STATES)
 
     @classmethod
     def get_contract_by_name(cls, name: str) -> Optional[NativeContract]:
@@ -110,11 +98,7 @@ class NativeContract(convenience._Singleton):
                                   func: Callable,
                                   func_name: str,
                                   price: int,
-                                  return_type,
-                                  parameter_types: list = None,
                                   parameter_names: List[str] = None,
-                                  add_engine: bool = False,
-                                  add_snapshot: bool = False,
                                   call_flags: contracts.CallFlags = contracts.CallFlags.NONE
                                   ) -> None:
         """
@@ -124,12 +108,26 @@ class NativeContract(convenience._Singleton):
             func: func pointer.
             func_name: the name of the callable function.
             price: the cost of calling the function.
-            return_type: the function return value type.
-            parameter_types: the function argument types.
             parameter_names: the function argument names.
-            safe_method: dumb logic NEO added that we must support. See https://github.com/neo-project/neo/issues/1664
-                         set to True is the function callFlags does not include ALLOW_MODIFY_STATES
         """
+        return_type = None
+        parameter_types = []
+        for k, v in get_type_hints(func).items():
+            if k == 'return':
+                return_type = v
+                continue
+            parameter_types.append(v)
+
+        add_engine = False
+        add_snapshot = False
+        if len(parameter_types) > 0:
+            if parameter_types[0] == contracts.ApplicationEngine:
+                add_engine = True
+                parameter_types = parameter_types[1:]
+            elif parameter_types[0] == storage.Snapshot:
+                add_snapshot = True
+                parameter_types = parameter_types[1:]
+
         params = []
         if parameter_types is not None and parameter_names is not None:
             if len(parameter_types) != len(parameter_names):

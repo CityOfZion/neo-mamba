@@ -32,7 +32,7 @@ class ContractParameterType(IntEnum):
             return self.name.title()
 
     @classmethod
-    def from_type(cls, class_type: Type[object]) -> ContractParameterType:
+    def from_type(cls, class_type: Optional[Type[object]]) -> ContractParameterType:
         if class_type is None:
             return ContractParameterType.VOID
         elif class_type in [bool, vm.BooleanStackItem]:

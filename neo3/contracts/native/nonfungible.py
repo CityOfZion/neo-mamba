@@ -103,57 +103,36 @@ class NonFungibleToken(NativeContract):
         self._register_contract_method(self.total_supply,
                                        "totalSupply",
                                        1000000,
-                                       return_type=vm.BigInteger,
-                                       add_engine=False,
-                                       add_snapshot=True,
                                        call_flags=contracts.CallFlags.READ_STATES)
 
         self._register_contract_method(self.owner_of,
                                        "ownerOf",
                                        1000000,
-                                       return_type=types.UInt160,
-                                       add_engine=False,
-                                       add_snapshot=True,
                                        call_flags=contracts.CallFlags.READ_STATES)
 
         self._register_contract_method(self.properties,
                                        "properties",
                                        1000000,
-                                       return_type=types.UInt160,
-                                       add_engine=False,
-                                       add_snapshot=True,
                                        call_flags=contracts.CallFlags.READ_STATES)
 
         self._register_contract_method(self.balance_of,
                                        "balanceOf",
                                        1000000,
-                                       return_type=vm.BigInteger,
-                                       parameter_types=[types.UInt160],
                                        parameter_names=["owner"],
-                                       add_engine=False,
-                                       add_snapshot=True,
                                        call_flags=contracts.CallFlags.READ_STATES)
         self._register_contract_method(self.transfer,
                                        "transfer",
                                        9000000,
-                                       return_type=bool,
                                        parameter_names=["to", "tokenId"],
-                                       parameter_types=[types.UInt160, bytes],
-                                       add_engine=True,
-                                       add_snapshot=False,
                                        call_flags=(contracts.CallFlags.WRITE_STATES
                                                    | contracts.CallFlags.ALLOW_NOTIFY))
         self._register_contract_method(self.tokens,
                                        "tokens",
                                        1000000,
-                                       return_type=interop.IIterator,
-                                       add_snapshot=True,
                                        call_flags=contracts.CallFlags.READ_STATES)
         self._register_contract_method(self.tokens_of,
                                        "tokensOf",
                                        1000000,
-                                       return_type=interop.IIterator,
-                                       add_snapshot=True,
                                        call_flags=contracts.CallFlags.READ_STATES)
 
     def _initialize(self, engine: contracts.ApplicationEngine) -> None:

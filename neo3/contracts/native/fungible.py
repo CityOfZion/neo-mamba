@@ -65,37 +65,26 @@ class FungibleToken(NativeContract):
         self._register_contract_method(self.total_supply,
                                        "totalSupply",
                                        1000000,
-                                       return_type=vm.BigInteger,
-                                       add_snapshot=True,
                                        call_flags=contracts.CallFlags.READ_STATES)
         self._register_contract_method(self.balance_of,
                                        "balanceOf",
                                        1000000,
                                        parameter_names=["account"],
-                                       parameter_types=[types.UInt160],
-                                       return_type=vm.BigInteger,
-                                       add_engine=True,
                                        call_flags=contracts.CallFlags.READ_STATES)
         self._register_contract_method(self.transfer,
                                        "transfer",
                                        8000000,
                                        parameter_names=["account_from", "account_to", "amount", "data"],
-                                       parameter_types=[types.UInt160, types.UInt160, vm.BigInteger, vm.StackItem],
-                                       return_type=bool,
-                                       add_engine=True,
                                        call_flags=(contracts.CallFlags.WRITE_STATES
                                                    | contracts.CallFlags.ALLOW_CALL
                                                    | contracts.CallFlags.ALLOW_NOTIFY))
         self._register_contract_method(self.symbol,
                                        "symbol",
                                        0,
-                                       return_type=str,
                                        call_flags=contracts.CallFlags.READ_STATES)
         self._register_contract_method(self.on_persist,
                                        "onPersist",
                                        0,
-                                       return_type=None,
-                                       add_engine=True,
                                        call_flags=contracts.CallFlags.WRITE_STATES)
 
     def symbol(self) -> str:
@@ -549,74 +538,46 @@ class NeoToken(FungibleToken):
         self._register_contract_method(self.register_candidate,
                                        "registerCandidate",
                                        1000_00000000,
-                                       parameter_types=[cryptography.ECPoint],
                                        parameter_names=["public_key"],
-                                       return_type=bool,
-                                       add_snapshot=False,
-                                       add_engine=True,
                                        call_flags=contracts.CallFlags.WRITE_STATES)
 
         self._register_contract_method(self.unregister_candidate,
                                        "unregisterCandidate",
                                        5000000,
-                                       parameter_types=[cryptography.ECPoint],
                                        parameter_names=["public_key"],
-                                       return_type=bool,
-                                       add_snapshot=False,
-                                       add_engine=True,
                                        call_flags=contracts.CallFlags.WRITE_STATES)
 
         self._register_contract_method(self.vote,
                                        "vote",
                                        5000000,
-                                       parameter_types=[types.UInt160, cryptography.ECPoint],
                                        parameter_names=["account", "public_key"],
-                                       return_type=bool,
-                                       add_snapshot=False,
-                                       add_engine=True,
                                        call_flags=contracts.CallFlags.WRITE_STATES)
         self._register_contract_method(self._set_gas_per_block,
                                        "setGasPerBlock",
                                        5000000,
-                                       parameter_types=[vm.BigInteger],
                                        parameter_names=["gas_per_block"],
-                                       return_type=None,
-                                       add_engine=True,
-                                       add_snapshot=False,
                                        call_flags=contracts.CallFlags.WRITE_STATES
                                        )
         self._register_contract_method(self.get_gas_per_block,
                                        "getGasPerBlock",
                                        1000000,
-                                       return_type=vm.BigInteger,
-                                       add_snapshot=True,
-                                       add_engine=False,
                                        call_flags=contracts.CallFlags.READ_STATES
                                        )
         self._register_contract_method(self.get_committee,
                                        "getCommittee",
                                        100000000,
-                                       return_type=List[cryptography.ECPoint],
-                                       add_engine=False,
-                                       add_snapshot=False,
                                        call_flags=contracts.CallFlags.READ_STATES
                                        )
 
         self._register_contract_method(self.get_candidates,
                                        "getCandidates",
                                        100000000,
-                                       return_type=None,  # we manually push onto the engine
-                                       add_engine=True,
-                                       add_snapshot=False,
                                        call_flags=contracts.CallFlags.READ_STATES
                                        )
 
         self._register_contract_method(self.get_next_block_validators,
                                        "getNextBlockValidators",
                                        100000000,
-                                       return_type=List[cryptography.ECPoint],
-                                       add_engine=False,
-                                       add_snapshot=False,
                                        call_flags=contracts.CallFlags.READ_STATES
                                        )
 

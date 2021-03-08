@@ -78,30 +78,18 @@ class NameService(NonFungibleToken):
         self._register_contract_method(self.add_root,
                                        "addRoot",
                                        3000000,
-                                       return_type=None,
-                                       add_engine=True,
-                                       add_snapshot=False,
                                        parameter_names=["root"],
-                                       parameter_types=[str],
                                        call_flags=contracts.CallFlags.WRITE_STATES
                                        )
         self._register_contract_method(self.set_price,
                                        "setPrice",
                                        3000000,
-                                       return_type=None,
-                                       add_engine=True,
-                                       add_snapshot=False,
                                        parameter_names=["price"],
-                                       parameter_types=[int],
                                        call_flags=contracts.CallFlags.WRITE_STATES)
         self._register_contract_method(self.register,
                                        "register",
                                        1000000,
-                                       return_type=bool,
-                                       add_engine=True,
-                                       add_snapshot=False,
                                        parameter_names=["name", "owner"],
-                                       parameter_types=[str, types.UInt160],
                                        call_flags=contracts.CallFlags.WRITE_STATES
                                        )
 

@@ -87,9 +87,6 @@ class OracleContract(NativeContract):
         self._register_contract_method(self.finish,
                                        "finish",
                                        0,
-                                       return_type=None,
-                                       add_engine=True,
-                                       add_snapshot=False,
                                        call_flags=(contracts.CallFlags.WRITE_STATES
                                                    | contracts.CallFlags.ALLOW_CALL
                                                    | contracts.CallFlags.ALLOW_NOTIFY))
@@ -97,17 +94,11 @@ class OracleContract(NativeContract):
         self._register_contract_method(self._request,
                                        "request",
                                        self._ORACLE_REQUEST_PRICE,
-                                       return_type=None,
-                                       add_engine=True,
-                                       add_snapshot=False,
                                        call_flags=contracts.CallFlags.WRITE_STATES | contracts.CallFlags.ALLOW_NOTIFY)
 
         self._register_contract_method(self._verify,
                                        "verify",
                                        1000000,
-                                       return_type=bool,
-                                       add_engine=True,
-                                       add_snapshot=False,
                                        call_flags=contracts.CallFlags.NONE)
 
     def _initialize(self, engine: contracts.ApplicationEngine) -> None:

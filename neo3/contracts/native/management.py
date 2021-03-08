@@ -17,67 +17,43 @@ class ManagementContract(NativeContract):
         super(ManagementContract, self).init()
 
         self._register_contract_method(self.get_contract,
-                                       1000000,
                                        "getContract",
-                                       add_engine=False,
-                                       add_snapshot=True,
-                                       return_type=contracts.ContractState,
+                                       1000000,
                                        call_flags=contracts.CallFlags.READ_STATES)
         self._register_contract_method(self.contract_create,
-                                       0,
                                        "deploy",
-                                       add_engine=True,
-                                       add_snapshot=False,
-                                       return_type=None,
+                                       0,
                                        parameter_names=["nef_file", "manifest"],
-                                       parameter_types=[bytes, bytes],
                                        call_flags=(contracts.CallFlags.WRITE_STATES
                                                    | contracts.CallFlags.ALLOW_NOTIFY)
                                        )
         self._register_contract_method(self.contract_create_with_data,
-                                       0,
                                        "deploy",
-                                       add_engine=True,
-                                       add_snapshot=False,
-                                       return_type=None,
+                                       0,
                                        parameter_names=["nef_file", "manifest", "data"],
-                                       parameter_types=[bytes, bytes, vm.StackItem],
                                        call_flags=(contracts.CallFlags.WRITE_STATES
                                                    | contracts.CallFlags.ALLOW_NOTIFY)
                                        )
         self._register_contract_method(self.contract_update,
-                                       0,
                                        "update",
-                                       add_engine=True,
-                                       add_snapshot=False,
-                                       return_type=None,
+                                       0,
                                        parameter_names=["nef_file", "manifest", "data"],
-                                       parameter_types=[bytes, bytes, vm.StackItem],
                                        call_flags=(contracts.CallFlags.WRITE_STATES
                                                    | contracts.CallFlags.ALLOW_NOTIFY)
                                        )
         self._register_contract_method(self.contract_destroy,
-                                       1000000,
                                        "destroy",
-                                       add_engine=True,
-                                       add_snapshot=False,
-                                       return_type=None,
+                                       1000000,
                                        call_flags=(contracts.CallFlags.WRITE_STATES
                                                    | contracts.CallFlags.ALLOW_NOTIFY)
                                        )
         self._register_contract_method(self.get_minimum_deployment_fee,
-                                       1000000,
                                        "getMinimumDeploymentFee",
-                                       add_engine=False,
-                                       add_snapshot=True,
-                                       return_type=int,
+                                       1000000,
                                        call_flags=contracts.CallFlags.READ_STATES)
         self._register_contract_method(self._set_minimum_deployment_fee,
-                                       3000000,
                                        "setMinimumDeploymentFee",
-                                       add_engine=True,
-                                       add_snapshot=False,
-                                       return_type=None,
+                                       3000000,
                                        call_flags=contracts.CallFlags.WRITE_STATES)
 
         self.manifest.abi.events = [
