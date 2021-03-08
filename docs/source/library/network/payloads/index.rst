@@ -11,6 +11,7 @@ This package contains all payloads that can be included in a network :class:`~ne
 
    address.rst
    block.rst
+   extensible.rst
    filter.rst
    inventory.rst
    ping.rst

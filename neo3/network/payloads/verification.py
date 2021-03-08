@@ -180,6 +180,7 @@ class IVerifiable(serialization.ISerializable):
 
     def get_hash_data(self, protocol_magic: int) -> bytes:
         """ Get the unsigned data
+
         Args:
             protocol_magic: network protocol number (NEO MainNet = 5195086, Testnet = 1951352142, private net = ??)
         """

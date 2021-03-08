@@ -1,8 +1,13 @@
+from __future__ import annotations
+import base64
+from typing import TYPE_CHECKING
 from enum import IntEnum
 from neo3.network import payloads
 from neo3.core import Size as s, utils, serialization
-from neo3 import storage, vm, contracts
-import base64
+from neo3 import vm, contracts
+
+if TYPE_CHECKING:
+    from neo3 import storage
 
 
 class OracleReponseCode(IntEnum):

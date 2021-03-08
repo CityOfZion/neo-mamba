@@ -54,7 +54,6 @@ class ContractParameterType(IntEnum):
                         continue
                     return cls.from_type(i)
             raise ValueError
-
         elif issubclass(class_type, serialization.ISerializable):
             return ContractParameterType.BYTEARRAY
         elif class_type == str:
