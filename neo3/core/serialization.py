@@ -293,42 +293,6 @@ class BinaryReader(object):
         length = self.read_var_int(max)
         return self.read_bytes(length, _skip_length_check=True)
 
-    def read_bytes_with_grouping(self, group_size) -> bytes:
-        """
-        Read bytes from the stream that were stored using the special grouping format.
-
-        TODO: add documentation explaining grouping
-
-        See also: :func:`~neo3.core.serialization.BinaryWriter.write_bytes_with_grouping`
-
-        Args:
-            group_size: size to group data bytes in. Value must be < 254. Common value is 16.
-
-        Returns:
-            bytes with the grouping format removed.
-        """
-
-        if group_size <= 0 or group_size >= 255:
-            raise ValueError("group_size must be > 0 and <= 254")
-
-        output = b''
-        while True:
-            group = self.read_bytes(group_size)
-            remainder = self.read_uint8()
-            if remainder == 255:
-                output += group
-                break
-
-            if remainder > group_size:
-                raise ValueError("corrupt remainder length")
-
-            if remainder > 0:
-                output += group[:remainder]
-
-            if remainder == 0 or remainder < group_size:
-                break
-        return output
-
     def read_var_string(self, max: int = sys.maxsize) -> str:
         """
         Read a UTF-8 string that starts with a variable length indicator.
@@ -653,43 +617,6 @@ class BinaryWriter(object):
         """
         self.write_var_int(len(value), endian)
         return self.write_bytes(value)
-
-    def write_bytes_with_grouping(self, value: bytes, group_size) -> None:
-        """
-        Write bytes into a stream with a special grouping format.
-
-        Note:
-            This is a helper function specifically made to help serialize keys to be stored in the backend that must
-            be prefix searchable via `DataCache.Find`.
-            TODO: write small page explaining the problem of varint usage
-
-        Args:
-            value: bytes to write to the stream.
-            group_size: size to group data bytes in. Value must be < 254. Common value is 16.
-        """
-        if group_size <= 0 or group_size >= 255:
-            raise ValueError("group_size must be > 0 and <= 254")
-
-        index = 0
-        remainder = len(value)
-
-        while remainder >= group_size:
-            self.write_bytes(value[index:index + group_size])
-            if remainder == group_size:
-                self.write_uint8(255)
-                return
-            else:
-                self.write_uint8(group_size)
-                index += group_size
-                remainder -= group_size
-
-        if remainder > 0:
-            self.write_bytes(value[index:])
-
-        padding_count = group_size - remainder
-        if padding_count >= 0:
-            self.write_bytes(padding_count * b'\x00')
-        self.write_uint8(remainder)
 
     def write_serializable(self, obj_instance: ISerializable_T) -> None:
         """

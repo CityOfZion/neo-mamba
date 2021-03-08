@@ -185,69 +185,6 @@ class BinaryReaderTestCase(unittest.TestCase):
             b = br.read_var_bytes()
             self.assertEqual(b'', b)
 
-    def test_read_bytes_with_grouping(self):
-        # test with invalid group_size's
-        with self.assertRaises(ValueError) as context:
-            with serialization.BinaryReader(b'') as br:
-                br.read_bytes_with_grouping(group_size=-1)
-        self.assertIn("group_size must be > 0 and <= 254", str(context.exception))
-
-        with self.assertRaises(ValueError) as context:
-            with serialization.BinaryReader(b'') as br:
-                br.read_bytes_with_grouping(group_size=-0)
-        self.assertIn("group_size must be > 0 and <= 254", str(context.exception))
-
-        with self.assertRaises(ValueError) as context:
-            with serialization.BinaryReader(b'') as br:
-                br.read_bytes_with_grouping(group_size=255)
-        self.assertIn("group_size must be > 0 and <= 254", str(context.exception))
-
-        # read empty value
-        group_size = 16
-        with serialization.BinaryWriter() as bw:
-            bw.write_bytes_with_grouping(b'', group_size)
-            data = bw._stream.getvalue()
-            with serialization.BinaryReader(data) as br:
-                result = br.read_bytes_with_grouping(group_size)
-                self.assertEqual(b'', result)
-
-        # test with value smaller than group_size
-        with serialization.BinaryWriter() as bw:
-            input = b'\x11' * 10
-            bw.write_bytes_with_grouping(input, group_size)
-            data = bw._stream.getvalue()
-            with serialization.BinaryReader(data) as br:
-                result = br.read_bytes_with_grouping(group_size)
-                self.assertEqual(input, result)
-
-        # test with value exact same length as group_size
-        with serialization.BinaryWriter() as bw:
-            input = b'\x11' * 16
-            bw.write_bytes_with_grouping(input, group_size)
-            data = bw._stream.getvalue()
-            with serialization.BinaryReader(data) as br:
-                result = br.read_bytes_with_grouping(group_size)
-                self.assertEqual(input, result)
-
-        # test with value exceeding length of group_size (thus having 2 groups)
-        with serialization.BinaryWriter() as bw:
-            input = b'\x11' *20
-            bw.write_bytes_with_grouping(input, group_size)
-            data = bw._stream.getvalue()
-            with serialization.BinaryReader(data) as br:
-                result = br.read_bytes_with_grouping(group_size)
-                self.assertEqual(input, result)
-
-        # test with invalid group size encoding
-        group_data = b'\x11' * 16
-        # this should not be bigger than `group_size`, in this case b'\x10'
-        remaining_group_length = b'\x11'
-        data = group_data + remaining_group_length
-        with self.assertRaises(ValueError) as context:
-            with serialization.BinaryReader(data) as br:
-                br.read_bytes_with_grouping(group_size)
-        self.assertIn("corrupt remainder length", str(context.exception))
-
     def test_read_string(self):
         input_data = b'\x02\x41\x42'
         with serialization.BinaryReader(input_data) as br:
@@ -393,55 +330,6 @@ class BinaryWriterTestCase(unittest.TestCase):
         with serialization.BinaryWriter() as bw:
             bw.write_var_bytes(b'\x01\x02\x03\x04')
             self.assertEqual(b'\x04\x01\x02\x03\x04', bw._stream.getvalue())
-
-    def test_write_var_bytes_with_grouping(self):
-        # test with invalid group_size's
-        with self.assertRaises(ValueError) as context:
-            with serialization.BinaryWriter() as bw:
-                bw.write_bytes_with_grouping(b'', group_size=-1)
-        self.assertIn("group_size must be > 0 and <= 254", str(context.exception))
-
-        with self.assertRaises(ValueError) as context:
-            with serialization.BinaryWriter() as bw:
-                bw.write_bytes_with_grouping(b'', group_size=0)
-        self.assertIn("group_size must be > 0 and <= 254", str(context.exception))
-
-        with self.assertRaises(ValueError) as context:
-            with serialization.BinaryWriter() as bw:
-                bw.write_bytes_with_grouping(b'', group_size=255)
-        self.assertIn("group_size must be > 0 and <= 254", str(context.exception))
-
-        # test empty value
-        with serialization.BinaryWriter() as bw:
-            bw.write_bytes_with_grouping(b'', group_size=16)
-            self.assertEqual(b'\x00' * 17, bw._stream.getvalue())
-
-        # test with value smaller than group_size
-        with serialization.BinaryWriter() as bw:
-            group_size = 16
-            value = b'\x11' * 10
-            bw.write_bytes_with_grouping(value, group_size=group_size)
-            padding = (group_size - len(value)) * b'\x00'
-            self.assertEqual(value + padding + bytes([len(value)]), bw._stream.getvalue())
-
-        # test with value exact same length as group_size
-        with serialization.BinaryWriter() as bw:
-            group_size = 16
-            value = b'\x11' * 16
-            bw.write_bytes_with_grouping(value, group_size=group_size)
-            self.assertEqual(value + b'\xff', bw._stream.getvalue())
-
-        # test with value exceeding length of group_size
-        with serialization.BinaryWriter() as bw:
-            group_size = 16
-            value = b'\x11' * 20
-            bw.write_bytes_with_grouping(value, group_size=group_size)
-
-            padding = b'\x00' * 12
-            len_remainder = len(value) % group_size
-            # 16 bytes value + group byte + 4 remaining bytes + padding + length remainder
-            expected = b'\x11' * 16 + b'\x10' + b'\x11' * 4 + padding + bytes([len_remainder])
-            self.assertEqual(expected, bw._stream.getvalue())
 
     def test_write_serializable(self):
         s1 = SerializableObj(1)
