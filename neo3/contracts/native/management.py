@@ -21,7 +21,7 @@ class ManagementContract(NativeContract):
                                        "getContract",
                                        add_engine=False,
                                        add_snapshot=True,
-                                       return_type=storage.ContractState,
+                                       return_type=contracts.ContractState,
                                        call_flags=contracts.CallFlags.READ_STATES)
         self._register_contract_method(self.contract_create,
                                        0,
@@ -120,11 +120,11 @@ class ManagementContract(NativeContract):
             if contract.active_block_index != engine.snapshot.persisting_block.index:
                 continue
             engine.snapshot.contracts.put(
-                storage.ContractState(contract.id, contract.nef, contract.manifest, 0, contract.hash)
+                contracts.ContractState(contract.id, contract.nef, contract.manifest, 0, contract.hash)
             )
             contract._initialize(engine)
 
-    def get_contract(self, snapshot: storage.Snapshot, hash_: types.UInt160) -> Optional[storage.ContractState]:
+    def get_contract(self, snapshot: storage.Snapshot, hash_: types.UInt160) -> Optional[contracts.ContractState]:
         return snapshot.contracts.try_get(hash_)
 
     def contract_create(self,
@@ -169,12 +169,12 @@ class ManagementContract(NativeContract):
         if existing_contract is not None:
             raise ValueError("Contract already exists")
 
-        contract = storage.ContractState(self.get_next_available_id(engine.snapshot), nef, parsed_manifest, 0, hash_)
+        contract = contracts.ContractState(self.get_next_available_id(engine.snapshot), nef, parsed_manifest, 0, hash_)
         if not contract.manifest.is_valid(hash_):
             raise ValueError("Error: invalid manifest")
         engine.snapshot.contracts.put(contract)
 
-        engine.push(engine._native_to_stackitem(contract, storage.ContractState))
+        engine.push(engine._native_to_stackitem(contract, contracts.ContractState))
         method_descriptor = contract.manifest.abi.get_method("_deploy", 2)
         if method_descriptor is not None:
             engine.call_from_native(hash_, hash_, method_descriptor.name, [data, vm.BooleanStackItem(False)])

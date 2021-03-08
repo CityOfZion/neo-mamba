@@ -356,16 +356,16 @@ class AbstractContractStorageTest(abc.ABC, unittest.TestCase):
         self.db = self.db_factory()
         dummy_method = contracts.ContractMethodDescriptor("test1", 0, [], contracts.ContractParameterType.VOID, True)
         nef1 = contracts.NEF(script=b'\x01\x02')
-        self.contract1 = storage.ContractState(1, nef1, contracts.ContractManifest(), 0, types.UInt160(b'\x01' * 20))
+        self.contract1 = contracts.ContractState(1, nef1, contracts.ContractManifest(), 0, types.UInt160(b'\x01' * 20))
         # the ABI must have at least 1 method or sanity checks will fail
         self.contract1.manifest.abi.methods.append(dummy_method)
         self.contract1_hash = self.contract1.hash
         nef2 = contracts.NEF(script=b'\x03\x04')
-        self.contract2 = storage.ContractState(2, nef2, contracts.ContractManifest(), 0, types.UInt160(b'\x02' * 20))
+        self.contract2 = contracts.ContractState(2, nef2, contracts.ContractManifest(), 0, types.UInt160(b'\x02' * 20))
         self.contract2.manifest.abi.methods.append(dummy_method)
         self.contract2_hash = self.contract2.hash
         nef3 = contracts.NEF(script=b'\x03\x04')
-        self.contract3 = storage.ContractState(3, nef3, contracts.ContractManifest(), 0, types.UInt160(b'\x03' * 20))
+        self.contract3 = contracts.ContractState(3, nef3, contracts.ContractManifest(), 0, types.UInt160(b'\x03' * 20))
         self.contract3.manifest.abi.methods.append(dummy_method)
         self.contract3_hash = self.contract3.hash
 
@@ -581,7 +581,7 @@ class AbstractContractStorageTest(abc.ABC, unittest.TestCase):
         snapshot_view.contracts.get(self.contract1_hash)
 
         clone_view = snapshot_view.clone()
-        contract_from_clone = clone_view.contracts.get(self.contract1_hash)  # type: storage.ContractState
+        contract_from_clone = clone_view.contracts.get(self.contract1_hash)  # type: contracts.ContractState
         # modify one of the attributes
         contract_from_clone.manifest.extra = True
 

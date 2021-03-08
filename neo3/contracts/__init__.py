@@ -14,7 +14,7 @@ from .abi import (ContractParameterType,
                   ContractParameterDefinition,
                   ContractABI)
 from .nef import (NEF, MethodToken)
-from .contract import Contract
+from .contract import (Contract, ContractState)
 from .binaryserializer import BinarySerializer
 from .jsonserializer import (NEOJson, JSONSerializer)
 from .findoptions import FindOptions
@@ -43,6 +43,7 @@ __all__ = ['ContractParameterType',
            'ContractEventDescriptor',
            'ContractParameterDefinition',
            'Contract',
+           'ContractState',
            'BinarySerializer',
            'NEOJson',
            'JSONSerializer',

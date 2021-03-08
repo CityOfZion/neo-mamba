@@ -49,7 +49,7 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
             self.exec_fee_factor = contracts.PolicyContract().get_exec_fee_factor(snapshot)
             self.STORAGE_PRICE = contracts.PolicyContract().get_storage_price(snapshot)
 
-        self._context_state: Dict[vm.ExecutionContext, storage.ContractState] = {}
+        self._context_state: Dict[vm.ExecutionContext, contracts.ContractState] = {}
 
     def checkwitness(self, hash_: types.UInt160) -> bool:
         """
@@ -319,7 +319,7 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
                                    call_flags: contracts.CallFlags,
                                    initial_position: int = 0,
                                    rvcount: int = -1,
-                                   contract_state: Optional[storage.ContractState] = None):
+                                   contract_state: Optional[contracts.ContractState] = None):
         context = super(ApplicationEngine, self).load_script(script, rvcount, initial_position)
         context.call_flags = int(call_flags)
         if contract_state is not None:
@@ -350,7 +350,7 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
             raise ValueError(f"Call from native contract failed: {self.exception_message}")
 
     def load_contract(self,
-                      contract: storage.ContractState,
+                      contract: contracts.ContractState,
                       method_descriptor: contracts.ContractMethodDescriptor,
                       flags: contracts.CallFlags) -> Optional[vm.ExecutionContext]:
 
@@ -419,7 +419,7 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
         super(ApplicationEngine, self).load_context(context)
 
     def _contract_call_internal2(self,
-                                 target_contract: storage.ContractState,
+                                 target_contract: contracts.ContractState,
                                  method_descriptor: contracts.ContractMethodDescriptor,
                                  flags: contracts.CallFlags,
                                  has_return_value: bool,

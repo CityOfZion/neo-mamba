@@ -1,10 +1,12 @@
 from __future__ import annotations
 from contextlib import suppress
 from copy import deepcopy
-from typing import List, Iterator, Tuple, Optional
+from typing import List, Iterator, Tuple, Optional, TYPE_CHECKING
 from neo3 import storage, storage_logger as logger
 from neo3.core import types, serialization
 from neo3.network import payloads
+from neo3 import contracts
+
 
 level_db_supported = False
 with suppress(ModuleNotFoundError, ImportError):
@@ -144,7 +146,7 @@ class LevelDB(storage.IDBImplementation):
     def _internal_contractid_update(self, contract_id: int, batch=None):
         self._internal_contractid_put(contract_id, batch)
 
-    def _internal_contract_put(self, contract: storage.ContractState, batch=None):
+    def _internal_contract_put(self, contract: contracts.ContractState, batch=None):
         if batch:
             db = batch
         else:
@@ -152,7 +154,7 @@ class LevelDB(storage.IDBImplementation):
 
         db.put(DBPrefixes.CONTRACTS + contract.hash.to_array(), contract.to_array())
 
-    def _internal_contract_update(self, contract: storage.ContractState, batch=None):
+    def _internal_contract_update(self, contract: contracts.ContractState, batch=None):
         self._internal_contract_put(contract, batch)
 
     def _internal_contract_delete(self, hash: types.UInt160, batch=None):
@@ -168,14 +170,14 @@ class LevelDB(storage.IDBImplementation):
         if contract_bytes is None:
             raise KeyError
 
-        return storage.ContractState.deserialize_from_bytes(contract_bytes)
+        return contracts.ContractState.deserialize_from_bytes(contract_bytes)
 
     def _internal_contract_all(self):
         res = []
         with self._real_db.iterator(prefix=DBPrefixes.CONTRACTS, include_key=False, include_value=True) as it:
             for value in it:
                 # strip off prefix
-                v = storage.ContractState.deserialize_from_bytes(value)
+                v = contracts.ContractState.deserialize_from_bytes(value)
                 res.append(v)
 
         # yielding outside of iterator to make sure the LevelDB iterator is closed and not leaking resources
@@ -417,7 +419,7 @@ class LevelDBCachedContractAccess(storage.CachedContractAccess):
 
     def commit(self) -> None:
         keys_to_delete: List[types.UInt160] = []
-        for trackable in self.get_changeset():  # trackable.item: storage.ContractState
+        for trackable in self.get_changeset():  # trackable.item: contracts.ContractState
             if trackable.state == storage.TrackState.ADDED:
                 self._db._internal_contract_put(trackable.item, self._batch)
                 trackable.state = storage.TrackState.NONE

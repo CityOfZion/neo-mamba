@@ -38,7 +38,7 @@ class StorageInteropTestCase(unittest.TestCase):
         self.manifest = contracts.ContractManifest("contract_name")
         self.nef = contracts.NEF(script=self.RET)
         self.contract_hash = to_script_hash(self.nef.script)
-        self.contract = storage.ContractState(1, self.nef, self.manifest, 0, self.contract_hash)
+        self.contract = contracts.ContractState(1, self.nef, self.manifest, 0, self.contract_hash)
 
     def test_get_context(self):
         engine = test_engine(has_snapshot=True)
@@ -77,7 +77,7 @@ class StorageInteropTestCase(unittest.TestCase):
 
         # we have to store our contract or some sanity checks will fail (like getting a StorageContext
         nef = contracts.NEF(script=script.to_array())
-        contract = storage.ContractState(1, nef, self.manifest, 0, to_script_hash(nef.script))
+        contract = contracts.ContractState(1, nef, self.manifest, 0, to_script_hash(nef.script))
         engine.snapshot.contracts.put(contract)
 
         storage_key = storage.StorageKey(contract.id, b'\x01')
@@ -118,7 +118,7 @@ class StorageInteropTestCase(unittest.TestCase):
 
         nef = contracts.NEF(script=script.to_array())
         contract_hash = to_script_hash(nef.script)
-        contract = storage.ContractState(1, nef, self.manifest, 0, contract_hash)
+        contract = contracts.ContractState(1, nef, self.manifest, 0, contract_hash)
         engine.snapshot.contracts.put(contract)
 
         storage_key = storage.StorageKey(contract.id, b'\x01')
@@ -211,7 +211,7 @@ class StorageInteropTestCase(unittest.TestCase):
             manifest = contracts.ContractManifest(f"contractname{i}")
             hash_ = to_script_hash(nef.script)
 
-            contract = storage.ContractState(i, nef, manifest, 0, hash_)
+            contract = contracts.ContractState(i, nef, manifest, 0, hash_)
             engine.snapshot.contracts.put(contract)
 
             engine.execute()

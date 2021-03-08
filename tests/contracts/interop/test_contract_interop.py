@@ -193,11 +193,11 @@ class RuntimeInteropTestCase(unittest.TestCase):
         engine = test_engine(has_snapshot=True, default_script=False)
         # current executing contract
         fake_hash = types.UInt160.deserialize_from_bytes(b'\x01' * 20)
-        contract = storage.ContractState(0, hello_world_nef, hello_world_manifest, 0, fake_hash)
+        contract = contracts.ContractState(0, hello_world_nef, hello_world_manifest, 0, fake_hash)
         engine.snapshot.contracts.put(contract)
         # target contract
         fake_hash2 = types.UInt160.deserialize_from_bytes(b'\x02' * 20)
-        target_contract = storage.ContractState(1, contract3_nef, contract3_manifest, 0, fake_hash2)
+        target_contract = contracts.ContractState(1, contract3_nef, contract3_manifest, 0, fake_hash2)
         engine.snapshot.contracts.put(target_contract)
         engine.load_script(vm.Script(contract.script))
         array = vm.ArrayStackItem(engine.reference_counter)
@@ -225,7 +225,7 @@ class RuntimeInteropTestCase(unittest.TestCase):
         self.assertEqual("[System.Contract.Call] Can't find target contract", str(context.exception))
 
         fake_contract_hash = types.UInt160(b'\x01' * 20)
-        target_contract = storage.ContractState(0, contract3_nef.script, contract3_manifest, 0, fake_contract_hash)
+        target_contract = contracts.ContractState(0, contract3_nef.script, contract3_manifest, 0, fake_contract_hash)
         engine.snapshot.contracts.put(target_contract)
 
         # modify the manifest of the current executing contract to only allow to call 1 specific method on other contracts
@@ -235,14 +235,14 @@ class RuntimeInteropTestCase(unittest.TestCase):
             contracts.WildcardContainer(['method_aaaa'])  # allowing to call the listed method only
         )]
         fake_contract_hash2 = types.UInt160(b'\x02' * 20)
-        new_current_contract = storage.ContractState(1, hello_world_nef.script, new_current_manifest, 0, fake_contract_hash2)
+        new_current_contract = contracts.ContractState(1, hello_world_nef.script, new_current_manifest, 0, fake_contract_hash2)
         engine.snapshot.contracts.put(new_current_contract)
         with self.assertRaises(ValueError) as context:
             engine._contract_call_internal(target_contract.hash, "invalid_method", contracts.CallFlags.ALL, False, vm.ArrayStackItem(engine.reference_counter))
         self.assertEqual("[System.Contract.Call] Method 'invalid_method' with 0 arguments does not exist on target contract", str(context.exception))
 
         # restore current contract to its original form and try to call a non-existing contract
-        current_contract = storage.ContractState(1, hello_world_nef.script, hello_world_manifest, 1, fake_contract_hash2)
+        current_contract = contracts.ContractState(1, hello_world_nef.script, hello_world_manifest, 1, fake_contract_hash2)
         engine.snapshot.contracts.delete(new_current_contract.hash)
         engine.snapshot.contracts.put(current_contract)
 
@@ -263,7 +263,7 @@ class RuntimeInteropTestCase(unittest.TestCase):
         sig_contract = contracts.Contract.create_signature_contract(keypair.public_key)
 
         engine = test_engine(has_snapshot=True)
-        contract = storage.ContractState(sig_contract.script, contracts.ContractManifest(sig_contract.script_hash))
+        contract = contracts.ContractState(sig_contract.script, contracts.ContractManifest(sig_contract.script_hash))
         engine.snapshot.contracts.put(contract)
         engine.push(vm.ByteStringStackItem(contract.script_hash().to_array()))
         engine.invoke_syscall_by_name("System.Contract.IsStandard")
@@ -287,7 +287,7 @@ class RuntimeInteropTestCase(unittest.TestCase):
         script = b'\x01\x02\x03'
         script_hash = to_script_hash(script)
         manifest = contracts.ContractManifest(script_hash)
-        contract = storage.ContractState(script, manifest)
+        contract = contracts.ContractState(script, manifest)
         engine.snapshot.contracts.put(contract)
 
         # push function argument and call

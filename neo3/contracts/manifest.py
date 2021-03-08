@@ -94,7 +94,7 @@ class ContractPermission(IJson):
         return cls(contracts.ContractPermissionDescriptor(),  # with no parameters equals to Wildcard
                    WildcardContainer.create_wildcard())
 
-    def is_allowed(self, target_contract: storage.ContractState, target_method: str) -> bool:
+    def is_allowed(self, target_contract: contracts.ContractState, target_method: str) -> bool:
         """
         Return if it is allowed to call `target_method` on the target contract.
 
@@ -382,7 +382,7 @@ class ContractManifest(serialization.ISerializable, IJson):
         result = list(map(lambda g: g.is_valid(contract_hash), self.groups))
         return all(result)
 
-    def can_call(self, target_contract: storage.ContractState, target_method: str) -> bool:
+    def can_call(self, target_contract: contracts.ContractState, target_method: str) -> bool:
         results = list(map(lambda p: p.is_allowed(target_contract, target_method), self.permissions))
         return any(results)
 

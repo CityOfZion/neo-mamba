@@ -1,10 +1,13 @@
 from __future__ import annotations
-from typing import Iterator, Tuple, Dict, List, Optional
+from typing import Iterator, Tuple, Dict, List, Optional, TYPE_CHECKING
 from neo3 import storage
 from neo3.core import types
 from neo3.network import payloads
 from contextlib import suppress
 from copy import deepcopy
+
+if TYPE_CHECKING:
+    from neo3 import contracts
 
 
 class MemoryDB(storage.IDBImplementation):
@@ -100,13 +103,13 @@ class MemoryDB(storage.IDBImplementation):
     def _internal_contractid_update(self, new_id: int, batch=None):
         self._internal_contractid_update(new_id, batch)
 
-    def _internal_contract_put(self, contract: storage.ContractState, batch: WriteBatch = None) -> None:
+    def _internal_contract_put(self, contract: contracts.ContractState, batch: WriteBatch = None) -> None:
         if batch:
             batch.put(self.CONTRACT, contract.hash, contract)
         else:
             self.db[self.CONTRACT][contract.hash] = contract
 
-    def _internal_contract_update(self, contract: storage.ContractState, batch: WriteBatch = None) -> None:
+    def _internal_contract_update(self, contract: contracts.ContractState, batch: WriteBatch = None) -> None:
         self._internal_contract_put(contract, batch)
 
     def _internal_contract_delete(self, hash: types.UInt160, batch: WriteBatch = None) -> None:
@@ -116,14 +119,14 @@ class MemoryDB(storage.IDBImplementation):
             with suppress(KeyError):
                 self.db[self.CONTRACT].pop(hash)
 
-    def _internal_contract_get(self, contract_hash: types.UInt160) -> storage.ContractState:
+    def _internal_contract_get(self, contract_hash: types.UInt160) -> contracts.ContractState:
         value = self.db[self.CONTRACT].get(contract_hash, None)
         if value is None:
             raise KeyError
 
         return deepcopy(value)
 
-    def _internal_contract_all(self) -> Iterator[storage.ContractState]:
+    def _internal_contract_all(self) -> Iterator[contracts.ContractState]:
         for contract in self.db[self.CONTRACT].values():
             yield deepcopy(contract)
 
@@ -326,7 +329,7 @@ class MemoryDBCachedContractAccess(storage.CachedContractAccess):
 
     def commit(self) -> None:
         keys_to_delete: List[types.UInt160] = []
-        for trackable in self.get_changeset():  # trackable.item: storage.ContractState
+        for trackable in self.get_changeset():  # trackable.item: contracts.ContractState
             if trackable.state == storage.TrackState.ADDED:
                 self._db._internal_contract_put(trackable.item, self._batch)
                 trackable.state = storage.TrackState.NONE

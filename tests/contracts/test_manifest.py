@@ -72,7 +72,7 @@ class ContractPermissionTestCase(unittest.TestCase):
         # We test the group permissions where all methods are allowed to be called
         # if contract_hash is valid.
         dummy_contract_hash = types.UInt160.zero()
-        contract_state = storage.ContractState(1,
+        contract_state = contracts.ContractState(1,
                                                contracts.NEF(),
                                                contracts.ContractManifest(),
                                                0,
@@ -95,7 +95,7 @@ class ContractPermissionTestCase(unittest.TestCase):
         keypair = cryptography.KeyPair(private_key)
 
         dummy_contract_hash = types.UInt160.from_string("01" * 20)
-        contract_state = storage.ContractState(1,
+        contract_state = contracts.ContractState(1,
                                                contracts.NEF(),
                                                contracts.ContractManifest(),
                                                0,
@@ -117,7 +117,7 @@ class ContractPermissionTestCase(unittest.TestCase):
         # in the above tests we validated the 'group' and 'contract_hash' matching logic
         # now we validate 'method' matching
         dummy_contract_hash = types.UInt160.from_string("01" * 20)
-        contract_state = storage.ContractState(1,
+        contract_state = contracts.ContractState(1,
                                                contracts.NEF(),
                                                contracts.ContractManifest(),
                                                0,

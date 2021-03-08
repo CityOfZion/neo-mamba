@@ -121,7 +121,7 @@ class RuntimeInteropTestCase(unittest.TestCase):
             contracts.ContractMethodDescriptor("test_func", 0, [], contracts.ContractParameterType.ANY, True)
         ]
         callee_contract_hash = contract_hash(types.UInt160.zero(), callee_nef.checksum, callee_contract_name)
-        callee_contract = storage.ContractState(1, callee_nef, callee_manifest, 0, callee_contract_hash)
+        callee_contract = contracts.ContractState(1, callee_nef, callee_manifest, 0, callee_contract_hash)
 
         # create caller_contract script
         sb = vm.ScriptBuilder()
@@ -131,7 +131,7 @@ class RuntimeInteropTestCase(unittest.TestCase):
         caller_contract_name = "caller_contract"
         caller_manifest = contracts.ContractManifest(caller_contract_name)
         caller_contract_hash = contract_hash(types.UInt160.zero(), caller_nef.checksum, caller_contract_name)
-        caller_contract = storage.ContractState(2, caller_nef, caller_manifest, 0, caller_contract_hash)
+        caller_contract = contracts.ContractState(2, caller_nef, caller_manifest, 0, caller_contract_hash)
 
         engine = test_engine(has_snapshot=True, default_script=False)
         engine.snapshot.contracts.put(callee_contract)
@@ -218,7 +218,7 @@ class RuntimeInteropTestCase(unittest.TestCase):
             contracts.ContractMethodDescriptor("test_func", 0, [], contracts.ContractParameterType.ANY, True)
         ]
         callee_contract_hash = contract_hash(tx.sender, callee_nef.checksum, callee_contract_name)
-        callee_contract = storage.ContractState(1, callee_nef, callee_manifest, 0, callee_contract_hash)
+        callee_contract = contracts.ContractState(1, callee_nef, callee_manifest, 0, callee_contract_hash)
 
         sb = vm.ScriptBuilder()
         sb.emit_dynamic_call(callee_contract.hash, "test_func")
@@ -235,7 +235,7 @@ class RuntimeInteropTestCase(unittest.TestCase):
         )]
 
         caller_contract_hash = contract_hash(tx.sender, caller_nef.checksum, caller_contract_name)
-        caller_contract = storage.ContractState(2, caller_nef, caller_manifest, 0, caller_contract_hash)
+        caller_contract = contracts.ContractState(2, caller_nef, caller_manifest, 0, caller_contract_hash)
         engine.snapshot.contracts.put(caller_contract)
         engine.snapshot.contracts.put(callee_contract)
         engine.load_script(vm.Script(caller_script))
@@ -288,14 +288,14 @@ class RuntimeInteropTestCase(unittest.TestCase):
         callee_manifest.abi.methods = [
             contracts.ContractMethodDescriptor("test_func", 0, [], contracts.ContractParameterType.ANY, True)
         ]
-        callee_contract = storage.ContractState(1, callee_nef, callee_manifest, 0, to_script_hash(callee_contract_script))
+        callee_contract = contracts.ContractState(1, callee_nef, callee_manifest, 0, to_script_hash(callee_contract_script))
 
         sb = vm.ScriptBuilder()
         sb.emit_dynamic_call(callee_contract.hash, "test_func")
         caller_script = sb.to_array()
         caller_nef = contracts.NEF(script=caller_script)
         caller_manifest = contracts.ContractManifest()
-        caller_contract = storage.ContractState(2, caller_nef, caller_manifest, 0, to_script_hash(caller_script))
+        caller_contract = contracts.ContractState(2, caller_nef, caller_manifest, 0, to_script_hash(caller_script))
 
         engine.snapshot.contracts.put(callee_contract)
         engine.snapshot.contracts.put(caller_contract)
@@ -397,14 +397,14 @@ class RuntimeInteropTestCase(unittest.TestCase):
         callee_manifest.abi.methods = [
             contracts.ContractMethodDescriptor("test_func", 0, [], contracts.ContractParameterType.ANY, True)
         ]
-        callee_contract = storage.ContractState(1, callee_nef, callee_manifest, 0, contract_hash(types.UInt160.zero(), callee_nef.checksum, callee_manifest.name))
+        callee_contract = contracts.ContractState(1, callee_nef, callee_manifest, 0, contract_hash(types.UInt160.zero(), callee_nef.checksum, callee_manifest.name))
 
         sb = vm.ScriptBuilder()
         sb.emit_dynamic_call(callee_contract.hash, "test_func")
         caller_script = sb.to_array()
         caller_nef = contracts.NEF(script=caller_script)
         caller_manifest = contracts.ContractManifest("contract2")
-        caller_contract = storage.ContractState(2, caller_nef, caller_manifest, 0, contract_hash(types.UInt160.zero(), caller_nef.checksum, caller_manifest.name))
+        caller_contract = contracts.ContractState(2, caller_nef, caller_manifest, 0, contract_hash(types.UInt160.zero(), caller_nef.checksum, caller_manifest.name))
 
         engine.snapshot.contracts.put(callee_contract)
         engine.snapshot.contracts.put(caller_contract)

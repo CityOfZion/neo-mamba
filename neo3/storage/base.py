@@ -6,6 +6,7 @@ from typing import Tuple, Optional, Iterator, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from neo3.network import payloads
+    from neo3 import contracts
 
 
 class IDBImplementation(abc.ABC):
@@ -82,11 +83,11 @@ class IDBImplementation(abc.ABC):
         """ Update the existing latest stored contract id. """
 
     @abc.abstractmethod
-    def _internal_contract_put(self, contract: storage.ContractState) -> None:
+    def _internal_contract_put(self, contract: contracts.ContractState) -> None:
         """ Persist a contract in the real backend. """
 
     @abc.abstractmethod
-    def _internal_contract_update(self, contract: storage.ContractState) -> None:
+    def _internal_contract_update(self, contract: contracts.ContractState) -> None:
         """ Update a contract in the real backend. """
 
     @abc.abstractmethod
@@ -94,20 +95,20 @@ class IDBImplementation(abc.ABC):
         """ Delete a contract from the real backend. """
 
     @abc.abstractmethod
-    def _internal_contract_get(self, hash: types.UInt160) -> storage.ContractState:
+    def _internal_contract_get(self, hash: types.UInt160) -> contracts.ContractState:
         """
         Get a contract from the real backend.
         Must raise KeyError if not found. Return value must be read only.
         """
 
-    def _internal_contract_try_get(self, hash: types.UInt160) -> Optional[storage.ContractState]:
+    def _internal_contract_try_get(self, hash: types.UInt160) -> Optional[contracts.ContractState]:
         try:
             return self._internal_contract_get(hash)
         except KeyError:
             return None
 
     @abc.abstractmethod
-    def _internal_contract_all(self) -> Iterator[storage.ContractState]:
+    def _internal_contract_all(self) -> Iterator[contracts.ContractState]:
         """ Return all contracts stored in the real backend (readonly). """
 
     @abc.abstractmethod
@@ -301,7 +302,7 @@ class RawContractAccess:
     def __init__(self, db: IDBImplementation):
         self._db = db
 
-    def put(self, contract: storage.ContractState) -> None:
+    def put(self, contract: contracts.ContractState) -> None:
         """
         Store a contract.
         Args:
@@ -309,7 +310,7 @@ class RawContractAccess:
         """
         self._db._internal_contract_put(contract)
 
-    def get(self, hash: types.UInt160) -> storage.ContractState:
+    def get(self, hash: types.UInt160) -> contracts.ContractState:
         """
         Retrieve a contract.
         Args:
@@ -319,7 +320,7 @@ class RawContractAccess:
         """
         return self._db._internal_contract_get(hash)
 
-    def try_get(self, hash: types.UInt160) -> Optional[storage.ContractState]:
+    def try_get(self, hash: types.UInt160) -> Optional[contracts.ContractState]:
         """
         Try to retrieve a contract.
         Args:
@@ -335,7 +336,7 @@ class RawContractAccess:
         """
         self._db._internal_contract_delete(hash)
 
-    def all(self) -> Iterator[storage.ContractState]:
+    def all(self) -> Iterator[contracts.ContractState]:
         """
         Retrieve all stored contracts.
         """

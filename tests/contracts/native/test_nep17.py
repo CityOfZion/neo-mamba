@@ -203,7 +203,7 @@ class Nep5TestCase(unittest.TestCase):
 
         nef = contracts.NEF(script=sb.to_array())
         manifest = contracts.ContractManifest("test_contract")
-        contract_state = storage.ContractState(1, nef, manifest, 0, contract_hash(from_account, nef.checksum, manifest.name))
+        contract_state = contracts.ContractState(1, nef, manifest, 0, contract_hash(from_account, nef.checksum, manifest.name))
         engine.snapshot.contracts.put(contract_state)
         return engine
 
@@ -240,7 +240,7 @@ class Nep5TestCase(unittest.TestCase):
         gas = contracts.GasToken()
         manifest = contracts.ContractManifest("test_contract2")
         nef = contracts.NEF(script=b'\x40')
-        state = storage.ContractState(2, nef, manifest, 0, contract_hash(types.UInt160.zero(), nef.checksum, manifest.name))
+        state = contracts.ContractState(2, nef, manifest, 0, contract_hash(types.UInt160.zero(), nef.checksum, manifest.name))
 
         engine = self.transfer_helper(gas, types.UInt160.zero(), state.hash, vm.BigInteger(1))
         engine.snapshot.contracts.put(state)
@@ -259,7 +259,7 @@ class Nep5TestCase(unittest.TestCase):
 
         manifest_to = contracts.ContractManifest("source_contract")
         nef_to = contracts.NEF(script=b'\x40')
-        state_to = storage.ContractState(1, nef_to, manifest_to, 0, contract_hash(types.UInt160.zero(), nef_to.checksum, manifest_to.name))
+        state_to = contracts.ContractState(1, nef_to, manifest_to, 0, contract_hash(types.UInt160.zero(), nef_to.checksum, manifest_to.name))
         account_to = state_to.hash
         amount = vm.BigInteger(0)
 
@@ -296,7 +296,7 @@ class Nep5TestCase(unittest.TestCase):
 
         manifest_to = contracts.ContractManifest("source_contract")
         nef_to = contracts.NEF(script=b'\x40')
-        state_to = storage.ContractState(1, nef_to, manifest_to, 0, contract_hash(types.UInt160.zero(), nef_to.checksum, manifest_to.name))
+        state_to = contracts.ContractState(1, nef_to, manifest_to, 0, contract_hash(types.UInt160.zero(), nef_to.checksum, manifest_to.name))
         account_to = state_to.hash
         amount = account_state.balance + 1
 
@@ -313,7 +313,7 @@ class Nep5TestCase(unittest.TestCase):
 
         manifest = contracts.ContractManifest("test_contract")
         nef = contracts.NEF(script=b'\x40')
-        state_to = storage.ContractState(1, nef, manifest, 0, contract_hash(types.UInt160.zero(), nef.checksum, manifest.name))
+        state_to = contracts.ContractState(1, nef, manifest, 0, contract_hash(types.UInt160.zero(), nef.checksum, manifest.name))
         account = state_to.hash
 
         storage_key_from = gas.key_account + account
@@ -350,7 +350,7 @@ class Nep5TestCase(unittest.TestCase):
 
         manifest = contracts.ContractManifest("contract_name_to")
         nef = contracts.NEF(script=b'\x40')
-        state_to = storage.ContractState(1, nef, manifest, 0, contract_hash(types.UInt160.zero(), nef.checksum, manifest.name))
+        state_to = contracts.ContractState(1, nef, manifest, 0, contract_hash(types.UInt160.zero(), nef.checksum, manifest.name))
         account_to = state_to.hash
 
         account_from = types.UInt160(b'\x01' * 20)
@@ -392,7 +392,7 @@ class Nep5TestCase(unittest.TestCase):
 
         manifest = contracts.ContractManifest("contract_name")
         nef = contracts.NEF(script=b'\x40')
-        state_to = storage.ContractState(1, nef, manifest, 0, contract_hash(types.UInt160.zero(), nef.checksum, manifest.name))
+        state_to = contracts.ContractState(1, nef, manifest, 0, contract_hash(types.UInt160.zero(), nef.checksum, manifest.name))
         account_to = state_to.hash
         storage_key_to = gas.key_account + account_to
         account_to_state = gas._state()

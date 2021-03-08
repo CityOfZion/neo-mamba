@@ -9,6 +9,7 @@ from contextlib import suppress
 
 if TYPE_CHECKING:
     from neo3.network import payloads
+    from neo3 import contracts
 
 TKey = TypeVar('TKey', bound='serialization.ISerializable')
 TValue = TypeVar('TValue', bound='serialization.ISerializable')
@@ -287,7 +288,7 @@ class CachedContractAccess(CachedAccess):
         self._internal_try_get = self._db._internal_contract_try_get
         self._internal_all = self._db._internal_contract_all
 
-    def put(self, contract: storage.ContractState) -> None:
+    def put(self, contract: contracts.ContractState) -> None:
         """	
         Store a contract.	
         Args:	
@@ -297,7 +298,7 @@ class CachedContractAccess(CachedAccess):
         """
         super(CachedContractAccess, self)._put(contract.hash, contract)
 
-    def get(self, hash: types.UInt160, read_only=False) -> storage.ContractState:
+    def get(self, hash: types.UInt160, read_only=False) -> contracts.ContractState:
         """
         Retrieve a contract.
         Args:
@@ -317,7 +318,7 @@ class CachedContractAccess(CachedAccess):
             return _neo_token_contract_state
         return super(CachedContractAccess, self)._get(hash, read_only)
 
-    def try_get(self, hash: types.UInt160, read_only=False) -> Optional[storage.ContractState]:
+    def try_get(self, hash: types.UInt160, read_only=False) -> Optional[contracts.ContractState]:
         """
         Try to retrieve a contract.
         Args:
@@ -337,12 +338,12 @@ class CachedContractAccess(CachedAccess):
         """
         super(CachedContractAccess, self)._delete(hash)
 
-    def all(self) -> Iterator[storage.ContractState]:
+    def all(self) -> Iterator[contracts.ContractState]:
         """	
         Retrieve all contracts (readonly)	
         """
         contracts = []
-        for contract in self._internal_all():  # type: storage.ContractState
+        for contract in self._internal_all():
             if contract.hash not in self._dictionary:
                 contracts.append(contract)
 
@@ -659,7 +660,7 @@ class CloneContractCache(CachedContractAccess):
         Persist changes to the parent snapshot.	
         """
         keys_to_delete: List[types.UInt160] = []
-        for trackable in self.get_changeset():  # trackable.item: storage.ContractState
+        for trackable in self.get_changeset():  # trackable.item: contracts.ContractState
             if trackable.state == TrackState.ADDED:
                 self.inner_cache.put(trackable.item)
                 trackable.state = storage.TrackState.NONE
