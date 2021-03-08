@@ -38,7 +38,6 @@ class InteropDescriptor:
         # while using the @register decorator, the first argument to the function is always the application engine
         # itself, we want to strip that off
         self.parameters = self.parameters[1:]
-        self.has_return_value = inspect.signature(handler).return_annotation != 'None'
         self.price = price
         self.required_call_flags = call_flags
 
