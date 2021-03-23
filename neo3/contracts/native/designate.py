@@ -20,11 +20,13 @@ class DesignationContract(NativeContract):
         self._register_contract_method(self.get_designated_by_role,
                                        "getDesignatedByRole",
                                        1000000,
+                                       parameter_names=["role", "index"],
                                        call_flags=contracts.CallFlags.READ_STATES)
 
         self._register_contract_method(self.designate_as_role,
                                        "designateAsRole",
                                        0,
+                                       parameter_names=["role", "nodes"],
                                        call_flags=contracts.CallFlags.WRITE_STATES)
 
     def get_designated_by_role(self,

@@ -57,10 +57,10 @@ class LedgerContract(NativeContract):
             height = vm.BigInteger(index_or_hash)
             if height < 0 or height > 4294967295:  # uint.MaxValue
                 raise ValueError("Invalid height")
-            block = snapshot.blocks.try_get_by_height(height)
+            block = snapshot.blocks.try_get_by_height(height, read_only=True)
         elif len(index_or_hash) == types.UInt256._BYTE_LEN:
             block_hash = types.UInt256(index_or_hash)
-            block = snapshot.blocks.try_get(block_hash)
+            block = snapshot.blocks.try_get(block_hash, read_only=True)
         else:
             raise ValueError("Invalid data")
 
@@ -88,10 +88,10 @@ class LedgerContract(NativeContract):
             height = vm.BigInteger(block_index_or_hash)
             if height < 0 or height > 4294967295:  # uint.MaxValue
                 raise ValueError("Invalid height")
-            block = snapshot.blocks.try_get_by_height(height)
+            block = snapshot.blocks.try_get_by_height(height, read_only=True)
         elif len(block_index_or_hash) == types.UInt256._BYTE_LEN:
             block_hash = types.UInt256(block_index_or_hash)
-            block = snapshot.blocks.try_get(block_hash)
+            block = snapshot.blocks.try_get(block_hash, read_only=True)
         else:
             raise ValueError("Invalid data")
 

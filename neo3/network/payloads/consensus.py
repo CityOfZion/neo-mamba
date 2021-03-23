@@ -143,7 +143,7 @@ class ConsensusPayload(payloads.IInventory):
         self.data = reader.read_var_bytes()
 
     def get_script_hashes_for_verifying(self, snapshot: storage.Snapshot) -> List[types.UInt160]:
-        validators = contracts.NeoToken().get_next_block_validators()
+        validators = contracts.NeoToken().get_next_block_validators(snapshot)
         if len(validators) < self.validator_index:
             raise ValueError("Validator index is out of range")
         return [to_script_hash(

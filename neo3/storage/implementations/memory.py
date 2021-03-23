@@ -256,7 +256,6 @@ class MemorySnapshot(storage.Snapshot):
         self._contract_cache = MemoryDBCachedContractAccess(db, self._batch)
         self._tx_cache = MemoryDBCachedTXAccess(db, self._batch)
         self._block_height_cache = MemoryBestBlockHeightAttribute(db, self._batch)
-        self._contract_id_cache = MemoryContractIDAttribute(db, self._batch)
 
     def commit(self) -> None:
         super(MemorySnapshot, self).commit()
@@ -307,19 +306,6 @@ class MemoryDBCachedBlockAccess(storage.CachedBlockAccess):
 
     def create_snapshot(self):
         return storage.CloneBlockCache(self._db, self)
-
-
-class MemoryContractIDAttribute(storage.AttributeCache):
-    def __init__(self, db, batch):
-        super(MemoryContractIDAttribute, self).__init__()
-        self._db = db
-        self._batch = batch
-
-    def _get_internal(self):
-        return self._db._internal_contractid_get()
-
-    def _update_internal(self, value):
-        self._db._internal_contractid_update(value, self._batch)
 
 
 class MemoryDBCachedContractAccess(storage.CachedContractAccess):

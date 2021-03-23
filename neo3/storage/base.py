@@ -71,18 +71,6 @@ class IDBImplementation(abc.ABC):
         """ Return all blocks stored in the real backend (readonly). """
 
     @abc.abstractmethod
-    def _internal_contractid_get(self):
-        """ Get the id of the lastest stored contract. """
-
-    @abc.abstractmethod
-    def _internal_contractid_put(self, contract_id: int):
-        """ Persist a new lastest stored contract id. """
-
-    @abc.abstractmethod
-    def _internal_contractid_update(self, contract_id: int):
-        """ Update the existing latest stored contract id. """
-
-    @abc.abstractmethod
     def _internal_contract_put(self, contract: contracts.ContractState) -> None:
         """ Persist a contract in the real backend. """
 
@@ -213,17 +201,6 @@ class RawView:
     def best_block_height(self, value):
         raise AttributeError("Can't set attribute on a raw view. view.blocks.put() automatically updates the height "
                              "when applicable")
-
-    @property
-    def contract_id(self) -> int:
-        try:
-            return self._db._internal_contractid_get()
-        except KeyError:
-            return -1
-
-    @contract_id.setter
-    def contract_id(self, value) -> None:
-        self._db._internal_contractid_update(value)
 
 
 class RawBlockAccess:

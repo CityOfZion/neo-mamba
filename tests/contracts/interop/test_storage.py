@@ -39,6 +39,9 @@ class StorageInteropTestCase(unittest.TestCase):
         self.nef = contracts.NEF(script=self.RET)
         self.contract_hash = to_script_hash(self.nef.script)
         self.contract = contracts.ContractState(1, self.nef, self.manifest, 0, self.contract_hash)
+        self.contract.manifest.abi.methods = [
+            contracts.ContractMethodDescriptor("test_func", 0, [], contracts.ContractParameterType.ANY, True)
+        ]
 
     def test_get_context(self):
         engine = test_engine(has_snapshot=True)
@@ -209,6 +212,9 @@ class StorageInteropTestCase(unittest.TestCase):
 
             nef = contracts.NEF(script=script.to_array())
             manifest = contracts.ContractManifest(f"contractname{i}")
+            manifest.abi.methods = [
+                contracts.ContractMethodDescriptor("test_func", 0, [], contracts.ContractParameterType.ANY, True)
+            ]
             hash_ = to_script_hash(nef.script)
 
             contract = contracts.ContractState(i, nef, manifest, 0, hash_)

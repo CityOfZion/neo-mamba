@@ -19,7 +19,6 @@ class DBPrefixes:
     BLOCKS_HEIGHT_MAP = b'\x02'
     BLOCKS_BEST_HEIGHT = b'\x03'
     CONTRACTS = b'\x04'
-    CONTRACT_ID = b'\x05'
     STORAGES = b'\x06'
     TRANSACTIONS = b'\x07'
 
@@ -128,23 +127,6 @@ class LevelDB(storage.IDBImplementation):
             # yielding outside of iterator to make sure the LevelDB iterator is closed and not leaking resources
             for block in res:
                 yield deepcopy(block)
-
-    def _internal_contractid_get(self):
-        id_bytes = self._real_db.get(DBPrefixes.CONTRACT_ID)
-        if id_bytes is None:
-            raise KeyError
-        return int.from_bytes(id_bytes, 'little')
-
-    def _internal_contractid_put(self, contract_id: int, batch=None):
-        if batch:
-            db = batch
-        else:
-            db = self._real_db
-
-        db.put(DBPrefixes.CONTRACT_ID, contract_id.to_bytes(4, 'little'))
-
-    def _internal_contractid_update(self, contract_id: int, batch=None):
-        self._internal_contractid_put(contract_id, batch)
 
     def _internal_contract_put(self, contract: contracts.ContractState, batch=None):
         if batch:
@@ -347,7 +329,6 @@ class LevelDBSnapshot(storage.Snapshot):
         self._storage_cache = LevelDBCachedStorageAccess(db, self._batch)
         self._tx_cache = LevelDBCachedTXAccess(db, self._batch)
         self._block_height_cache = LevelDBBestBlockHeightAttribute(db, self._batch)
-        self._contract_id_cache = LevelDBContractIDAttribute(db, self._batch)
 
     def commit(self) -> None:
         super(LevelDBSnapshot, self).commit()
@@ -397,19 +378,6 @@ class LevelDBCachedBlockAccess(storage.CachedBlockAccess):
 
     def create_snapshot(self):
         return storage.CloneBlockCache(self._db, self)
-
-
-class LevelDBContractIDAttribute(storage.AttributeCache):
-    def __init__(self, db, batch):
-        super(LevelDBContractIDAttribute, self).__init__()
-        self._db = db
-        self._batch = batch
-
-    def _get_internal(self):
-        return self._db._internal_contractid_get()
-
-    def _update_internal(self, value):
-        self._db._internal_contractid_update(value, self._batch)
 
 
 class LevelDBCachedContractAccess(storage.CachedContractAccess):

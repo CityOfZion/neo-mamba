@@ -1,6 +1,7 @@
 import unittest
 import binascii
 import base58
+import enum
 from copy import deepcopy
 from bitarray import bitarray
 from neo3.network import payloads, capabilities
@@ -851,10 +852,16 @@ class PingTestCase(unittest.TestCase):
         self.assertEqual(self.ping.current_height, deserialized_ping.current_height)
 
 
+class TestAttributeTypeEnum(enum.IntEnum):
+    TYPE_ZERO = 0x00
+
+
 class TestTXAttribute(payloads.TransactionAttribute):
+
     def __init__(self):
         super(TestTXAttribute, self).__init__()
-        self.type_ = 0
+
+        self.type_ = TestAttributeTypeEnum.TYPE_ZERO
         self.test_member = True
 
     def __len__(self):

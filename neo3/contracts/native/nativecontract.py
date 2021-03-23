@@ -50,6 +50,7 @@ class NativeContract(convenience._Singleton):
         self._nameservice = contracts.NameService()
         self._oracle = contracts.OracleContract()
         self._ledger = contracts.LedgerContract()
+        self._role = contracts.DesignationContract()
 
         sb = vm.ScriptBuilder()
         sb.emit_push(self.id)
@@ -71,9 +72,6 @@ class NativeContract(convenience._Singleton):
             self._contract_hashes.update({self._hash: self})
 
         self.active_block_index = settings.native_contract_activation.get(self.service_name, 0)
-
-        self._register_contract_method(self.on_persist, "onPersist", 0, call_flags=contracts.CallFlags.WRITE_STATES)
-        self._register_contract_method(self.post_persist, "postPersist", 0, call_flags=contracts.CallFlags.WRITE_STATES)
 
     @classmethod
     def get_contract_by_name(cls, name: str) -> Optional[NativeContract]:
@@ -114,7 +112,8 @@ class NativeContract(convenience._Singleton):
         parameter_types = []
         for k, v in get_type_hints(func).items():
             if k == 'return':
-                return_type = v
+                if v != type(None):
+                    return_type = v
                 continue
             parameter_types.append(v)
 
@@ -271,7 +270,7 @@ class NativeContract(convenience._Singleton):
         pass
 
     def _check_committee(self, engine: contracts.ApplicationEngine) -> bool:
-        addr = contracts.NeoToken().get_committee_address()
+        addr = contracts.NeoToken().get_committee_address(engine.snapshot)
         return engine.checkwitness(addr)
 
     def create_key(self, prefix: bytes) -> storage.StorageKey:

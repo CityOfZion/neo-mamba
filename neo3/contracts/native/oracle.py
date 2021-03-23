@@ -94,6 +94,7 @@ class OracleContract(NativeContract):
         self._register_contract_method(self._request,
                                        "request",
                                        self._ORACLE_REQUEST_PRICE,
+                                       parameter_names=["url", "filter", "callback", "userdata", "gas_for_response"],
                                        call_flags=contracts.CallFlags.WRITE_STATES | contracts.CallFlags.ALLOW_NOTIFY)
 
         self._register_contract_method(self._verify,

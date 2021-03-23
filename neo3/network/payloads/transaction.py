@@ -42,7 +42,7 @@ class TransactionAttribute(serialization.ISerializable, IJson):
         Args:
             writer: instance.
         """
-        writer.write_uint8(self.type_)
+        writer.write_uint8(self.type_.value)
         self._serialize_without_type(writer)
 
     @abc.abstractmethod
@@ -56,7 +56,7 @@ class TransactionAttribute(serialization.ISerializable, IJson):
         Args:
             reader: instance.
         """
-        if reader.read_uint8() != self.type_:
+        if reader.read_uint8() != self.type_.value:
             raise ValueError("Deserialization error - transaction attribute type mismatch")
         self._deserialize_without_type(reader)
 
@@ -68,7 +68,7 @@ class TransactionAttribute(serialization.ISerializable, IJson):
         attribute_type = reader.read_uint8()
         for sub in TransactionAttribute.__subclasses__():
             child = sub._serializable_init()  # type: ignore
-            if child.type_ == attribute_type:
+            if child.type_.value == attribute_type:
                 child._deserialize_without_type(reader)
                 return child
         else:
@@ -96,7 +96,7 @@ class HighPriorityAttribute(TransactionAttribute):
         self.type_ = TransactionAttributeType.HIGH_PRIORITY
 
     def verify(self, snapshot: storage.Snapshot, tx: Transaction) -> bool:
-        committee = contracts.NeoToken().get_committee_address()
+        committee = contracts.NeoToken().get_committee_address(snapshot)
         for signer in tx.signers:
             if signer.account == committee:
                 return True

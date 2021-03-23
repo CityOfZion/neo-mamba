@@ -1,6 +1,6 @@
 from __future__ import annotations
 import enum
-from typing import List, Optional, Type, Union
+from typing import List, Optional, Type, Union, cast
 from enum import IntEnum
 from neo3.core import types, IJson, IInteroperable, serialization
 from neo3 import contracts, vm
@@ -33,7 +33,7 @@ class ContractParameterType(IntEnum):
 
     @classmethod
     def from_type(cls, class_type: Optional[Type[object]]) -> ContractParameterType:
-        if class_type is None:
+        if class_type is None or class_type == type(None):
             return ContractParameterType.VOID
         elif class_type in [bool, vm.BooleanStackItem]:
             return ContractParameterType.BOOLEAN
@@ -121,6 +121,11 @@ class ContractParameterDefinition(IJson):
             raise ValueError("Format error - parameter type VOID is not allowed")
         return c
 
+    def to_stack_item(self, reference_counter: vm.ReferenceCounter) -> vm.StackItem:
+        return vm.StructStackItem(reference_counter,
+                                  [vm.ByteStringStackItem(self.name), vm.IntegerStackItem(self.type.value)]
+                                  )
+
 
 class ContractEventDescriptor(IJson):
     """
@@ -170,6 +175,14 @@ class ContractEventDescriptor(IJson):
         if c.name is None or len(c.name) == 0:
             raise ValueError("Format error - invalid 'name'")
         return c
+
+    def to_stack_item(self, reference_counter: vm.ReferenceCounter) -> vm.StackItem:
+        struct = vm.StructStackItem(reference_counter)
+        struct.append(vm.ByteStringStackItem(self.name))
+        array = vm.ArrayStackItem(reference_counter,
+                                  list(map(lambda p: p.to_stack_item(reference_counter), self.parameters)))
+        struct.append(array)
+        return struct
 
 
 class ContractMethodDescriptor(ContractEventDescriptor, IJson):
@@ -239,6 +252,13 @@ class ContractMethodDescriptor(ContractEventDescriptor, IJson):
         if c.offset < 0:
             raise ValueError("Format error - negative offset not allowed")
         return c
+
+    def to_stack_item(self, reference_counter: vm.ReferenceCounter) -> vm.StackItem:
+        struct = cast(vm.StructStackItem, super(ContractMethodDescriptor, self).to_stack_item(reference_counter))
+        struct.append(vm.IntegerStackItem(self.return_type.value))
+        struct.append(vm.IntegerStackItem(self.offset))
+        struct.append(vm.BooleanStackItem(self.safe))
+        return struct
 
     def __repr__(self):
         return f"<{self.__class__.__name__} at {hex(id(self))}> {self.name}"
@@ -320,3 +340,13 @@ class ContractABI(IJson):
         if len(c.methods) == 0:
             raise ValueError("Invalid contract - contract has no methods")
         return c
+
+    def to_stack_item(self, reference_counter: vm.ReferenceCounter) -> vm.StackItem:
+        struct = vm.StructStackItem(reference_counter)
+        struct.append(vm.ArrayStackItem(reference_counter,
+                                        list(map(lambda m: m.to_stack_item(reference_counter), self.methods)))
+                      )
+        struct.append(vm.ArrayStackItem(reference_counter,
+                                        list(map(lambda e: e.to_stack_item(reference_counter), self.events)))
+                      )
+        return struct

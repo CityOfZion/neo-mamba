@@ -31,7 +31,8 @@ def test_native_contract(contract_hash: types.UInt160, operation: str, args=None
     # storing the current script in a contract otherwise "System.Contract.Call" will fail its checks
     nef = contracts.NEF(script=sb.to_array())
     manifest = contracts.ContractManifest("test_contract")
-    contract = contracts.ContractState(engine.snapshot.contract_id + 1, nef, manifest, 0, to_script_hash(nef.script))
+    next_id = contracts.ManagementContract().get_next_available_id(engine.snapshot)
+    contract = contracts.ContractState(next_id + 1, nef, manifest, 0, to_script_hash(nef.script))
     engine.snapshot.contracts.put(contract)
 
     return engine

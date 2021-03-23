@@ -38,14 +38,14 @@ class NameServiceTestCase(unittest.TestCase):
         # ok
         # first make sure to pass check witness
         engine = test_name_service("addRoot", False, ["test"])
-        tx = test_tx(signers=[contracts.NeoToken().get_committee_address()])
+        tx = test_tx(signers=[contracts.NeoToken().get_committee_address(engine.snapshot)])
         engine.script_container = tx
         self.assertEqual(vm.VMState.HALT, engine.execute())
 
         # fail, duplicate
         engine2 = test_name_service("addRoot", False, ["test"])
         engine2.snapshot = engine.snapshot
-        tx = test_tx(signers=[contracts.NeoToken().get_committee_address()])
+        tx = test_tx(signers=[contracts.NeoToken().get_committee_address(engine.snapshot)])
         engine2.script_container = tx
         self.assertEqual(vm.VMState.FAULT, engine2.execute())
 
@@ -69,7 +69,7 @@ class NameServiceTestCase(unittest.TestCase):
 
         # ok
         engine = test_name_service("setPrice", False, [55])
-        tx = test_tx(signers=[contracts.NeoToken().get_committee_address()])
+        tx = test_tx(signers=[contracts.NeoToken().get_committee_address(engine.snapshot)])
         engine.script_container = tx
         self.assertEqual(vm.VMState.HALT, engine.execute())
         self.assertEqual(55, contracts.NameService().get_price(engine.snapshot))
@@ -78,7 +78,7 @@ class NameServiceTestCase(unittest.TestCase):
         nameservice = contracts.NameService()
 
         engine = test_engine(has_snapshot=True)
-        tx = test_tx(signers=[contracts.NeoToken().get_committee_address()])
+        tx = test_tx(signers=[contracts.NeoToken().get_committee_address(engine.snapshot)])
         engine.script_container = tx
 
         snapshot = engine.snapshot
@@ -102,7 +102,7 @@ class NameServiceTestCase(unittest.TestCase):
         nameservice = contracts.NameService()
 
         engine = test_engine(has_snapshot=True)
-        tx = test_tx(signers=[contracts.NeoToken().get_committee_address()])
+        tx = test_tx(signers=[contracts.NeoToken().get_committee_address(engine.snapshot)])
         engine.script_container = tx
 
         nameservice.add_root(engine, "org")

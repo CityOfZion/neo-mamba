@@ -247,14 +247,14 @@ class ContractState(serialization.ISerializable, IClonable, IInteroperable):
         writer.write_int32(self.id)
         writer.write_serializable(self.nef)
         writer.write_serializable(self.manifest)
-        writer.write_uint32(self.update_counter)
+        writer.write_uint16(self.update_counter)
         writer.write_serializable(self.hash)
 
     def deserialize(self, reader: serialization.BinaryReader) -> None:
         self.id = reader.read_int32()
         self.nef = reader.read_serializable(contracts.NEF)
         self.manifest = reader.read_serializable(contracts.ContractManifest)
-        self.update_counter = reader.read_uint32()
+        self.update_counter = reader.read_uint16()
         self.hash = reader.read_serializable(types.UInt160)
 
     def from_replica(self, replica):
@@ -282,10 +282,9 @@ class ContractState(serialization.ISerializable, IClonable, IInteroperable):
         array = vm.ArrayStackItem(reference_counter)
         id_ = vm.IntegerStackItem(self.id)
         nef = vm.ByteStringStackItem(self.nef.to_array())
-        manifest = vm.ByteStringStackItem(self.manifest.to_array())
         update_counter = vm.IntegerStackItem(self.update_counter)
         hash_ = vm.ByteStringStackItem(self.hash.to_array())
-        array.append([id_, update_counter, hash_, nef, manifest])
+        array.append([id_, update_counter, hash_, nef, self.manifest.to_stack_item(reference_counter)])
         return array
 
     def can_call(self, target_contract: ContractState, target_method: str) -> bool:

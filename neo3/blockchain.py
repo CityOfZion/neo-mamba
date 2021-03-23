@@ -36,7 +36,6 @@ class Blockchain(convenience._Singleton):
 
     @staticmethod
     def _create_genesis_block() -> payloads.Block:
-        script = vm.ScriptBuilder().emit_syscall(contracts.syscall_name_to_int("Neo.Native.Deploy")).to_array()
         b = payloads.Block(
             version=0,
             prev_hash=types.UInt256.zero(),
@@ -48,22 +47,7 @@ class Blockchain(convenience._Singleton):
                 verification_script=b'\x11'  # (OpCode.PUSH1)
             ),
             consensus_data=payloads.ConsensusData(primary_index=0, nonce=2083236893),
-            transactions=[payloads.Transaction(
-                version=0,
-                script=script,
-                system_fee=0,
-                network_fee=0,
-                nonce=0,
-                valid_until_block=0,
-                signers=[payloads.Signer(
-                    account=to_script_hash(b'\x11'),
-                    scope=payloads.WitnessScope.NONE
-                )],
-                witnesses=[payloads.Witness(
-                    invocation_script=b'',
-                    verification_script=b'\x11'
-                )]
-            )]
+            transactions=[]
         )
         return b
 

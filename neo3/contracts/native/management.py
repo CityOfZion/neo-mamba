@@ -12,6 +12,7 @@ class ManagementContract(NativeContract):
     _service_name = "ContractManagement"
 
     key_min_deploy_fee = storage.StorageKey(_id, b'\x14')
+    key_next_id = storage.StorageKey(_id, b'\x0f')
 
     def init(self):
         super(ManagementContract, self).init()
@@ -82,11 +83,13 @@ class ManagementContract(NativeContract):
             self.key_min_deploy_fee,
             storage.StorageItem(vm.BigInteger(10_00000000).to_array())
         )
-        engine.snapshot.contract_id = 1
+        engine.snapshot.storages.put(self.key_next_id, storage.StorageItem(vm.BigInteger(1).to_array()))
 
     def get_next_available_id(self, snapshot: storage.Snapshot) -> int:
-        snapshot.contract_id += 1
-        return snapshot.contract_id
+        si = snapshot.storages.get(self.key_next_id, read_only=False)
+        value = vm.BigInteger(si.value)
+        si.value = (value + 1).to_array()
+        return int(value)
 
     def on_persist(self, engine: contracts.ApplicationEngine) -> None:
         # NEO implicitely expects a certain order of contract initialization
@@ -101,19 +104,19 @@ class ManagementContract(NativeContract):
             contract._initialize(engine)
 
     def get_contract(self, snapshot: storage.Snapshot, hash_: types.UInt160) -> Optional[contracts.ContractState]:
-        return snapshot.contracts.try_get(hash_)
+        return snapshot.contracts.try_get(hash_, read_only=True)
 
     def contract_create(self,
                         engine: contracts.ApplicationEngine,
                         nef_file: bytes,
-                        manifest: bytes) -> None:
-        self.contract_create_with_data(engine, nef_file, manifest, vm.NullStackItem())
+                        manifest: bytes) -> contracts.ContractState:
+        return self.contract_create_with_data(engine, nef_file, manifest, vm.NullStackItem())
 
     def contract_create_with_data(self,
                                   engine: contracts.ApplicationEngine,
                                   nef_file: bytes,
                                   manifest: bytes,
-                                  data: vm.StackItem) -> None:
+                                  data: vm.StackItem) -> contracts.ContractState:
         if not isinstance(engine.script_container, payloads.Transaction):
             raise ValueError("Cannot create contract without a Transaction script container")
 
@@ -150,7 +153,6 @@ class ManagementContract(NativeContract):
             raise ValueError("Error: invalid manifest")
         engine.snapshot.contracts.put(contract)
 
-        engine.push(engine._native_to_stackitem(contract, contracts.ContractState))
         method_descriptor = contract.manifest.abi.get_method("_deploy", 2)
         if method_descriptor is not None:
             engine.call_from_native(hash_, hash_, method_descriptor.name, [data, vm.BooleanStackItem(False)])
@@ -161,6 +163,7 @@ class ManagementContract(NativeContract):
                                                    vm.ByteStringStackItem(contract.hash.to_array())
                                                    )
                                  )
+        return contract
 
     def contract_update(self,
                         engine: contracts.ApplicationEngine,
