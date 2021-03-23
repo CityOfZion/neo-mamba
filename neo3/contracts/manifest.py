@@ -3,7 +3,7 @@ import base64
 import binascii
 import orjson as json
 from typing import List, Callable, Optional
-from neo3 import contracts, storage
+from neo3 import contracts, storage, vm
 from neo3.core import serialization, types, IJson, cryptography, utils
 from neo3.core.serialization import BinaryReader, BinaryWriter
 
