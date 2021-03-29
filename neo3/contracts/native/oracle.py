@@ -103,7 +103,7 @@ class OracleContract(NativeContract):
                                        call_flags=contracts.CallFlags.NONE)
 
     def _initialize(self, engine: contracts.ApplicationEngine) -> None:
-        engine.snapshot.storages.put(self.key_request_id, storage.StorageItem(b'\x00' * 8))  # uint64
+        engine.snapshot.storages.put(self.key_request_id, storage.StorageItem(vm.BigInteger.zero().to_array()))
 
     def finish(self, engine: contracts.ApplicationEngine) -> None:
         tx = engine.script_container
@@ -175,8 +175,8 @@ class OracleContract(NativeContract):
         self._gas.mint(engine, self.hash, vm.BigInteger(gas_for_response), False)
 
         si_item_id = engine.snapshot.storages.get(self.key_request_id, read_only=False)
-        item_id = int.from_bytes(si_item_id.value, 'little', signed=False)
-        si_item_id.value = item_id.to_bytes(8, 'little', signed=False)
+        item_id = vm.BigInteger(si_item_id.value)
+        si_item_id.value = (item_id + 1).to_array()
 
         if contracts.ManagementContract().get_contract(engine.snapshot, engine.calling_scripthash) is None:
             raise ValueError
@@ -188,7 +188,7 @@ class OracleContract(NativeContract):
                                        engine.calling_scripthash,
                                        callback,
                                        contracts.BinarySerializer.serialize(user_data, self._MAX_USER_DATA_LEN))
-        engine.snapshot.storages.put(self.key_request + si_item_id.value,
+        engine.snapshot.storages.put(self.key_request + int(item_id).to_bytes(8, 'little', signed=False),
                                      storage.StorageItem(oracle_request.to_array())
                                      )
 
@@ -208,6 +208,7 @@ class OracleContract(NativeContract):
             raise ValueError("Oracle has too many pending responses for this url")
 
         with serialization.BinaryWriter() as writer:
+            writer.write_var_int(len(id_list))
             for id in id_list:
                 writer.write_uint64(id)
             si_id_list.value = writer.to_array()
@@ -269,10 +270,13 @@ class OracleContract(NativeContract):
                 engine.snapshot.persisting_block.index)
 
             for public_key in nodes_public_keys:
-                nodes.append((
+                nodes.append([
                     to_script_hash(contracts.Contract.create_signature_redeemscript(public_key)),
                     vm.BigInteger.zero()
-                ))
+                ])
+            if len(nodes) > 0:
+                idx = response.id % len(nodes)
+                nodes[idx][1] += self._ORACLE_REQUEST_PRICE
 
         for pair in nodes:  # type: Tuple[types.UInt160, vm.BigInteger]
             if pair[1].sign > 0:

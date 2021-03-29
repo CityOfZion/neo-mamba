@@ -494,7 +494,7 @@ class CachedStorageAccess(CachedAccess):
                 results.append((deepcopy(key), deepcopy(value.item)))
 
         cached_keys = self._dictionary.keys()
-        for key, value in self._internal_seek(key_prefix, "forward"):
+        for key, value in self._internal_seek(key_prefix, direction):
             if key not in cached_keys:
                 results.append((deepcopy(key), deepcopy(value)))
 

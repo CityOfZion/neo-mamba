@@ -40,7 +40,7 @@ class OracleResponse(payloads.TransactionAttribute):
             self._FIXED_ORACLE_SCRIPT = sb.to_array()
 
     def __len__(self):
-        return s.uint64 + s.uint8 + utils.get_var_size(self.result)
+        return super(OracleResponse, self).__len__() + s.uint64 + s.uint8 + utils.get_var_size(self.result)
 
     def _deserialize_without_type(self, reader: serialization.BinaryReader) -> None:
         self.id = reader.read_uint64()

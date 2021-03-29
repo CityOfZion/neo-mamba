@@ -2,7 +2,7 @@ from __future__ import annotations
 from .nativecontract import NativeContract
 from neo3 import storage, contracts, vm, settings
 from neo3.core import types, msgrouter, cryptography, serialization, to_script_hash, Size as s, IInteroperable
-from typing import Tuple, List, Dict, Sequence, cast
+from typing import Tuple, List, Dict, Sequence, cast, Optional
 
 
 class FungibleTokenStorageState(IInteroperable, serialization.ISerializable):
@@ -628,6 +628,8 @@ class NeoToken(FungibleToken):
         # set next committee
         if self._should_refresh_committee(engine.snapshot.persisting_block.index):
             validators = self._compute_committee_members(engine.snapshot)
+            if self._committee_state is None:
+                self._committee_state = _CommitteeState.from_snapshot(engine.snapshot)
             self._committee_state._validators = validators
             self._committee_state.persist(engine.snapshot)
 
@@ -649,13 +651,13 @@ class NeoToken(FungibleToken):
                 factor = 2 if i < n else 1
                 member_votes = self._committee_state[member]
                 if member_votes > 0:
-                    voter_sum_reward_per_neo = factor * voter_reward_of_each_committee / member_votes
+                    voter_sum_reward_per_neo = voter_reward_of_each_committee * factor / member_votes
                     voter_reward_key = (self.key_voter_reward_per_committee
                                         + member
                                         + vm.BigInteger(engine.snapshot.persisting_block.index + 1)
-                                        ).to_array()
+                                        )
                     border = (self.key_voter_reward_per_committee + member).to_array()
-                    result = engine.snapshot.storages.find_range(self.hash, voter_reward_key.to_array(), border)
+                    result = list(engine.snapshot.storages.find_range(voter_reward_key.to_array(), border, "reverse"))
                     if len(result) > 0:
                         result = result[0]
                     else:
@@ -779,6 +781,8 @@ class NeoToken(FungibleToken):
             old_value = vm.BigInteger(si_voters_count.value)
             new_value = old_value + account_state.balance
             si_voters_count.value = new_value.to_array()
+
+        self._distribute_gas(engine, account, account_state)
 
         if not account_state.vote_to.is_zero():
             sk_validator = self.key_candidate + account_state.vote_to

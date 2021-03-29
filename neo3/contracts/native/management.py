@@ -155,7 +155,7 @@ class ManagementContract(NativeContract):
 
         method_descriptor = contract.manifest.abi.get_method("_deploy", 2)
         if method_descriptor is not None:
-            engine.call_from_native(hash_, hash_, method_descriptor.name, [data, vm.BooleanStackItem(False)])
+            engine.call_from_native(self.hash, hash_, method_descriptor.name, [data, vm.BooleanStackItem(False)])
 
         msgrouter.interop_notify(self.hash,
                                  "Deploy",

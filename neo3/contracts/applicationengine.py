@@ -159,6 +159,8 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
         elif class_type == types.UInt256:
             return types.UInt256(data=stack_item.to_array())
         elif class_type == str:
+            if stack_item == vm.NullStackItem():
+                return ""
             return stack_item.to_array().decode()
         elif class_type == cryptography.ECPoint:
             return cryptography.ECPoint.deserialize_from_bytes(stack_item.to_array())
@@ -333,11 +335,6 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
                          method: str,
                          args: List[vm.StackItem]) -> None:
         ctx = self.current_context
-        contract_call_descriptor = self.interop.InteropService.get_descriptor(
-            contracts.syscall_name_to_int("contract_call_internal")
-        )
-        if contract_call_descriptor is None:
-            raise ValueError
         self._contract_call_internal(hash_, method, contracts.CallFlags.ALL, False, args)
         self.current_context.calling_scripthash_bytes = calling_scripthash.to_array()
         while self.current_context != ctx:

@@ -1,4 +1,5 @@
 from __future__ import annotations
+import struct
 from enum import IntEnum
 from typing import List
 from . import NativeContract
@@ -29,6 +30,9 @@ class DesignationContract(NativeContract):
                                        parameter_names=["role", "nodes"],
                                        call_flags=contracts.CallFlags.WRITE_STATES)
 
+    def _to_uint32(self, value: int) -> bytes:
+        return struct.pack(">I", value)
+
     def get_designated_by_role(self,
                                snapshot: storage.Snapshot,
                                role: DesignateRole,
@@ -36,7 +40,7 @@ class DesignationContract(NativeContract):
         if snapshot.best_block_height + 1 < index:
             raise ValueError("[DesignateContract] Designate list index out of range")
 
-        key = self.create_key(role.to_bytes(1, 'little') + vm.BigInteger(index).to_array()).to_array()
+        key = self.create_key(role.to_bytes(1, 'little') + self._to_uint32(index)).to_array()
         boundary = self.create_key(role.to_bytes(1, 'little')).to_array()
         for _, storage_item in snapshot.storages.find_range(key, boundary, "reverse"):
             with serialization.BinaryReader(storage_item.value) as reader:
@@ -62,7 +66,7 @@ class DesignationContract(NativeContract):
 
         nodes.sort()
         index = engine.snapshot.persisting_block.index + 1
-        storage_key = self.create_key(role.to_bytes(1, 'little') + vm.BigInteger(index).to_array())
+        storage_key = self.create_key(role.to_bytes(1, 'little') + self._to_uint32(index))
         with serialization.BinaryWriter() as writer:
             writer.write_serializable_list(nodes)
             storage_item = storage.StorageItem(writer.to_array())
