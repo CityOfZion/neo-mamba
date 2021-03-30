@@ -1,4 +1,5 @@
 from __future__ import annotations
+import struct
 from .nativecontract import NativeContract
 from neo3 import storage, contracts, vm, settings
 from neo3.core import types, msgrouter, cryptography, serialization, to_script_hash, Size as s, IInteroperable
@@ -463,6 +464,9 @@ class NeoToken(FungibleToken):
     _candidates_dirty = True
     _candidates: List[Tuple[cryptography.ECPoint, vm.BigInteger]] = []
 
+    def _to_uint32(self, value: int) -> bytes:
+        return struct.pack(">I", value)
+
     def _calculate_bonus(self,
                          snapshot: storage.Snapshot,
                          vote: cryptography.ECPoint,
@@ -479,7 +483,7 @@ class NeoToken(FungibleToken):
         if vote.is_zero():
             return neo_holder_reward
         border = (self.key_voter_reward_per_committee + vote).to_array()
-        start_bytes = vm.BigInteger(start).to_array()
+        start_bytes = self._to_uint32(start)
         key_start = (self.key_voter_reward_per_committee + vote + start_bytes).to_array()
 
         items = list(snapshot.storages.find_range(self.hash, key_start, border, "reverse"))
@@ -488,7 +492,7 @@ class NeoToken(FungibleToken):
         else:
             start_reward_per_neo = vm.BigInteger.zero()
 
-        end_bytes = vm.BigInteger(end).to_array()
+        end_bytes = self._to_uint32(end)
         key_end = (self.key_voter_reward_per_committee + vote + end_bytes).to_array()
 
         items = list(snapshot.storages.find_range(self.hash, key_end, border, "reverse"))
@@ -654,12 +658,12 @@ class NeoToken(FungibleToken):
                     voter_sum_reward_per_neo = voter_reward_of_each_committee * factor / member_votes
                     voter_reward_key = (self.key_voter_reward_per_committee
                                         + member
-                                        + vm.BigInteger(engine.snapshot.persisting_block.index + 1)
+                                        + self._to_uint32(engine.snapshot.persisting_block.index + 1)
                                         )
                     border = (self.key_voter_reward_per_committee + member).to_array()
                     result = list(engine.snapshot.storages.find_range(voter_reward_key.to_array(), border, "reverse"))
                     if len(result) > 0:
-                        result = result[0]
+                        result = vm.BigInteger(result[0][1].value)
                     else:
                         result = vm.BigInteger.zero()
                     voter_sum_reward_per_neo += result
