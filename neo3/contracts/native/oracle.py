@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Optional, cast, List, Tuple
+from typing import Optional, cast, List
 from . import NativeContract
 from neo3 import contracts, storage, vm
 from neo3.core import types, cryptography, serialization, to_script_hash, msgrouter
@@ -276,8 +276,9 @@ class OracleContract(NativeContract):
                 ])
             if len(nodes) > 0:
                 idx = response.id % len(nodes)
-                nodes[idx][1] += self._ORACLE_REQUEST_PRICE
+                # mypy can't figure out that the second item is a BigInteger
+                nodes[idx][1] += self._ORACLE_REQUEST_PRICE  # type: ignore
 
-        for pair in nodes:  # type: Tuple[types.UInt160, vm.BigInteger]
-            if pair[1].sign > 0:
+        for pair in nodes:
+            if pair[1].sign > 0:  # type: ignore
                 self._gas.mint(engine, pair[0], pair[1], False)

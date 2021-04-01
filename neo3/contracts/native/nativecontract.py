@@ -128,7 +128,11 @@ class NativeContract(convenience._Singleton):
                 parameter_types = parameter_types[1:]
 
         params = []
-        if parameter_types is not None and parameter_names is not None:
+
+        if parameter_types and parameter_names is None:
+            raise ValueError(f"Found parameters types but missing parameter names for {self} {func_name}")
+
+        if parameter_names:
             if len(parameter_types) != len(parameter_names):
                 raise ValueError(f"Parameter types count must match parameter names count! "
                                  f"{len(parameter_types)}!={len(parameter_names)}")

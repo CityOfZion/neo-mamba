@@ -20,6 +20,7 @@ class ManagementContract(NativeContract):
         self._register_contract_method(self.get_contract,
                                        "getContract",
                                        1000000,
+                                       parameter_names=["contract_hash"],
                                        call_flags=contracts.CallFlags.READ_STATES)
         self._register_contract_method(self.contract_create,
                                        "deploy",
@@ -55,6 +56,7 @@ class ManagementContract(NativeContract):
         self._register_contract_method(self._set_minimum_deployment_fee,
                                        "setMinimumDeploymentFee",
                                        3000000,
+                                       parameter_names=["new_fee"],
                                        call_flags=contracts.CallFlags.WRITE_STATES)
 
         self.manifest.abi.events = [

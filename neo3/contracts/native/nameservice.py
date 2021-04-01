@@ -1,5 +1,6 @@
 from __future__ import annotations
 import re
+import struct
 import ipaddress
 from enum import IntEnum
 from .nonfungible import NFTState, NonFungibleToken
@@ -99,12 +100,12 @@ class NameService(NonFungibleToken):
         engine.snapshot.storages.put(self.key_roots, storage.StorageItem(b'\x00'))
 
     def on_persist(self, engine: contracts.ApplicationEngine) -> None:
-        now = vm.BigInteger((engine.snapshot.persisting_block.timestamp // 1000) + 1)
-        start = (self.key_expiration + b'\x00').to_array()
-        end = (self.key_expiration + now.to_array()).to_array()
+        now = (engine.snapshot.persisting_block.timestamp // 1000) + 1
+        start = (self.key_expiration + self._to_uint32(0)).to_array()
+        end = (self.key_expiration + self._to_uint32(now)).to_array()
         for key, _ in engine.snapshot.storages.find_range(start, end):
             engine.snapshot.storages.delete(key)
-            for key2, _ in engine.snapshot.storages.find((self.key_record + key.key[5:]).to_array()):
+            for key2, _ in engine.snapshot.storages.find(self.key_record + key.key[5:]).to_array():
                 engine.snapshot.storages.delete(key2)
             self.burn(engine, self.key_token + key.key[5:])
 
@@ -159,7 +160,7 @@ class NameService(NonFungibleToken):
         state = NameState(owner, name, "", (engine.snapshot.persisting_block.timestamp // 1000) + self.ONE_YEAR)
         self.mint(engine, state)
         engine.snapshot.storages.put(
-            self.key_expiration + state.expiration.to_bytes(4, 'little') + name.encode(),
+            self.key_expiration + state.expiration.to_bytes(4, 'big') + name.encode(),
             storage.StorageItem(b'\x00')
         )
         return True
@@ -193,15 +194,6 @@ class NameService(NonFungibleToken):
 
         state.admin = admin
 
-    def _check_admin(self, engine: contracts.ApplicationEngine, state: NameState) -> bool:
-        if engine.checkwitness(state.owner):
-            return True
-
-        if state.admin == types.UInt160.zero:
-            return False
-
-        return engine.checkwitness(state.admin)
-
     def set_record(self, engine: contracts.ApplicationEngine, name: str, record_type: RecordType, data: str) -> None:
         if not self.REGEX_NAME.match(name):
             raise ValueError("Regex failure - name is not valid")
@@ -225,14 +217,14 @@ class NameService(NonFungibleToken):
         if not self._check_admin(engine, state):
             raise ValueError("Admin check failed")
 
-        storage_key_record = self.key_record + domain.encode() + name.encode() + record_type.to_bytes(2, 'little')
+        storage_key_record = self.key_record + domain.encode() + name.encode() + record_type.to_bytes(1, 'little')
         engine.snapshot.storages.update(storage_key_record, storage.StorageItem(data.encode()))
 
     def get_record(self, snapshot: storage.Snapshot, name: str, record_type: RecordType) -> Optional[str]:
         if not self.REGEX_NAME.match(name):
             raise ValueError("Regex failure - name is not valid")
         domain = '.'.join(name.split('.')[2:])
-        storage_key_record = self.key_record + domain.encode() + name.encode() + record_type.to_bytes(2, 'little')
+        storage_key_record = self.key_record + domain.encode() + name.encode() + record_type.to_bytes(1, 'little')
         storage_item = snapshot.storages.try_get(storage_key_record)
         if storage_item is None:
             return None
@@ -244,7 +236,7 @@ class NameService(NonFungibleToken):
         domain = '.'.join(name.split('.')[2:])
         storage_key = self.key_record + domain.encode() + name.encode()
         for key, value in snapshot.storages.find(storage_key.to_array()):
-            record_type = RecordType(int.from_bytes(key.key[:-2], 'little'))
+            record_type = RecordType(int.from_bytes(key.key[-1], 'little'))
             yield record_type, value.value.decode()
 
     def delete_record(self, engine: contracts.ApplicationEngine, name: str, record_type: RecordType) -> None:
@@ -257,7 +249,7 @@ class NameService(NonFungibleToken):
         if not self._check_admin(engine, state):
             raise ValueError("Admin check failed")
 
-        storage_key_record = self.key_record + domain.encode() + name.encode() + record_type.to_bytes(2, 'little')
+        storage_key_record = self.key_record + domain.encode() + name.encode() + record_type.to_bytes(1, 'little')
         engine.snapshot.storages.delete(storage_key_record)
 
     def resolve(self,
@@ -276,3 +268,15 @@ class NameService(NonFungibleToken):
         if data is None:
             return None
         return self.resolve(snapshot, data, record_type, redirect_count - 1)
+
+    def _check_admin(self, engine: contracts.ApplicationEngine, state: NameState) -> bool:
+        if engine.checkwitness(state.owner):
+            return True
+
+        if state.admin == types.UInt160.zero:
+            return False
+
+        return engine.checkwitness(state.admin)
+
+    def _to_uint32(self, value: int) -> bytes:
+        return struct.pack(">I", value)

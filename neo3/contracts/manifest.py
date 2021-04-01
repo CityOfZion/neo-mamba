@@ -3,7 +3,7 @@ import base64
 import binascii
 import orjson as json
 from typing import List, Callable, Optional
-from neo3 import contracts, storage
+from neo3 import contracts, storage, vm
 from neo3.core import serialization, types, IJson, cryptography, utils
 from neo3.core.serialization import BinaryReader, BinaryWriter
 
@@ -394,7 +394,7 @@ class ContractManifest(serialization.ISerializable, IJson):
                                            self.trusts)))  # type: ignore
             )
         if self.extra is None:
-            struct.append(vm.NullStackItem())
+            struct.append(vm.ByteStringStackItem("null"))
         else:
             struct.append(vm.ByteStringStackItem(json.dumps(self.extra)))
         return struct

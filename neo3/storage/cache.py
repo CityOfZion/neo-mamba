@@ -357,6 +357,27 @@ class CachedContractAccess(CachedAccess):
         return None
 
 
+class _Enumerator:
+    _default_pair = (storage.StorageKey(0, b''), storage.StorageItem(b''))
+
+    def __init__(self, iter: Iterator):
+        self.iter = iter
+        self.value = None
+
+    def move_next(self) -> bool:
+        try:
+            self.value = next(self.iter)
+            return True
+        except StopIteration:
+            self.value = None
+            return False
+
+    def current(self) -> Tuple[storage.StorageKey, storage.StorageItem]:
+        if self.value is None:
+            return self._default_pair
+        return self.value
+
+
 class CachedStorageAccess(CachedAccess):
     def __init__(self, db):
         super(CachedStorageAccess, self).__init__(db)
@@ -487,22 +508,46 @@ class CachedStorageAccess(CachedAccess):
              ) -> Iterator[Tuple[storage.StorageKey, storage.StorageItem]]:
         # always read only
         comperator = storage.NEOByteCompare(direction)
-        results: List[Tuple[storage.StorageKey, storage.StorageItem]] = []
+
+        cached: List[Tuple[storage.StorageKey, storage.StorageItem]] = []
+        cached_keys: List[storage.StorageKey] = []
         for key, value in self._dictionary.items():
             if value.state != TrackState.DELETED and (
                     len(key_prefix) == 0 or comperator.compare(key.to_array(), key_prefix) >= 0):
-                results.append((deepcopy(key), deepcopy(value.item)))
-
-        cached_keys = self._dictionary.keys()
-        for key, value in self._internal_seek(key_prefix, direction):
-            if key not in cached_keys:
-                results.append((deepcopy(key), deepcopy(value)))
+                cached.append((key, value.item))
+                cached_keys.append(key)
 
         if direction == "forward":
-            r = sorted(results, key=lambda pair: pair[0].to_array())
+            cached_sorted = sorted(cached, key=lambda pair: pair[0].to_array())
         else:
-            r = sorted(results, key=lambda pair: pair[0].to_array(), reverse=True)
-        return iter(r)
+            cached_sorted = sorted(cached, key=lambda pair: pair[0].to_array(), reverse=True)
+
+        e1 = _Enumerator(iter(cached_sorted))
+        e2 = _Enumerator(self._internal_seek(key_prefix, direction))
+
+        c1 = e1.move_next()
+        c2 = e2.move_next()
+
+        i1 = e1.current()
+        i2 = e2.current()
+
+        comperator = storage.NEOByteCompare(direction)
+
+        while c1 or c2:
+            # filter out duplicates from internal if already found in cached
+            if c2 and i2[0] in cached_keys:
+                c2 = e2.move_next()
+                i2 = e2.current()
+            elif not c2 or (c1 and comperator.compare(i1[0].to_array(), i2[0].to_array()) < 0):
+                # i1 values come from the cache by reference, make them "read-only"
+                yield deepcopy(i1[0]), deepcopy(i1[1])
+                c1 = e1.move_next()
+                i1 = e1.current()
+            else:
+                # i2 values are new objects deserialized from storage (in the case of leveldb)
+                yield i2[0], i2[1]
+                c2 = e2.move_next()
+                i2 = e2.current()
 
 
 class CachedTXAccess(CachedAccess):

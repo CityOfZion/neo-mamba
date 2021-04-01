@@ -486,19 +486,19 @@ class NeoToken(FungibleToken):
         start_bytes = self._to_uint32(start)
         key_start = (self.key_voter_reward_per_committee + vote + start_bytes).to_array()
 
-        items = list(snapshot.storages.find_range(self.hash, key_start, border, "reverse"))
-        if len(items) > 0:
-            start_reward_per_neo = vm.BigInteger(items[0][1].value)  # first pair returned, StorageItem
-        else:
+        try:
+            pair = next(snapshot.storages.find_range(self.hash, key_start, border, "reverse"))
+            start_reward_per_neo = vm.BigInteger(pair[1].value)  # first pair returned, StorageItem
+        except StopIteration:
             start_reward_per_neo = vm.BigInteger.zero()
 
         end_bytes = self._to_uint32(end)
         key_end = (self.key_voter_reward_per_committee + vote + end_bytes).to_array()
 
-        items = list(snapshot.storages.find_range(self.hash, key_end, border, "reverse"))
-        if len(items) > 0:
-            end_reward_per_neo = vm.BigInteger(items[0][1].value)  # first pair returned, StorageItem
-        else:
+        try:
+            pair = next(snapshot.storages.find_range(self.hash, key_end, border, "reverse"))
+            end_reward_per_neo = vm.BigInteger(pair[1].value)  # first pair returned, StorageItem
+        except StopIteration:
             end_reward_per_neo = vm.BigInteger.zero()
 
         return neo_holder_reward + value * (end_reward_per_neo - start_reward_per_neo) / 100000000
@@ -661,10 +661,10 @@ class NeoToken(FungibleToken):
                                         + self._to_uint32(engine.snapshot.persisting_block.index + 1)
                                         )
                     border = (self.key_voter_reward_per_committee + member).to_array()
-                    result = list(engine.snapshot.storages.find_range(voter_reward_key.to_array(), border, "reverse"))
-                    if len(result) > 0:
-                        result = vm.BigInteger(result[0][1].value)
-                    else:
+                    try:
+                        pair = next(engine.snapshot.storages.find_range(voter_reward_key.to_array(), border, "reverse"))
+                        result = vm.BigInteger(pair[1].value)
+                    except StopIteration:
                         result = vm.BigInteger.zero()
                     voter_sum_reward_per_neo += result
                     engine.snapshot.storages.put(voter_reward_key,

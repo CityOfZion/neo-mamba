@@ -108,11 +108,13 @@ class NonFungibleToken(NativeContract):
         self._register_contract_method(self.owner_of,
                                        "ownerOf",
                                        1000000,
+                                       parameter_names=["token_id"],
                                        call_flags=contracts.CallFlags.READ_STATES)
 
         self._register_contract_method(self.properties,
                                        "properties",
                                        1000000,
+                                       parameter_names=["token_id"],
                                        call_flags=contracts.CallFlags.READ_STATES)
 
         self._register_contract_method(self.balance_of,
@@ -133,6 +135,7 @@ class NonFungibleToken(NativeContract):
         self._register_contract_method(self.tokens_of,
                                        "tokensOf",
                                        1000000,
+                                       parameter_names=["owner"],
                                        call_flags=contracts.CallFlags.READ_STATES)
 
     def _initialize(self, engine: contracts.ApplicationEngine) -> None:

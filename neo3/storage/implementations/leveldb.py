@@ -230,7 +230,6 @@ class LevelDB(storage.IDBImplementation):
 
         target = DBPrefixes.STORAGES + key_prefix
 
-        res = {}
         with self._real_db.raw_iterator() as it:
             if seek_direction == "forward":
                 it.seek(target)
@@ -241,8 +240,7 @@ class LevelDB(storage.IDBImplementation):
 
                     k = storage.StorageKey.deserialize_from_bytes(key[1:])
                     v = storage.StorageItem.deserialize_from_bytes(it.value())
-                    res[k] = v
-
+                    yield (k, v)
                     it.next()
             else:
                 it.seek(target)
@@ -258,13 +256,8 @@ class LevelDB(storage.IDBImplementation):
 
                     k = storage.StorageKey.deserialize_from_bytes(key[1:])
                     v = storage.StorageItem.deserialize_from_bytes(it.value())
-                    res[k] = v
-
+                    yield (k, v)
                     it.prev()
-
-        # yielding outside of iterator to make sure the LevelDB iterator is closed and not leaking resources
-        for k, v in res.items():
-            yield k, v
 
     def _internal_transaction_put(self, transaction: payloads.Transaction, batch=None):
         if batch:

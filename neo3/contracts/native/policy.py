@@ -93,11 +93,13 @@ class PolicyContract(NativeContract):
         self._register_contract_method(self._set_exec_fee_factor,
                                        "setExecFeeFactor",
                                        3000000,
+                                       parameter_names=["value"],
                                        call_flags=contracts.CallFlags.WRITE_STATES
                                        )
         self._register_contract_method(self._set_storage_price,
                                        "setStoragePrice",
                                        3000000,
+                                       parameter_names=["value"],
                                        call_flags=contracts.CallFlags.WRITE_STATES
                                        )
 
