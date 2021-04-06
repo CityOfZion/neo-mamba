@@ -25,7 +25,8 @@ Quick install
 -------------
 ::
 
-   pip install wheel neo-mamba
+   pip install wheel
+   pip install neo-mamba
 
 or
 
@@ -33,7 +34,15 @@ or
 
   git clone https://github.com/CityOfZion/neo-mamba.git
   cd neo-mamba
+  pip install wheel
   pip install wheel -e .
+
+This installs mamba with only the `MemoryDB` as possible backend. In order to install the requirements to use the
+LevelDB backend install the leveldb via extras
+
+::
+
+   pip install -e .[leveldb]
 
 Ensure you have PIP >= 19.3
 
@@ -60,17 +69,16 @@ separate repositories but be included here by default (e.g. virtual machine impl
 - Virtual Machine
 - Smart contracts (v0.4)
 
-Up next: Preview 4 parity
+Up next: RC1 parity and Wallet support
 
 Performance
 -----------
-`neo-mamba` syncs the network over 2 times faster than the official client `neo-cli <https://github.com/neo-project/neo-node>`_.
+`neo-mamba` syncs the blockchain a respectable ~20% faster than the official client `neo-cli <https://github.com/neo-project/neo-node>`_.
 
-Performance was measured by letting each client sync the Preview 3 TestNet from an offline file up to block height 562379.
+Performance was measured by letting each client sync the Preview 5 TestNet from an offline file up to block height 181131.
 Syncing was done without verifying the block witnesses (``--noverify`` flag in ``neo-cli``). Each client used LevelDB as
 storage backend, with no other additional plugins running. Each client was synced separately with no additional resource
-usage on the system. The test was performed on Ubuntu Linux 18.04 (as DOTNET's ECC on OSX is very slow) on a i5-4670K with
-16 GB ram.
+usage on the system. The test was performed on OSX 10.15.7 on a i7-9750H with 16 GB ram.
 
 FAQ
 ---

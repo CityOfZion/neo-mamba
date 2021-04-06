@@ -14,15 +14,19 @@ def _syscall_name_to_int(name: str) -> int:
 
 
 class ScriptBuilder(_ScriptBuilder):  # type: ignore
-    def emit_contract_call(self, script_hash, operation: str) -> None:
-        """
-        Call a contract function without arguments
-        Args:
-            script_hash: contract script hash
-            operation: function name
-        """
-        self.emit_push(0)
-        self.emit(OpCode.NEWARRAY)
+    def emit_dynamic_call(self, script_hash, operation: str) -> None:
+        self.emit(OpCode.NEWARRAY0)
+        self.emit_push(0xF)  # CallFlags.ALL
+        self.emit_push(operation)
+        self.emit_push(script_hash.to_array())
+        self.emit_syscall(_syscall_name_to_int("System.Contract.Call"))
+
+    def emit_dynamic_call_with_args(self, script_hash, operation: str, args) -> None:
+        for arg in reversed(args):
+            self.emit_push(arg)
+        self.emit_push(len(args))
+        self.emit(OpCode.PACK)
+        self.emit_push(0xF)  # CallFlags.ALL
         self.emit_push(operation)
         self.emit_push(script_hash.to_array())
         self.emit_syscall(_syscall_name_to_int("System.Contract.Call"))

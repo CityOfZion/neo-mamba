@@ -1,24 +1,29 @@
 from __future__ import annotations
 import hashlib
 import abc
+import struct
 from enum import Enum
-from typing import List
-from neo3.core import Size as s, serialization, utils, types, IInteroperable
+from typing import List, Optional, Type, TypeVar
+from neo3.core import Size as s, serialization, utils, types, IInteroperable, IJson
 from neo3.network import payloads
 from neo3.vm import VMState
-from neo3 import settings, vm, storage
+from neo3 import settings, vm, storage, contracts
 
 
 class TransactionAttributeType(Enum):
-    pass
+    HIGH_PRIORITY = 0x1
+    ORACLE_RESPONSE = 0x11
 
 
-class TransactionAttribute(serialization.ISerializable):
+TransactionAttribute_T = TypeVar('TransactionAttribute_T', bound='TransactionAttribute')
+
+
+class TransactionAttribute(serialization.ISerializable, IJson):
     """
     Attributes that can be attached to a Transaction.
     """
     def __init__(self):
-        self.type_ = None
+        self.type_: TransactionAttributeType = None
         self.allow_multiple = False
 
     def __len__(self):
@@ -38,7 +43,7 @@ class TransactionAttribute(serialization.ISerializable):
         Args:
             writer: instance.
         """
-        writer.write_uint8(self.type_)
+        writer.write_uint8(self.type_.value)
         self._serialize_without_type(writer)
 
     @abc.abstractmethod
@@ -52,7 +57,7 @@ class TransactionAttribute(serialization.ISerializable):
         Args:
             reader: instance.
         """
-        if reader.read_uint8() != self.type_:
+        if reader.read_uint8() != self.type_.value:
             raise ValueError("Deserialization error - transaction attribute type mismatch")
         self._deserialize_without_type(reader)
 
@@ -63,8 +68,8 @@ class TransactionAttribute(serialization.ISerializable):
         """
         attribute_type = reader.read_uint8()
         for sub in TransactionAttribute.__subclasses__():
-            child = sub()  # type: ignore
-            if child.type_ == attribute_type:
+            child = sub._serializable_init()  # type: ignore
+            if child.type_.value == attribute_type:
                 child._deserialize_without_type(reader)
                 return child
         else:
@@ -74,6 +79,36 @@ class TransactionAttribute(serialization.ISerializable):
     def _deserialize_without_type(self, reader: serialization.BinaryReader) -> None:
         """ Deserialize the remaining attributes """
 
+    def verify(self, snapshot: storage.Snapshot, tx: Transaction) -> bool:
+        return True
+
+    def to_json(self) -> dict:
+        return {"type": self.type_}
+
+    @classmethod
+    def from_json(cls, json: dict):
+        c = cls()
+        c.type_ = TransactionAttributeType(json["type"])
+
+
+class HighPriorityAttribute(TransactionAttribute):
+    def __init__(self):
+        super(HighPriorityAttribute, self).__init__()
+        self.type_ = TransactionAttributeType.HIGH_PRIORITY
+
+    def verify(self, snapshot: storage.Snapshot, tx: Transaction) -> bool:
+        committee = contracts.NeoToken().get_committee_address(snapshot)
+        for signer in tx.signers:
+            if signer.account == committee:
+                return True
+        return False
+
+    def _serialize_without_type(self, writer: serialization.BinaryWriter) -> None:
+        pass
+
+    def _deserialize_without_type(self, reader: serialization.BinaryReader) -> None:
+        pass
+
 
 class Transaction(payloads.IInventory, IInteroperable):
     """
@@ -81,8 +116,8 @@ class Transaction(payloads.IInventory, IInteroperable):
     """
     #: the maximum number of bytes a single transaction may consists of
     MAX_TRANSACTION_SIZE = 102400
-    #: the maximum time a transaction will be valid from height of creation plus this value.
-    MAX_VALID_UNTIL_BLOCK_INCREMENT = 2102400
+    #: the maximum time a transaction will be valid from height of creation plus this value. Default is 24h
+    MAX_VALID_UNTIL_BLOCK_INCREMENT = 5760
     #: the maximum number of transaction attributes for a single transaction
     MAX_TRANSACTION_ATTRIBUTES = 16
 
@@ -210,20 +245,18 @@ class Transaction(payloads.IInventory, IInteroperable):
         self.witnesses = reader.read_serializable_list(payloads.Witness)
 
     def deserialize_unsigned(self, reader: serialization.BinaryReader) -> None:
-        self.version = reader.read_uint8()
+        (self.version,
+         self.nonce,
+         self.system_fee,
+         self.network_fee,
+         self.valid_until_block) = struct.unpack("<BIqqI", reader._stream.read(25))
         if self.version > 0:
             raise ValueError("Deserialization error - invalid version")
-        self.nonce = reader.read_uint32()
-        self.system_fee = reader.read_int64()
         if self.system_fee < 0:
             raise ValueError("Deserialization error - negative system fee")
-        self.network_fee = reader.read_int64()
         if self.network_fee < 0:
             raise ValueError("Deserialization error - negative network fee")
-        # Impossible overflow, only applicable to the C# implementation where they use longs
-        # if (self.system_fee + self.network_fee < self.system_fee):
-        #     raise ValueError("Deserialization error - overflow")
-        self.valid_until_block = reader.read_uint32()
+
         self.signers = Transaction._deserialize_signers(reader, self.MAX_TRANSACTION_ATTRIBUTES)
         self.attributes = Transaction._deserialize_attributes(reader,
                                                               self.MAX_TRANSACTION_ATTRIBUTES - len(self.signers))
@@ -285,6 +318,14 @@ class Transaction(payloads.IInventory, IInteroperable):
     def get_script_hashes_for_verifying(self, _: storage.Snapshot) -> List[types.UInt160]:
         return list(map(lambda signer: signer.account, self.signers))
 
+    def try_get_attribute(self, needle: Type[TransactionAttribute_T]) -> \
+            Optional[TransactionAttribute_T]:
+        for attr in self.attributes:
+            if isinstance(attr, needle):
+                return attr
+        else:
+            return None
+
     # TODO: implement Verify methods once we have Snapshot support
 
     @staticmethod
@@ -296,8 +337,6 @@ class Transaction(payloads.IInventory, IInteroperable):
         values: List[payloads.Signer] = []
         for i in range(0, count):
             signer = reader.read_serializable(payloads.Signer)
-            if i > 0 and signer.scope == payloads.WitnessScope.FEE_ONLY:
-                raise ValueError("Deserialization error - only the first signer can be fee only")
             if signer in values:
                 raise ValueError("Deserialization error - duplicate signer")
             values.append(signer)

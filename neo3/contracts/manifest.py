@@ -2,9 +2,8 @@ from __future__ import annotations
 import base64
 import binascii
 import orjson as json
-from typing import List, Callable
-from enum import IntFlag
-from neo3 import contracts
+from typing import List, Callable, Optional
+from neo3 import contracts, storage, vm
 from neo3.core import serialization, types, IJson, cryptography, utils
 from neo3.core.serialization import BinaryReader, BinaryWriter
 
@@ -56,11 +55,21 @@ class ContractGroup(IJson):
 
         Raises:
             KeyError: if the data supplied does not contain the necessary keys.
+            ValueError: if the signature length is not 64.
         """
-        return cls(
+        c = cls(
             public_key=cryptography.ECPoint.deserialize_from_bytes(binascii.unhexlify(json['pubkey'])),
             signature=base64.b64decode(json['signature'].encode('utf8'))
         )
+        if len(c.signature) != 64:
+            raise ValueError("Format error - invalid signature length")
+        return c
+
+    def to_stack_item(self, reference_counter: vm.ReferenceCounter) -> vm.StackItem:
+        struct = vm.StructStackItem(reference_counter)
+        struct.append(vm.ByteStringStackItem(self.public_key.to_array()))
+        struct.append(vm.ByteStringStackItem(self.signature))
+        return struct
 
 
 class ContractPermission(IJson):
@@ -91,22 +100,22 @@ class ContractPermission(IJson):
         return cls(contracts.ContractPermissionDescriptor(),  # with no parameters equals to Wildcard
                    WildcardContainer.create_wildcard())
 
-    def is_allowed(self, manifest: ContractManifest, method: str) -> bool:
+    def is_allowed(self, target_contract: contracts.ContractState, target_method: str) -> bool:
         """
-        Return if it is allowed to call `method` on contract `manifest.contract_hash`.
+        Return if it is allowed to call `target_method` on the target contract.
 
         Args:
-            manifest: the manifest of the contract to be called.
-            method: the method of the contract to be called.
+            target_contract: the contract state of the contract to be called.
+            target_method: the method of the contract to be called.
         """
         if self.contract.is_hash:
-            if not self.contract.contract_hash == manifest.contract_hash:
+            if not self.contract.contract_hash == target_contract.hash:
                 return False
         elif self.contract.is_group:
-            results = list(map(lambda p: p.public_key != self.contract.group, manifest.groups))
+            results = list(map(lambda p: p.public_key != self.contract.group, target_contract.manifest.groups))
             if all(results):
                 return False
-        return self.methods.is_wildcard or method in self.methods
+        return self.methods.is_wildcard or target_method in self.methods
 
     def to_json(self) -> dict:
         """
@@ -127,19 +136,33 @@ class ContractPermission(IJson):
 
         Raises:
             KeyError: if the data supplied does not contain the necessary keys.
+            ValueError: if a method is zero length.
         """
         cpd = contracts.ContractPermissionDescriptor.from_json(json)
         json_wildcard = {'wildcard': json['methods']}
         methods = WildcardContainer.from_json(json_wildcard)
+        for m in methods:
+            if len(m) == 0:
+                raise ValueError("Format error - methods cannot have length 0")
         return cls(cpd, methods)
 
+    def to_stack_item(self, reference_counter: vm.ReferenceCounter) -> vm.StackItem:
+        struct = vm.StructStackItem(reference_counter)
+        if self.contract.is_wildcard:
+            struct.append(vm.NullStackItem())
+        elif self.contract.is_hash:
+            struct.append(vm.ByteStringStackItem(self.contract.contract_hash.to_array()))  # type: ignore
+        else:
+            struct.append(vm.ByteStringStackItem(self.contract.group.to_array()))  # type: ignore
 
-class ContractFeatures(IntFlag):
-    NO_PROPERTY = 0,
-    #: Indicate the contract has storage.
-    HAS_STORAGE = 1 << 0
-    #: Indicate the contract accepts tranfers.
-    PAYABLE = 1 << 2
+        if self.methods.is_wildcard:
+            struct.append(vm.NullStackItem())
+        else:
+            struct.append(
+                vm.ArrayStackItem(reference_counter,
+                                  list(map(lambda m: vm.ByteStringStackItem(m), self.methods)))  # type: ignore
+            )
+        return struct
 
 
 class WildcardContainer(IJson):
@@ -256,24 +279,14 @@ class ContractManifest(serialization.ISerializable, IJson):
     https://github.com/neo-project/proposals/blob/3e492ad05d9de97abb6524fb9a73714e2cdc5461/nep-15.mediawiki
     """
     #: The maximum byte size after serialization to be considered valid a valid contract.
-    MAX_LENGTH = 4096
+    MAX_LENGTH = 0xFFFF
 
-    def __init__(self, contract_hash: types.UInt160 = types.UInt160.zero()):
-        """
-        Creates a default contract manifest if no arguments are supplied.
-
-        A default contract is not Payable and has no storage as configured by its features.
-        It may not be called by any other contracts
-
-        Args:
-            contract_hash: the contract script hash to create a manifest for.
-        """
+    def __init__(self, name: Optional[str] = None):
+        #: Contract name
+        self.name: str = name if name else ""
         #: A group represents a set of mutually trusted contracts. A contract will trust and allow any contract in the
         #: same group to invoke it.
         self.groups: List[ContractGroup] = []
-
-        #: Features describe what contract abilities are available. TODO: link to contract features
-        self.features: ContractFeatures = ContractFeatures.NO_PROPERTY
 
         #: The list of NEP standards supported e.g. "NEP-3"
         self.supported_standards: List[str] = []
@@ -281,7 +294,6 @@ class ContractManifest(serialization.ISerializable, IJson):
         #: For technical details of ABI, please refer to NEP-14: NeoContract ABI.
         #: https://github.com/neo-project/proposals/blob/d1f4e9e1a67d22a5755c45595121f80b0971ea64/nep-14.mediawiki
         self.abi: contracts.ContractABI = contracts.ContractABI(
-            contract_hash=contract_hash,
             events=[],
             methods=[]
         )
@@ -289,12 +301,9 @@ class ContractManifest(serialization.ISerializable, IJson):
         #: Permissions describe what external contract(s) and what method(s) on these are allowed to be invoked.
         self.permissions: List[contracts.ContractPermission] = [contracts.ContractPermission.default_permissions()]
 
-        self.contract_hash: types.UInt160 = self.abi.contract_hash
-
         # Update trusts/safe_methods with outcome of https://github.com/neo-project/neo/issues/1664
         # Unfortunately we have to add this nonsense logic or we get deviating VM results.
         self.trusts = WildcardContainer()  # for UInt160 types
-        self.safe_methods: WildcardContainer = WildcardContainer()  # for string types
         self.extra = None
 
     def __len__(self):
@@ -303,12 +312,11 @@ class ContractManifest(serialization.ISerializable, IJson):
     def __eq__(self, other):
         if not isinstance(other, type(self)):
             return False
-        return (self.groups == other.groups
-                and self.features == other.features
+        return (self.name == other.name
+                and self.groups == other.groups
                 and self.abi == other.abi
                 and self.permissions == other.permissions
                 and self.trusts == other.trusts
-                and self.safe_methods == other.safe_methods
                 and self.extra == other.extra)
 
     def __str__(self):
@@ -321,7 +329,7 @@ class ContractManifest(serialization.ISerializable, IJson):
         Args:
             writer: instance.
         """
-        writer.write_var_string(json.dumps(self.to_json()).decode())
+        writer.write_var_string(str(self))
 
     def deserialize(self, reader: BinaryReader) -> None:
         """
@@ -333,15 +341,12 @@ class ContractManifest(serialization.ISerializable, IJson):
         self._deserialize_from_json(json.loads(reader.read_var_string(self.MAX_LENGTH)))
 
     def _deserialize_from_json(self, json: dict) -> None:
+        self.name = json['name']
+        if self.name is None:
+            self.name = ""
         self.abi = contracts.ContractABI.from_json(json['abi'])
-        self.contract_hash = self.abi.contract_hash
         self.groups = list(map(lambda g: ContractGroup.from_json(g), json['groups']))
-        self.features = ContractFeatures.NO_PROPERTY
         self.supported_standards = json['supportedstandards']
-        if json['features']['storage']:
-            self.features |= ContractFeatures.HAS_STORAGE
-        if json['features']['payable']:
-            self.features |= ContractFeatures.PAYABLE
         self.permissions = list(map(lambda p: ContractPermission.from_json(p), json['permissions']))
 
         self.trusts = WildcardContainer.from_json_as_type(
@@ -349,7 +354,6 @@ class ContractManifest(serialization.ISerializable, IJson):
             lambda t: types.UInt160.from_string(t))
 
         # converting json key/value back to default WildcardContainer format
-        self.safe_methods = WildcardContainer.from_json({'wildcard': json['safemethods']})
         self.extra = json['extra']
 
     def to_json(self) -> dict:
@@ -358,19 +362,42 @@ class ContractManifest(serialization.ISerializable, IJson):
         """
         trusts = list(map(lambda m: "0x" + m, self.trusts.to_json()['wildcard']))
         json = {
+            "name": self.name if self.name else None,
             "groups": list(map(lambda g: g.to_json(), self.groups)),
-            "features": {
-                "storage": contracts.ContractFeatures.HAS_STORAGE in self.features,
-                "payable": contracts.ContractFeatures.PAYABLE in self.features,
-            },
             "supportedstandards": self.supported_standards,
             "abi": self.abi.to_json(),
             "permissions": list(map(lambda p: p.to_json(), self.permissions)),
             "trusts": trusts,
-            "safemethods": self.safe_methods.to_json()['wildcard'],
             "extra": self.extra
         }
         return json
+
+    def to_stack_item(self, reference_counter: vm.ReferenceCounter):
+        struct = vm.StructStackItem(reference_counter)
+        struct.append(vm.ByteStringStackItem(self.name))
+        struct.append(vm.ArrayStackItem(reference_counter,
+                                        list(map(lambda g: g.to_stack_item(reference_counter), self.groups)))
+                      )
+        struct.append(vm.ArrayStackItem(reference_counter,
+                                        list(map(lambda s: vm.ByteStringStackItem(s), self.supported_standards)))
+                      )
+        struct.append(self.abi.to_stack_item(reference_counter))
+        struct.append(vm.ArrayStackItem(reference_counter,
+                                        list(map(lambda p: p.to_stack_item(reference_counter), self.permissions)))
+                      )
+        if self.trusts.is_wildcard:
+            struct.append(vm.NullStackItem())
+        else:
+            struct.append(
+                vm.ArrayStackItem(reference_counter,
+                                  list(map(lambda t: vm.ByteStringStackItem(t.to_array()),
+                                           self.trusts)))  # type: ignore
+            )
+        if self.extra is None:
+            struct.append(vm.ByteStringStackItem("null"))
+        else:
+            struct.append(vm.ByteStringStackItem(json.dumps(self.extra)))
+        return struct
 
     @classmethod
     def from_json(cls, json: dict):
@@ -382,38 +409,32 @@ class ContractManifest(serialization.ISerializable, IJson):
 
         Raise:
             KeyError: if the data supplied does not contain the necessary keys.
+            ValueError: if the manifest name property has an incorrect format.
+            ValueError: if the manifest support standards contains an string
         """
-        instance = cls(types.UInt160.zero())
-        instance._deserialize_from_json(json)
-        return instance
+        manifest = cls()
+        manifest._deserialize_from_json(json)
+        if manifest.name is None or len(manifest.name) == 0:
+            raise ValueError("Format error - invalid 'name'")
+        for s in manifest.supported_standards:
+            if len(s) == 0:
+                raise ValueError("Format error - supported standards cannot be zero length")
+        return manifest
 
     def is_valid(self, contract_hash: types.UInt160) -> bool:
         """
-        Test the manifest data for correctness and return the result.
+        Validates the if any in the manifest groups signed the requesting `contract_hash` as permissive.
 
-        - Compares the manifest ABI with the `contract_hash`
-        - Validates the manifest groups with the `contract_hash`
-
-        An example use-case is to create and update smart contracts in a safe manner on the chain.
+        An example use-case is to allow creation and updating of smart contracts by a select group.
 
         Args:
             contract_hash:
-
         """
-        if not self.abi.contract_hash == contract_hash:
-            return False
         result = list(map(lambda g: g.is_valid(contract_hash), self.groups))
         return all(result)
 
-    def can_call(self, target_manifest: ContractManifest, method: str) -> bool:
-        """
-        Convenience function to check if it is allowed to call `method` on `target_manifest` from this contract.
-
-        Args:
-            target_manifest: The manifest describing the target contract.
-            method: the name of the target method.
-        """
-        results = list(map(lambda p: p.is_allowed(target_manifest, method), self.permissions))
+    def can_call(self, target_contract: contracts.ContractState, target_method: str) -> bool:
+        results = list(map(lambda p: p.is_allowed(target_contract, target_method), self.permissions))
         return any(results)
 
     @classmethod

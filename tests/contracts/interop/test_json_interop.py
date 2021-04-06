@@ -2,7 +2,7 @@ import unittest
 import binascii
 from neo3 import vm
 from neo3 import contracts
-from .utils import syscall_name_to_int
+from tests.contracts.interop.utils import syscall_name_to_int
 
 
 class JSONInteropTestCase(unittest.TestCase):

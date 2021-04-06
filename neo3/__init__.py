@@ -6,7 +6,8 @@ from typing import List
 from types import SimpleNamespace
 from neo3.core import cryptography
 
-version = '0.4'
+
+version = '0.5'
 
 core_logger = logging.getLogger('neo3.core')
 network_logger = logging.getLogger('neo3.network')
@@ -39,8 +40,17 @@ def load_class_from_path(path_and_class: str):
 
 
 class IndexableNamespace(SimpleNamespace):
+    def __len__(self):
+        return len(self.__dict__)
+
     def __getitem__(self, key):
         return self.__dict__[key]
+
+    def get(self, key, default=None):
+        try:
+            return self.__dict__[key]
+        except KeyError:
+            return default
 
 
 class Settings(IndexableNamespace):
@@ -75,7 +85,8 @@ class Settings(IndexableNamespace):
                     }
                 }
             }
-        }
+        },
+        'native_contract_activation': {}
     }
 
     @classmethod

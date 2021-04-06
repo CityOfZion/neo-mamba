@@ -1,10 +1,13 @@
 from __future__ import annotations
-from typing import Iterator, Tuple, Dict, List
+from typing import Iterator, Tuple, Dict, List, Optional, TYPE_CHECKING
 from neo3 import storage
 from neo3.core import types
 from neo3.network import payloads
 from contextlib import suppress
 from copy import deepcopy
+
+if TYPE_CHECKING:
+    from neo3 import contracts
 
 
 class MemoryDB(storage.IDBImplementation):
@@ -12,6 +15,7 @@ class MemoryDB(storage.IDBImplementation):
     BLOCK_HEIGHT_MAP = 'blocksmap'
     BLOCK_BEST_HEIGHT = 'blockheight'
     CONTRACT = 'contracts'
+    CONTRACT_ID = 'contract_id'
     STORAGE = 'storages'
     TX = 'transactions'
 
@@ -24,6 +28,7 @@ class MemoryDB(storage.IDBImplementation):
             self.TX: {}
         }
         self._best_block_height = -1
+        self._contract_id = 0
 
     def get_snapshotview(self) -> MemorySnapshot:
         return MemorySnapshot(self)
@@ -84,30 +89,44 @@ class MemoryDB(storage.IDBImplementation):
         for block in self.db[self.BLOCK].values():
             yield deepcopy(block)
 
-    def _internal_contract_put(self, contract: storage.ContractState, batch: WriteBatch = None) -> None:
-        if batch:
-            batch.put(self.CONTRACT, contract.script_hash(), contract)
-        else:
-            self.db[self.CONTRACT][contract.script_hash()] = contract
+    def _internal_contractid_get(self):
+        if self._contract_id == -1:
+            raise KeyError
+        return self._contract_id
 
-    def _internal_contract_update(self, contract: storage.ContractState, batch: WriteBatch = None) -> None:
+    def _internal_contractid_put(self, new_id: int, batch=None):
+        if batch:
+            batch.put(self.CONTRACT_ID, new_id, new_id)
+        else:
+            self._contract_id = new_id
+
+    def _internal_contractid_update(self, new_id: int, batch=None):
+        self._internal_contractid_update(new_id, batch)
+
+    def _internal_contract_put(self, contract: contracts.ContractState, batch: WriteBatch = None) -> None:
+        if batch:
+            batch.put(self.CONTRACT, contract.hash, contract)
+        else:
+            self.db[self.CONTRACT][contract.hash] = contract
+
+    def _internal_contract_update(self, contract: contracts.ContractState, batch: WriteBatch = None) -> None:
         self._internal_contract_put(contract, batch)
 
-    def _internal_contract_delete(self, script_hash: types.UInt160, batch: WriteBatch = None) -> None:
+    def _internal_contract_delete(self, hash: types.UInt160, batch: WriteBatch = None) -> None:
         if batch:
-            batch.delete(self.CONTRACT, script_hash)
+            batch.delete(self.CONTRACT, hash)
         else:
             with suppress(KeyError):
-                self.db[self.CONTRACT].pop(script_hash)
+                self.db[self.CONTRACT].pop(hash)
 
-    def _internal_contract_get(self, script_hash: types.UInt160) -> storage.ContractState:
-        value = self.db[self.CONTRACT].get(script_hash, None)
+    def _internal_contract_get(self, contract_hash: types.UInt160) -> contracts.ContractState:
+        value = self.db[self.CONTRACT].get(contract_hash, None)
         if value is None:
             raise KeyError
 
         return deepcopy(value)
 
-    def _internal_contract_all(self) -> Iterator[storage.ContractState]:
+    def _internal_contract_all(self) -> Iterator[contracts.ContractState]:
         for contract in self.db[self.CONTRACT].values():
             yield deepcopy(contract)
 
@@ -138,23 +157,33 @@ class MemoryDB(storage.IDBImplementation):
 
         return deepcopy(value)
 
-    def _internal_storage_all(self, contract_script_hash: types.UInt160 = None) -> Iterator[Tuple[storage.StorageKey,
-                                                                                                  storage.StorageItem]]:
+    def _internal_storage_all(self, contract_id: Optional[int] = None) -> Iterator[Tuple[storage.StorageKey,
+                                                                                         storage.StorageItem]]:
         for k, v in self.db[self.STORAGE].items():
-            if contract_script_hash:
-                if contract_script_hash == k.contract:
+            if contract_id:
+                if contract_id == k.id:
                     yield deepcopy(k), deepcopy(v)
             else:
                 yield deepcopy(k), deepcopy(v)
 
-    def _internal_storage_find(self, contract_script_hash: types.UInt160,
-                               key_prefix: bytes) -> Iterator[Tuple[storage.StorageKey, storage.StorageItem]]:
+    def _internal_storage_find(self, key_prefix: bytes) -> Iterator[Tuple[storage.StorageKey, storage.StorageItem]]:
         script_hash_len = 20
         for k, v in self.db[self.STORAGE].items():
-            # k is of type StorageKey, which starts with a 20-byte script hash.
+            # k is of type StorageKey, which starts with a 4-byte contract id.
             # We skip this and search only in the `key` attribute
-            if k.to_array()[script_hash_len:].startswith(key_prefix):
+            if k.to_array().startswith(key_prefix):
                 yield deepcopy(k), deepcopy(v)
+
+    def _internal_storage_seek(self,
+                               key_prefix: bytes,
+                               seek_direction="forward") -> Iterator[Tuple[storage.StorageKey, storage.StorageItem]]:
+        if seek_direction == "forward":
+            view = iter(self.db[self.STORAGE].items())
+        else:
+            view = reversed(self.db[self.STORAGE].items())
+        for key, value in view:  # type: storage.StorageKey, storage.StorageItem
+            if key.to_array().startswith(key_prefix):
+                yield deepcopy(key), deepcopy(value)
 
     def _internal_transaction_put(self, transaction: payloads.Transaction, batch: WriteBatch = None) -> None:
         if batch:
@@ -221,8 +250,8 @@ class MemorySnapshot(storage.Snapshot):
         self._batch = WriteBatch()
 
         self._block_cache = MemoryDBCachedBlockAccess(db, self._batch)
-        self._contract_cache = MemoryDBCachedContractAccess(db, self._batch)
         self._storage_cache = MemoryDBCachedStorageAccess(db, self._batch)
+        self._contract_cache = MemoryDBCachedContractAccess(db, self._batch)
         self._tx_cache = MemoryDBCachedTXAccess(db, self._batch)
         self._block_height_cache = MemoryBestBlockHeightAttribute(db, self._batch)
 
@@ -284,7 +313,7 @@ class MemoryDBCachedContractAccess(storage.CachedContractAccess):
 
     def commit(self) -> None:
         keys_to_delete: List[types.UInt160] = []
-        for trackable in self.get_changeset():  # trackable.item: storage.ContractState
+        for trackable in self.get_changeset():  # trackable.item: contracts.ContractState
             if trackable.state == storage.TrackState.ADDED:
                 self._db._internal_contract_put(trackable.item, self._batch)
                 trackable.state = storage.TrackState.NONE
@@ -292,7 +321,7 @@ class MemoryDBCachedContractAccess(storage.CachedContractAccess):
                 self._db._internal_contract_update(trackable.item, self._batch)
                 trackable.state = storage.TrackState.NONE
             elif trackable.state == storage.TrackState.DELETED:
-                self._db._internal_contract_delete(trackable.item.script_hash(), self._batch)
+                self._db._internal_contract_delete(trackable.item.hash, self._batch)
                 keys_to_delete.append(trackable.key)
         for key in keys_to_delete:
             with suppress(KeyError):

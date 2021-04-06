@@ -2,8 +2,7 @@ import unittest
 import binascii
 import lz4
 from unittest.mock import patch, call
-from neo3.network import message
-from neo3.network import payloads
+from neo3.network import payloads, message
 from neo3.core.types.uint import UInt256
 from neo3.core import serialization
 

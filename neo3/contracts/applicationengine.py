@@ -2,15 +2,13 @@ from __future__ import annotations
 from neo3 import contracts, storage, vm
 from neo3.network import payloads
 from neo3.core import types, cryptography, IInteroperable, serialization, to_script_hash
-from neo3.contracts import interop
-from typing import Any, Dict, cast, List, Tuple, Type, Optional, Callable
+from typing import Any, Dict, cast, List, Tuple, Type, Optional, Callable, Union
 import enum
 from dataclasses import dataclass
+from contextlib import suppress
 
 
 class ApplicationEngine(vm.ApplicationEngineCpp):
-    _interop_calls: Dict[int, interop.InteropDescriptor] = {}
-    _invocation_states: Dict[vm.ExecutionContext, InvocationState] = {}
     #: Amount of free GAS added to the engine.
     GAS_FREE = 0
     #: Maximum length of event names for "System.Runtime.Notify" SYSCALLs.
@@ -19,14 +17,6 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
     MAX_NOTIFICATION_SIZE = 1024
     #: Maximum size of the smart contract script.
     MAX_CONTRACT_LENGTH = 1024 * 1024
-    #: Multiplier for determining the costs of storing the contract including its manifest.
-    STORAGE_PRICE = 100000
-
-    @dataclass
-    class InvocationState:
-        return_type: type = None  # type: ignore
-        callback: Optional[Callable] = None
-        check_return_value: bool = False
 
     def __init__(self,
                  trigger: contracts.TriggerType,
@@ -51,14 +41,40 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
         self._invocation_counter: Dict[types.UInt160, int] = {}
         #: Notifications (Notify SYSCALLs) that occured while executing the script.
         self.notifications: List[Tuple[payloads.IVerifiable, types.UInt160, bytes, vm.ArrayStackItem]] = []
+        if self.snapshot is None or self.snapshot.persisting_block is None or self.snapshot.persisting_block.index == 0:
+            self.exec_fee_factor = contracts.PolicyContract().DEFAULT_EXEC_FEE_FACTOR
+            self.STORAGE_PRICE = contracts.PolicyContract().DEFAULT_STORAGE_PRICE
+        else:
+            self.exec_fee_factor = contracts.PolicyContract().get_exec_fee_factor(snapshot)
+            self.STORAGE_PRICE = contracts.PolicyContract().get_storage_price(snapshot)
+
+        self._context_state: Dict[vm.ExecutionContext, contracts.ContractState] = {}
+        from neo3.contracts import interop
+        self.interop = interop
 
     def checkwitness(self, hash_: types.UInt160) -> bool:
         """
         Check if the hash is a valid witness for the engines script_container
         """
+        with suppress(ValueError):
+            if hash_ == self.calling_scripthash:
+                return True
+
         if isinstance(self.script_container, payloads.Transaction):
             tx = self.script_container
-            for s in tx.signers:
+
+            response = tx.try_get_attribute(payloads.OracleResponse)
+            if response is None:
+                signers = tx.signers
+            else:
+                signers = []
+                request = contracts.OracleContract().get_request(self.snapshot, response.id)
+                if request:
+                    tmp_tx = contracts.LedgerContract().get_tx_for_contract(self.snapshot, request.original_tx_id)
+                    if tmp_tx:
+                        signers = tmp_tx.signers
+
+            for s in signers:
                 if s.account == hash_:
                     signer = s
                     break
@@ -77,11 +93,21 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
                     return True
 
             if payloads.WitnessScope.CUSTOM_GROUPS in signer.scope:
-                contract = self.snapshot.contracts.get(self.calling_scripthash)
+                if contracts.CallFlags.READ_STATES not in \
+                        contracts.CallFlags(self.current_context.call_flags):
+                    raise ValueError("Context requires callflags ALLOW_STATES")
+
+                contract = contracts.ManagementContract().get_contract(self.snapshot, self.calling_scripthash)
+                if contract is None:
+                    return False
                 group_keys = set(map(lambda g: g.public_key, contract.manifest.groups))
                 if any(group_keys.intersection(signer.allowed_groups)):
                     return True
             return False
+
+        if contracts.CallFlags.READ_STATES not in \
+                contracts.CallFlags(self.current_context.call_flags):
+            raise ValueError("Context requires callflags ALLOW_STATES")
 
         # for other IVerifiable types like Block
         hashes_for_verifying = self.script_container.get_script_hashes_for_verifying(self.snapshot)
@@ -119,7 +145,9 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
         """
         if class_type in [vm.StackItem, vm.PointerStackItem, vm.ArrayStackItem, vm.InteropStackItem]:
             return stack_item
-        elif class_type in [int, vm.BigInteger]:
+        elif class_type == int:
+            return int(stack_item.to_biginteger())
+        elif class_type == vm.BigInteger:
             return stack_item.to_biginteger()
         # mypy bug? https://github.com/python/mypy/issues/9756
         elif class_type in [bytes, bytearray]:  # type: ignore
@@ -131,15 +159,20 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
         elif class_type == types.UInt256:
             return types.UInt256(data=stack_item.to_array())
         elif class_type == str:
+            if stack_item == vm.NullStackItem():
+                return ""
             return stack_item.to_array().decode()
         elif class_type == cryptography.ECPoint:
             return cryptography.ECPoint.deserialize_from_bytes(stack_item.to_array())
         elif issubclass(class_type, enum.Enum):
-            stack_item = cast(vm.IntegerStackItem, stack_item)
-            # mypy seems to have trouble understanding types that support __int__
-            return class_type(int(stack_item))  # type: ignore
-        else:
-            raise ValueError(f"Unknown class type, don't know how to convert: {class_type}")
+            if stack_item.get_type() == vm.StackItemType.INTEGER:
+                stack_item = cast(vm.IntegerStackItem, stack_item)
+                # mypy seems to have trouble understanding types that support __int__
+                return class_type(int(stack_item))  # type: ignore
+            elif stack_item.get_type() == vm.StackItemType.BYTESTRING:
+                stack_item = cast(vm.ByteStringStackItem, stack_item)
+                return class_type(int(stack_item.to_biginteger()))  # type: ignore
+        raise ValueError(f"Unknown class type, don't know how to convert: {class_type}")
 
     def _native_to_stackitem(self, value, native_type) -> vm.StackItem:
         """
@@ -169,15 +202,19 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
             return vm.BooleanStackItem(value)
         elif issubclass(native_type, (enum.IntFlag, enum.IntEnum)):
             return self._native_to_stackitem(value.value, int)
+        elif hasattr(native_type, '__origin__') and native_type.__origin__ == Union:  # type: ignore
+            # handle typing.Optional[type], Optional is an alias for Union[x, None]
+            # only support specifying 1 type
+            if len(native_type.__args__) != 2:
+                raise ValueError(f"Don't know how to convert native type {native_type} to stackitem")
+            for i in native_type.__args__:
+                if i is None:
+                    continue
+                return self._native_to_stackitem(value, native_type)
+            else:
+                raise ValueError  # shouldn't be possible, but silences mypy
         else:
             return vm.StackItem.from_interface(value)
-
-    def _get_invocation_state(self, context: vm.ExecutionContext) -> InvocationState:
-        state = self._invocation_states.get(context, None)
-        if state is None:
-            state = self.InvocationState()
-            self._invocation_states.update({context: state})
-        return state
 
     def on_syscall(self, method_id: int) -> Any:
         """
@@ -194,14 +231,14 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
         Returns:
             The result of the syscall handler
         """
-        descriptor = interop.InteropService.get_descriptor(method_id)
+        descriptor = self.interop.InteropService.get_descriptor(method_id)
         if descriptor is None:
             raise KeyError(f"Requested interop {method_id} is not valid")
 
-        if descriptor.required_call_flags not in contracts.native.CallFlags(self.current_context.call_flags):
+        if descriptor.required_call_flags not in contracts.CallFlags(self.current_context.call_flags):
             raise ValueError(f"Cannot call {descriptor.method} with {self.current_context.call_flags}")
 
-        self.add_gas(descriptor.price)
+        self.add_gas(descriptor.price * self.exec_fee_factor)
 
         parameters = []
         for target_type in descriptor.parameters:
@@ -239,7 +276,9 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
 
         Note: a smart contract can call other smart contracts.
         """
-        return to_script_hash(self.current_context.script._value)
+        if len(self.current_context.scripthash_bytes) == 0:
+            return to_script_hash(self.current_context.script._value)
+        return types.UInt160(self.current_context.scripthash_bytes)
 
     @property
     def calling_scripthash(self) -> types.UInt160:
@@ -251,9 +290,9 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
         Raises:
             ValueError: if the current executing contract has not been called by another contract.
         """
-        if len(self.current_context.calling_script) == 0:
+        if len(self.current_context.calling_scripthash_bytes) == 0:
             raise ValueError("Cannot retrieve calling script_hash - current context has not yet been called")
-        return to_script_hash(self.current_context.calling_script._value)
+        return types.UInt160(self.current_context.calling_scripthash_bytes)
 
     @property
     def entry_scripthash(self) -> types.UInt160:
@@ -262,41 +301,165 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
 
         Note: a smart contract can call other smart contracts.
         """
-        return to_script_hash(self.entry_context.script._value)
+        if len(self.entry_context.scripthash_bytes) == 0:
+            return to_script_hash(self.entry_context.script._value)
+        return types.UInt160(self.entry_context.scripthash_bytes)
 
     def get_invocation_counter(self) -> int:
         """
         Get the number of times the current contract has been called during this execute() run.
 
-        Note: the counter increases with every "System.Contract.Call" or "System.Contract.CallEx" SYSCALL
+        Note: the counter increases with every "System.Contract.Call" SYSCALL
 
         Raises:
             ValueError: if the contract has not been called.
         """
         counter = self._invocation_counter.get(self.current_scripthash, None)
         if counter is None:
-            raise ValueError(f"Failed to get invocation counter for the current context: {self.current_scripthash}")
+            self._invocation_counter.update({self.current_scripthash: 1})
+            counter = 1
         return counter
 
-    def context_unloaded(self, context: vm.ExecutionContext):
-        # Do not use super() version, see
-        # https://pybind11.readthedocs.io/en/master/advanced/classes.html#overriding-virtual-functions-in-python
-        vm.ExecutionEngine.context_unloaded(self, context)
-        if self.uncaught_exception is not None:
-            return
-        if len(self._invocation_states) == 0:
-            return
-        try:
-            state = self._invocation_states.pop(self.current_context)
-        except KeyError:
-            return
-        if state.check_return_value:
-            eval_stack_len = len(context.evaluation_stack)
-            if eval_stack_len == 0:
-                self.push(vm.NullStackItem())
-            elif eval_stack_len > 1:
-                raise SystemError("Invalid evaluation stack state")
+    def load_script_with_callflags(self,
+                                   script: vm.Script,
+                                   call_flags: contracts.CallFlags,
+                                   initial_position: int = 0,
+                                   rvcount: int = -1,
+                                   contract_state: Optional[contracts.ContractState] = None):
+        context = super(ApplicationEngine, self).load_script(script, rvcount, initial_position)
+        context.call_flags = int(call_flags)
+        if contract_state is not None:
+            self._context_state.update({context: contract_state})
+        return context
 
-        if state.callback is None:
-            return
-        # TODO: implementation Action/DynamicInvoke part of callback logic
+    def call_from_native(self,
+                         calling_scripthash: types.UInt160,
+                         hash_: types.UInt160,
+                         method: str,
+                         args: List[vm.StackItem]) -> None:
+        ctx = self.current_context
+        self._contract_call_internal(hash_, method, contracts.CallFlags.ALL, False, args)
+        self.current_context.calling_scripthash_bytes = calling_scripthash.to_array()
+        while self.current_context != ctx:
+            self.step_out()
+
+    def step_out(self) -> None:
+        c = len(self.invocation_stack)
+        while self.state != vm.VMState.HALT and self.state != vm.VMState.FAULT and len(self.invocation_stack) >= c:
+            self._execute_next()
+        if self.state == vm.VMState.FAULT:
+            raise ValueError(f"Call from native contract failed: {self.exception_message}")
+
+    def load_contract(self,
+                      contract: contracts.ContractState,
+                      method_descriptor: contracts.ContractMethodDescriptor,
+                      flags: contracts.CallFlags) -> Optional[vm.ExecutionContext]:
+
+        rvcount = 0 if method_descriptor.return_type == contracts.ContractParameterType.VOID else 1
+        context = self.load_script_with_callflags(vm.Script(contract.script),
+                                                  flags,
+                                                  method_descriptor.offset,
+                                                  rvcount,
+                                                  contract)
+        # configure state
+        context.call_flags = int(flags)
+        context.scripthash_bytes = contract.hash.to_array()
+
+        init = contract.manifest.abi.get_method("_initialize", 0)
+        if init is not None:
+            self.load_context(context.clone(init.offset))
+        return context
+
+    def load_token(self, token_id: int) -> vm.ExecutionContext:
+        contract = self._context_state.get(self.current_context, None)
+        if contract is None:
+            raise ValueError("Current context has no contract state")
+        if token_id >= len(contract.nef.tokens):
+            raise ValueError("token_id exceeds available tokens")
+
+        token = contract.nef.tokens[token_id]
+        if token.parameters_count > len(self.current_context.evaluation_stack):
+            raise ValueError("Token count exceeds available paremeters on evaluation stack")
+        args: List[vm.StackItem] = []
+        for _ in range(token.parameters_count):
+            args.append(self.pop())
+        return self._contract_call_internal(token.hash, token.method, token.call_flags, token.has_return_value, args)
+
+    def call_native(self, name: str) -> None:
+        contract = contracts.ManagementContract().get_contract_by_name(name)
+        if contract is None or contract.active_block_index > self.snapshot.persisting_block.index:
+            raise ValueError
+        contract.invoke(self)
+
+    def context_unloaded(self, context: vm.ExecutionContext) -> None:
+        self._context_state.pop(context, None)
+
+    def _contract_call_internal(self,
+                                contract_hash: types.UInt160,
+                                method: str,
+                                flags: contracts.CallFlags,
+                                has_return_value: bool,
+                                args: List[vm.StackItem]) -> vm.ExecutionContext:
+        target_contract = contracts.ManagementContract().get_contract(self.snapshot, contract_hash)
+        if target_contract is None:
+            raise ValueError("[System.Contract.Call] Can't find target contract")
+
+        method_descriptor = target_contract.manifest.abi.get_method(method, len(args))
+        if method_descriptor is None:
+            raise ValueError(f"[System.Contract.Call] Method '{method}' with {len(args)} arguments does not exist on "
+                             f"target contract")
+        return self._contract_call_internal2(target_contract, method_descriptor, flags, has_return_value, args)
+
+    def load_context(self, context: vm.ExecutionContext) -> None:
+        if len(context.scripthash_bytes) == 0:
+            context.scripthash_bytes = to_script_hash(context.script._value).to_array()
+        contract_hash = types.UInt160(data=context.scripthash_bytes)
+        counter = self._invocation_counter.get(contract_hash, 0)
+        self._invocation_counter.update({contract_hash: counter + 1})
+
+        super(ApplicationEngine, self).load_context(context)
+
+    def _contract_call_internal2(self,
+                                 target_contract: contracts.ContractState,
+                                 method_descriptor: contracts.ContractMethodDescriptor,
+                                 flags: contracts.CallFlags,
+                                 has_return_value: bool,
+                                 args: List[vm.StackItem]):
+        if method_descriptor.safe:
+            flags &= ~contracts.CallFlags.WRITE_STATES
+        else:
+            current_contract = contracts.ManagementContract().get_contract(self.snapshot, self.current_scripthash)
+            if current_contract and not current_contract.can_call(target_contract, method_descriptor.name):
+                raise ValueError(
+                    f"[System.Contract.Call] Not allowed to call target method '{method_descriptor.name}' according "
+                    f"to manifest")
+
+        counter = self._invocation_counter.get(target_contract.hash, 0)
+        self._invocation_counter.update({target_contract.hash: counter + 1})
+
+        state = self.current_context
+        calling_script_hash_bytes = state.scripthash_bytes
+        calling_flags = state.call_flags
+
+        arg_len = len(args)
+        expected_len = len(method_descriptor.parameters)
+        if arg_len != expected_len:
+            raise ValueError(
+                f"[System.Contract.Call] Invalid number of contract arguments. Expected {expected_len} actual {arg_len}")  # noqa
+
+        if has_return_value ^ (method_descriptor.return_type != contracts.ContractParameterType.VOID):
+            raise ValueError("Return value type does not match")
+
+        context_new = self.load_contract(target_contract,
+                                         method_descriptor,
+                                         flags & calling_flags)
+        if context_new is None:
+            raise ValueError
+        context_new.calling_scripthash_bytes = calling_script_hash_bytes
+
+        for item in reversed(args):
+            context_new.evaluation_stack.push(item)
+
+        if contracts.NativeContract.is_native(target_contract.hash):
+            context_new.evaluation_stack.push(vm.ByteStringStackItem(method_descriptor.name.encode('utf-8')))
+        return context_new

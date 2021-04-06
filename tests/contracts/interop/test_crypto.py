@@ -5,7 +5,7 @@ from neo3.network import payloads
 from neo3 import vm, storage, settings
 from neo3.core import types, serialization, cryptography
 from neo3.core.serialization import BinaryReader, BinaryWriter
-from .utils import test_engine, syscall_name_to_int
+from tests.contracts.interop.utils import test_engine, syscall_name_to_int
 from neo3.contracts.interop.crypto import _check_multisig
 
 
@@ -323,25 +323,24 @@ class CryptoInteropTestCase(unittest.TestCase):
         signatures = [sig1]
         self.assertFalse(_check_multisig(engine, message, public_keys, signatures, cryptography.ECCCurve.SECP256R1))
 
-    def test_check_multisig_with_ECDSA_Secp256r1(self):
+    def test_check_multisig_with_ECDSA_Secp256r1_valid(self):
         engine = test_engine()
         message = vm.ByteStringStackItem(b'hello')
         kp1 = cryptography.KeyPair(private_key=b'\x01' * 32)
         sig1 = cryptography.sign(message.to_array(), kp1.private_key)
 
-        sb = vm.ScriptBuilder()
-        sb.emit_syscall(syscall_name_to_int("Neo.Crypto.CheckMultisigWithECDsaSecp256r1"))
-
-        script = vm.Script(sb.to_array())
-        engine.load_script(script)
-
-        # setup the stack for the syscall
         signatures = vm.ArrayStackItem(engine.reference_counter)
         signatures.append(vm.ByteStringStackItem(sig1))
 
         public_keys = vm.ArrayStackItem(engine.reference_counter)
         public_keys.append(vm.ByteStringStackItem(kp1.public_key.encode_point(False)))
 
+        sb = vm.ScriptBuilder()
+        sb.emit_syscall(syscall_name_to_int("Neo.Crypto.CheckMultisigWithECDsaSecp256r1"))
+        script = vm.Script(sb.to_array())
+        engine.load_script(script)
+
+        # setup the stack for the syscall
         engine.push(signatures)
         engine.push(public_keys)
         engine.push(message)
@@ -350,12 +349,29 @@ class CryptoInteropTestCase(unittest.TestCase):
         self.assertEqual(1, len(engine.result_stack))
         self.assertEqual(vm.BooleanStackItem(True), engine.result_stack.pop())
 
-        # do the same but change the message such that the signature and key are wrong
+    def test_check_multisig_with_ECDSA_Secp256r1_invalid(self):
         engine = test_engine()
+        message = vm.ByteStringStackItem(b'hello')
+        bad_message = vm.ByteStringStackItem(b'badmessage')
+
+        kp1 = cryptography.KeyPair(private_key=b'\x01' * 32)
+        sig1 = cryptography.sign(message.to_array(), kp1.private_key)
+
+        signatures = vm.ArrayStackItem(engine.reference_counter)
+        signatures.append(vm.ByteStringStackItem(sig1))
+
+        public_keys = vm.ArrayStackItem(engine.reference_counter)
+        public_keys.append(vm.ByteStringStackItem(kp1.public_key.encode_point(False)))
+
+        sb = vm.ScriptBuilder()
+        sb.emit_syscall(syscall_name_to_int("Neo.Crypto.CheckMultisigWithECDsaSecp256r1"))
+        script = vm.Script(sb.to_array())
         engine.load_script(script)
+
+        # setup the stack for the syscall using a different message such that verification should fail
         engine.push(signatures)
         engine.push(public_keys)
-        engine.push(vm.ByteStringStackItem(b'badmessage'))
+        engine.push(bad_message)
         engine.execute()
         self.assertEqual(vm.VMState.HALT, engine.state)
         self.assertEqual(1, len(engine.result_stack))

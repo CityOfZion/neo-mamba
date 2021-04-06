@@ -1,0 +1,15 @@
+include CHANGELOG.rst
+include LICENSE.md
+include Makefile
+include README.rst
+include requirements.txt
+include setup.cfg
+include setup.py
+graft examples/*
+graft docs/*
+include docs/make.bat
+include docs/Makefile
+recursive-exclude docs/build/*
+graft neo3/*
+graft tests/*
+global-exclude *.py[cod]
