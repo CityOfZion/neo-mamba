@@ -4,6 +4,7 @@ from setuptools.command.install import install
 from setuptools.command.develop import develop
 from contextlib import suppress
 from pkg_resources import parse_version
+import sys
 
 
 class InstallCommand(install):
@@ -60,19 +61,24 @@ except ImportError:  # pip version < 10.0
 with open('README.rst') as readme_file:
     readme = readme_file.read()
 
+
+leveldb_requirements = ["plyvel==1.3.0" if sys.platform in ["darwin", "linux"] else "plyvel-win32"]
+
 # get the requirements from requirements.txt
 install_reqs = parse_requirements('requirements.txt', session=PipSession())
-if pip_version >= parse_version("20"):
-    reqs = [str(ir.requirement) for ir in install_reqs]
-else:
-    reqs = [str(ir.req) for ir in install_reqs]
-
+reqs = []
+for ir in install_reqs:
+    if hasattr(ir, 'requirement'):
+        reqs.append(str(ir.requirement))
+    else:
+        reqs.append(str(ir.req))
 setup(
     name='neo-mamba',
     python_requires='>=3.7',
     version='0.5',
     description="Python SDK for the NEO 3 blockchain",
     long_description=readme,
+    long_description_content_type="text/x-rst",
     author="Erik van den Brink",
     author_email='erik@coz.io',
     maintainer="Erik van den Brink",
@@ -81,6 +87,7 @@ setup(
     packages=find_packages(include=['neo3']),
     include_package_data=True,
     install_requires=reqs,
+    extras_require={"leveldb": leveldb_requirements},
     license="MIT license",
     zip_safe=False,
     keywords='neo3, python, SDK',
