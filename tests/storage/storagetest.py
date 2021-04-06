@@ -648,11 +648,10 @@ class AbstractStorageStorageTest(abc.ABC, unittest.TestCase):
     A helper class to easily test backend specific code
     """
 
-    # @abc.abstractmethod
+    @abc.abstractmethod
     def db_factory(self):
         """ Implement to return an instance of your DB """
-        from neo3.storage import implementations
-        return implementations.LevelDB({'path': '/tmp/unittest-leveldb'})
+
     def setUp(self) -> None:
         self.db = self.db_factory()
         self.storage1_id = 1

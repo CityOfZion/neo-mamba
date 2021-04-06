@@ -181,11 +181,9 @@ class MemoryDB(storage.IDBImplementation):
             view = iter(self.db[self.STORAGE].items())
         else:
             view = reversed(self.db[self.STORAGE].items())
-        matches = []
         for key, value in view:  # type: storage.StorageKey, storage.StorageItem
             if key.to_array().startswith(key_prefix):
-                matches.append((key, value))
-        return iter(matches)
+                yield deepcopy(key), deepcopy(value)
 
     def _internal_transaction_put(self, transaction: payloads.Transaction, batch: WriteBatch = None) -> None:
         if batch:

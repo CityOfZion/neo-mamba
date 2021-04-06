@@ -1,6 +1,7 @@
 import unittest
 from neo3.core import serialization
 
+
 class SerializableObj(serialization.ISerializable):
     """Helper class for tests"""
     def __init__(self, a: int = None):
@@ -22,6 +23,7 @@ class ISerializableTestCase(unittest.TestCase):
         s1 = SerializableObj()
         obj = s1.deserialize_from_bytes(b'\x01')
         self.assertEqual(1, obj.a)
+
 
 class BinaryReaderTestCase(unittest.TestCase):
     def test_read_bytes(self):
