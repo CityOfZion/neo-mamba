@@ -1,5 +1,6 @@
 from __future__ import annotations
 import hashlib
+import struct
 from typing import List
 
 from neo3 import vm, storage, settings
@@ -68,12 +69,15 @@ class _BlockBase(IVerifiable):
         self.witness = reader.read_serializable(payloads.Witness)
 
     def deserialize_unsigned(self, reader: serialization.BinaryReader) -> None:
-        self.version = reader.read_uint32()
-        self.prev_hash = reader.read_serializable(types.UInt256)
-        self.merkle_root = reader.read_serializable(types.UInt256)
-        self.timestamp = reader.read_uint64()
-        self.index = reader.read_uint32()
-        self.next_consensus = reader.read_serializable(types.UInt160)
+        (self.version,
+         prev_hash,
+         merkleroot,
+         self.timestamp,
+         self.index,
+         consensus) = struct.unpack("<I32s32sQI20s", reader._stream.read(100))
+        self.prev_hash = types.UInt256(prev_hash)
+        self.merkle_root = types.UInt256(merkleroot)
+        self.next_consensus = types.UInt160(consensus)
 
     def hash(self) -> types.UInt256:
         """

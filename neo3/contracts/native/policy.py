@@ -21,6 +21,8 @@ class PolicyContract(NativeContract):
     key_exec_fee_factor = storage.StorageKey(_id, b'\x12')
     key_storage_price = storage.StorageKey(_id, b'\x13')
 
+    _storage_price = 0
+
     def init(self):
         super(PolicyContract, self).init()
 
@@ -261,6 +263,9 @@ class PolicyContract(NativeContract):
         return int(vm.BigInteger(storage_item.value))
 
     def get_storage_price(self, snapshot: storage.Snapshot) -> int:
+        if self._storage_price:
+            return self._storage_price
+
         storage_item = snapshot.storages.get(self.key_storage_price, read_only=True)
         return int(vm.BigInteger(storage_item.value))
 
@@ -279,3 +284,5 @@ class PolicyContract(NativeContract):
             raise ValueError("Check committee failed")
         storage_item = engine.snapshot.storages.get(self.key_storage_price, read_only=False)
         storage_item.value = vm.BigInteger(value).to_array()
+
+        self._storage_price = value

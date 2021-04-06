@@ -70,6 +70,19 @@ class ISerializable(abc.ABC):
 
 
 class BinaryReader(object):
+    _uint8 = struct.Struct("<B")
+    _uint16 = struct.Struct("<H")
+    _uint32 = struct.Struct("<I")
+    _uint64 = struct.Struct("<Q")
+    _int16 = struct.Struct("<h")
+    _int32 = struct.Struct("<i")
+    _int64 = struct.Struct("<q")
+    _uint16BE = struct.Struct(">H")
+    _uint32BE = struct.Struct(">I")
+    _uint64BE = struct.Struct(">Q")
+    _int16BE = struct.Struct(">h")
+    _int32BE = struct.Struct(">i")
+    _int64BE = struct.Struct(">q")
     """
         A convenience class for reading data from byte streams.
 
@@ -109,24 +122,6 @@ class BinaryReader(object):
         # Seek back to the current position
         io.seek(cur_pos)
         return full_size
-
-    def _unpack(self, fmt, length=1) -> Any:
-        """
-        Unpack the stream contents according to the specified format in `fmt`.
-        For more information about the `fmt` format see: https://docs.python.org/3/library/struct.html
-
-        Args:
-            fmt (str): format string.
-            length (int): amount of bytes to read.
-
-        Returns:
-            variable: the result according to the specified format.
-        """
-        try:
-            values = struct.unpack(fmt, self._stream.read(length))
-            return values[0]
-        except struct.error as e:
-            raise ValueError(str(e) + f". Available bytes is: {len(self)}")
 
     def read_byte(self) -> bytes:
         """
@@ -169,70 +164,85 @@ class BinaryReader(object):
         Returns:
             bool: False for b'\x00'. True for all other values.
         """
-        return self._unpack('?')
+        return struct.unpack("?", self._stream.read(1))[0]
 
-    def read_uint8(self, endian: str = "<") -> int:
+    def read_uint8(self) -> int:
         """
         Read 1 byte as an unsigned integer value from the stream.
-
-        Args:
-            endian: specify the endianness. (Default) Little endian ('<'). Use '>' for big endian.
         """
-        return self._unpack('%sB' % endian)
+        return self._uint8.unpack(self._stream.read(1))[0]
 
-    def read_uint16(self, endian: str = "<") -> int:
+    def read_uint16(self) -> int:
         """
         Read 2 bytes as an unsigned integer value from the stream.
-
-        Args:
-            endian: specify the endianness. (Default) Little endian ('<'). Use '>' for big endian.
         """
-        return self._unpack('%sH' % endian, 2)
+        return self._uint16.unpack(self._stream.read(2))[0]
 
-    def read_int16(self, endian: str = "<") -> int:
+    def read_uint16BE(self) -> int:
         """
         Read 2 bytes as an unsigned integer value from the stream.
-
-        Args:
-            endian: specify the endianness. (Default) Little endian ('<'). Use '>' for big endian.
         """
-        return self._unpack('%sh' % endian, 2)
+        return self._uint16BE.unpack(self._stream.read(2))[0]
 
-    def read_uint32(self, endian: str = "<") -> int:
+    def read_int16(self) -> int:
+        """
+        Read 2 bytes as an unsigned integer value from the stream.
+        """
+        return self._int16.unpack(self._stream.read(2))[0]
+
+    def read_int16BE(self) -> int:
+        """
+        Read 2 bytes as an unsigned integer value from the stream.
+        """
+        return self._int16BE.unpack(self._stream.read(2))[0]
+
+    def read_uint32(self) -> int:
         """
         Read 4 bytes as an unsigned integer value from the stream.
-
-        Args:
-            endian: specify the endianness. (Default) Little endian ('<'). Use '>' for big endian.
         """
-        return self._unpack('%sI' % endian, 4)
+        return self._uint32.unpack(self._stream.read(4))[0]
 
-    def read_int32(self, endian: str = "<") -> int:
+    def read_uint32BE(self) -> int:
+        """
+        Read 4 bytes as an unsigned integer value from the stream.
+        """
+        return self._uint32BE.unpack(self._stream.read(4))[0]
+
+    def read_int32(self) -> int:
         """
         Read 4 bytes as a signed integer value from the stream.
-
-        Args:
-            endian: specify the endianness. (Default) Little endian ('<'). Use '>' for big endian.
         """
-        return self._unpack('%si' % endian, 4)
+        return self._int32.unpack(self._stream.read(4))[0]
 
-    def read_uint64(self, endian: str = "<") -> int:
+    def read_int32BE(self) -> int:
+        """
+        Read 4 bytes as a signed integer value from the stream.
+        """
+        return self._int32BE.unpack(self._stream.read(4))[0]
+
+    def read_uint64(self) -> int:
         """
         Read 8 bytes as an unsigned integer value from the stream.
-
-        Args:
-            endian: specify the endianness. (Default) Little endian ('<'). Use '>' for big endian.
         """
-        return self._unpack('%sQ' % endian, 8)
+        return self._uint64.unpack(self._stream.read(8))[0]
 
-    def read_int64(self, endian: str = "<") -> int:
+    def read_uint64BE(self) -> int:
+        """
+        Read 8 bytes as an unsigned integer value from the stream.
+        """
+        return self._uint64BE.unpack(self._stream.read(8))[0]
+
+    def read_int64(self) -> int:
         """
         Read 8 bytes as a signed integer value from the stream.
-
-        Args:
-            endian: specify the endianness. (Default) Little endian ('<'). Use '>' for big endian.
         """
-        return self._unpack('%sq' % endian, 8)
+        return self._int64.unpack(self._stream.read(8))[0]
+
+    def read_int64BE(self) -> int:
+        """
+        Read 8 bytes as a signed integer value from the stream.
+        """
+        return self._int64BE.unpack(self._stream.read(8))[0]
 
     def read_var_int(self, max: int = sys.maxsize) -> int:
         """
@@ -313,7 +323,7 @@ class BinaryReader(object):
         """
         length = self.read_var_int(max)
         try:
-            data = self._unpack(str(length) + 's', length)
+            data = struct.unpack(f"{length}s", self._stream.read(length))[0]
             return data.decode('utf-8')
         except Exception as e:
             raise ValueError(str(e))

@@ -1,6 +1,7 @@
 from __future__ import annotations
 import hashlib
 import abc
+import struct
 from enum import Enum
 from typing import List, Optional, Type, TypeVar
 from neo3.core import Size as s, serialization, utils, types, IInteroperable, IJson
@@ -244,20 +245,18 @@ class Transaction(payloads.IInventory, IInteroperable):
         self.witnesses = reader.read_serializable_list(payloads.Witness)
 
     def deserialize_unsigned(self, reader: serialization.BinaryReader) -> None:
-        self.version = reader.read_uint8()
+        (self.version,
+         self.nonce,
+         self.system_fee,
+         self.network_fee,
+         self.valid_until_block) = struct.unpack("<BIqqI", reader._stream.read(25))
         if self.version > 0:
             raise ValueError("Deserialization error - invalid version")
-        self.nonce = reader.read_uint32()
-        self.system_fee = reader.read_int64()
         if self.system_fee < 0:
             raise ValueError("Deserialization error - negative system fee")
-        self.network_fee = reader.read_int64()
         if self.network_fee < 0:
             raise ValueError("Deserialization error - negative network fee")
-        # Impossible overflow, only applicable to the C# implementation where they use longs
-        # if (self.system_fee + self.network_fee < self.system_fee):
-        #     raise ValueError("Deserialization error - overflow")
-        self.valid_until_block = reader.read_uint32()
+
         self.signers = Transaction._deserialize_signers(reader, self.MAX_TRANSACTION_ATTRIBUTES)
         self.attributes = Transaction._deserialize_attributes(reader,
                                                               self.MAX_TRANSACTION_ATTRIBUTES - len(self.signers))
