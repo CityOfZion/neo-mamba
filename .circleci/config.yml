@@ -22,7 +22,7 @@ jobs:
             python -m venv venv
             source venv/bin/activate
             pip install --upgrade "pip>=19.3"
-            pip install -e . --no-cache-dir
+            pip install -e .[leveldb] --no-cache-dir
       - persist_to_workspace:
           root: ~/
           paths: project/*
