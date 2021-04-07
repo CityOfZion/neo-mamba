@@ -322,4 +322,3 @@ class RuntimeInteropTestCase(unittest.TestCase):
         signature_redeem_script = contracts.Contract.create_signature_redeemscript(keypair.public_key)
         result_item = types.UInt160(engine.result_stack.pop().to_array())
         self.assertEqual(to_script_hash(signature_redeem_script), result_item)
-

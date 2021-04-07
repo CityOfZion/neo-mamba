@@ -6,7 +6,6 @@ from typing import List
 from types import SimpleNamespace
 from neo3.core import cryptography
 
-
 version = '0.5'
 
 core_logger = logging.getLogger('neo3.core')

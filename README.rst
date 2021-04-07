@@ -37,7 +37,7 @@ or
   pip install wheel
   pip install wheel -e .
 
-This installs mamba with only the `MemoryDB` as possible backend. In order to install the requirements to use the
+This installs mamba with only the ``MemoryDB`` as possible backend. In order to install the requirements to use the
 LevelDB backend install the leveldb via extras
 
 ::
@@ -49,7 +49,6 @@ Ensure you have PIP >= 19.3
 ::
 
    pip install --upgrade "pip>=19.3"
-
 
 
 For full documentation including more elaborate install instructions go to `<https://docs.coz.io/neo3/mamba/index.html>`_.
@@ -75,10 +74,10 @@ Performance
 -----------
 `neo-mamba` syncs the blockchain a respectable ~20% faster than the official client `neo-cli <https://github.com/neo-project/neo-node>`_.
 
-Performance was measured by letting each client sync the Preview 5 TestNet from an offline file up to block height 181131.
-Syncing was done without verifying the block witnesses (``--noverify`` flag in ``neo-cli``). Each client used LevelDB as
-storage backend, with no other additional plugins running. Each client was synced separately with no additional resource
-usage on the system. The test was performed on OSX 10.15.7 on a i7-9750H with 16 GB ram.
+Performance was measured by letting each client sync the Preview 5 TestNet from an offline file up to block height 181131
+as available at that time. Syncing was done without verifying the block witnesses (``--noverify`` flag in ``neo-cli``).
+Each client used LevelDB as storage backend, with no other additional plugins running. Each client was synced separately
+with no additional resource usage on the system. The test was performed on OSX 10.15.7 on a i7-9750H with 16 GB ram.
 
 FAQ
 ---

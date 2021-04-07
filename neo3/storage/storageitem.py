@@ -60,34 +60,3 @@ class StorageItem(serialization.ISerializable, IClonable):
     @classmethod
     def _serializable_init(cls):
         return cls(b'')
-
-
-# class FungibleTokenStorageState(IInteroperable, serialization.ISerializable):
-#     """
-#     Helper class for NEP17 balance state
-#     """
-#
-#     def __init__(self):
-#         super(FungibleTokenStorageState, self).__init__()
-#         self.balance: vm.BigInteger = vm.BigInteger.zero()
-#
-#     def __len__(self):
-#         return len(self.balance.to_array())
-#
-#     def serialize(self, writer: BinaryWriter) -> None:
-#         writer.write_var_bytes(self.balance.to_array())
-#
-#     def deserialize(self, reader: BinaryReader) -> None:
-#         self.balance = vm.BigInteger(reader.read_var_bytes())
-#
-#     def to_stack_item(self, reference_counter: vm.ReferenceCounter) -> vm.StackItem:
-#         struct = vm.StructStackItem(reference_counter)
-#         struct.append(vm.IntegerStackItem(self.balance))
-#         return struct
-#
-#     @classmethod
-#     def from_stack_item(cls, stack_item: vm.StackItem):
-#         si = cast(vm.StructStackItem, stack_item)
-#         c = cls()
-#         c.balance = si[0].to_biginteger()
-#         return c
