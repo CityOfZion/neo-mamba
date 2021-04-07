@@ -41,7 +41,7 @@ class AbstractBlockStorageTest(abc.ABC, unittest.TestCase):
                                   attributes=[],
                                   signers=[signer],
                                   script=b'\x01',
-                                  witnesses=[])
+                                  witnesses=[payloads.Witness(invocation_script=b'', verification_script=b'\x55')])
 
         self.block1 = payloads.Block(version=0,
                                    prev_hash=types.UInt256.from_string("f782c7fbb2eef6afe629b96c0d53fb525eda64ce5345057caf975ac3c2b9ae0a"),

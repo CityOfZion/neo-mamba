@@ -242,7 +242,9 @@ class Transaction(payloads.IInventory, IInteroperable):
             reader: instance.
         """
         self.deserialize_unsigned(reader)
-        self.witnesses = reader.read_serializable_list(payloads.Witness)
+        self.witnesses = reader.read_serializable_list(payloads.Witness, max=len(self.signers))
+        if len(self.witnesses) != len(self.signers):
+            raise ValueError("Deserialization error - witness length does not match signers length")
 
     def deserialize_unsigned(self, reader: serialization.BinaryReader) -> None:
         (self.version,

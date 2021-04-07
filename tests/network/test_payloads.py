@@ -130,9 +130,7 @@ class BlockTestCase(unittest.TestCase):
         tx.Attributes = new TransactionAttribute[0];
         tx.Signers = new Signer[] { new Signer() { Account = UInt160.Parse("0xe239c7228fa6b46cc0cf43623b2f934301d0b4f7")}};
         tx.Script = new byte[] { 0x1 };
-        tx.Witnesses = new Witness[0];
-
-
+        tx.Witnesses = new Witness[] {new Witness { InvocationScript = new byte[0], VerificationScript = new byte[] { 0x55 } }};
 
         Block b = new Block();
         b.Version = 0;
@@ -147,8 +145,6 @@ class BlockTestCase(unittest.TestCase):
 
         Console.WriteLine($"{b.Size}");
         Console.WriteLine($"{BitConverter.ToString(b.ToArray()).Replace("-", "")}");
-        Console.WriteLine($"{b.Trim().Size}");
-        Console.WriteLine($"{BitConverter.ToString(b.Trim().ToArray()).Replace("-", "")}");
         """
         cls.tx = payloads.Transaction(version=0,
                                       nonce=123,
@@ -158,7 +154,7 @@ class BlockTestCase(unittest.TestCase):
                                       attributes=[],
                                       signers=[payloads.Signer(types.UInt160.from_string("e239c7228fa6b46cc0cf43623b2f934301d0b4f7"))],
                                       script=b'\x01',
-                                      witnesses=[])
+                                      witnesses=[payloads.Witness(invocation_script=b'', verification_script=b'\x55')])
 
         cls.block = payloads.Block(version=0,
                                    prev_hash=types.UInt256.from_string("f782c7fbb2eef6afe629b96c0d53fb525eda64ce5345057caf975ac3c2b9ae0a"),
@@ -169,11 +165,10 @@ class BlockTestCase(unittest.TestCase):
                                    consensus_data=payloads.ConsensusData(primary_index=0, nonce=123),
                                    transactions=[cls.tx])
         cls.block.rebuild_merkle_root()
-        cls.trimmed_block = cls.block.trim()
 
     def test_len(self):
         # captured from C#, see setUpClass() for the capture code
-        expected_len = 165
+        expected_len = 168
         self.assertEqual(expected_len, len(self.block))
 
     def test_equals(self):
@@ -188,7 +183,7 @@ class BlockTestCase(unittest.TestCase):
 
     def test_serialization(self):
         # captured from C#, see setUpClass() for the capture code
-        expected_data = binascii.unhexlify("000000000AAEB9C2C35A97AF7C054553CE64DA5E52FB530D6CB929E6AFF6EEB2FBC782F749A149B5AEED7B7DBD753FE54F9FCC4A0B368221EF06F76DC4ABB0317972BEE07B000000000000000100000054A64CAC1B1073E662933EF3E30B007CD98D67D70100015502007B00000000000000007B000000C80100000000000015030000000000000100000001F7B4D00143932F3B6243CFC06CB4A68F22C739E20000010100")
+        expected_data = binascii.unhexlify("000000000AAEB9C2C35A97AF7C054553CE64DA5E52FB530D6CB929E6AFF6EEB2FBC782F749A149B5AEED7B7DBD753FE54F9FCC4A0B368221EF06F76DC4ABB0317972BEE07B000000000000000100000054A64CAC1B1073E662933EF3E30B007CD98D67D70100015502007B00000000000000007B000000C80100000000000015030000000000000100000001F7B4D00143932F3B6243CFC06CB4A68F22C739E20000010101000155")
         self.assertEqual(expected_data, self.block.to_array())
 
     def test_deserialization(self):
