@@ -153,38 +153,3 @@ class ConsensusPayload(payloads.IInventory):
     @classmethod
     def _serializable_init(cls):
         return cls(0, types.UInt256.zero(), 0, 0, b'', payloads.Witness(b'', b''))
-
-
-class ConsensusData(serialization.ISerializable):
-    def __init__(self, primary_index: int = 0, nonce: int = 0):
-        self.primary_index = primary_index
-        self.nonce = nonce
-
-    def __len__(self):
-        return s.uint8 + s.uint64
-
-    def hash(self) -> types.UInt256:
-        data = hashlib.sha256(hashlib.sha256(self.to_array()).digest()).digest()
-        return types.UInt256(data=data)
-
-    def serialize(self, writer: serialization.BinaryWriter) -> None:
-        """
-        Serialize the object into a binary stream.
-
-        Args:
-            writer: instance.
-        """
-        writer.write_uint8(self.primary_index)
-        writer.write_uint64(self.nonce)
-
-    def deserialize(self, reader: serialization.BinaryReader) -> None:
-        """
-        Deserialize the object from a binary stream.
-
-        Args:
-            reader: instance.
-        """
-        self.primary_index = reader.read_uint8()
-        if self.primary_index >= settings.network.validators_count:
-            raise ValueError("Deserialization error - primary index exceeds validator count")
-        self.nonce = reader.read_uint64()

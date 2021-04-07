@@ -4,6 +4,7 @@ import hashlib
 from neo3.core import types
 from neo3.core import cryptography as crypto
 
+
 class MerkleTreeTestCase(unittest.TestCase):
     def test_compute_root_single_hash(self):
         data = binascii.unhexlify(b'aa' * 32)
@@ -23,9 +24,7 @@ class MerkleTreeTestCase(unittest.TestCase):
         self.assertEqual(expected_hash, root.to_array())
 
     def test_computer_root_no_input(self):
-        with self.assertRaises(ValueError) as context:
-            crypto.MerkleTree.compute_root([])
-        self.assertIn("Hashes list can't empty",str(context.exception))
+        self.assertEqual(types.UInt256.zero(), crypto.MerkleTree.compute_root([]))
 
     def test_build_no_leaves(self):
         with self.assertRaises(ValueError) as context:

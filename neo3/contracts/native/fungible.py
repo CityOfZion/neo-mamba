@@ -922,6 +922,6 @@ class GasToken(FungibleToken):
             total_network_fee += tx.network_fee
             self.burn(engine, tx.sender, vm.BigInteger(tx.system_fee + tx.network_fee))
         pub_keys = NeoToken().get_next_block_validators(engine.snapshot)
-        primary = pub_keys[engine.snapshot.persisting_block.consensus_data.primary_index]
+        primary = pub_keys[engine.snapshot.persisting_block.primary_index]
         script_hash = to_script_hash(contracts.Contract.create_signature_redeemscript(primary))
         self.mint(engine, script_hash, vm.BigInteger(total_network_fee), False)

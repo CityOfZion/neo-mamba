@@ -61,15 +61,16 @@ def test_tx(with_block_height=1, signers: List[types.UInt160]=None) -> payloads.
 
 def test_block(with_index=1) -> payloads.Block:
     tx = test_tx(with_index)
-    block1 = payloads.Block(version=0,
-                            prev_hash=types.UInt256.from_string(
-                                "f782c7fbb2eef6afe629b96c0d53fb525eda64ce5345057caf975ac3c2b9ae0a"),
-                            timestamp=123,
-                            index=with_index,
-                            next_consensus=types.UInt160.from_string("d7678dd97c000be3f33e9362e673101bac4ca654"),
-                            witness=payloads.Witness(invocation_script=b'', verification_script=b'\x55'),
-                            consensus_data=payloads.ConsensusData(primary_index=1, nonce=123),
-                            transactions=[tx])
+    header1 = payloads.Header(
+        version=0,
+        prev_hash=types.UInt256.from_string("f782c7fbb2eef6afe629b96c0d53fb525eda64ce5345057caf975ac3c2b9ae0a"),
+        timestamp=123,
+        index=with_index,
+        primary_index=0,
+        next_consensus=types.UInt160.from_string("d7678dd97c000be3f33e9362e673101bac4ca654"),
+        witness=payloads.Witness(invocation_script=b'', verification_script=b'\x55')
+    )
+    block1 = payloads.Block(header1, transactions=[tx])
     block1.rebuild_merkle_root()
     return block1
 

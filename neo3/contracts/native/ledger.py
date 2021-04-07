@@ -97,7 +97,7 @@ class LedgerContract(NativeContract):
 
         if block and not self._is_traceable_block(snapshot, block.index):
             block = None
-        if tx_index < 0 or tx_index > len(block.transactions) - 1:
+        if tx_index < 0 or tx_index >= len(block.transactions):
             raise ValueError("Transaction index out of range")
         return block.transactions[tx_index]
 

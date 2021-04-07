@@ -36,20 +36,19 @@ class Blockchain(convenience._Singleton):
 
     @staticmethod
     def _create_genesis_block() -> payloads.Block:
-        b = payloads.Block(
+        h = payloads.Header(
             version=0,
             prev_hash=types.UInt256.zero(),
             timestamp=int(datetime(2016, 7, 15, 15, 8, 21, 0, timezone.utc).timestamp() * 1000),
             index=0,
+            primary_index=0,
             next_consensus=contracts.Contract.get_consensus_address(settings.standby_validators),
             witness=payloads.Witness(
                 invocation_script=b'',
                 verification_script=b'\x11'  # (OpCode.PUSH1)
             ),
-            consensus_data=payloads.ConsensusData(primary_index=0, nonce=2083236893),
-            transactions=[]
         )
-        return b
+        return payloads.Block(header=h, transactions=[])
 
     def persist(self, block: payloads.Block):
         with self.backend.get_snapshotview() as snapshot:

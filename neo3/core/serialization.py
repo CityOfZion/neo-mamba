@@ -357,10 +357,13 @@ class BinaryReader(object):
         if max and count > max:
             count = max
 
-        for _ in range(count):
-            obj = obj_type._serializable_init()
-            obj.deserialize(self)
-            obj_array.append(obj)
+        try:
+            for _ in range(count):
+                obj = obj_type._serializable_init()
+                obj.deserialize(self)
+                obj_array.append(obj)
+        except Exception as e:
+            raise ValueError(f"Insufficient data - {str(e)}")
         return obj_array
 
     def close(self) -> None:
