@@ -3,7 +3,7 @@ import hashlib
 from enum import IntEnum
 from neo3.core import Size as s, serialization, utils, types, to_script_hash
 from neo3.network import payloads
-from neo3 import contracts, storage
+from neo3 import contracts, storage, settings
 from typing import TypeVar, List
 
 ConsensusMessage_t = TypeVar('ConsensusMessage_t', bound='ConsensusMessage')
@@ -73,11 +73,12 @@ class ConsensusPayload(payloads.IInventory):
         self.witness = witness
 
     def __len__(self):
-        return (s.uint32 + len(self.prev_hash) + s.uint32 + s.uint16 + utils.get_var_size(self.data) + 1
+        return (s.uint32 + len(self.prev_hash) + s.uint32 + s.uint8 + utils.get_var_size(self.data) + 1
                 + len(self.witness))
 
     def hash(self) -> types.UInt256:
         with serialization.BinaryWriter() as bw:
+            bw.write_uint32(settings.network.magic)
             self.serialize_unsigned(bw)
             data_to_hash = bytearray(bw._stream.getvalue())
             data = hashlib.sha256(hashlib.sha256(data_to_hash).digest()).digest()
@@ -108,7 +109,7 @@ class ConsensusPayload(payloads.IInventory):
         writer.write_uint32(self.version)
         writer.write_serializable(self.prev_hash)
         writer.write_uint32(self.block_index)
-        writer.write_uint16(self.validator_index)
+        writer.write_uint8(self.validator_index)
         writer.write_var_bytes(self.data)
 
     def deserialize(self, reader: serialization.BinaryReader) -> None:
@@ -136,7 +137,9 @@ class ConsensusPayload(payloads.IInventory):
         self.version = reader.read_uint32()
         self.prev_hash = reader.read_serializable(types.UInt256)
         self.block_index = reader.read_uint32()
-        self.validator_index = reader.read_uint16()
+        self.validator_index = reader.read_uint8()
+        if self.validator_index >= settings.network.validators_count:
+            raise ValueError("Deserialization error - validator index exceeds validator count")
         self.data = reader.read_var_bytes()
 
     def get_script_hashes_for_verifying(self, snapshot: storage.Snapshot) -> List[types.UInt160]:
@@ -158,7 +161,7 @@ class ConsensusData(serialization.ISerializable):
         self.nonce = nonce
 
     def __len__(self):
-        return utils.get_var_size(self.primary_index) + s.uint64
+        return s.uint8 + s.uint64
 
     def hash(self) -> types.UInt256:
         data = hashlib.sha256(hashlib.sha256(self.to_array()).digest()).digest()
@@ -171,7 +174,7 @@ class ConsensusData(serialization.ISerializable):
         Args:
             writer: instance.
         """
-        writer.write_var_int(self.primary_index)
+        writer.write_uint8(self.primary_index)
         writer.write_uint64(self.nonce)
 
     def deserialize(self, reader: serialization.BinaryReader) -> None:
@@ -181,5 +184,7 @@ class ConsensusData(serialization.ISerializable):
         Args:
             reader: instance.
         """
-        self.primary_index = reader.read_var_int(max=1024)  # comes from C#'s Blockchain.MaxValidators
+        self.primary_index = reader.read_uint8()
+        if self.primary_index >= settings.network.validators_count:
+            raise ValueError("Deserialization error - primary index exceeds validator count")
         self.nonce = reader.read_uint64()

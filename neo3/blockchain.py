@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import List
 from datetime import datetime, timezone
 from neo3 import contracts, storage, settings, vm
-from neo3.core import cryptography, types, to_script_hash, msgrouter
+from neo3.core import cryptography, types, to_script_hash, msgrouter, syscall_name_to_int
 from neo3.network import payloads, convenience
 
 
@@ -15,13 +15,12 @@ class Blockchain(convenience._Singleton):
         self.genesis_block = self._create_genesis_block()
         self.genesis_block.rebuild_merkle_root()
 
-        sb = vm.ScriptBuilder()
-        for c in [contracts.GasToken(), contracts.NeoToken()]:
-            sb.emit_contract_call(c.script_hash, "onPersist")  # type: ignore
-            sb.emit(vm.OpCode.DROP)
+        sb = vm.ScriptBuilder().emit_syscall(syscall_name_to_int("System.Contract.NativeOnPersist"))
         self.native_onpersist_script = sb.to_array()
+        sb = vm.ScriptBuilder().emit_syscall(syscall_name_to_int("System.Contract.NativePostPersist"))
+        self.native_postpersist_script = sb.to_array()
 
-        if self.currentSnapshot.block_height < 0 and store_genesis_block:
+        if self.currentSnapshot.best_block_height < 0 and store_genesis_block:
             self.persist(self.genesis_block)
 
     @property
@@ -33,61 +32,34 @@ class Blockchain(convenience._Singleton):
 
     @property
     def height(self):
-        return self.currentSnapshot.block_height
-
-    @staticmethod
-    def get_consensus_address(validators: List[cryptography.ECPoint]) -> types.UInt160:
-        script = contracts.Contract.create_multisig_redeemscript(
-            len(validators) - (len(validators) - 1) // 3,
-            validators
-        )
-        return to_script_hash(script)
+        return self.currentSnapshot.best_block_height
 
     @staticmethod
     def _create_genesis_block() -> payloads.Block:
-        script = vm.ScriptBuilder().emit_syscall(contracts.syscall_name_to_int("Neo.Native.Deploy")).to_array()
         b = payloads.Block(
             version=0,
             prev_hash=types.UInt256.zero(),
             timestamp=int(datetime(2016, 7, 15, 15, 8, 21, 0, timezone.utc).timestamp() * 1000),
             index=0,
-            next_consensus=Blockchain.get_consensus_address(settings.standby_validators),
+            next_consensus=contracts.Contract.get_consensus_address(settings.standby_validators),
             witness=payloads.Witness(
                 invocation_script=b'',
                 verification_script=b'\x11'  # (OpCode.PUSH1)
             ),
             consensus_data=payloads.ConsensusData(primary_index=0, nonce=2083236893),
-            transactions=[payloads.Transaction(
-                version=0,
-                script=script,
-                system_fee=0,
-                network_fee=0,
-                nonce=0,
-                valid_until_block=0,
-                signers=[payloads.Signer(
-                    account=to_script_hash(b'\x11'),
-                    scope=payloads.WitnessScope.FEE_ONLY
-                )],
-                witnesses=[payloads.Witness(
-                    invocation_script=b'',
-                    verification_script=b'\x11'
-                )]
-            )]
+            transactions=[]
         )
         return b
 
     def persist(self, block: payloads.Block):
         with self.backend.get_snapshotview() as snapshot:
-            snapshot.block_height = block.index
-            snapshot.blocks.put(block)
             snapshot.persisting_block = block
 
-            if block.index > 0:
-                engine = contracts.ApplicationEngine(contracts.TriggerType.SYSTEM,
-                                                     None, snapshot, 0, True)  # type: ignore
-                engine.load_script(vm.Script(self.native_onpersist_script))
-                if engine.execute() != vm.VMState.HALT:
-                    raise ValueError(f"Failed onPersist in native contracts: {engine.exception_message}")
+            engine = contracts.ApplicationEngine(contracts.TriggerType.ON_PERSIST,
+                                                 None, snapshot, 0, True)  # type: ignore
+            engine.load_script(vm.Script(self.native_onpersist_script))
+            if engine.execute() != vm.VMState.HALT:
+                raise ValueError(f"Failed onPersist in native contracts: {engine.exception_message}")
 
             cloned_snapshot = snapshot.clone()
             for tx in block.transactions:
@@ -105,7 +77,19 @@ class Blockchain(convenience._Singleton):
                     cloned_snapshot.commit()
                 else:
                     cloned_snapshot = snapshot.clone()
+            engine = contracts.ApplicationEngine(contracts.TriggerType.POST_PERSIST,
+                                                 None, snapshot, 0, True)  # type: ignore
+            engine.load_script(vm.Script(self.native_postpersist_script))
+            if engine.execute() != vm.VMState.HALT:
+                raise ValueError(f"Failed postPersist in native contracts: {engine.exception_message}")
+            """
+            LedgerContract updates the current block in the post_persist event
+            this means transactions in the persisting block that call LedgerContract.current_hash/current_index()
+            will get refer the (previous) block hash/index, not the block they're included in.
 
+            Therefore we wait with persisting the block until here
+            """
+            snapshot.blocks.put(block)
             snapshot.commit()
             self._current_snapshot = snapshot
         msgrouter.on_block_persisted(block)

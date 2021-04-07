@@ -1,6 +1,6 @@
 from __future__ import annotations
 import enum
-from typing import List, Optional, Type
+from typing import List, Optional, Type, Union, cast
 from enum import IntEnum
 from neo3.core import types, IJson, IInteroperable, serialization
 from neo3 import contracts, vm
@@ -32,8 +32,8 @@ class ContractParameterType(IntEnum):
             return self.name.title()
 
     @classmethod
-    def from_type(cls, class_type: Type[object]) -> ContractParameterType:
-        if class_type is None:
+    def from_type(cls, class_type: Optional[Type[object]]) -> ContractParameterType:
+        if class_type is None or class_type == type(None):
             return ContractParameterType.VOID
         elif class_type in [bool, vm.BooleanStackItem]:
             return ContractParameterType.BOOLEAN
@@ -41,6 +41,19 @@ class ContractParameterType(IntEnum):
             return ContractParameterType.INTEGER
         elif class_type in [bytes, bytearray, vm.BufferStackItem, vm.ByteStringStackItem]:
             return ContractParameterType.BYTEARRAY
+        elif hasattr(class_type, '__origin__'):
+            if class_type.__origin__ == list:  # type: ignore
+                return ContractParameterType.ARRAY
+            if class_type.__origin__ == Union:  # type: ignore
+                # handle typing.Optional[type], Optional is an alias for Union[x, None]
+                # only support specifying 1 type
+                if len(class_type.__args__) != 2:  # type: ignore
+                    raise ValueError(f"Don't know how to convert {class_type}")
+                for i in class_type.__args__:  # type: ignore
+                    if i is None:
+                        continue
+                    return cls.from_type(i)
+            raise ValueError
         elif issubclass(class_type, serialization.ISerializable):
             return ContractParameterType.BYTEARRAY
         elif class_type == str:
@@ -95,11 +108,23 @@ class ContractParameterDefinition(IJson):
 
         Raises:
             KeyError: if the data supplied does not contain the necessary keys.
+            ValueError: if the manifest name property has an incorrect format.
+            ValueError: if the type is VOID.
         """
-        return cls(
+        c = cls(
             name=json['name'],
             type=contracts.ContractParameterType[json['type'].upper()]
         )
+        if c.name is None or len(c.name) == 0:
+            raise ValueError("Format error - invalid 'name'")
+        if c.type == contracts.ContractParameterType.VOID:
+            raise ValueError("Format error - parameter type VOID is not allowed")
+        return c
+
+    def to_stack_item(self, reference_counter: vm.ReferenceCounter) -> vm.StackItem:
+        return vm.StructStackItem(reference_counter,
+                                  [vm.ByteStringStackItem(self.name), vm.IntegerStackItem(self.type.value)]
+                                  )
 
 
 class ContractEventDescriptor(IJson):
@@ -141,11 +166,23 @@ class ContractEventDescriptor(IJson):
 
         Raises:
             KeyError: if the data supplied does not contain the necessary key.
+            ValueError: if the 'name' property has an incorrect format
         """
-        return cls(
+        c = cls(
             name=json['name'],
             parameters=list(map(lambda p: ContractParameterDefinition.from_json(p), json['parameters']))
         )
+        if c.name is None or len(c.name) == 0:
+            raise ValueError("Format error - invalid 'name'")
+        return c
+
+    def to_stack_item(self, reference_counter: vm.ReferenceCounter) -> vm.StackItem:
+        struct = vm.StructStackItem(reference_counter)
+        struct.append(vm.ByteStringStackItem(self.name))
+        array = vm.ArrayStackItem(reference_counter,
+                                  list(map(lambda p: p.to_stack_item(reference_counter), self.parameters)))
+        struct.append(array)
+        return struct
 
 
 class ContractMethodDescriptor(ContractEventDescriptor, IJson):
@@ -155,7 +192,8 @@ class ContractMethodDescriptor(ContractEventDescriptor, IJson):
     def __init__(self, name: str,
                  offset: int,
                  parameters: List[ContractParameterDefinition],
-                 return_type: contracts.ContractParameterType):
+                 return_type: contracts.ContractParameterType,
+                 safe: bool):
         """
         Args:
             name: the human readable identifier of the method.
@@ -166,6 +204,7 @@ class ContractMethodDescriptor(ContractEventDescriptor, IJson):
         super(ContractMethodDescriptor, self).__init__(name, parameters)
         self.offset = offset
         self.return_type = return_type
+        self.safe = safe
 
     def __eq__(self, other):
         if not isinstance(other, type(self)):
@@ -173,7 +212,8 @@ class ContractMethodDescriptor(ContractEventDescriptor, IJson):
         return (self.name == other.name
                 and self.parameters == other.parameters
                 and self.offset == other.offset
-                and self.return_type == other.return_type)
+                and self.return_type == other.return_type
+                and self.safe == other.safe)
 
     def to_json(self) -> dict:
         """
@@ -181,8 +221,9 @@ class ContractMethodDescriptor(ContractEventDescriptor, IJson):
         """
         json = super(ContractMethodDescriptor, self).to_json()
         json.update({
+            "returntype": self.return_type.PascalCase(),
             "offset": self.offset,
-            "returntype": self.return_type.PascalCase()
+            "safe": self.safe
         })
         return json
 
@@ -196,13 +237,28 @@ class ContractMethodDescriptor(ContractEventDescriptor, IJson):
 
         Raises:
             KeyError: if the data supplied does not contain the necessary keys.
+            ValueError: if the manifest name property has an incorrect format.
+            ValueError: if the offset is negative.
         """
-        return cls(
+        c = cls(
             name=json['name'],
             offset=json['offset'],
             parameters=list(map(lambda p: contracts.ContractParameterDefinition.from_json(p), json['parameters'])),
-            return_type=contracts.ContractParameterType[json['returntype'].upper()]
+            return_type=contracts.ContractParameterType[json['returntype'].upper()],
+            safe=json['safe']
         )
+        if c.name is None or len(c.name) == 0:
+            raise ValueError("Format error - invalid 'name'")
+        if c.offset < 0:
+            raise ValueError("Format error - negative offset not allowed")
+        return c
+
+    def to_stack_item(self, reference_counter: vm.ReferenceCounter) -> vm.StackItem:
+        struct = cast(vm.StructStackItem, super(ContractMethodDescriptor, self).to_stack_item(reference_counter))
+        struct.append(vm.IntegerStackItem(self.return_type.value))
+        struct.append(vm.IntegerStackItem(self.offset))
+        struct.append(vm.BooleanStackItem(self.safe))
+        return struct
 
     def __repr__(self):
         return f"<{self.__class__.__name__} at {hex(id(self))}> {self.name}"
@@ -214,47 +270,52 @@ class ContractABI(IJson):
     smart contract.
     """
     def __init__(self,
-                 contract_hash: types.UInt160,
                  methods: List[contracts.ContractMethodDescriptor],
                  events: List[contracts.ContractEventDescriptor]):
         """
-
         Args:
-            contract_hash: the result of performing RIPEMD160(SHA256(vm_script)), where vm_script is the smart contract
             byte code.
             methods: the available methods in the contract.
             events: the various events that can be broad casted by the contract.
         """
-        self.contract_hash = contract_hash
         self.methods = methods
         self.events = events
 
     def __eq__(self, other):
         if not isinstance(other, type(self)):
             return False
-        return (self.contract_hash == other.contract_hash
-                and self.methods == other.methods
+        return (self.methods == other.methods
                 and self.events == other.events)
 
-    def get_method(self, name) -> Optional[contracts.ContractMethodDescriptor]:
+    def get_method(self, name, parameter_count: int) -> Optional[contracts.ContractMethodDescriptor]:
         """
-        Return the ContractMethodDescriptor matching the name or None otherwise.
+        Return the ContractMethodDescriptor matching the name (and optional parameter count) or None otherwise.
 
         Args:
             name: the name of the method to return.
+            parameter_count: the expected number of parameters teh method has.
         """
-        for m in self.methods:
-            if m.name == name:
-                return m
+        if parameter_count < -1 or parameter_count > 0xFFFF:
+            raise ValueError("Parameter count is out of range")
+
+        if parameter_count >= 0:
+            for m in self.methods:
+                if m.name == name and len(m.parameters) == parameter_count:
+                    return m
+            else:
+                return None
         else:
-            return None
+            for m in self.methods:
+                if m.name == name:
+                    return m
+            else:
+                return None
 
     def to_json(self) -> dict:
         """
         Convert object into JSON representation.
         """
         json = {
-            "hash": '0x' + str(self.contract_hash),
             "methods": list(map(lambda m: m.to_json(), self.methods)),
             "events": list(map(lambda e: e.to_json(), self.events))
         }
@@ -270,9 +331,22 @@ class ContractABI(IJson):
 
         Raises:
             KeyError: if the data supplied does not contain the necessary keys.
+            ValuError: if the contract has no methods
         """
-        return cls(
-            contract_hash=types.UInt160.from_string(json['hash'][2:]),
+        c = cls(
             methods=list(map(lambda m: contracts.ContractMethodDescriptor.from_json(m), json['methods'])),
             events=list(map(lambda e: contracts.ContractEventDescriptor.from_json(e), json['events'])),
         )
+        if len(c.methods) == 0:
+            raise ValueError("Invalid contract - contract has no methods")
+        return c
+
+    def to_stack_item(self, reference_counter: vm.ReferenceCounter) -> vm.StackItem:
+        struct = vm.StructStackItem(reference_counter)
+        struct.append(vm.ArrayStackItem(reference_counter,
+                                        list(map(lambda m: m.to_stack_item(reference_counter), self.methods)))
+                      )
+        struct.append(vm.ArrayStackItem(reference_counter,
+                                        list(map(lambda e: e.to_stack_item(reference_counter), self.events)))
+                      )
+        return struct

@@ -20,7 +20,7 @@ There are four main storage topics that this layer takes care of
 3. (Smart) contracts
 4. Smart contract storage
 
-The ``contracts`` topic stores the generic data related to the actual smart contract; its code and a manifest with contract permissions and the `ABI <https://github.com/neo-project/proposals/blob/master/nep-3.mediawiki>`__. The ``smart contract storage`` covers individual smart contract storages. i.e. balances for a NEP5 contract.
+The ``contracts`` topic stores the generic data related to the actual smart contract; its code and a manifest with contract permissions and the `ABI <https://github.com/neo-project/proposals/blob/master/nep-3.mediawiki>`__. The ``smart contract storage`` covers individual smart contract storages. i.e. balances for a NEP-17 contract.
 
 Before we learn how to access the information of the individual topics, let us first get an idea of the different ways data can be accessed in general.
 
@@ -34,7 +34,7 @@ A database object has two views.
 
 One might wonder why caching is present when many backends have their own (and likely better) caching mechanism. The caching layer is there not just to provide "improved" access speeds, but more importantly to provide a generic way to clone state, operate on the state, and discard and rollback the state under certain conditions. 
 
-The main use-case for these requirements are block processing. All transactions in a block are executed by the NEO virtual machine. Such transactions can include transformations to smart contract storages (like a NEP-5 balance). If after a certain amount of storage transformations an error occurs (e.g. because the user reached his balance limit) then all transformations need to be discarded/rolled back to the starting state. Instead of forcing each backend implementation to create their own mechanism, a generic one is in place to handle this for you.
+The main use-case for these requirements are block processing. All transactions in a block are executed by the NEO virtual machine. Such transactions can include transformations to smart contract storages (like a NEP-17 balance). If after a certain amount of storage transformations an error occurs (e.g. because the user reached his balance limit) then all transformations need to be discarded/rolled back to the starting state. Instead of forcing each backend implementation to create their own mechanism, a generic one is in place to handle this for you.
 
 Accessing data
 ==============
@@ -50,11 +50,11 @@ As described in the overview we have four main topics of data (blocks, contracts
     def main():
         # Prepare some data
 
-        # Dummy contract hash for demonstration purposes
-        contract_hash = types.UInt160.zero()
+        # Dummy contract id for demonstration purposes
+        contractid = 1
 
-        key1 = StorageKey(contract=contract_hash, key=b'key1')
-        key2 = StorageKey(contract=contract_hash, key=b'key2')
+        key1 = StorageKey(contractid, key=b'key1')
+        key2 = StorageKey(contractid, key=b'key2')
         value1 = StorageItem(b'value1')
         value2 = StorageItem(b'value2')
 
@@ -69,7 +69,7 @@ As described in the overview we have four main topics of data (blocks, contracts
         raw_view.storages.put(key2, value2)
 
         # Query the data
-        for k, v in raw_view.storages.all(contract_script_hash=contract_hash):
+        for k, v in raw_view.storages.all(contract_id=contractid):
             print(k, v)
 
     if __name__ == "__main__":
@@ -81,7 +81,7 @@ Let us extend the previous example with the code below to demonstrate the snapsh
 
 .. code:: python
 
-    key3 = StorageKey(contract=contract_hash, key=b'key3')
+    key3 = StorageKey(contractid, key=b'key3')
     value3 = StorageItem(b'value3')
     snapshot_view = db.get_snapshotview()
     
@@ -89,16 +89,16 @@ Let us extend the previous example with the code below to demonstrate the snapsh
 
     # Query the data
     print("Snapshot data")
-    for k, v in raw_view.storages.all(contract_script_hash=contract_hash):
+    for k, v in raw_view.storages.all(contract_id=contractid):
         print(k, v)
 
     print("Backend data - without snapshot data")
-    for k, v in raw_view.storages.all(contract_script_hash=contract_hash):
+    for k, v in raw_view.storages.all(contract_id=contract_id):
         print(k, v)
         
     # Now persist to the backend
     snapshot_view.commit()
 
     print("Backend data - updated")
-    for k, v in raw_view.storages.all(contract_script_hash=contract_hash):
+    for k, v in raw_view.storages.all(contract_id=contract_id):
         print(k, v)

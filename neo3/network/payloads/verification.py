@@ -23,7 +23,7 @@ class Signer(serialization.ISerializable):
         #: The TX sender.
         self.account = account
         #: payloads.WitnessScope: The configured validation scope.
-        self.scope = scope if scope else payloads.WitnessScope.FEE_ONLY
+        self.scope = scope if scope else payloads.WitnessScope.NONE
         #: List[types.UInt160]: Whitelist of contract script hashes if used with
         #: :const:`~neo3.network.payloads.verification.WitnessScope.CUSTOM_CONTRACTS`.
         self.allowed_contracts = allowed_contracts if allowed_contracts else []
@@ -96,6 +96,9 @@ class Witness(serialization.ISerializable):
     """
     An executable verification script that validates a verifiable object like a transaction.
     """
+    _MAX_INVOCATION_SCRIPT = 1024
+    _MAX_VERIFICATION_SCRIPT = 1024
+
     def __init__(self, invocation_script: bytes, verification_script: bytes):
         #: A set of VM instructions to setup the stack for verification.
         self.invocation_script = invocation_script
@@ -124,8 +127,8 @@ class Witness(serialization.ISerializable):
         Args:
             reader: instance.
         """
-        self.invocation_script = reader.read_var_bytes(max=664)
-        self.verification_script = reader.read_var_bytes(max=360)
+        self.invocation_script = reader.read_var_bytes(max=self._MAX_INVOCATION_SCRIPT)
+        self.verification_script = reader.read_var_bytes(max=self._MAX_VERIFICATION_SCRIPT)
 
     def script_hash(self) -> types.UInt160:
         """ Get the script hash based on the verification script."""
@@ -142,8 +145,8 @@ class WitnessScope(IntFlag):
     """
     Determine the rules for a smart contract :func:`CheckWitness()` sys call.
     """
-    #: Special case only valid for the first signer in the transaction, a.k.a the sender
-    FEE_ONLY = 0x0
+    #: No Contract was witnessed. Only sign the transaction.
+    NONE = 0x0
     #: Allow the witness if the current calling script hash equals the entry script hash into the virtual machine.
     #: Using this prevents passing :func:`CheckWitness()` in a smart contract called via another smart contract.
     CALLED_BY_ENTRY = 0x01
@@ -177,6 +180,7 @@ class IVerifiable(serialization.ISerializable):
 
     def get_hash_data(self, protocol_magic: int) -> bytes:
         """ Get the unsigned data
+
         Args:
             protocol_magic: network protocol number (NEO MainNet = 5195086, Testnet = 1951352142, private net = ??)
         """
