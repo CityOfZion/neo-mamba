@@ -7,7 +7,7 @@ from neo3.core import cryptography, types, to_script_hash
 from neo3.contracts.interop import register
 
 
-@register("System.Contract.Call", 1 << 15, contracts.CallFlags.ALLOW_CALL)
+@register("System.Contract.Call", 1 << 15, contracts.CallFlags.READ_STATES | contracts.CallFlags.ALLOW_CALL)
 def contract_call(engine: contracts.ApplicationEngine,
                   contract_hash: types.UInt160,
                   method: str,

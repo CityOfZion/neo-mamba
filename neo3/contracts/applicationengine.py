@@ -93,9 +93,7 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
                     return True
 
             if payloads.WitnessScope.CUSTOM_GROUPS in signer.scope:
-                if contracts.CallFlags.READ_STATES not in \
-                        contracts.CallFlags(self.current_context.call_flags):
-                    raise ValueError("Context requires callflags ALLOW_STATES")
+                self._validate_callflags(contracts.CallFlags.READ_STATES)
 
                 contract = contracts.ManagementContract().get_contract(self.snapshot, self.calling_scripthash)
                 if contract is None:
@@ -105,9 +103,7 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
                     return True
             return False
 
-        if contracts.CallFlags.READ_STATES not in \
-                contracts.CallFlags(self.current_context.call_flags):
-            raise ValueError("Context requires callflags ALLOW_STATES")
+        self._validate_callflags(contracts.CallFlags.READ_STATES)
 
         # for other IVerifiable types like Block
         hashes_for_verifying = self.script_container.get_script_hashes_for_verifying(self.snapshot)
@@ -235,9 +231,7 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
         if descriptor is None:
             raise KeyError(f"Requested interop {method_id} is not valid")
 
-        if descriptor.required_call_flags not in contracts.CallFlags(self.current_context.call_flags):
-            raise ValueError(f"Cannot call {descriptor.method} with {self.current_context.call_flags}")
-
+        self._validate_callflags(descriptor.required_call_flags)
         self.add_gas(descriptor.price * self.exec_fee_factor)
 
         parameters = []
@@ -371,6 +365,7 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
         return context
 
     def load_token(self, token_id: int) -> vm.ExecutionContext:
+        self._validate_callflags(contracts.CallFlags.READ_STATES | contracts.CallFlags.ALLOW_CALL)
         contract = self._context_state.get(self.current_context, None)
         if contract is None:
             raise ValueError("Current context has no contract state")
@@ -463,3 +458,7 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
         if contracts.NativeContract.is_native(target_contract.hash):
             context_new.evaluation_stack.push(vm.ByteStringStackItem(method_descriptor.name.encode('utf-8')))
         return context_new
+
+    def _validate_callflags(self, callflags: contracts.CallFlags):
+        if callflags not in contracts.CallFlags(self.current_context.call_flags):
+            raise ValueError(f"Context requires callflags {callflags}")
