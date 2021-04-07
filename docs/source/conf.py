@@ -23,7 +23,7 @@ from neo3 import version
 # -- Project information -----------------------------------------------------
 
 project = 'neo-mamba'
-copyright = '2019-2020, COZ - Erik van den Brink'
+copyright = '2019-2021, COZ - Erik van den Brink'
 author = 'Erik van den Brink'
 
 
@@ -46,7 +46,7 @@ templates_path = ['_templates']
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ['core/cryptography/ecc.py']
+exclude_patterns = []
 
 
 # -- Options for HTML output -------------------------------------------------

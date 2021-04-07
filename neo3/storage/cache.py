@@ -2,12 +2,14 @@ from __future__ import annotations
 import abc
 from copy import deepcopy
 from enum import Enum, auto
-from typing import Optional, Iterator, Tuple, TypeVar, Any, List
+from typing import Optional, Iterator, Tuple, TypeVar, Any, List, TYPE_CHECKING
 from neo3.core import types, serialization
-from neo3.network import payloads
 from neo3 import storage
 from contextlib import suppress
 
+if TYPE_CHECKING:
+    from neo3.network import payloads
+    from neo3 import contracts
 
 TKey = TypeVar('TKey', bound='serialization.ISerializable')
 TValue = TypeVar('TValue', bound='serialization.ISerializable')
@@ -35,6 +37,7 @@ class CachedAccess:
         self._internal_get = None
         self._internal_try_get = None
         self._internal_all = None
+        self._internal_seek = None
 
     def __getitem__(self, key):
         trackable = self._dictionary.get(key, None)  # type: Trackable
@@ -276,8 +279,8 @@ _neo_token_contract_state = None
 
 
 class CachedContractAccess(CachedAccess):
-    _gas_token_script_hash = types.UInt160.from_string("668e0c1f9d7b70a99dd9e06eadd4c784d641afbc")
-    _neo_token_script_hash = types.UInt160.from_string("de5f57d430d3dece511cf975a8d37848cb9e0525")
+    _gas_token_script_hash = types.UInt160.from_string("f61eebf573ea36593fd43aa150c055ad7906ab83")
+    _neo_token_script_hash = types.UInt160.from_string("70e2301955bf1e74cbb31d18c2f96972abadb328")
 
     def __init__(self, db):
         super(CachedContractAccess, self).__init__(db)
@@ -285,79 +288,94 @@ class CachedContractAccess(CachedAccess):
         self._internal_try_get = self._db._internal_contract_try_get
         self._internal_all = self._db._internal_contract_all
 
-    def put(self, contract: storage.ContractState) -> None:
-        """
-        Store a contract.
-
-        Args:
+    def put(self, contract: contracts.ContractState) -> None:
+        """	
+        Store a contract.	
+        Args:	
             contract: contract state instance.
-
-        Raises:
-            ValueError: if a duplicate item is found.
+        Raises:	
+            ValueError: if a duplicate item is found.	
         """
-        super(CachedContractAccess, self)._put(contract.script_hash(), contract)
+        super(CachedContractAccess, self)._put(contract.hash, contract)
 
-    def get(self, script_hash: types.UInt160, read_only=False) -> storage.ContractState:
+    def get(self, hash: types.UInt160, read_only=False) -> contracts.ContractState:
         """
         Retrieve a contract.
-
         Args:
-            script_hash: contract script hash.
+            hash: unique contract identifier.
             read_only: set to True to safeguard against return value modifications being persisted when committing.
-
         Raises:
             KeyError: if the item is not found.
         """
         global _gas_token_contract_state, _neo_token_contract_state
-        if script_hash == self._gas_token_script_hash:
+        if hash == self._gas_token_script_hash:
             if _gas_token_contract_state is None:
-                _gas_token_contract_state = super(CachedContractAccess, self)._get(script_hash, read_only)
+                _gas_token_contract_state = super(CachedContractAccess, self)._get(hash, read_only)
             return _gas_token_contract_state
-        elif script_hash == self._neo_token_script_hash:
+        elif hash == self._neo_token_script_hash:
             if _neo_token_contract_state is None:
-                _neo_token_contract_state = super(CachedContractAccess, self)._get(script_hash, read_only)
+                _neo_token_contract_state = super(CachedContractAccess, self)._get(hash, read_only)
             return _neo_token_contract_state
-        return super(CachedContractAccess, self)._get(script_hash, read_only)
+        return super(CachedContractAccess, self)._get(hash, read_only)
 
-    def try_get(self, script_hash: types.UInt160, read_only=False) -> Optional[storage.ContractState]:
+    def try_get(self, hash: types.UInt160, read_only=False) -> Optional[contracts.ContractState]:
         """
         Try to retrieve a contract.
-
         Args:
-            script_hash: contract script hash.
+            hash: unique contract identifier.
             read_only: set to True to safeguard against return value modifications being persisted when committing.
         """
         try:
-            return self.get(script_hash, read_only)
+            return self.get(hash, read_only)
         except KeyError:
             return None
 
-    def delete(self, script_hash: types.UInt160) -> None:
+    def delete(self, hash: types.UInt160) -> None:
         """
         Remove a transaction.
-
         Args:
-            script_hash: contract script hash.
+            hash: unique contract identifier.
         """
-        super(CachedContractAccess, self)._delete(script_hash)
+        super(CachedContractAccess, self)._delete(hash)
 
-    def all(self) -> Iterator[storage.ContractState]:
-        """
-        Retrieve all contracts (readonly)
+    def all(self) -> Iterator[contracts.ContractState]:
+        """	
+        Retrieve all contracts (readonly)	
         """
         contracts = []
         for contract in self._internal_all():
-            if contract.script_hash() not in self._dictionary:
+            if contract.hash not in self._dictionary:
                 contracts.append(contract)
 
         for k, v in self._dictionary.items():
             if v.state != TrackState.DELETED:
                 contracts.append(deepcopy(v.item))
 
-        contracts.sort(key=lambda contract: contract.script_hash().to_array())
+        contracts.sort(key=lambda contract: contract.hash.to_array())
         for contract in contracts:
             yield contract
         return None
+
+
+class _Enumerator:
+    _default_pair = (storage.StorageKey(0, b''), storage.StorageItem(b''))
+
+    def __init__(self, iter: Iterator):
+        self.iter = iter
+        self.value = None
+
+    def move_next(self) -> bool:
+        try:
+            self.value = next(self.iter)
+            return True
+        except StopIteration:
+            self.value = None
+            return False
+
+    def current(self) -> Tuple[storage.StorageKey, storage.StorageItem]:
+        if self.value is None:
+            return self._default_pair
+        return self.value
 
 
 class CachedStorageAccess(CachedAccess):
@@ -367,6 +385,7 @@ class CachedStorageAccess(CachedAccess):
         self._internal_try_get = self._db._internal_storage_try_get
         self._internal_all = self._db._internal_storage_all
         self._internal_find = self._db._internal_storage_find
+        self._internal_seek = self._db._internal_storage_seek
 
     def put(self, key: storage.StorageKey, value: storage.StorageItem) -> None:
         """
@@ -432,8 +451,8 @@ class CachedStorageAccess(CachedAccess):
         """
         super(CachedStorageAccess, self)._delete(key)
 
-    def all(self, contract_script_hash: types.UInt160 = None) -> Iterator[Tuple[storage.StorageKey,
-                                                                                storage.StorageItem]]:
+    def all(self, contract_id: Optional[int] = None) -> Iterator[Tuple[storage.StorageKey,
+                                                                       storage.StorageItem]]:
         """
         Retrieve all storage key/value pairs, sorted by key (readonly).
 
@@ -441,12 +460,12 @@ class CachedStorageAccess(CachedAccess):
             Return values are sorted to give deterministic behaviour in smart contracts.
 
         Args:
-            contract_script_hash: smart contract script hash to limit results to. If not specified, returns for all
+            contract_id: smart contract id to limit results to. If not specified, returns for all
             contracts.
             read_only: set to True to safeguard against return value modifications being persisted when committing.
         """
         pairs = []
-        for k, v in self._internal_all(contract_script_hash):
+        for k, v in self._internal_all(contract_id):
             if k not in self._dictionary:
                 pairs.append((k, v))
 
@@ -459,29 +478,76 @@ class CachedStorageAccess(CachedAccess):
             yield pair
         return None
 
-    def find(self, contract_script_hash: types.UInt160, key_prefix: bytes) -> Iterator[Tuple[storage.StorageKey,
-                                                                                             storage.StorageItem]]:
+    def find(self, key_prefix: bytes) -> Iterator[Tuple[storage.StorageKey, storage.StorageItem]]:
         """
         Retrieve all storage key/value pairs (readonly).
 
         Args:
-            contract_script_hash: script hash of smart contract to search storage of.
             key_prefix: the prefix part of the storage.StorageKey.key to look for.
 
         """
-        pairs = []
-        for k, v in self._internal_find(contract_script_hash, key_prefix):
-            if k not in self._dictionary:
-                pairs.append((k, v))
+        for key, value in self.seek(key_prefix):
+            if key.to_array().startswith(key_prefix):
+                yield key, value
+            else:
+                return None
 
-        for k, v in self._dictionary.items():
-            if v.state != TrackState.DELETED and k.key.startswith(key_prefix):
-                pairs.append((deepcopy(v.key), deepcopy(v.item)))
+    def find_range(self,
+                   start: bytes,
+                   end: bytes,
+                   direction: str = "forward"
+                   ) -> Iterator[Tuple[storage.StorageKey, storage.StorageItem]]:
+        comperator = storage.NEOByteCompare(direction)
+        for key, value in self.seek(start, direction):
+            if comperator.compare(key.to_array(), end) < 0:
+                yield key, value
+            else:
+                return None
 
-        pairs.sort(key=lambda keypair: keypair[0].to_array())
-        for pair in pairs:
-            yield pair
-        return None
+    def seek(self, key_prefix: bytes, direction="forward"
+             ) -> Iterator[Tuple[storage.StorageKey, storage.StorageItem]]:
+        # always read only
+        comperator = storage.NEOByteCompare(direction)
+
+        cached: List[Tuple[storage.StorageKey, storage.StorageItem]] = []
+        cached_keys: List[storage.StorageKey] = []
+        for key, value in self._dictionary.items():
+            if value.state != TrackState.DELETED and (
+                    len(key_prefix) == 0 or comperator.compare(key.to_array(), key_prefix) >= 0):
+                cached.append((key, value.item))
+                cached_keys.append(key)
+
+        if direction == "forward":
+            cached_sorted = sorted(cached, key=lambda pair: pair[0].to_array())
+        else:
+            cached_sorted = sorted(cached, key=lambda pair: pair[0].to_array(), reverse=True)
+
+        e1 = _Enumerator(iter(cached_sorted))
+        e2 = _Enumerator(self._internal_seek(key_prefix, direction))
+
+        c1 = e1.move_next()
+        c2 = e2.move_next()
+
+        i1 = e1.current()
+        i2 = e2.current()
+
+        comperator = storage.NEOByteCompare(direction)
+
+        while c1 or c2:
+            # filter out duplicates from internal if already found in cached
+            if c2 and i2[0] in cached_keys:
+                c2 = e2.move_next()
+                i2 = e2.current()
+            elif not c2 or (c1 and comperator.compare(i1[0].to_array(), i2[0].to_array()) < 0):
+                # i1 values come from the cache by reference, make them "read-only"
+                yield deepcopy(i1[0]), deepcopy(i1[1])
+                c1 = e1.move_next()
+                i1 = e1.current()
+            else:
+                # i2 values are new objects deserialized from storage (in the case of leveldb)
+                yield i2[0], i2[1]
+                c2 = e2.move_next()
+                i2 = e2.current()
 
 
 class CachedTXAccess(CachedAccess):
@@ -635,21 +701,21 @@ class CloneContractCache(CachedContractAccess):
         return self.inner_cache.all()
 
     def commit(self) -> None:
-        """
-        Persist changes to the parent snapshot.
+        """	
+        Persist changes to the parent snapshot.	
         """
         keys_to_delete: List[types.UInt160] = []
-        for trackable in self.get_changeset():  # trackable.item: storage.ContractState
+        for trackable in self.get_changeset():  # trackable.item: contracts.ContractState
             if trackable.state == TrackState.ADDED:
                 self.inner_cache.put(trackable.item)
                 trackable.state = storage.TrackState.NONE
             elif trackable.state == TrackState.CHANGED:
-                item = self.inner_cache.try_get(trackable.item.script_hash(), read_only=False)
+                item = self.inner_cache.try_get(trackable.item.hash, read_only=False)
                 if item:
                     item.from_replica(trackable.item)
                 trackable.state = storage.TrackState.NONE
             elif trackable.state == TrackState.DELETED:
-                self.inner_cache.delete(trackable.item.script_hash())
+                self.inner_cache.delete(trackable.item.hash)
                 keys_to_delete.append(trackable.key)
         for key in keys_to_delete:
             with suppress(KeyError):

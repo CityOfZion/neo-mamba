@@ -1,9 +1,26 @@
 import unittest
-from neo3 import vm, contracts, storage
-from neo3.core import types
+from neo3 import vm, contracts, storage, settings
+from neo3.core import to_script_hash
 from neo3.contracts import interop
-from .utils import syscall_name_to_int
-from .utils import test_engine
+from tests.contracts.interop.utils import syscall_name_to_int, test_engine
+
+"""
+In the early days, when all these tests were written, contract hashes were determined by hashing the contract script.
+This means that ApplicationEngine.calling_script_hash equaled a hash of the script we loaded via load_script(). 
+That knowledge was used initially for creating all the tests below. 
+ 
+The contract hash computation changed with:
+- https://github.com/neo-project/neo/pull/2244
+- https://github.com/neo-project/neo/pull/2240
+
+Because of this change some tricks are used internally by NEO for updating the `calling_script_hash` to the correct contract hash. 
+These tricks only happen when calling contracts via `System.Contract.Call` or via the OpCode.CALLT. 
+Using these make the tests far more complex, so instead we keep the old logic. \
+
+In summary this means; 
+ContractState objects are created where the ContractHash is still based on the old method of hashing
+the contract script. Technically this is incorrect, but makes testing much easier.
+"""
 
 
 class StorageInteropTestCase(unittest.TestCase):
@@ -11,40 +28,33 @@ class StorageInteropTestCase(unittest.TestCase):
         # disable docstring printing in test runner
         return None
 
+    @classmethod
+    def setUpClass(cls) -> None:
+        # blockchain.Blockchain()
+        pass
+
     def setUp(self) -> None:
         self.RET = b'\x40'
-        self.manifest = contracts.ContractManifest()
-        self.manifest.features = contracts.ContractFeatures.HAS_STORAGE
-        self.contract = storage.ContractState(script=self.RET, _manifest=self.manifest)
+        self.manifest = contracts.ContractManifest("contract_name")
+        self.nef = contracts.NEF(script=self.RET)
+        self.contract_hash = to_script_hash(self.nef.script)
+        self.contract = contracts.ContractState(1, self.nef, self.manifest, 0, self.contract_hash)
+        self.contract.manifest.abi.methods = [
+            contracts.ContractMethodDescriptor("test_func", 0, [], contracts.ContractParameterType.ANY, True)
+        ]
 
-    def test_get_context_no_storage(self):
-        engine = test_engine(has_snapshot=True)
-        manifest_without_storage = contracts.ContractManifest()
-        contract = storage.ContractState(script=self.RET, _manifest=manifest_without_storage)
-        engine.snapshot.contracts.put(contract)
-
-        # first test for asking for a context for a smart contract without storage
-        with self.assertRaises(ValueError) as context:
-            engine.invoke_syscall_by_name("System.Storage.GetContext")
-        self.assertEqual("Cannot get context for smart contract without storage", str(context.exception))
-
-        # the same should hold for getting a read only context
-        with self.assertRaises(ValueError) as context:
-            engine.invoke_syscall_by_name("System.Storage.GetReadOnlyContext")
-        self.assertEqual("Cannot get context for smart contract without storage", str(context.exception))
-
-    def test_get_context_ok(self):
+    def test_get_context(self):
         engine = test_engine(has_snapshot=True)
         engine.snapshot.contracts.put(self.contract)
         ctx = engine.invoke_syscall_by_name("System.Storage.GetContext")
         self.assertIsInstance(ctx, storage.StorageContext)
-        self.assertEqual(self.contract.script_hash(), ctx.script_hash)
+        self.assertEqual(self.contract.id, ctx.id)
         self.assertFalse(ctx.is_read_only)
 
         # repeat for read only
         ctx = engine.invoke_syscall_by_name("System.Storage.GetReadOnlyContext")
         self.assertIsInstance(ctx, storage.StorageContext)
-        self.assertEqual(self.contract.script_hash(), ctx.script_hash)
+        self.assertEqual(self.contract.id, ctx.id)
         self.assertTrue(ctx.is_read_only)
 
     def test_as_readonly(self):
@@ -57,9 +67,9 @@ class StorageInteropTestCase(unittest.TestCase):
         self.assertTrue(ctx.is_read_only)
 
     def test_storage_get_key_not_found(self):
-        engine = test_engine(has_snapshot=True)
+        engine = test_engine(has_snapshot=True, has_container=True)
         script = vm.ScriptBuilder()
-        # key parameter for the `Get` syscall
+        # key parameter for the `Storage.Get` syscall
         script.emit(vm.OpCode.PUSH2)
         script.emit_syscall(syscall_name_to_int("System.Storage.GetContext"))
         # at this point our stack looks like follows
@@ -68,14 +78,12 @@ class StorageInteropTestCase(unittest.TestCase):
         script.emit_syscall(syscall_name_to_int("System.Storage.Get"))
         engine.load_script(vm.Script(script.to_array()))
 
-        # we set the script parameter of the ContractState to our script
-        # which ensures that `engine.current_scripthash` matches the script we manually build above
-        # this basically means the engine thinks it is running a smart contract that we can find in our storage
-        # which in turns enables us to call the `System.Storage.GetContext` syscall
-        contract = storage.ContractState(script=script.to_array(), _manifest=self.manifest)
+        # we have to store our contract or some sanity checks will fail (like getting a StorageContext
+        nef = contracts.NEF(script=script.to_array())
+        contract = contracts.ContractState(1, nef, self.manifest, 0, to_script_hash(nef.script))
         engine.snapshot.contracts.put(contract)
 
-        storage_key = storage.StorageKey(contract.script_hash(), b'\x01')
+        storage_key = storage.StorageKey(contract.id, b'\x01')
         storage_item = storage.StorageItem(b'\x11')
         engine.snapshot.storages.put(storage_key, storage_item)
 
@@ -89,7 +97,7 @@ class StorageInteropTestCase(unittest.TestCase):
         engine = test_engine(has_snapshot=True)
         engine.snapshot.contracts.put(self.contract)
 
-        storage_key = storage.StorageKey(self.contract.script_hash(), b'\x01')
+        storage_key = storage.StorageKey(self.contract.id, b'\x01')
         storage_item = storage.StorageItem(b'\x11')
         engine.snapshot.storages.put(storage_key, storage_item)
 
@@ -111,10 +119,12 @@ class StorageInteropTestCase(unittest.TestCase):
         script.emit_syscall(syscall_name_to_int("System.Storage.Get"))
         engine.load_script(vm.Script(script.to_array()))
 
-        contract = storage.ContractState(script=script.to_array(), _manifest=self.manifest)
+        nef = contracts.NEF(script=script.to_array())
+        contract_hash = to_script_hash(nef.script)
+        contract = contracts.ContractState(1, nef, self.manifest, 0, contract_hash)
         engine.snapshot.contracts.put(contract)
 
-        storage_key = storage.StorageKey(contract.script_hash(), b'\x01')
+        storage_key = storage.StorageKey(contract.id, b'\x01')
         storage_item = storage.StorageItem(b'\x11')
         engine.snapshot.storages.put(storage_key, storage_item)
 
@@ -125,33 +135,33 @@ class StorageInteropTestCase(unittest.TestCase):
         self.assertEqual(storage_item.value, item.to_array())
 
     def test_storage_find(self):
+        # settings.storage.default_provider = 'leveldb'
         engine = test_engine(has_snapshot=True)
         engine.snapshot.contracts.put(self.contract)
 
-        storage_key1 = storage.StorageKey(self.contract.script_hash(), b'\x01')
+        storage_key1 = storage.StorageKey(self.contract.id, b'\x01')
         storage_item1 = storage.StorageItem(b'\x11', is_constant=False)
         engine.snapshot.storages.put(storage_key1, storage_item1)
-        storage_key2 = storage.StorageKey(self.contract.script_hash(), b'\x02')
+        storage_key2 = storage.StorageKey(self.contract.id, b'\x02')
         storage_item2 = storage.StorageItem(b'\x22', is_constant=False)
         engine.snapshot.storages.put(storage_key2, storage_item2)
 
         ctx = engine.invoke_syscall_by_name("System.Storage.GetContext")
+        engine.push(vm.IntegerStackItem(contracts.FindOptions.NONE))
         engine.push(vm.ByteStringStackItem(storage_key1.key))
         engine.push(vm.StackItem.from_interface(ctx))
 
         it = engine.invoke_syscall_by_name("System.Storage.Find")
         self.assertIsInstance(it, interop.StorageIterator)
-        it.next()
-        self.assertEqual(storage_key1.key, it.key().to_array())
-        self.assertEqual(storage_item1.value, it.value().to_array())
 
-        it.next()
-        with self.assertRaises(ValueError) as context:
-            it.key()
-        self.assertEqual("Cannot call 'key' without having advanced the iterator at least once", str(context.exception))
         with self.assertRaises(ValueError) as context:
             it.value()
         self.assertEqual("Cannot call 'value' without having advanced the iterator at least once", str(context.exception))
+
+        self.assertTrue(it.next())
+
+        struct = it.value()  # 0 key, 1 value
+        self.assertEqual(storage_item1.value, struct[1].to_array())
 
     def test_storage_put_helper_parameter_validation(self):
         with self.assertRaises(ValueError) as context:
@@ -171,12 +181,12 @@ class StorageInteropTestCase(unittest.TestCase):
 
         # finaly make sure it fails if we try to modify an item that is marked constant
         engine = test_engine(has_snapshot=True)
-        key = storage.StorageKey(types.UInt160.zero(), b'\x01')
+        key = storage.StorageKey(1, b'\x01')
         item = storage.StorageItem(b'', is_constant=True)
         engine.snapshot.storages.put(key, item)
 
         with self.assertRaises(ValueError) as context:
-            ctx = storage.StorageContext(types.UInt160.zero(), is_read_only=False)
+            ctx = storage.StorageContext(1, is_read_only=False)
             contracts.interop._storage_put_internal(engine, ctx, b'\x01', b'', storage.StorageFlags.NONE)
         self.assertEqual("StorageItem is marked as constant", str(context.exception))
 
@@ -200,13 +210,20 @@ class StorageInteropTestCase(unittest.TestCase):
                 script.emit_syscall(syscall_name_to_int("System.Storage.PutEx"))
             engine.load_script(vm.Script(script.to_array()))
 
-            contract = storage.ContractState(script=script.to_array(), _manifest=self.manifest)
+            nef = contracts.NEF(script=script.to_array())
+            manifest = contracts.ContractManifest(f"contractname{i}")
+            manifest.abi.methods = [
+                contracts.ContractMethodDescriptor("test_func", 0, [], contracts.ContractParameterType.ANY, True)
+            ]
+            hash_ = to_script_hash(nef.script)
+
+            contract = contracts.ContractState(i, nef, manifest, 0, hash_)
             engine.snapshot.contracts.put(contract)
 
             engine.execute()
 
             self.assertEqual(vm.VMState.HALT, engine.state)
-            storage_key = storage.StorageKey(contract.script_hash(), b'\x01')
+            storage_key = storage.StorageKey(i, b'\x01')
             item = engine.snapshot.storages.try_get(storage_key)
             self.assertIsNotNone(item)
             self.assertEqual(b'\x02', item.value)
@@ -215,11 +232,11 @@ class StorageInteropTestCase(unittest.TestCase):
         # test with new data being shorter than the old data
         engine = test_engine(has_snapshot=True)
         key = b'\x01'
-        storage_key = storage.StorageKey(types.UInt160.zero(), key)
+        storage_key = storage.StorageKey(1, key)
         storage_item = storage.StorageItem(b'\x11\x22\x33', is_constant=False)
         engine.snapshot.storages.put(storage_key, storage_item)
 
-        ctx = storage.StorageContext(types.UInt160.zero(), is_read_only=False)
+        ctx = storage.StorageContext(1, is_read_only=False)
         new_item_value = b'\x11\x22'
         contracts.interop._storage_put_internal(engine, ctx, key, new_item_value, storage.StorageFlags.NONE)
 
@@ -240,7 +257,7 @@ class StorageInteropTestCase(unittest.TestCase):
 
         engine.snapshot.contracts.put(self.contract)
 
-        storage_key = storage.StorageKey(self.contract.script_hash(), b'\x01')
+        storage_key = storage.StorageKey(self.contract.id, b'\x01')
         storage_item = storage.StorageItem(b'\x11')
         engine.snapshot.storages.put(storage_key, storage_item)
 
@@ -256,7 +273,7 @@ class StorageInteropTestCase(unittest.TestCase):
         engine = test_engine(has_snapshot=True)
         engine.snapshot.contracts.put(self.contract)
 
-        storage_key = storage.StorageKey(self.contract.script_hash(), b'\x01')
+        storage_key = storage.StorageKey(self.contract.id, b'\x01')
         storage_item = storage.StorageItem(b'\x11', is_constant=True)
         engine.snapshot.storages.put(storage_key, storage_item)
 
@@ -272,7 +289,7 @@ class StorageInteropTestCase(unittest.TestCase):
         engine = test_engine(has_snapshot=True)
         engine.snapshot.contracts.put(self.contract)
 
-        storage_key = storage.StorageKey(self.contract.script_hash(), b'\x01')
+        storage_key = storage.StorageKey(self.contract.id, b'\x01')
         storage_item = storage.StorageItem(b'\x11', is_constant=False)
         engine.snapshot.storages.put(storage_key, storage_item)
 

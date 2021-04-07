@@ -1,9 +1,9 @@
 from __future__ import annotations
 import hashlib
+from .callflags import CallFlags
 from .contracttypes import (TriggerType)
 from .descriptor import (ContractPermissionDescriptor)
 from .manifest import (ContractGroup,
-                       ContractFeatures,
                        ContractManifest,
                        ContractPermission,
                        WildcardContainer)
@@ -13,12 +13,24 @@ from .abi import (ContractParameterType,
                   ContractEventDescriptor,
                   ContractParameterDefinition,
                   ContractABI)
-from .nef import (NEF, Version)
-from .contract import Contract
+from .nef import (NEF, MethodToken)
+from .contract import (Contract, ContractState)
 from .binaryserializer import BinarySerializer
 from .jsonserializer import (NEOJson, JSONSerializer)
-from .native import (CallFlags, NativeContract, PolicyContract, NeoToken, GasToken)
+from .findoptions import FindOptions
 from .applicationengine import ApplicationEngine
+from .native import (NativeContract,
+                     PolicyContract,
+                     NeoToken,
+                     GasToken,
+                     OracleContract,
+                     DesignationContract,
+                     DesignateRole,
+                     ManagementContract,
+                     NonFungibleToken,
+                     NFTState,
+                     NameService,
+                     LedgerContract)
 
 
 def syscall_name_to_int(name: str) -> int:
@@ -31,6 +43,7 @@ __all__ = ['ContractParameterType',
            'ContractEventDescriptor',
            'ContractParameterDefinition',
            'Contract',
+           'ContractState',
            'BinarySerializer',
            'NEOJson',
            'JSONSerializer',
@@ -38,4 +51,11 @@ __all__ = ['ContractParameterType',
            'CallFlags',
            'PolicyContract',
            'ApplicationEngine',
-           'syscall_name_to_int']
+           'syscall_name_to_int',
+           'DesignationContract',
+           'DesignateRole',
+           'NameService',
+           'LedgerContract',
+           'NEF',
+           'MethodToken',
+           'FindOptions']

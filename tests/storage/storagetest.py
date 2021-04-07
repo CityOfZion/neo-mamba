@@ -1,7 +1,7 @@
 import abc
 import unittest
 from neo3.core import types
-from neo3 import storage
+from neo3 import storage, contracts
 from neo3.network import payloads
 from neo3.contracts import manifest
 from contextlib import suppress
@@ -20,19 +20,19 @@ class AbstractBlockStorageTest(abc.ABC, unittest.TestCase):
     def test_rawview_bestblockheight(self):
 
         raw_view = self.db.get_rawview()
-        self.assertEqual(-1, raw_view.block_height)
+        self.assertEqual(-1, raw_view.best_block_height)
 
         raw_view.blocks.put(self.block1)
-        self.assertEqual(1, raw_view.block_height)
+        self.assertEqual(1, raw_view.best_block_height)
 
         with self.assertRaises(AttributeError):
-            raw_view.block_height = 2
-        self.assertEqual(1, raw_view.block_height)
+            raw_view.best_block_height = 2
+        self.assertEqual(1, raw_view.best_block_height)
 
     def setUp(self) -> None:
         self.db = self.db_factory()
         signer = payloads.Signer(account=types.UInt160.from_string("d7678dd97c000be3f33e9362e673101bac4ca654"),
-                                 scope=payloads.WitnessScope.FEE_ONLY)
+                                 scope=payloads.WitnessScope.NONE)
         tx = payloads.Transaction(version=0,
                                   nonce=123,
                                   system_fee=456,
@@ -49,7 +49,7 @@ class AbstractBlockStorageTest(abc.ABC, unittest.TestCase):
                                    index=1,
                                    next_consensus=types.UInt160.from_string("d7678dd97c000be3f33e9362e673101bac4ca654"),
                                    witness=payloads.Witness(invocation_script=b'', verification_script=b'\x55'),
-                                   consensus_data=payloads.ConsensusData(primary_index=1, nonce=123),
+                                   consensus_data=payloads.ConsensusData(primary_index=0, nonce=123),
                                    transactions=[tx])
         self.block1.rebuild_merkle_root()
         self.block1_hash = self.block1.hash()
@@ -300,35 +300,35 @@ class AbstractBlockStorageTest(abc.ABC, unittest.TestCase):
         blocks = list(clone_view.blocks.all())
         self.assertEqual(3, len(blocks))
         self.assertEqual(2, len(list(snapshot_view.blocks.all())))
-        self.assertEqual(block3, blocks[0])
-        self.assertEqual(self.block2, blocks[1])
-        self.assertEqual(self.block1, blocks[2])
+        self.assertEqual(self.block1, blocks[1])
+        self.assertEqual(self.block2, blocks[0])
+        self.assertEqual(block3, blocks[2])
 
     def test_snapshot_bestblockheight(self):
         snapshot_view = self.db.get_snapshotview()
-        self.assertEqual(-1, snapshot_view.block_height)
+        self.assertEqual(-1, snapshot_view.best_block_height)
 
-        snapshot_view.block_height = 2
-        self.assertEqual(2, snapshot_view.block_height)
+        snapshot_view.best_block_height = 2
+        self.assertEqual(2, snapshot_view.best_block_height)
 
         # nothing yet in raw view
         raw_view = self.db.get_rawview()
-        self.assertEqual(-1, raw_view.block_height)
+        self.assertEqual(-1, raw_view.best_block_height)
 
         clone_view = snapshot_view.clone()
-        self.assertEqual(2, clone_view.block_height)
+        self.assertEqual(2, clone_view.best_block_height)
 
-        clone_view.block_height = 3
-        self.assertEqual(3, clone_view.block_height)
-        self.assertEqual(2, snapshot_view.block_height)
-        self.assertEqual(-1, raw_view.block_height)
+        clone_view.best_block_height = 3
+        self.assertEqual(3, clone_view.best_block_height)
+        self.assertEqual(2, snapshot_view.best_block_height)
+        self.assertEqual(-1, raw_view.best_block_height)
 
         clone_view.commit()
-        self.assertEqual(3, snapshot_view.block_height)
-        self.assertEqual(-1, raw_view.block_height)
+        self.assertEqual(3, snapshot_view.best_block_height)
+        self.assertEqual(-1, raw_view.best_block_height)
 
         snapshot_view.commit()
-        self.assertEqual(3, raw_view.block_height)
+        self.assertEqual(3, raw_view.best_block_height)
 
     def test_snapshot_bestblockheight_2(self):
         snapshot_view = self.db.get_snapshotview()
@@ -336,7 +336,7 @@ class AbstractBlockStorageTest(abc.ABC, unittest.TestCase):
         snapshot_view.commit()
 
         raw_view = self.db.get_rawview()
-        self.assertEqual(self.block1.index, raw_view.block_height)
+        self.assertEqual(self.block1.index, raw_view.best_block_height)
 
 
 class AbstractContractStorageTest(abc.ABC, unittest.TestCase):
@@ -354,12 +354,20 @@ class AbstractContractStorageTest(abc.ABC, unittest.TestCase):
 
     def setUp(self) -> None:
         self.db = self.db_factory()
-        self.contract1 = storage.ContractState(b'\x01\x02', manifest.ContractManifest())
-        self.contract1_hash = self.contract1.script_hash()
-        self.contract2 = storage.ContractState(b'\x03\x04', manifest.ContractManifest())
-        self.contract2_hash = self.contract2.script_hash()
-        self.contract3 = storage.ContractState(b'\x05\x06', manifest.ContractManifest())
-        self.contract3_hash = self.contract2.script_hash()
+        dummy_method = contracts.ContractMethodDescriptor("test1", 0, [], contracts.ContractParameterType.VOID, True)
+        nef1 = contracts.NEF(script=b'\x01\x02')
+        self.contract1 = contracts.ContractState(1, nef1, contracts.ContractManifest(), 0, types.UInt160(b'\x01' * 20))
+        # the ABI must have at least 1 method or sanity checks will fail
+        self.contract1.manifest.abi.methods.append(dummy_method)
+        self.contract1_hash = self.contract1.hash
+        nef2 = contracts.NEF(script=b'\x03\x04')
+        self.contract2 = contracts.ContractState(2, nef2, contracts.ContractManifest(), 0, types.UInt160(b'\x02' * 20))
+        self.contract2.manifest.abi.methods.append(dummy_method)
+        self.contract2_hash = self.contract2.hash
+        nef3 = contracts.NEF(script=b'\x03\x04')
+        self.contract3 = contracts.ContractState(3, nef3, contracts.ContractManifest(), 0, types.UInt160(b'\x03' * 20))
+        self.contract3.manifest.abi.methods.append(dummy_method)
+        self.contract3_hash = self.contract3.hash
 
     def test_raw(self):
         raw_view = self.db.get_rawview()
@@ -509,7 +517,7 @@ class AbstractContractStorageTest(abc.ABC, unittest.TestCase):
         # We validate the hash of the original with the hash of the contract we retrieved.
         # The modification of the script attribute above changes the hash, if it persisted
         # the following test fails
-        self.assertEqual(self.contract1_hash, contract_again.script_hash())
+        self.assertEqual(self.contract1_hash, contract_again.hash)
 
     def test_snapshot_clone_put(self):
         raw_view = self.db.get_rawview()
@@ -573,7 +581,7 @@ class AbstractContractStorageTest(abc.ABC, unittest.TestCase):
         snapshot_view.contracts.get(self.contract1_hash)
 
         clone_view = snapshot_view.clone()
-        contract_from_clone = clone_view.contracts.get(self.contract1_hash)  # type: storage.ContractState
+        contract_from_clone = clone_view.contracts.get(self.contract1_hash)  # type: contracts.ContractState
         # modify one of the attributes
         contract_from_clone.manifest.extra = True
 
@@ -646,30 +654,29 @@ class AbstractStorageStorageTest(abc.ABC, unittest.TestCase):
 
     def setUp(self) -> None:
         self.db = self.db_factory()
-        self.contract1_hash = types.UInt160.from_string("d7678dd97c000be3f33e9362e673101bac4ca654")
+        self.storage1_id = 1
 
-        self.storagekey1 = storage.StorageKey(self.contract1_hash, b'\x01\x02')
+        self.storagekey1 = storage.StorageKey(self.storage1_id, b'\x01\x02')
         self.storageitem1 = storage.StorageItem(b'\x01\x01')
 
-        self.contract2_hash = types.UInt160.from_string("AAAA8dd97c000be3f33e9362e673101bac4cFFFF")
+        self.storage2_id = 2
 
-        self.storagekey2 = storage.StorageKey(self.contract2_hash, b'\x03\x04')
+        self.storagekey2 = storage.StorageKey(self.storage2_id, b'\x03\x04')
         self.storageitem2 = storage.StorageItem(b'\x02\x02')
 
-        self.storagekey3 = storage.StorageKey(self.contract2_hash, b'\x03\x05')
+        self.storagekey3 = storage.StorageKey(self.storage2_id, b'\x03\x05')
         self.storageitem3 = storage.StorageItem(b'\x03\x03')
 
-        self.storagekey4 = storage.StorageKey(self.contract2_hash, b'\x04\x04')
+        self.storagekey4 = storage.StorageKey(self.storage2_id, b'\x04\x04')
         self.storageitem4 = storage.StorageItem(b'\x04\x04')
 
     def test_raw(self):
         raw_view = self.db.get_rawview()
 
         # we should not find any key in an empty db
-        target_key = storage.StorageKey(types.UInt160.zero(), b'\x00')
         with self.assertRaises(KeyError):
-            raw_view.storages.get(target_key)
-        self.assertIsNone(raw_view.storages.try_get(target_key))
+            raw_view.storages.get(self.storagekey1)
+        self.assertIsNone(raw_view.storages.try_get(self.storagekey1))
 
         # fill the db
         raw_view.storages.put(self.storagekey1, self.storageitem1)
@@ -690,7 +697,8 @@ class AbstractStorageStorageTest(abc.ABC, unittest.TestCase):
         # test finding keys
         raw_view.storages.put(self.storagekey3, self.storageitem3)
 
-        storage_pairs = dict(raw_view.storages.find(self.contract2_hash, b'\03'))
+        find_prefix = storage.create_find_prefix(self.storage2_id, b'\x03')
+        storage_pairs = dict(raw_view.storages.find(find_prefix))
         self.assertEqual(2, len(storage_pairs))
         self.assertNotIn(self.storagekey1, storage_pairs)
         self.assertIn(self.storagekey2, storage_pairs)
@@ -699,7 +707,7 @@ class AbstractStorageStorageTest(abc.ABC, unittest.TestCase):
         self.assertIn(self.storageitem2, storage_pairs.values())
         self.assertIn(self.storageitem3, storage_pairs.values())
 
-        # finally try removing the tx
+        # finally try removing the data
         raw_view.storages.delete(self.storagekey1)
         self.assertIsNone(raw_view.storages.try_get(self.storagekey1))
 
@@ -709,10 +717,9 @@ class AbstractStorageStorageTest(abc.ABC, unittest.TestCase):
         snapshot_view = self.db.get_snapshotview()
 
         # we should not find any key in an empty db
-        target_key = storage.StorageKey(types.UInt160.zero(), b'\x00')
         with self.assertRaises(KeyError):
-            raw_view.storages.get(target_key)
-        self.assertIsNone(raw_view.storages.try_get(target_key))
+            raw_view.storages.get(self.storagekey1)
+        self.assertIsNone(raw_view.storages.try_get(self.storagekey1))
 
         # add item
         snapshot_view.storages.put(self.storagekey1, self.storageitem1)
@@ -744,10 +751,9 @@ class AbstractStorageStorageTest(abc.ABC, unittest.TestCase):
         raw_view = self.db.get_rawview()
         with self.db.get_snapshotview() as snapshot_view:
             # we should not find any key in an empty db
-            target_key = storage.StorageKey(types.UInt160.zero(), b'\x00')
             with self.assertRaises(KeyError):
-                raw_view.storages.get(target_key)
-            self.assertIsNone(raw_view.storages.try_get(target_key))
+                raw_view.storages.get(self.storagekey1)
+            self.assertIsNone(raw_view.storages.try_get(self.storagekey1))
 
             # add item
             snapshot_view.storages.put(self.storagekey1, self.storageitem1)
@@ -851,7 +857,7 @@ class AbstractStorageStorageTest(abc.ABC, unittest.TestCase):
         snapshot_view.storages.put(self.storagekey1, self.storageitem1)
 
         clone_view = snapshot_view.clone()
-        # validate it has the same tx
+        # validate it has the same storage item
         self.assertEqual(self.storageitem1, clone_view.storages.try_get(self.storagekey1))
 
         # put some in the clone
@@ -907,7 +913,7 @@ class AbstractStorageStorageTest(abc.ABC, unittest.TestCase):
         snapshot_view.storages.get(self.storagekey1)
 
         clone_view = snapshot_view.clone()
-        value_from_clone = clone_view.storages.get(self.storagekey1) # type: storage.StorageItem
+        value_from_clone = clone_view.storages.get(self.storagekey1)  # type: storage.StorageItem
         value_from_clone.value = b'\x55\x55'
 
         # validate the snapshot and real backend are not affected
@@ -940,7 +946,7 @@ class AbstractStorageStorageTest(abc.ABC, unittest.TestCase):
         # key3 should come after key 2
         snapshot_view.storages.get(self.storagekey3, read_only=True)
 
-        all_pairs = dict(snapshot_view.storages.all(self.contract2_hash))
+        all_pairs = dict(snapshot_view.storages.all(self.storage2_id))
         self.assertEqual(2, len(all_pairs))
         self.assertNotIn(self.storagekey1, all_pairs)
         self.assertEqual(self.storagekey2, list(all_pairs.keys())[0])
@@ -959,13 +965,12 @@ class AbstractStorageStorageTest(abc.ABC, unittest.TestCase):
         self.assertNotEqual(b'\x55\x55', item2_from_snap.value)
         self.assertNotEqual(b'\x55\x55', item3_from_snap.value)
 
-
         clone_view = snapshot_view.clone()
         clone_view.storages.put(self.storagekey4, self.storageitem4)
 
-        all_pairs = dict(clone_view.storages.all(self.contract2_hash))
+        all_pairs = dict(clone_view.storages.all(self.storage2_id))
         self.assertEqual(3, len(all_pairs))
-        self.assertEqual(2, len(list(snapshot_view.storages.all(self.contract2_hash))))
+        self.assertEqual(2, len(list(snapshot_view.storages.all(self.storage2_id))))
         self.assertNotIn(self.storagekey1, all_pairs)
         self.assertEqual(self.storagekey2, list(all_pairs.keys())[0])
         self.assertEqual(self.storagekey3, list(all_pairs.keys())[1])
@@ -988,10 +993,10 @@ class AbstractStorageStorageTest(abc.ABC, unittest.TestCase):
         # key3 should come after key 2
         snapshot_view.storages.get(self.storagekey3, read_only=True)
 
-
         # key2,3 and 4 are of the same smart contract
         # only key2 and key3 start with \x03
-        all_pairs = list(snapshot_view.storages.find(self.contract2_hash, b'\x03'))
+        find_prefix_storage2 = storage.create_find_prefix(self.storage2_id, b'\x03')
+        all_pairs = list(snapshot_view.storages.find(find_prefix_storage2))
         keys = list(map(lambda i: i[0], all_pairs))
         items = list(map(lambda i: i[1], all_pairs))
         self.assertEqual(2, len(all_pairs))
@@ -1013,16 +1018,16 @@ class AbstractStorageStorageTest(abc.ABC, unittest.TestCase):
         keys[0].key = b'\x77\x77'
 
         # create a storage key that should match the above modification
-        modified_key = storage.StorageKey(self.contract2_hash, b'\x77\x77')
+        modified_key = storage.StorageKey(self.storage2_id, b'\x77\x77')
         # and we should not find it
         self.assertIsNone(snapshot_view.storages.try_get(modified_key, read_only=True))
 
         # test find in clone
-        clone_key = storage.StorageKey(self.contract2_hash, b'\x03\x88')
+        clone_key = storage.StorageKey(self.storage2_id, b'\x03\x88')
         clone_item = storage.StorageItem(b'\x99\x99')
         clone_view = snapshot_view.clone()
         clone_view.storages.put(clone_key, clone_item)
-        all_pairs = list(clone_view.storages.find(self.contract2_hash, b'\x03'))
+        all_pairs = list(clone_view.storages.find(find_prefix_storage2))
         self.assertEqual(3, len(all_pairs))
 
     def test_find_extra(self):
@@ -1092,9 +1097,9 @@ class AbstractStorageStorageTest(abc.ABC, unittest.TestCase):
 
 
         """
-        key1 = storage.StorageKey(types.UInt160.zero(), b'key1')
-        key2 = storage.StorageKey(types.UInt160.zero(), b'key2')
-        key3 = storage.StorageKey(types.UInt160.zero(), b'key3')
+        key1 = storage.StorageKey(0, b'key1')
+        key2 = storage.StorageKey(0, b'key2')
+        key3 = storage.StorageKey(0, b'key3')
         value1 = storage.StorageItem(b'value1')
 
         snapshot_view = self.db.get_snapshotview()
@@ -1107,7 +1112,7 @@ class AbstractStorageStorageTest(abc.ABC, unittest.TestCase):
         self.assertEqual(key3, results[2][0])
 
         # NEO-cli sorts keys based on the serialized TKey value, we make 1 special case where we change the contract
-        key1 = storage.StorageKey(types.UInt160.from_string("0000000000000000000000000000000000000001"), key=b'key1')
+        key1 = storage.StorageKey(1, key=b'key1')
         snapshot_view = self.db.get_snapshotview()
         snapshot_view.storages.put(key1, value1)
         snapshot_view.storages.put(key2, value1)
@@ -1119,10 +1124,10 @@ class AbstractStorageStorageTest(abc.ABC, unittest.TestCase):
 
     def test_issue_1672(self):
         # test if we are affected by https://github.com/neo-project/neo/issues/1672
-        self.storagekey1 = storage.StorageKey(self.contract1_hash, b'\x00\x01')
-        self.storagekey2 = storage.StorageKey(self.contract1_hash, b'\x00\x02')
-        self.storagekey3 = storage.StorageKey(self.contract1_hash, b'\x00\x03')
-        self.storagekey4 = storage.StorageKey(self.contract1_hash, b'\x00\x04')
+        self.storagekey1 = storage.StorageKey(self.storage1_id, b'\x00\x01')
+        self.storagekey2 = storage.StorageKey(self.storage1_id, b'\x00\x02')
+        self.storagekey3 = storage.StorageKey(self.storage1_id, b'\x00\x03')
+        self.storagekey4 = storage.StorageKey(self.storage1_id, b'\x00\x04')
 
         self.storageitem1 = storage.StorageItem(b'\x01\x01')
         self.storageitem2 = storage.StorageItem(b'\x02\x02')
@@ -1139,7 +1144,8 @@ class AbstractStorageStorageTest(abc.ABC, unittest.TestCase):
         raw.storages.put(self.storagekey4, self.storageitem4)
 
         # test
-        iter = snapshot.storages.find(self.contract1_hash, key_prefix=b'\x00')
+        find_prefix = storage.create_find_prefix(self.storage1_id, b'\x00')
+        iter = snapshot.storages.find(find_prefix)
         kv_pair = next(iter)
         self.assertEqual(self.storagekey1, kv_pair[0])
 

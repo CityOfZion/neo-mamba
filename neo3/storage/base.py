@@ -2,8 +2,11 @@ from __future__ import annotations
 import abc
 from neo3.core import types
 from neo3 import storage
-from neo3.network import payloads
-from typing import Tuple, Optional, Iterator
+from typing import Tuple, Optional, Iterator, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from neo3.network import payloads
+    from neo3 import contracts
 
 
 class IDBImplementation(abc.ABC):
@@ -68,33 +71,32 @@ class IDBImplementation(abc.ABC):
         """ Return all blocks stored in the real backend (readonly). """
 
     @abc.abstractmethod
-    def _internal_contract_put(self, contract: storage.ContractState) -> None:
+    def _internal_contract_put(self, contract: contracts.ContractState) -> None:
         """ Persist a contract in the real backend. """
 
     @abc.abstractmethod
-    def _internal_contract_update(self, contract: storage.ContractState) -> None:
+    def _internal_contract_update(self, contract: contracts.ContractState) -> None:
         """ Update a contract in the real backend. """
 
     @abc.abstractmethod
-    def _internal_contract_delete(self, script_hash: types.UInt160) -> None:
+    def _internal_contract_delete(self, hash: types.UInt160) -> None:
         """ Delete a contract from the real backend. """
 
     @abc.abstractmethod
-    def _internal_contract_get(self, script_hash: types.UInt160) -> storage.ContractState:
+    def _internal_contract_get(self, hash: types.UInt160) -> contracts.ContractState:
         """
         Get a contract from the real backend.
-
         Must raise KeyError if not found. Return value must be read only.
         """
 
-    def _internal_contract_try_get(self, script_hash: types.UInt160) -> Optional[storage.ContractState]:
+    def _internal_contract_try_get(self, hash: types.UInt160) -> Optional[contracts.ContractState]:
         try:
-            return self._internal_contract_get(script_hash)
+            return self._internal_contract_get(hash)
         except KeyError:
             return None
 
     @abc.abstractmethod
-    def _internal_contract_all(self) -> Iterator[storage.ContractState]:
+    def _internal_contract_all(self) -> Iterator[contracts.ContractState]:
         """ Return all contracts stored in the real backend (readonly). """
 
     @abc.abstractmethod
@@ -124,14 +126,18 @@ class IDBImplementation(abc.ABC):
             return None
 
     @abc.abstractmethod
-    def _internal_storage_all(self, contract_script_hash: types.UInt160 = None) -> Iterator[
-            Tuple[storage.StorageKey, storage.StorageItem]]:
+    def _internal_storage_all(self, contract_id: Optional[int] = None) -> Iterator[Tuple[storage.StorageKey,
+                                                                                         storage.StorageItem]]:
         """ Return all storage pairs for a given smart contract stored in the real backend (readonly). """
 
     @abc.abstractmethod
-    def _internal_storage_find(self, contract_script_hash: types.UInt160,
-                               key_prefix: bytes) -> Iterator[Tuple[storage.StorageKey, storage.StorageItem]]:
-        """ Find key/value pairs for a given smart contract by a given key prefix. """
+    def _internal_storage_find(self, key_prefix: bytes) -> Iterator[Tuple[storage.StorageKey, storage.StorageItem]]:
+        """ Find the storage pairs where the key property of the deserialized StorageKey starts with key_prefix. """
+
+    def _internal_storage_seek(self,
+                               key_prefix: bytes,
+                               seek_direction="forward") -> Iterator[Tuple[storage.StorageKey, storage.StorageItem]]:
+        """ """
 
     @abc.abstractmethod
     def _internal_transaction_put(self, transaction: payloads.Transaction) -> None:
@@ -185,14 +191,14 @@ class RawView:
         return RawTXAccess(self._db)
 
     @property
-    def block_height(self):
+    def best_block_height(self):
         try:
             return self._db._internal_bestblockheight_get()
         except KeyError:
             return -1
 
-    @block_height.setter
-    def block_height(self, value):
+    @best_block_height.setter
+    def best_block_height(self, value):
         raise AttributeError("Can't set attribute on a raw view. view.blocks.put() automatically updates the height "
                              "when applicable")
 
@@ -273,46 +279,41 @@ class RawContractAccess:
     def __init__(self, db: IDBImplementation):
         self._db = db
 
-    def put(self, contract: storage.ContractState) -> None:
+    def put(self, contract: contracts.ContractState) -> None:
         """
         Store a contract.
-
         Args:
             contract: contract state instance.
         """
         self._db._internal_contract_put(contract)
 
-    def get(self, script_hash: types.UInt160) -> storage.ContractState:
+    def get(self, hash: types.UInt160) -> contracts.ContractState:
         """
         Retrieve a contract.
-
         Args:
-            script_hash: contract script hash.
-
+            hash: unique contract identifier.
         Raises:
             KeyError: if the item is not found.
         """
-        return self._db._internal_contract_get(script_hash)
+        return self._db._internal_contract_get(hash)
 
-    def try_get(self, script_hash: types.UInt160) -> Optional[storage.ContractState]:
+    def try_get(self, hash: types.UInt160) -> Optional[contracts.ContractState]:
         """
         Try to retrieve a contract.
-
         Args:
-            script_hash: contract script hash.
+            hash: unique contract identifier.
         """
-        return self._db._internal_contract_try_get(script_hash)
+        return self._db._internal_contract_try_get(hash)
 
-    def delete(self, script_hash: types.UInt160) -> None:
+    def delete(self, hash: types.UInt160) -> None:
         """
-        Remove a transaction.
-
+        Remove a contract.
         Args:
-            script_hash: contract script hash.
+            hash: unique contract identifier.
         """
-        self._db._internal_contract_delete(script_hash)
+        self._db._internal_contract_delete(hash)
 
-    def all(self) -> Iterator[storage.ContractState]:
+    def all(self) -> Iterator[contracts.ContractState]:
         """
         Retrieve all stored contracts.
         """
@@ -364,29 +365,27 @@ class RawStorageAccess:
         """
         self._db._internal_storage_delete(key)
 
-    def all(self, contract_script_hash: types.UInt160 = None) -> Iterator[Tuple[storage.StorageKey,
-                                                                                storage.StorageItem]]:
+    def all(self, contract_id: Optional[int] = None) -> Iterator[Tuple[storage.StorageKey,
+                                                                       storage.StorageItem]]:
         """
         Retrieve all storage key/value pairs.
 
         Args:
-            contract_script_hash: smart contract script hash to limit results to. If not specified, returns for all
+            contract_id: smart contract unique identifier to limit results to. If not specified, returns for all
             contracts.
         """
-        for k, v in self._db._internal_storage_all(contract_script_hash):
+        for k, v in self._db._internal_storage_all(contract_id):
             yield k, v
 
-    def find(self, contract_script_hash: types.UInt160, key_prefix: bytes) -> Iterator[Tuple[storage.StorageKey,
-                                                                                             storage.StorageItem]]:
+    def find(self, key_prefix: bytes) -> Iterator[Tuple[storage.StorageKey, storage.StorageItem]]:
         """
-        Retrieve all storage key/value pairs.
+        Find the storage pairs where the key property of the deserialized StorageKey starts with key_prefix.
 
         Args:
-            contract_script_hash: script hash of smart contract to search storage of.
             key_prefix: the prefix part of the storage.StorageKey.key to look for.
 
         """
-        for k, v in self._db._internal_storage_find(contract_script_hash, key_prefix):
+        for k, v in self._db._internal_storage_find(key_prefix):
             yield k, v
 
 
@@ -442,6 +441,6 @@ class RawTXAccess:
 
 
 class StorageContext:
-    def __init__(self, script_hash: types.UInt160, is_read_only: bool):
-        self.script_hash = script_hash
+    def __init__(self, contract_id: int, is_read_only: bool):
+        self.id = contract_id
         self.is_read_only = is_read_only

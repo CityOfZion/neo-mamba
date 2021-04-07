@@ -6,22 +6,22 @@ from neo3.contracts.interop import register
 from typing import cast, List, Deque
 
 
-@register("System.Runtime.Platform", 250, contracts.native.CallFlags.NONE, True)
+@register("System.Runtime.Platform", 1 << 3, contracts.CallFlags.NONE)
 def get_platform(engine: contracts.ApplicationEngine) -> str:
     return "NEO"
 
 
-@register("System.Runtime.GetTrigger", 250, contracts.native.CallFlags.NONE, True)
+@register("System.Runtime.GetTrigger", 1 << 3, contracts.CallFlags.NONE)
 def get_trigger(engine: contracts.ApplicationEngine) -> vm.BigInteger:
     return vm.BigInteger(engine.trigger.value)
 
 
-@register("System.Runtime.GetTime", 250, contracts.native.CallFlags.ALLOW_STATES, True)
+@register("System.Runtime.GetTime", 1 << 3, contracts.CallFlags.NONE)
 def get_time(engine: contracts.ApplicationEngine) -> int:
     return engine.snapshot.persisting_block.timestamp
 
 
-@register("System.Runtime.GetScriptContainer", 250, contracts.native.CallFlags.NONE, True)
+@register("System.Runtime.GetScriptContainer", 1 << 3, contracts.CallFlags.NONE)
 def get_scriptcontainer(engine: contracts.ApplicationEngine) -> IInteroperable:
     if not isinstance(engine.script_container, IInteroperable):
         raise ValueError("script container is not a valid IInteroperable type")
@@ -29,22 +29,22 @@ def get_scriptcontainer(engine: contracts.ApplicationEngine) -> IInteroperable:
     return container
 
 
-@register("System.Runtime.GetExecutingScriptHash", 400, contracts.native.CallFlags.NONE, True)
+@register("System.Runtime.GetExecutingScriptHash", 1 << 4, contracts.CallFlags.NONE)
 def get_executingscripthash(engine: contracts.ApplicationEngine) -> types.UInt160:
     return engine.current_scripthash
 
 
-@register("System.Runtime.GetCallingScriptHash", 400, contracts.native.CallFlags.NONE, True)
+@register("System.Runtime.GetCallingScriptHash", 1 << 4, contracts.CallFlags.NONE)
 def get_callingscripthash(engine: contracts.ApplicationEngine) -> types.UInt160:
     return engine.calling_scripthash
 
 
-@register("System.Runtime.GetEntryScriptHash", 400, contracts.native.CallFlags.NONE, True)
+@register("System.Runtime.GetEntryScriptHash", 1 << 4, contracts.CallFlags.NONE)
 def get_entryscripthash(engine: contracts.ApplicationEngine) -> types.UInt160:
     return engine.entry_scripthash
 
 
-@register("System.Runtime.CheckWitness", 30000, contracts.native.CallFlags.ALLOW_STATES, True, [bytes])
+@register("System.Runtime.CheckWitness", 1 << 10, contracts.CallFlags.NONE)
 def do_checkwitness(engine: contracts.ApplicationEngine, data: bytes) -> bool:
     if len(data) == 20:
         hash_ = types.UInt160(data)
@@ -59,54 +59,19 @@ def do_checkwitness(engine: contracts.ApplicationEngine, data: bytes) -> bool:
     return engine.checkwitness(hash_)
 
 
-@register("System.Runtime.GetInvocationCounter", 400, contracts.native.CallFlags.NONE, True)
+@register("System.Runtime.GetInvocationCounter", 1 << 4, contracts.CallFlags.NONE)
 def get_invocationcounter(engine: contracts.ApplicationEngine) -> int:
     return engine.get_invocation_counter()
 
 
-@register("System.Runtime.Log", 1000000, contracts.native.CallFlags.ALLOW_NOTIFY, False, [bytes])
+@register("System.Runtime.Log", 1 << 15, contracts.CallFlags.ALLOW_NOTIFY)
 def do_log(engine: contracts.ApplicationEngine, message: bytes) -> None:
     if len(message) > engine.MAX_NOTIFICATION_SIZE:
         raise ValueError(f"Log message length ({len(message)}) exceeds maximum allowed ({engine.MAX_NOTIFICATION_SIZE})")  # noqa
     msgrouter.interop_log(engine.script_container, message.decode('utf-8'))
 
 
-def _validate_state_item_limits(engine: contracts.ApplicationEngine, state: vm.StackItem):
-    size = 0
-    checked: List[vm.StackItem] = []
-    not_checked: Deque[vm.StackItem] = deque()
-
-    while True:
-        if isinstance(state, vm.StructStackItem):
-            for item in state:
-                not_checked.append(item)
-        elif isinstance(state, vm.ArrayStackItem):
-            if not any(map(lambda item: id(item) == id(state), checked)):
-                checked.append(state)
-                for item in state:
-                    not_checked.append(item)
-        elif isinstance(state, vm.PrimitiveType):
-            size += len(state)
-        elif isinstance(state, vm.NullStackItem):
-            pass
-        elif isinstance(state, vm.InteropStackItem):
-            size = engine.MAX_NOTIFICATION_SIZE + 1
-        elif isinstance(state, vm.MapStackItem):
-            if not any(map(lambda item: id(item) == id(state), checked)):
-                checked.append(state)
-                for k, v in state:
-                    size += len(k)
-                    not_checked.append(v)
-        if size > engine.MAX_NOTIFICATION_SIZE:
-            raise ValueError("An item in the notification state exceeds the allowed notification size limit")
-        if len(not_checked) == 0:
-            break
-        state = not_checked.pop()
-
-    return size
-
-
-@register("System.Runtime.Notify", 1000000, contracts.native.CallFlags.ALLOW_NOTIFY, False, [bytes, vm.ArrayStackItem])
+@register("System.Runtime.Notify", 1 << 15, contracts.CallFlags.ALLOW_NOTIFY)
 def do_notify(engine: contracts.ApplicationEngine, event_name: bytes, state: vm.ArrayStackItem) -> None:
     """
 
@@ -114,17 +79,18 @@ def do_notify(engine: contracts.ApplicationEngine, event_name: bytes, state: vm.
         engine:
         event_name:
         state: values belonging to the notification event.
-        e.g. a NEP-5 transfer event might have as state: from script_hash, to script_hash and an ammount
+        e.g. a NEP-17 transfer event might have as state: from script_hash, to script_hash and an ammount
     """
     if len(event_name) > engine.MAX_EVENT_SIZE:
         raise ValueError(
             f"Notify event name length ({len(event_name)}) exceeds maximum allowed ({engine.MAX_EVENT_SIZE})")
-    _validate_state_item_limits(engine, state)
+    # will validate size + cyclic references
+    contracts.BinarySerializer.serialize(state, engine.MAX_NOTIFICATION_SIZE)
     engine.notifications.append((engine.script_container, engine.current_scripthash, event_name, state))
     msgrouter.interop_notify(engine.current_scripthash, event_name.decode('utf-8'), state)
 
 
-@register("System.Runtime.GetNotifications", 10000, contracts.native.CallFlags.NONE, True, [types.UInt160])
+@register("System.Runtime.GetNotifications", 1 << 8, contracts.CallFlags.NONE)
 def get_notifications(engine: contracts.ApplicationEngine, for_hash: types.UInt160) -> vm.ArrayStackItem:
     array = vm.ArrayStackItem(engine.reference_counter)
     for notification in engine.notifications:
@@ -141,7 +107,7 @@ def get_notifications(engine: contracts.ApplicationEngine, for_hash: types.UInt1
     return array
 
 
-@register("System.Runtime.GasLeft", 400, contracts.native.CallFlags.NONE, True)
+@register("System.Runtime.GasLeft", 1 << 4, contracts.CallFlags.NONE)
 def get_gasleft(engine: contracts.ApplicationEngine) -> int:
     if engine.is_test_mode:
         return -1
