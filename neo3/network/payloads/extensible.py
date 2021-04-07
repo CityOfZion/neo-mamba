@@ -3,7 +3,7 @@ import hashlib
 from typing import List
 from neo3 import storage, settings
 from neo3.core import types, serialization, Size as s, utils
-from neo3.network import payloads
+from neo3.network import payloads, message
 from neo3.network.payloads import InventoryType
 
 
@@ -56,7 +56,7 @@ class ExtensiblePayload(payloads.IInventory):
         if self.valid_block_start >= self.valid_block_end:
             raise ValueError("Deserialization error - valid_block_starts is bigger than valid_block_end")
         self.sender = reader.read_serializable(types.UInt160)
-        self.data = reader.read_var_bytes(0xFFFF)
+        self.data = reader.read_var_bytes(message.Message.PAYLOAD_MAX_SIZE)
 
     def hash(self) -> types.UInt256:
         intermediate_data = hashlib.sha256(self.get_hash_data(settings.network.magic)).digest()
