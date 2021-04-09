@@ -1,4 +1,5 @@
 from __future__ import annotations
+import inspect
 from typing import List, Callable, Dict, Tuple, Any, Optional, get_type_hints
 from neo3 import contracts, vm, storage, settings
 from neo3.core import types, to_script_hash
@@ -22,9 +23,55 @@ class _ContractMethodMetadata:
         self.price = price
         self.return_type = return_type
         self.parameters = parameter_types if parameter_types else []
-        self.required_flag = required_flags
+        self.required_flags = required_flags
         self.add_engine = add_engine
         self.add_snapshot = add_snapshot
+
+
+class _NativeMethodMeta:
+    def __init__(self, func: Callable):
+        self.handler = func
+        self.name: str = func.name  # type:ignore
+        self.price: int = func.price  # type: ignore
+        self.required_flags: contracts.CallFlags = func.flags  # type: ignore
+        self.add_engine = False
+        self.add_snapshot = False
+        self.return_type = None
+
+        parameter_types = []
+        parameter_names = []
+        for k, v in get_type_hints(func).items():
+            if k == 'return':
+                if v != type(None):
+                    self.return_type = v
+                continue
+            parameter_types.append(v)
+            parameter_names.append(k)
+
+        # check if engine or snapshot should be included
+        # and filter this from the parameter list for the ABI
+        if len(parameter_types) > 0:
+            if parameter_types[0] == contracts.ApplicationEngine:
+                self.add_engine = True
+                parameter_types = parameter_types[1:]
+            elif parameter_types[0] == storage.Snapshot:
+                self.add_snapshot = True
+                parameter_types = parameter_types[1:]
+
+        params = []
+        for t, n in zip(parameter_types, parameter_names):
+            params.append(contracts.ContractParameterDefinition(
+                name=n,
+                type=contracts.ContractParameterType.from_type(t)
+            ))
+        self.parameter_types = parameter_types
+        self.descriptor = contracts.ContractMethodDescriptor(
+            name=func.name,  # type: ignore
+            offset=0,
+            return_type=contracts.ContractParameterType.from_type(self.return_type),
+            parameters=params,
+            safe=(func.flags & ~contracts.CallFlags.READ_ONLY) == 0  # type: ignore
+        )
 
 
 class NativeContract(convenience._Singleton):
@@ -41,7 +88,7 @@ class NativeContract(convenience._Singleton):
     active_block_index = 0
 
     def init(self):
-        self._methods: Dict[Tuple[str, int], _ContractMethodMetadata] = {}
+        self._methods: Dict[int, _NativeMethodMeta] = {}  # offset, meta
 
         self._management = contracts.ManagementContract()
         self._neo = contracts.NeoToken()
@@ -52,21 +99,34 @@ class NativeContract(convenience._Singleton):
         self._ledger = contracts.LedgerContract()
         self._role = contracts.DesignationContract()
 
+        methods_meta = []
+        for pair in inspect.getmembers(self, lambda m: hasattr(m, "native_call")):
+            methods_meta.append(_NativeMethodMeta(pair[1]))
+
+        methods_meta.sort(key=lambda x: (x.descriptor.name, len(x.descriptor.parameters)))
+
         sb = vm.ScriptBuilder()
-        sb.emit_push(self.id)
-        sb.emit_syscall(1736177434)  # "System.Contract.CallNative"
+        for meta in methods_meta:
+            meta.descriptor.offset = len(sb)
+            sb.emit_push(0)
+            self._methods.update({len(sb): meta})
+            sb.emit_syscall(1736177434)  # "System.Contract.CallNative"
+            sb.emit(vm.OpCode.RET)
+
         self._script: bytes = sb.to_array()
         self.nef = contracts.NEF("neo-core-v3.0", self._script)
+
         sender = types.UInt160.zero()  # OpCode.PUSH1
         sb = vm.ScriptBuilder()
         sb.emit(vm.OpCode.ABORT)
         sb.emit_push(sender.to_array())
-        sb.emit_push(self.nef.checksum)
+        sb.emit_push(0)
         sb.emit_push(self.service_name())
         self._hash: types.UInt160 = to_script_hash(sb.to_array())
         self._manifest: contracts.ContractManifest = contracts.ContractManifest()
         self._manifest.name = self.service_name()
-        self._manifest.abi.methods = []
+        self._manifest.abi.methods = list(map(lambda m: m.descriptor, methods_meta))
+
         if self._id != NativeContract._id:
             self._contracts.update({self.service_name(): self})
             self._contract_hashes.update({self._hash: self})
@@ -92,70 +152,9 @@ class NativeContract(convenience._Singleton):
         else:
             return None
 
-    def _register_contract_method(self,
-                                  func: Callable,
-                                  func_name: str,
-                                  price: int,
-                                  parameter_names: List[str] = None,
-                                  call_flags: contracts.CallFlags = contracts.CallFlags.NONE
-                                  ) -> None:
-        """
-        Registers a native contract method into the manifest
-
-        Args:
-            func: func pointer.
-            func_name: the name of the callable function.
-            price: the cost of calling the function.
-            parameter_names: the function argument names.
-        """
-        return_type = None
-        parameter_types = []
-        for k, v in get_type_hints(func).items():
-            if k == 'return':
-                if v != type(None):
-                    return_type = v
-                continue
-            parameter_types.append(v)
-
-        add_engine = False
-        add_snapshot = False
-        if len(parameter_types) > 0:
-            if parameter_types[0] == contracts.ApplicationEngine:
-                add_engine = True
-                parameter_types = parameter_types[1:]
-            elif parameter_types[0] == storage.Snapshot:
-                add_snapshot = True
-                parameter_types = parameter_types[1:]
-
-        params = []
-
-        if parameter_types and parameter_names is None:
-            raise ValueError(f"Found parameters types but missing parameter names for {self} {func_name}")
-
-        if parameter_names:
-            if len(parameter_types) != len(parameter_names):
-                raise ValueError(f"Parameter types count must match parameter names count! "
-                                 f"{len(parameter_types)}!={len(parameter_names)}")
-
-            for t, n in zip(parameter_types, parameter_names):
-                params.append(contracts.ContractParameterDefinition(
-                    name=n,
-                    type=contracts.ContractParameterType.from_type(t)
-                ))
-
-        self._manifest.abi.methods.append(
-            contracts.ContractMethodDescriptor(
-                name=func_name,
-                offset=0,
-                return_type=contracts.ContractParameterType.from_type(return_type),
-                parameters=params,
-                safe=(call_flags & ~contracts.CallFlags.READ_ONLY) == 0
-            )
-        )
-
-        self._methods.update({(func_name, len(params)): _ContractMethodMetadata(
-            func, price, call_flags, add_engine, add_snapshot, return_type, parameter_types)
-        })
+    @classmethod
+    def get_contract_by_hash(cls, contract_hash: types.UInt160) -> Optional[NativeContract]:
+        return cls._contract_hashes.get(contract_hash, None)
 
     @property
     def registered_contract_names(self) -> List[str]:
@@ -202,7 +201,7 @@ class NativeContract(convenience._Singleton):
             engine: ApplicationEngine
         """
 
-    def invoke(self, engine: contracts.ApplicationEngine) -> None:
+    def invoke(self, engine: contracts.ApplicationEngine, version: int) -> None:
         """
         Calls a contract function
 
@@ -210,24 +209,27 @@ class NativeContract(convenience._Singleton):
 
         Args:
             engine: the engine executing the smart contract
+            version: which version of the smart contract to load
 
         Raises:
-             SystemError: if not called via `System.Contract.Call`
+             SystemError: if not the contract is not yet active
+             ValueError: if the request contract version is not
              ValueError: if the function to be called does not exist on the contract
              ValueError: if trying to call a function without having the correct CallFlags
         """
-        if engine.current_scripthash != self.hash:
-            raise SystemError("It is not allowed to use Neo.Native.Call directly, use System.Contract.Call")
+        if self.active_block_index > engine.snapshot.best_block_height:
+            raise SystemError(f"The request native contract {self.service_name()} is not active until height"
+                              f" {self.active_block_index}")
+        if version != 0:
+            raise ValueError(f"Native contract version {version} is not active")  # type: ignore
 
         context = engine.current_context
-        operation = context.evaluation_stack.pop().to_array().decode()
-
         flags = contracts.CallFlags(context.call_flags)
-        method = self._methods.get((operation, len(context.evaluation_stack)), None)
+        method = self._methods.get(context.ip, None)
         if method is None:
-            raise ValueError(f"Method \"{operation}\" does not exist on contract {self.service_name()}")
-        if method.required_flag not in flags:
-            raise ValueError(f"Method requires call flag: {method.required_flag} received: {flags}")
+            raise ValueError(f"Method at IP \"{context.ip}\" does not exist on contract {self.service_name()}")
+        if method.required_flags not in flags:
+            raise ValueError(f"Method requires call flag: {method.required_flags} received: {flags}")
 
         engine.add_gas(method.price)
 
@@ -238,8 +240,8 @@ class NativeContract(convenience._Singleton):
         if method.add_snapshot:
             params.append(engine.snapshot)
 
-        for i in range(len(method.parameters)):
-            params.append(engine._stackitem_to_native(context.evaluation_stack.pop(), method.parameters[i]))
+        for t in method.parameter_types:
+            params.append(engine._stackitem_to_native(context.evaluation_stack.pop(), t))
 
         if len(params) > 0:
             return_value = method.handler(*params)

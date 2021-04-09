@@ -1,6 +1,7 @@
 from __future__ import annotations
 import struct
 from .nativecontract import NativeContract
+from .decorator import register
 from neo3 import storage, contracts, vm, settings
 from neo3.core import types, msgrouter, cryptography, serialization, to_script_hash, Size as s, IInteroperable
 from typing import Tuple, List, Dict, Sequence, cast, Optional
@@ -63,31 +64,7 @@ class FungibleToken(NativeContract):
         ]
         self.factor = pow(vm.BigInteger(10), vm.BigInteger(self._decimals))
 
-        self._register_contract_method(self.total_supply,
-                                       "totalSupply",
-                                       1000000,
-                                       call_flags=contracts.CallFlags.READ_STATES)
-        self._register_contract_method(self.balance_of,
-                                       "balanceOf",
-                                       1000000,
-                                       parameter_names=["account"],
-                                       call_flags=contracts.CallFlags.READ_STATES)
-        self._register_contract_method(self.transfer,
-                                       "transfer",
-                                       9000000,
-                                       parameter_names=["account_from", "account_to", "amount", "data"],
-                                       call_flags=(contracts.CallFlags.WRITE_STATES
-                                                   | contracts.CallFlags.ALLOW_CALL
-                                                   | contracts.CallFlags.ALLOW_NOTIFY))
-        self._register_contract_method(self.symbol,
-                                       "symbol",
-                                       0,
-                                       call_flags=contracts.CallFlags.READ_STATES)
-        self._register_contract_method(self.on_persist,
-                                       "onPersist",
-                                       0,
-                                       call_flags=contracts.CallFlags.WRITE_STATES)
-
+    @register("symbol", 0, contracts.CallFlags.READ_STATES)
     def symbol(self) -> str:
         """ Token symbol. """
         return self._symbol
@@ -167,6 +144,7 @@ class FungibleToken(NativeContract):
             storage_item.value = new_value.to_array()
         self._post_transfer(engine, account, types.UInt160.zero(), amount, vm.NullStackItem(), False)
 
+    @register("totalSupply", 1000000, contracts.CallFlags.READ_STATES)
     def total_supply(self, snapshot: storage.Snapshot) -> vm.BigInteger:
         """ Get the total deployed tokens. """
         storage_item = snapshot.storages.try_get(self.key_total_supply)
@@ -175,6 +153,7 @@ class FungibleToken(NativeContract):
         else:
             return vm.BigInteger(storage_item.value)
 
+    @register("balanceOf", 1000000, contracts.CallFlags.READ_STATES)
     def balance_of(self, snapshot: storage.Snapshot, account: types.UInt160) -> vm.BigInteger:
         """
         Get the balance of an account.
@@ -227,6 +206,8 @@ class FungibleToken(NativeContract):
             from_ = vm.ByteStringStackItem(account_from.to_array())
         engine.call_from_native(self.hash, account_to, "onNEP17Payment", [from_, vm.IntegerStackItem(amount), data])
 
+    @register("transfer", 9000000, (contracts.CallFlags.WRITE_STATES | contracts.CallFlags.ALLOW_CALL
+                                    | contracts.CallFlags.ALLOW_NOTIFY))
     def transfer(self,
                  engine: contracts.ApplicationEngine,
                  account_from: types.UInt160,
@@ -291,6 +272,10 @@ class FungibleToken(NativeContract):
                             account: types.UInt160,
                             state,
                             amount: vm.BigInteger) -> None:
+        pass
+
+    @register("onPersist", 0, contracts.CallFlags.WRITE_STATES)
+    def on_persist(self, engine: contracts.ApplicationEngine) -> None:
         pass
 
 
@@ -538,52 +523,6 @@ class NeoToken(FungibleToken):
         super(NeoToken, self).init()
         # singleton init, similar to __init__ but called only once
         self.total_amount = self.factor * 100_000_000
-
-        self._register_contract_method(self.register_candidate,
-                                       "registerCandidate",
-                                       1000_00000000,
-                                       parameter_names=["public_key"],
-                                       call_flags=contracts.CallFlags.WRITE_STATES)
-
-        self._register_contract_method(self.unregister_candidate,
-                                       "unregisterCandidate",
-                                       5000000,
-                                       parameter_names=["public_key"],
-                                       call_flags=contracts.CallFlags.WRITE_STATES)
-
-        self._register_contract_method(self.vote,
-                                       "vote",
-                                       5000000,
-                                       parameter_names=["account", "public_key"],
-                                       call_flags=contracts.CallFlags.WRITE_STATES)
-        self._register_contract_method(self._set_gas_per_block,
-                                       "setGasPerBlock",
-                                       5000000,
-                                       parameter_names=["gas_per_block"],
-                                       call_flags=contracts.CallFlags.WRITE_STATES
-                                       )
-        self._register_contract_method(self.get_gas_per_block,
-                                       "getGasPerBlock",
-                                       1000000,
-                                       call_flags=contracts.CallFlags.READ_STATES
-                                       )
-        self._register_contract_method(self.get_committee,
-                                       "getCommittee",
-                                       100000000,
-                                       call_flags=contracts.CallFlags.READ_STATES
-                                       )
-
-        self._register_contract_method(self.get_candidates,
-                                       "getCandidates",
-                                       100000000,
-                                       call_flags=contracts.CallFlags.READ_STATES
-                                       )
-
-        self._register_contract_method(self.get_next_block_validators,
-                                       "getNextBlockValidators",
-                                       100000000,
-                                       call_flags=contracts.CallFlags.READ_STATES
-                                       )
         self._committee_state = None
 
     def _initialize(self, engine: contracts.ApplicationEngine) -> None:
@@ -687,6 +626,7 @@ class NeoToken(FungibleToken):
         state = storage_item.get(self._state)
         return self._calculate_bonus(snapshot, state.vote_to, state.balance, state.balance_height, end)
 
+    @register("registerCandidate", 1000_00000000, contracts.CallFlags.WRITE_STATES)
     def register_candidate(self,
                            engine: contracts.ApplicationEngine,
                            public_key: cryptography.ECPoint) -> bool:
@@ -717,6 +657,7 @@ class NeoToken(FungibleToken):
         self._candidates_dirty = True
         return True
 
+    @register("unregisterCandidate", 5000000, contracts.CallFlags.WRITE_STATES)
     def unregister_candidate(self,
                              engine: contracts.ApplicationEngine,
                              public_key: cryptography.ECPoint) -> bool:
@@ -747,6 +688,7 @@ class NeoToken(FungibleToken):
         self._candidates_dirty = True
         return True
 
+    @register("vote", 5000000, contracts.CallFlags.WRITE_STATES)
     def vote(self,
              engine: contracts.ApplicationEngine,
              account: types.UInt160,
@@ -818,6 +760,7 @@ class NeoToken(FungibleToken):
 
         return self._candidates
 
+    @register("getCandidates", 100000000, contracts.CallFlags.READ_STATES)
     def get_candidates(self, engine: contracts.ApplicationEngine) -> None:
         array = vm.ArrayStackItem(engine.reference_counter)
         for k, v in self._get_candidates(engine.snapshot):
@@ -827,6 +770,7 @@ class NeoToken(FungibleToken):
             array.append(struct)
         engine.push(array)
 
+    @register("getNextBlockValidators", 100000000, contracts.CallFlags.READ_STATES)
     def get_next_block_validators(self, snapshot: storage.Snapshot) -> List[cryptography.ECPoint]:
         keys = self.get_committee_from_cache(snapshot)[:settings.network.validators_count]
         keys.sort()
@@ -837,6 +781,7 @@ class NeoToken(FungibleToken):
             self._committee_state = _CommitteeState.from_snapshot(snapshot)
         return self._committee_state.validators
 
+    @register("getCommittee", 100000000, contracts.CallFlags.READ_STATES)
     def get_committee(self, snapshot: storage.Snapshot) -> List[cryptography.ECPoint]:
         return sorted(self.get_committee_from_cache(snapshot))
 
@@ -868,6 +813,7 @@ class NeoToken(FungibleToken):
             results.update({candidate[0]: candidate[1]})
         return results
 
+    @register("setGasPerBlock", 5000000, contracts.CallFlags.WRITE_STATES)
     def _set_gas_per_block(self, engine: contracts.ApplicationEngine, gas_per_block: vm.BigInteger) -> None:
         if gas_per_block > 0 or gas_per_block > 10 * self._gas.factor:
             raise ValueError("new gas per block value exceeds limits")
@@ -882,6 +828,7 @@ class NeoToken(FungibleToken):
         else:
             gas_bonus_state.append(_GasRecord(index, gas_per_block))
 
+    @register("getGasPerBlock", 1000000, contracts.CallFlags.READ_STATES)
     def get_gas_per_block(self, snapshot: storage.Snapshot) -> vm.BigInteger:
         index = snapshot.best_block_height + 1
         gas_bonus_state = GasBonusState.from_snapshot(snapshot, read_only=True)

@@ -4,6 +4,7 @@ import struct
 import ipaddress
 from enum import IntEnum
 from .nonfungible import NFTState, NonFungibleToken
+from . import register
 from typing import Optional, Iterator, Tuple
 from neo3 import contracts, storage, vm
 from neo3.core import serialization, types
@@ -76,23 +77,6 @@ class NameService(NonFungibleToken):
 
     def init(self):
         super(NameService, self).init()
-        self._register_contract_method(self.add_root,
-                                       "addRoot",
-                                       3000000,
-                                       parameter_names=["root"],
-                                       call_flags=contracts.CallFlags.WRITE_STATES
-                                       )
-        self._register_contract_method(self.set_price,
-                                       "setPrice",
-                                       3000000,
-                                       parameter_names=["price"],
-                                       call_flags=contracts.CallFlags.WRITE_STATES)
-        self._register_contract_method(self.register,
-                                       "register",
-                                       1000000,
-                                       parameter_names=["name", "owner"],
-                                       call_flags=contracts.CallFlags.WRITE_STATES
-                                       )
 
     def _initialize(self, engine: contracts.ApplicationEngine) -> None:
         super(NameService, self)._initialize(engine)
@@ -112,6 +96,7 @@ class NameService(NonFungibleToken):
     def on_transferred(self, engine: contracts.ApplicationEngine, from_account: types.UInt160, token: NFTState) -> None:
         token.owner = types.UInt160.zero()
 
+    @register("addRoot", 3000000, contracts.CallFlags.WRITE_STATES)
     def add_root(self, engine: contracts.ApplicationEngine, root: str) -> None:
         if not self.REGEX_ROOT.match(root):
             raise ValueError("Regex failure - root not found")
@@ -123,6 +108,7 @@ class NameService(NonFungibleToken):
             raise ValueError("The name already exists")
         roots.append(root)
 
+    @register("setPrice", 3000000, contracts.CallFlags.WRITE_STATES)
     def set_price(self, engine: contracts.ApplicationEngine, price: int) -> None:
         if price <= 0 or price > 10000_00000000:
             raise ValueError(f"New price '{price}' exceeds limits")
@@ -149,6 +135,7 @@ class NameService(NonFungibleToken):
             raise ValueError(f"'{names[1]}' is not a registered root")
         return True
 
+    @register("register", 1000000, contracts.CallFlags.WRITE_STATES)
     def register(self, engine: contracts.ApplicationEngine, name: str, owner: types.UInt160) -> bool:
         if not self.is_available(engine.snapshot, name):
             raise ValueError(f"Registration failure - '{name}' is not available")

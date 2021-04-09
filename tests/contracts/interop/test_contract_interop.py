@@ -131,13 +131,6 @@ contract3_nef = contracts.NEF.deserialize_from_bytes(raw_contract3_nef)
 contract3_manifest = contracts.ContractManifest.from_json(raw_contract3_manifest)
 
 
-def to_contract_hash(sender: types.UInt160, script: bytes):
-    sb = vm.ScriptBuilder()
-    sb.emit(vm.OpCode.ABORT)
-    sb.emit_push(sender.to_array())
-    sb.emit_push(script)
-    return to_script_hash(sb.to_array())
-
 class RuntimeInteropTestCase(unittest.TestCase):
     def shortDescription(self):
         # disable docstring printing in test runner

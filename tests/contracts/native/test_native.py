@@ -25,18 +25,6 @@ class TestNativeContract(unittest.TestCase):
         self.assertIsNone(contracts.NativeContract.get_contract_by_name("bogus_contract"))
         self.assertIsInstance(contracts.NativeContract.get_contract_by_name("PolicyContract"), contracts.PolicyContract)
 
-    def test_parameter_types_matched_parameter_names(self):
-        def dummy_func_no_params():
-            pass
-
-        class NativeTestContract(contracts.NativeContract):
-            def init(self):
-                self._register_contract_method(dummy_func_no_params, "dummy_func", 0, parameter_names=["error"])
-
-        with self.assertRaises(ValueError) as context:
-            NativeTestContract()
-        self.assertEqual("Parameter types count must match parameter names count! 0!=1", str(context.exception))
-
     def test_various(self):
         native = contracts.NativeContract()
         known_contracts = native.registered_contracts

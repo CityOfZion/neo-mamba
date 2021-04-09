@@ -1,5 +1,5 @@
 from __future__ import annotations
-from . import NativeContract
+from . import NativeContract, register
 from neo3.core import types
 from neo3 import storage, contracts, vm
 from neo3.network import message
@@ -26,85 +26,6 @@ class PolicyContract(NativeContract):
     def init(self):
         super(PolicyContract, self).init()
 
-        self._register_contract_method(self.get_max_block_size,
-                                       "getMaxBlockSize",
-                                       1000000,
-                                       call_flags=contracts.CallFlags.READ_STATES,
-                                       )
-        self._register_contract_method(self.get_max_transactions_per_block,
-                                       "getMaxTransactionsPerBlock",
-                                       1000000,
-                                       call_flags=contracts.CallFlags.READ_STATES,
-                                       )
-        self._register_contract_method(self.get_max_block_system_fee,
-                                       "getMaxBlockSystemFee",
-                                       1000000,
-                                       call_flags=contracts.CallFlags.READ_STATES,
-                                       )
-        self._register_contract_method(self.get_fee_per_byte,
-                                       "getFeePerByte",
-                                       1000000,
-                                       call_flags=contracts.CallFlags.READ_STATES,
-                                       )
-        self._register_contract_method(self.is_blocked,
-                                       "isBlocked",
-                                       1000000,
-                                       parameter_names=["account"],
-                                       call_flags=contracts.CallFlags.READ_STATES,
-                                       )
-        self._register_contract_method(self._block_account,
-                                       "blockAccount",
-                                       3000000,
-                                       parameter_names=["account"],
-                                       call_flags=contracts.CallFlags.WRITE_STATES)
-        self._register_contract_method(self._unblock_account,
-                                       "unblockAccount",
-                                       3000000,
-                                       parameter_names=["account"],
-                                       call_flags=contracts.CallFlags.WRITE_STATES)
-        self._register_contract_method(self._set_max_block_size,
-                                       "setMaxBlockSize",
-                                       3000000,
-                                       parameter_names=["value"],
-                                       call_flags=contracts.CallFlags.WRITE_STATES)
-        self._register_contract_method(self._set_max_transactions_per_block,
-                                       "setMaxTransactionsPerBlock",
-                                       3000000,
-                                       parameter_names=["value"],
-                                       call_flags=contracts.CallFlags.WRITE_STATES)
-        self._register_contract_method(self._set_max_block_system_fee,
-                                       "setMaxBlockSystemFee",
-                                       3000000,
-                                       parameter_names=["value"],
-                                       call_flags=contracts.CallFlags.WRITE_STATES)
-        self._register_contract_method(self._set_fee_per_byte,
-                                       "setFeePerByte",
-                                       3000000,
-                                       parameter_names=["value"],
-                                       call_flags=contracts.CallFlags.WRITE_STATES)
-        self._register_contract_method(self.get_exec_fee_factor,
-                                       "getExecFeeFactor",
-                                       1000000,
-                                       call_flags=contracts.CallFlags.READ_STATES
-                                       )
-        self._register_contract_method(self.get_storage_price,
-                                       "getStoragePrice",
-                                       1000000,
-                                       call_flags=contracts.CallFlags.READ_STATES
-                                       )
-        self._register_contract_method(self._set_exec_fee_factor,
-                                       "setExecFeeFactor",
-                                       3000000,
-                                       parameter_names=["value"],
-                                       call_flags=contracts.CallFlags.WRITE_STATES
-                                       )
-        self._register_contract_method(self._set_storage_price,
-                                       "setStoragePrice",
-                                       3000000,
-                                       parameter_names=["value"],
-                                       call_flags=contracts.CallFlags.WRITE_STATES
-                                       )
-
     def _int_to_bytes(self, value: int) -> bytes:
         return value.to_bytes((value.bit_length() + 7 + 1) // 8, 'little', signed=True)  # +1 for signed
 
@@ -119,6 +40,7 @@ class PolicyContract(NativeContract):
         engine.snapshot.storages.put(self.key_exec_fee_factor, _to_si(self.DEFAULT_EXEC_FEE_FACTOR))
         engine.snapshot.storages.put(self.key_storage_price, _to_si(self.DEFAULT_STORAGE_PRICE))
 
+    @register("getMaxBlockSize", 1000000, contracts.CallFlags.READ_STATES)
     def get_max_block_size(self, snapshot: storage.Snapshot) -> int:
         """
         Retrieve the configured maximum size of a Block.
@@ -132,6 +54,7 @@ class PolicyContract(NativeContract):
         )
         return int.from_bytes(data.value, 'little', signed=True)
 
+    @register("getMaxTransactionsPerBlock", 1000000, contracts.CallFlags.READ_STATES)
     def get_max_transactions_per_block(self, snapshot: storage.Snapshot) -> int:
         """
         Retrieve the configured maximum number of transaction in a Block.
@@ -142,6 +65,7 @@ class PolicyContract(NativeContract):
         data = snapshot.storages.get(self.key_max_transactions_per_block, read_only=True)
         return int.from_bytes(data.value, 'little', signed=True)
 
+    @register("getMaxBlockSystemFee", 1000000, contracts.CallFlags.READ_STATES)
     def get_max_block_system_fee(self, snapshot: storage.Snapshot) -> int:
         """
         Retrieve the configured maximum system fee of a Block.
@@ -152,6 +76,7 @@ class PolicyContract(NativeContract):
         data = snapshot.storages.get(self.key_max_block_system_fee, read_only=True)
         return int.from_bytes(data.value, 'little', signed=True)
 
+    @register("getFeePerByte", 1000000, contracts.CallFlags.READ_STATES)
     def get_fee_per_byte(self, snapshot: storage.Snapshot) -> int:
         """
         Retrieve the configured maximum fee per byte of storage.
@@ -162,6 +87,7 @@ class PolicyContract(NativeContract):
         data = snapshot.storages.get(self.key_fee_per_byte, read_only=True)
         return int.from_bytes(data.value, 'little', signed=True)
 
+    @register("isBlocked", 1000000, contracts.CallFlags.READ_STATES)
     def is_blocked(self, snapshot: storage.Snapshot, account: types.UInt160) -> bool:
         """
         Check if the account is blocked
@@ -175,6 +101,7 @@ class PolicyContract(NativeContract):
         else:
             return True
 
+    @register("setMaxBlockSize", 3000000, contracts.CallFlags.WRITE_STATES)
     def _set_max_block_size(self, engine: contracts.ApplicationEngine, value: int) -> None:
         """
         Should only be called through syscalls
@@ -188,6 +115,7 @@ class PolicyContract(NativeContract):
         storage_item = engine.snapshot.storages.get(self.key_max_block_size, read_only=False)
         storage_item.value = self._int_to_bytes(value)
 
+    @register("setMaxTransactionsPerBlock", 3000000, contracts.CallFlags.WRITE_STATES)
     def _set_max_transactions_per_block(self, engine: contracts.ApplicationEngine, value: int) -> None:
         """
         Should only be called through syscalls
@@ -201,6 +129,7 @@ class PolicyContract(NativeContract):
         storage_item = engine.snapshot.storages.get(self.key_max_transactions_per_block, read_only=False)
         storage_item.value = self._int_to_bytes(value)
 
+    @register("setMaxBlockSystemFee", 3000000, contracts.CallFlags.WRITE_STATES)
     def _set_max_block_system_fee(self, engine: contracts.ApplicationEngine, value: int) -> None:
         """
         Should only be called through syscalls
@@ -215,6 +144,7 @@ class PolicyContract(NativeContract):
         storage_item = engine.snapshot.storages.get(self.key_max_block_system_fee, read_only=False)
         storage_item.value = self._int_to_bytes(value)
 
+    @register("setFeePerByte", 3000000, contracts.CallFlags.WRITE_STATES)
     def _set_fee_per_byte(self, engine: contracts.ApplicationEngine, value: int) -> None:
         """
         Should only be called through syscalls
@@ -228,6 +158,7 @@ class PolicyContract(NativeContract):
         storage_item = engine.snapshot.storages.get(self.key_fee_per_byte, read_only=False)
         storage_item.value = self._int_to_bytes(value)
 
+    @register("blockAccount", 3000000, contracts.CallFlags.WRITE_STATES)
     def _block_account(self, engine: contracts.ApplicationEngine, account: types.UInt160) -> bool:
         """
         Should only be called through syscalls
@@ -244,6 +175,7 @@ class PolicyContract(NativeContract):
 
         return True
 
+    @register("unblockAccount", 3000000, contracts.CallFlags.WRITE_STATES)
     def _unblock_account(self, engine: contracts.ApplicationEngine, account: types.UInt160) -> bool:
         """
         Should only be called through syscalls
@@ -258,10 +190,12 @@ class PolicyContract(NativeContract):
             engine.snapshot.storages.delete(storage_key)
         return True
 
+    @register("getExecFeeFactor", 1000000, contracts.CallFlags.READ_STATES)
     def get_exec_fee_factor(self, snapshot: storage.Snapshot) -> int:
         storage_item = snapshot.storages.get(self.key_exec_fee_factor, read_only=True)
         return int(vm.BigInteger(storage_item.value))
 
+    @register("getStoragePrice", 1000000, contracts.CallFlags.READ_STATES)
     def get_storage_price(self, snapshot: storage.Snapshot) -> int:
         if self._storage_price:
             return self._storage_price
@@ -269,6 +203,7 @@ class PolicyContract(NativeContract):
         storage_item = snapshot.storages.get(self.key_storage_price, read_only=True)
         return int(vm.BigInteger(storage_item.value))
 
+    @register("setExecFeeFactor", 3000000, contracts.CallFlags.WRITE_STATES)
     def _set_exec_fee_factor(self, engine: contracts.ApplicationEngine, value: int) -> None:
         if value == 0 or value > self.MAX_EXEC_FEE_FACTOR:
             raise ValueError("New exec fee value out of range")
@@ -277,6 +212,7 @@ class PolicyContract(NativeContract):
         storage_item = engine.snapshot.storages.get(self.key_exec_fee_factor, read_only=False)
         storage_item.value = vm.BigInteger(value).to_array()
 
+    @register("setStoragePrice", 3000000, contracts.CallFlags.WRITE_STATES)
     def _set_storage_price(self, engine: contracts.ApplicationEngine, value: int) -> None:
         if value == 0 or value > self.MAX_STORAGE_PRICE:
             raise ValueError("New storage price value out of range")

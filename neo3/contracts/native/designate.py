@@ -2,7 +2,7 @@ from __future__ import annotations
 import struct
 from enum import IntEnum
 from typing import List
-from . import NativeContract
+from . import NativeContract, register
 from neo3 import storage, contracts, cryptography, vm
 from neo3.core import serialization
 
@@ -18,21 +18,11 @@ class DesignationContract(NativeContract):
 
     def init(self):
         super(DesignationContract, self).init()
-        self._register_contract_method(self.get_designated_by_role,
-                                       "getDesignatedByRole",
-                                       1000000,
-                                       parameter_names=["role", "index"],
-                                       call_flags=contracts.CallFlags.READ_STATES)
-
-        self._register_contract_method(self.designate_as_role,
-                                       "designateAsRole",
-                                       0,
-                                       parameter_names=["role", "nodes"],
-                                       call_flags=contracts.CallFlags.WRITE_STATES)
 
     def _to_uint32(self, value: int) -> bytes:
         return struct.pack(">I", value)
 
+    @register("getDesignatedByRole", 1000000, contracts.CallFlags.READ_STATES)
     def get_designated_by_role(self,
                                snapshot: storage.Snapshot,
                                role: DesignateRole,
@@ -48,6 +38,7 @@ class DesignationContract(NativeContract):
         else:
             return []
 
+    @register("designateAsRole", 0, contracts.CallFlags.WRITE_STATES)
     def designate_as_role(self,
                           engine: contracts.ApplicationEngine,
                           role: DesignateRole,

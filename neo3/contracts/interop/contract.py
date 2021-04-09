@@ -80,11 +80,8 @@ def native_post_persist(engine: contracts.ApplicationEngine) -> None:
 
 
 @register("System.Contract.CallNative", 0, contracts.CallFlags.NONE)
-def call_native(engine: contracts.ApplicationEngine, contract_id: int) -> None:
-    contract = contracts.NativeContract.get_contract_by_id(contract_id)
+def call_native(engine: contracts.ApplicationEngine, version: int) -> None:
+    contract = contracts.NativeContract.get_contract_by_hash(engine.current_scripthash)
     if contract is None:
-        raise ValueError(f"Can't find native contract with id {contract_id}")
-
-    if contract.active_block_index > engine.snapshot.best_block_height:
-        raise ValueError(f"Native contract is not active until blockheight {contract.active_block_index}")
-    contract.invoke(engine)
+        raise ValueError(f"It is not allowed to use \"System.Contract.CallNative\" directly")
+    contract.invoke(engine, version)

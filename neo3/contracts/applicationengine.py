@@ -380,12 +380,6 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
             args.append(self.pop())
         return self._contract_call_internal(token.hash, token.method, token.call_flags, token.has_return_value, args)
 
-    def call_native(self, name: str) -> None:
-        contract = contracts.ManagementContract().get_contract_by_name(name)
-        if contract is None or contract.active_block_index > self.snapshot.persisting_block.index:
-            raise ValueError
-        contract.invoke(self)
-
     def context_unloaded(self, context: vm.ExecutionContext) -> None:
         self._context_state.pop(context, None)
 
@@ -455,8 +449,6 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
         for item in reversed(args):
             context_new.evaluation_stack.push(item)
 
-        if contracts.NativeContract.is_native(target_contract.hash):
-            context_new.evaluation_stack.push(vm.ByteStringStackItem(method_descriptor.name.encode('utf-8')))
         return context_new
 
     def _validate_callflags(self, callflags: contracts.CallFlags):

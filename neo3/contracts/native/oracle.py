@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import Optional, cast, List
-from . import NativeContract
+from . import NativeContract, register
 from neo3 import contracts, storage, vm
 from neo3.core import types, cryptography, serialization, to_script_hash, msgrouter
 from neo3.network import payloads
@@ -50,6 +50,9 @@ class OracleRequest(serialization.ISerializable):
         return cls(types.UInt256.zero(), 0, "", "", types.UInt160.zero(), "", b'')
 
 
+_ORACLE_REQUEST_PRICE = 50000000
+
+
 class OracleContract(NativeContract):
     _MAX_URL_LENGTH = 256
     _MAX_FILTER_LEN = 128
@@ -60,8 +63,6 @@ class OracleContract(NativeContract):
     key_request_id = storage.StorageKey(_id, b'\x09')
     key_request = storage.StorageKey(_id, b'\x07')
     key_id_list = storage.StorageKey(_id, b'\x06')
-
-    _ORACLE_REQUEST_PRICE = 50000000
 
     def init(self):
         super(OracleContract, self).init()
@@ -84,27 +85,11 @@ class OracleContract(NativeContract):
             )
         ]
 
-        self._register_contract_method(self.finish,
-                                       "finish",
-                                       0,
-                                       call_flags=(contracts.CallFlags.WRITE_STATES
-                                                   | contracts.CallFlags.ALLOW_CALL
-                                                   | contracts.CallFlags.ALLOW_NOTIFY))
-
-        self._register_contract_method(self._request,
-                                       "request",
-                                       self._ORACLE_REQUEST_PRICE,
-                                       parameter_names=["url", "filter", "callback", "userdata", "gas_for_response"],
-                                       call_flags=contracts.CallFlags.WRITE_STATES | contracts.CallFlags.ALLOW_NOTIFY)
-
-        self._register_contract_method(self._verify,
-                                       "verify",
-                                       1000000,
-                                       call_flags=contracts.CallFlags.NONE)
-
     def _initialize(self, engine: contracts.ApplicationEngine) -> None:
         engine.snapshot.storages.put(self.key_request_id, storage.StorageItem(vm.BigInteger.zero().to_array()))
 
+    @register("finish", 0, (contracts.CallFlags.WRITE_STATES | contracts.CallFlags.ALLOW_CALL
+                            | contracts.CallFlags.ALLOW_NOTIFY))
     def finish(self, engine: contracts.ApplicationEngine) -> None:
         tx = engine.script_container
         tx = cast(payloads.Transaction, tx)
@@ -157,6 +142,7 @@ class OracleContract(NativeContract):
             raise ValueError  # C# will throw null pointer access exception
         return request.original_tx_id
 
+    @register("request", _ORACLE_REQUEST_PRICE, contracts.CallFlags.WRITE_STATES | contracts.CallFlags.ALLOW_NOTIFY)
     def _request(self,
                  engine: contracts.ApplicationEngine,
                  url: str,
@@ -225,6 +211,7 @@ class OracleContract(NativeContract):
 
         msgrouter.interop_notify(self.hash, "OracleRequest", state)
 
+    @register("verify", 1000000, contracts.CallFlags.NONE)
     def _verify(self, engine: contracts.ApplicationEngine) -> bool:
         tx = engine.script_container
         if not isinstance(tx, payloads.Transaction):
@@ -277,7 +264,7 @@ class OracleContract(NativeContract):
             if len(nodes) > 0:
                 idx = response.id % len(nodes)
                 # mypy can't figure out that the second item is a BigInteger
-                nodes[idx][1] += self._ORACLE_REQUEST_PRICE  # type: ignore
+                nodes[idx][1] += _ORACLE_REQUEST_PRICE  # type: ignore
 
         for pair in nodes:
             if pair[1].sign > 0:  # type: ignore
