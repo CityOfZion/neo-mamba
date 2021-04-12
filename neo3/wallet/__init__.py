@@ -34,6 +34,7 @@ def address_to_script_hash(address: str, version: int) -> types.UInt160:
     return types.UInt160(data_[1:])
 
 
+# TODO: replace version with settings.network.account_version
 def to_address(script_hash: types.UInt160, version: int = settings.network.account_version) -> str:
     """
     Converts the specified script hash to an address.
@@ -47,14 +48,15 @@ def to_address(script_hash: types.UInt160, version: int = settings.network.accou
     return base58.b58encode_check(data_).decode('utf-8')
 
 
-def wif_to_nep2(wif: str, passphrase:str):
+def wif_to_nep2(wif: str, passphrase: str):
     return None
+
 
 def private_key_to_nep2(private_key: bytes, passphrase: str):
     key_pair = KeyPair(private_key=private_key)
     script_hash = to_script_hash(contracts.Contract.create_signature_redeemscript(key_pair.public_key))
     address = to_address(script_hash)
-    #NEP2 checksum: hash the address twice and get the first 4 bytes
+    # NEP2 checksum: hash the address twice and get the first 4 bytes
     first_hash = hashlib.sha256(address.encode("utf-8")).digest()
     second_hash = hashlib.sha256(first_hash).digest()
     checksum = second_hash[:4]
@@ -73,11 +75,16 @@ def private_key_to_nep2(private_key: bytes, passphrase: str):
     cipher = AES.new(derived2, AES.MODE_ECB)
     encrypted = cipher.encrypt(xor_ed)
 
+    nep2 = bytearray()
+    nep2.extend(NEP_HEADER)
+    nep2.extend(NEP_FLAG)
+    nep2.extend(checksum)
+    nep2.extend(encrypted)
 
+    # Finally, encode with Base58Check
+    encoded_nep2 = base58.b58encode_check(bytes(nep2))
 
-
-
-    return None
+    return encoded_nep2
 
 
 def private_key_from_nep2(nep2_key: str, passphrase: str):
