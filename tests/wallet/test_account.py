@@ -1,9 +1,25 @@
 import unittest
-
+from neo3.wallet import Account, private_key_from_nep2, private_key_to_nep2
 from neo3.wallet import Account
 
 
+
 class AccountCreationTestCase(unittest.TestCase):
+
+    def test_createNep2Key(self):
+        private_key = b'\x00' * 32
+        password = "password"
+        nep2 = private_key_to_nep2(private_key, password)
+        print(nep2)
+        return  None
+
+    def test_createAccountUsingNep2(self):
+        nep2 = "6PYN6mjwYfjPUuYT3Exajvx25UddFVLpCw4bMsmtLdnKwZ9t1Mi3CfKe8S"
+        password = "Satoshi"
+        private_key = private_key_from_nep2(nep2, password)
+        print(private_key)
+        return None
+
 
     def test_account_from_json(self):
         json = {
