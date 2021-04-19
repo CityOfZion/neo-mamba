@@ -138,29 +138,32 @@ class NonFungibleToken(NativeContract):
 
         self._post_transfer(engine, token.owner, types.UInt160.zero(), token_id)
 
-    @register("totalSupply", 1000000, contracts.CallFlags.READ_STATES)
+    @register("totalSupply", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
     def total_supply(self, snapshot: storage.Snapshot) -> vm.BigInteger:
         storage_item = snapshot.storages.get(self.key_total_suppply)
         return vm.BigInteger(storage_item.value)
 
-    @register("ownerOf", 1000000, contracts.CallFlags.READ_STATES)
+    @register("ownerOf", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
     def owner_of(self, snapshot: storage.Snapshot, token_id: bytes) -> types.UInt160:
         storage_item = snapshot.storages.get(self.key_token + token_id, read_only=True)
         return NFTState.from_stack_item(storage_item).owner
 
-    @register("properties", 1000000, contracts.CallFlags.READ_STATES)
+    @register("properties", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
     def properties(self, snapshot: storage.Snapshot, token_id: bytes) -> dict:
         storage_item = snapshot.storages.get(self.key_token + token_id, read_only=True)
         return NFTState.deserialize_from_bytes(storage_item.value).to_json()
 
-    @register("balanceOf", 1000000, contracts.CallFlags.READ_STATES)
+    @register("balanceOf", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
     def balance_of(self, snapshot: storage.Snapshot, owner: types.UInt160) -> vm.BigInteger:
         storage_item = snapshot.storages.try_get(self.key_account + owner.to_array(), read_only=True)
         if storage_item is None:
             return vm.BigInteger.zero()
         return NFTAccountState.deserialize_from_bytes(storage_item.value).balance
 
-    @register("transfer", 9000000, contracts.CallFlags.WRITE_STATES | contracts.CallFlags.ALLOW_NOTIFY)
+    @register("transfer",
+              contracts.CallFlags.WRITE_STATES | contracts.CallFlags.ALLOW_NOTIFY,
+              cpu_price=1 << 17,
+              storage_price=50)
     def transfer(self, engine: contracts.ApplicationEngine, account_to: types.UInt160, token_id: bytes) -> bool:
         if account_to == types.UInt160.zero():
             raise ValueError("To account can't be zero")
@@ -191,7 +194,7 @@ class NonFungibleToken(NativeContract):
         self._post_transfer(engine, token_state.owner, account_to, token_id)
         return True
 
-    @register("tokens", 1000000, contracts.CallFlags.READ_STATES)
+    @register("tokens", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
     def tokens(self, snapshot: storage.Snapshot) -> interop.IIterator:
         result = snapshot.storages.find(self.key_token.to_array())
         options = contracts.FindOptions
@@ -201,7 +204,7 @@ class NonFungibleToken(NativeContract):
                                        options.VALUES_ONLY | options.DESERIALIZE_VALUES | options.PICK_FIELD1,
                                        reference_counter)
 
-    @register("tokensOf", 1000000, contracts.CallFlags.READ_STATES)
+    @register("tokensOf", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
     def tokens_of(self, snapshot: storage.Snapshot, owner: types.UInt160) -> interop.IIterator:
         storage_item_account = snapshot.storages.try_get(self.key_account + owner.to_array(), read_only=True)
         reference_counter = vm.ReferenceCounter()

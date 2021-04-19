@@ -32,7 +32,8 @@ class _NativeMethodMeta:
     def __init__(self, func: Callable):
         self.handler = func
         self.name: str = func.name  # type:ignore
-        self.price: int = func.price  # type: ignore
+        self.cpu_price: int = func.cpu_price  # type: ignore
+        self.storage_price: int = func.storage_price  # type: ignore
         self.required_flags: contracts.CallFlags = func.flags  # type: ignore
         self.add_engine = False
         self.add_snapshot = False
@@ -229,7 +230,10 @@ class NativeContract(convenience._Singleton):
         if method.required_flags not in flags:
             raise ValueError(f"Method requires call flag: {method.required_flags} received: {flags}")
 
-        engine.add_gas(method.price)
+        engine.add_gas(method.cpu_price
+                       * contracts.PolicyContract().get_exec_fee_factor(engine.snapshot)
+                       + method.storage_price
+                       + contracts.PolicyContract().get_storage_price(engine.snapshot))
 
         params: List[Any] = []
         if method.add_engine:

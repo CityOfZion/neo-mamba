@@ -22,7 +22,7 @@ class DesignationContract(NativeContract):
     def _to_uint32(self, value: int) -> bytes:
         return struct.pack(">I", value)
 
-    @register("getDesignatedByRole", 1000000, contracts.CallFlags.READ_STATES)
+    @register("getDesignatedByRole", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
     def get_designated_by_role(self,
                                snapshot: storage.Snapshot,
                                role: DesignateRole,
@@ -38,7 +38,7 @@ class DesignationContract(NativeContract):
         else:
             return []
 
-    @register("designateAsRole", 0, contracts.CallFlags.WRITE_STATES)
+    @register("designateAsRole", contracts.CallFlags.WRITE_STATES, cpu_price=1 << 15)
     def designate_as_role(self,
                           engine: contracts.ApplicationEngine,
                           role: DesignateRole,

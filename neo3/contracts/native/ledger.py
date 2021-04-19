@@ -17,15 +17,15 @@ class LedgerContract(NativeContract):
         # it is still done in the Blockchain class in the persist() function
         pass
 
-    @register("currentHash", 1000000, contracts.CallFlags.READ_STATES)
+    @register("currentHash", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
     def current_hash(self, snapshot: storage.Snapshot) -> types.UInt256:
         return snapshot.persisting_block.hash()
 
-    @register("currentIndex", 1000000, contracts.CallFlags.READ_STATES)
+    @register("currentIndex", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
     def current_index(self, snapshot) -> int:
         return snapshot.best_block_height
 
-    @register("getBlock", 1000000, contracts.CallFlags.READ_STATES)
+    @register("getBlock", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
     def get_block(self, snapshot: storage.Snapshot, index_or_hash: bytes) -> Optional[payloads.TrimmedBlock]:
         if len(index_or_hash) < types.UInt256._BYTE_LEN:
             height = vm.BigInteger(index_or_hash)
@@ -42,21 +42,21 @@ class LedgerContract(NativeContract):
             block = None
         return block.trim()
 
-    @register("getTransaction", 1000000, contracts.CallFlags.READ_STATES)
+    @register("getTransaction", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
     def get_tx_for_contract(self, snapshot: storage.Snapshot, hash_: types.UInt256) -> Optional[payloads.Transaction]:
         tx = snapshot.transactions.try_get(hash_, read_only=True)
         if tx is None or not self._is_traceable_block(snapshot, tx.block_height):
             return None
         return tx
 
-    @register("getTransactionheight", 1000000, contracts.CallFlags.READ_STATES)
+    @register("getTransactionheight", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
     def get_tx_height(self, snapshot: storage.Snapshot, hash_: types.UInt256) -> int:
         tx = snapshot.transactions.try_get(hash_, read_only=True)
         if tx is None or not self._is_traceable_block(snapshot, tx.block_height):
             return -1
         return tx.block_height
 
-    @register("getTransactionFromBlock", 2000000, contracts.CallFlags.READ_STATES)
+    @register("getTransactionFromBlock", contracts.CallFlags.READ_STATES, cpu_price=1 << 16)
     def get_tx_from_block(self,
                           snapshot: storage.Snapshot,
                           block_index_or_hash: bytes,

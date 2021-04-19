@@ -95,7 +95,7 @@ class NameService(NonFungibleToken):
     def on_transferred(self, engine: contracts.ApplicationEngine, from_account: types.UInt160, token: NFTState) -> None:
         token.owner = types.UInt160.zero()
 
-    @register("addRoot", 3000000, contracts.CallFlags.WRITE_STATES)
+    @register("addRoot", contracts.CallFlags.WRITE_STATES, cpu_price=1 << 15)
     def add_root(self, engine: contracts.ApplicationEngine, root: str) -> None:
         if not self.REGEX_ROOT.match(root):
             raise ValueError("Regex failure - root not found")
@@ -107,7 +107,7 @@ class NameService(NonFungibleToken):
             raise ValueError("The name already exists")
         roots.append(root)
 
-    @register("setPrice", 3000000, contracts.CallFlags.WRITE_STATES)
+    @register("setPrice", contracts.CallFlags.WRITE_STATES, cpu_price=1 << 15)
     def set_price(self, engine: contracts.ApplicationEngine, price: int) -> None:
         if price <= 0 or price > 10000_00000000:
             raise ValueError(f"New price '{price}' exceeds limits")
@@ -116,9 +116,11 @@ class NameService(NonFungibleToken):
         storage_item = engine.snapshot.storages.get(self.key_domain_price, read_only=False)
         storage_item.value = price.to_bytes(8, 'little')
 
+    @register("getPrice", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
     def get_price(self, snapshot: storage.Snapshot) -> int:
         return int.from_bytes(snapshot.storages.get(self.key_domain_price, read_only=True).value, 'little')
 
+    @register("isAvailable", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
     def is_available(self, snapshot: storage.Snapshot, name: str) -> bool:
         if not self.REGEX_NAME.match(name):
             raise ValueError("Regex failure - name is not valid")
@@ -134,8 +136,8 @@ class NameService(NonFungibleToken):
             raise ValueError(f"'{names[1]}' is not a registered root")
         return True
 
-    @register("register", 1000000, contracts.CallFlags.WRITE_STATES)
-    def register(self, engine: contracts.ApplicationEngine, name: str, owner: types.UInt160) -> bool:
+    @register("register", contracts.CallFlags.WRITE_STATES, cpu_price=1 << 15)
+    def do_register(self, engine: contracts.ApplicationEngine, name: str, owner: types.UInt160) -> bool:
         if not self.is_available(engine.snapshot, name):
             raise ValueError(f"Registration failure - '{name}' is not available")
 
@@ -151,6 +153,7 @@ class NameService(NonFungibleToken):
         )
         return True
 
+    @register("renew", contracts.CallFlags.WRITE_STATES, cpu_price=1 << 15)
     def renew(self, engine: contracts.ApplicationEngine, name: str) -> int:
         if not self.REGEX_NAME.match(name):
             raise ValueError("Regex failure - name is not valid")
@@ -162,6 +165,7 @@ class NameService(NonFungibleToken):
         state.expiration += self.ONE_YEAR
         return state.expiration
 
+    @register("setAdmin", contracts.CallFlags.WRITE_STATES, cpu_price=1 << 15, storage_price=20)
     def set_admin(self, engine: contracts.ApplicationEngine, name: str, admin: types.UInt160) -> None:
         if not self.REGEX_NAME.match(name):
             raise ValueError("Regex failure - name is not valid")
@@ -180,6 +184,7 @@ class NameService(NonFungibleToken):
 
         state.admin = admin
 
+    @register("setRecord", contracts.CallFlags.WRITE_STATES, cpu_price=1 << 15, storage_price=200)
     def set_record(self, engine: contracts.ApplicationEngine, name: str, record_type: RecordType, data: str) -> None:
         if not self.REGEX_NAME.match(name):
             raise ValueError("Regex failure - name is not valid")
@@ -206,6 +211,7 @@ class NameService(NonFungibleToken):
         storage_key_record = self.key_record + domain.encode() + name.encode() + record_type.to_bytes(1, 'little')
         engine.snapshot.storages.update(storage_key_record, storage.StorageItem(data.encode()))
 
+    @register("getRecord", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
     def get_record(self, snapshot: storage.Snapshot, name: str, record_type: RecordType) -> Optional[str]:
         if not self.REGEX_NAME.match(name):
             raise ValueError("Regex failure - name is not valid")
@@ -225,6 +231,7 @@ class NameService(NonFungibleToken):
             record_type = RecordType(int.from_bytes(key.key[-1], 'little'))
             yield record_type, value.value.decode()
 
+    @register("deleteRecord", contracts.CallFlags.WRITE_STATES, cpu_price=1 << 15)
     def delete_record(self, engine: contracts.ApplicationEngine, name: str, record_type: RecordType) -> None:
         if not self.REGEX_NAME.match(name):
             raise ValueError("Regex failure - name is not valid")
@@ -238,6 +245,7 @@ class NameService(NonFungibleToken):
         storage_key_record = self.key_record + domain.encode() + name.encode() + record_type.to_bytes(1, 'little')
         engine.snapshot.storages.delete(storage_key_record)
 
+    @register("resolve", contracts.CallFlags.READ_STATES, cpu_price=1 << 17)
     def resolve(self,
                 snapshot: storage.Snapshot,
                 name: str,

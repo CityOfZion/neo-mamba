@@ -64,7 +64,7 @@ class FungibleToken(NativeContract):
         ]
         self.factor = pow(vm.BigInteger(10), vm.BigInteger(self._decimals))
 
-    @register("symbol", 0, contracts.CallFlags.READ_STATES)
+    @register("symbol", contracts.CallFlags.READ_STATES)
     def symbol(self) -> str:
         """ Token symbol. """
         return self._symbol
@@ -144,7 +144,7 @@ class FungibleToken(NativeContract):
             storage_item.value = new_value.to_array()
         self._post_transfer(engine, account, types.UInt160.zero(), amount, vm.NullStackItem(), False)
 
-    @register("totalSupply", 1000000, contracts.CallFlags.READ_STATES)
+    @register("totalSupply", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
     def total_supply(self, snapshot: storage.Snapshot) -> vm.BigInteger:
         """ Get the total deployed tokens. """
         storage_item = snapshot.storages.try_get(self.key_total_supply)
@@ -153,7 +153,7 @@ class FungibleToken(NativeContract):
         else:
             return vm.BigInteger(storage_item.value)
 
-    @register("balanceOf", 1000000, contracts.CallFlags.READ_STATES)
+    @register("balanceOf", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
     def balance_of(self, snapshot: storage.Snapshot, account: types.UInt160) -> vm.BigInteger:
         """
         Get the balance of an account.
@@ -206,8 +206,9 @@ class FungibleToken(NativeContract):
             from_ = vm.ByteStringStackItem(account_from.to_array())
         engine.call_from_native(self.hash, account_to, "onNEP17Payment", [from_, vm.IntegerStackItem(amount), data])
 
-    @register("transfer", 9000000, (contracts.CallFlags.WRITE_STATES | contracts.CallFlags.ALLOW_CALL
-                                    | contracts.CallFlags.ALLOW_NOTIFY))
+    @register("transfer",
+              (contracts.CallFlags.WRITE_STATES | contracts.CallFlags.ALLOW_CALL | contracts.CallFlags.ALLOW_NOTIFY),
+              cpu_price=1 << 17, storage_price=50)
     def transfer(self,
                  engine: contracts.ApplicationEngine,
                  account_from: types.UInt160,
@@ -274,7 +275,7 @@ class FungibleToken(NativeContract):
                             amount: vm.BigInteger) -> None:
         pass
 
-    @register("onPersist", 0, contracts.CallFlags.WRITE_STATES)
+    @register("onPersist", contracts.CallFlags.WRITE_STATES)
     def on_persist(self, engine: contracts.ApplicationEngine) -> None:
         pass
 
@@ -440,6 +441,7 @@ class NeoToken(FungibleToken):
     key_voters_count = storage.StorageKey(_id, b'\x01')
     key_gas_per_block = storage.StorageKey(_id, b'\x29')
     key_voter_reward_per_committee = storage.StorageKey(_id, b'\x17')
+    key_register_price = storage.StorageKey(_id, b'\x0D')
 
     _NEO_HOLDER_REWARD_RATIO = 10
     _COMMITTEE_REWARD_RATIO = 10
@@ -534,6 +536,8 @@ class NeoToken(FungibleToken):
 
         gas_bonus_state = GasBonusState(_GasRecord(0, GasToken().factor * 5))
         engine.snapshot.storages.put(self.key_gas_per_block, storage.StorageItem(gas_bonus_state.to_array()))
+        engine.snapshot.storages.put(self.key_register_price,
+                                     storage.StorageItem((GasToken().factor * 1000).to_array()))
         self.mint(engine,
                   contracts.Contract.get_consensus_address(settings.standby_validators),
                   self.total_amount,
@@ -609,6 +613,7 @@ class NeoToken(FungibleToken):
                     engine.snapshot.storages.put(voter_reward_key,
                                                  storage.StorageItem(voter_sum_reward_per_neo.to_array()))
 
+    @register("unclaimedGas", contracts.CallFlags.READ_STATES, cpu_price=1 << 17)
     def unclaimed_gas(self, snapshot: storage.Snapshot, account: types.UInt160, end: int) -> vm.BigInteger:
         """
         Return the available bonus GAS for an account.
@@ -626,7 +631,7 @@ class NeoToken(FungibleToken):
         state = storage_item.get(self._state)
         return self._calculate_bonus(snapshot, state.vote_to, state.balance, state.balance_height, end)
 
-    @register("registerCandidate", 1000_00000000, contracts.CallFlags.WRITE_STATES)
+    @register("registerCandidate", contracts.CallFlags.WRITE_STATES)
     def register_candidate(self,
                            engine: contracts.ApplicationEngine,
                            public_key: cryptography.ECPoint) -> bool:
@@ -644,6 +649,7 @@ class NeoToken(FungibleToken):
         if not engine.checkwitness(script_hash):
             return False
 
+        engine.add_gas(self.get_register_price(engine.snapshot))
         storage_key = self.key_candidate + public_key
         storage_item = engine.snapshot.storages.try_get(storage_key, read_only=False)
         if storage_item is None:
@@ -657,7 +663,7 @@ class NeoToken(FungibleToken):
         self._candidates_dirty = True
         return True
 
-    @register("unregisterCandidate", 5000000, contracts.CallFlags.WRITE_STATES)
+    @register("unregisterCandidate", contracts.CallFlags.WRITE_STATES, cpu_price=1 << 16)
     def unregister_candidate(self,
                              engine: contracts.ApplicationEngine,
                              public_key: cryptography.ECPoint) -> bool:
@@ -688,7 +694,7 @@ class NeoToken(FungibleToken):
         self._candidates_dirty = True
         return True
 
-    @register("vote", 5000000, contracts.CallFlags.WRITE_STATES)
+    @register("vote", contracts.CallFlags.WRITE_STATES, cpu_price=1 << 16)
     def vote(self,
              engine: contracts.ApplicationEngine,
              account: types.UInt160,
@@ -760,7 +766,7 @@ class NeoToken(FungibleToken):
 
         return self._candidates
 
-    @register("getCandidates", 100000000, contracts.CallFlags.READ_STATES)
+    @register("getCandidates", contracts.CallFlags.READ_STATES, cpu_price=1 << 22)
     def get_candidates(self, engine: contracts.ApplicationEngine) -> None:
         array = vm.ArrayStackItem(engine.reference_counter)
         for k, v in self._get_candidates(engine.snapshot):
@@ -770,7 +776,7 @@ class NeoToken(FungibleToken):
             array.append(struct)
         engine.push(array)
 
-    @register("getNextBlockValidators", 100000000, contracts.CallFlags.READ_STATES)
+    @register("getNextBlockValidators", contracts.CallFlags.READ_STATES, cpu_price=1 << 22)
     def get_next_block_validators(self, snapshot: storage.Snapshot) -> List[cryptography.ECPoint]:
         keys = self.get_committee_from_cache(snapshot)[:settings.network.validators_count]
         keys.sort()
@@ -781,7 +787,7 @@ class NeoToken(FungibleToken):
             self._committee_state = _CommitteeState.from_snapshot(snapshot)
         return self._committee_state.validators
 
-    @register("getCommittee", 100000000, contracts.CallFlags.READ_STATES)
+    @register("getCommittee", contracts.CallFlags.READ_STATES, cpu_price=1 << 22)
     def get_committee(self, snapshot: storage.Snapshot) -> List[cryptography.ECPoint]:
         return sorted(self.get_committee_from_cache(snapshot))
 
@@ -813,7 +819,7 @@ class NeoToken(FungibleToken):
             results.update({candidate[0]: candidate[1]})
         return results
 
-    @register("setGasPerBlock", 5000000, contracts.CallFlags.WRITE_STATES)
+    @register("setGasPerBlock", contracts.CallFlags.WRITE_STATES, cpu_price=1 << 15)
     def _set_gas_per_block(self, engine: contracts.ApplicationEngine, gas_per_block: vm.BigInteger) -> None:
         if gas_per_block > 0 or gas_per_block > 10 * self._gas.factor:
             raise ValueError("new gas per block value exceeds limits")
@@ -828,7 +834,7 @@ class NeoToken(FungibleToken):
         else:
             gas_bonus_state.append(_GasRecord(index, gas_per_block))
 
-    @register("getGasPerBlock", 1000000, contracts.CallFlags.READ_STATES)
+    @register("getGasPerBlock", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
     def get_gas_per_block(self, snapshot: storage.Snapshot) -> vm.BigInteger:
         index = snapshot.best_block_height + 1
         gas_bonus_state = GasBonusState.from_snapshot(snapshot, read_only=True)
@@ -837,6 +843,19 @@ class NeoToken(FungibleToken):
                 return record.gas_per_block
         else:
             raise ValueError
+
+    @register("setRegisterPrice", contracts.CallFlags.WRITE_STATES, cpu_price=1 << 15)
+    def set_register_price(self, engine: contracts.ApplicationEngine, register_price: int) -> None:
+        if register_price <= 0:
+            raise ValueError("Register price cannot be negative or zero")
+        if not self._check_committee(engine):
+            raise ValueError("CheckCommittee failed for setRegisterPrice")
+        item = engine.snapshot.storages.get(self.key_register_price, read_only=False)
+        item.value = vm.BigInteger(register_price).to_array()
+
+    @register("getRegisterPrice", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
+    def get_register_price(self, snapshot: storage.Snapshot) -> int:
+        return int(vm.BigInteger(snapshot.storages.get(self.key_register_price).value))
 
     def _distribute_gas(self,
                         engine: contracts.ApplicationEngine,

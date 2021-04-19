@@ -34,7 +34,7 @@ class PolicyContract(NativeContract):
         engine.snapshot.storages.put(self.key_exec_fee_factor, _to_si(self.DEFAULT_EXEC_FEE_FACTOR))
         engine.snapshot.storages.put(self.key_storage_price, _to_si(self.DEFAULT_STORAGE_PRICE))
 
-    @register("getFeePerByte", 1000000, contracts.CallFlags.READ_STATES)
+    @register("getFeePerByte", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
     def get_fee_per_byte(self, snapshot: storage.Snapshot) -> int:
         """
         Retrieve the configured maximum fee per byte of storage.
@@ -45,7 +45,7 @@ class PolicyContract(NativeContract):
         data = snapshot.storages.get(self.key_fee_per_byte, read_only=True)
         return int.from_bytes(data.value, 'little', signed=True)
 
-    @register("isBlocked", 1000000, contracts.CallFlags.READ_STATES)
+    @register("isBlocked", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
     def is_blocked(self, snapshot: storage.Snapshot, account: types.UInt160) -> bool:
         """
         Check if the account is blocked
@@ -59,7 +59,7 @@ class PolicyContract(NativeContract):
         else:
             return True
 
-    @register("setFeePerByte", 3000000, contracts.CallFlags.WRITE_STATES)
+    @register("setFeePerByte", contracts.CallFlags.WRITE_STATES, cpu_price=1 << 15)
     def _set_fee_per_byte(self, engine: contracts.ApplicationEngine, value: int) -> None:
         """
         Should only be called through syscalls
@@ -73,7 +73,7 @@ class PolicyContract(NativeContract):
         storage_item = engine.snapshot.storages.get(self.key_fee_per_byte, read_only=False)
         storage_item.value = self._int_to_bytes(value)
 
-    @register("blockAccount", 3000000, contracts.CallFlags.WRITE_STATES)
+    @register("blockAccount", contracts.CallFlags.WRITE_STATES, cpu_price=1 << 15)
     def _block_account(self, engine: contracts.ApplicationEngine, account: types.UInt160) -> bool:
         """
         Should only be called through syscalls
@@ -90,7 +90,7 @@ class PolicyContract(NativeContract):
 
         return True
 
-    @register("unblockAccount", 3000000, contracts.CallFlags.WRITE_STATES)
+    @register("unblockAccount", contracts.CallFlags.WRITE_STATES, cpu_price=1 << 15)
     def _unblock_account(self, engine: contracts.ApplicationEngine, account: types.UInt160) -> bool:
         """
         Should only be called through syscalls
@@ -105,12 +105,12 @@ class PolicyContract(NativeContract):
             engine.snapshot.storages.delete(storage_key)
         return True
 
-    @register("getExecFeeFactor", 1000000, contracts.CallFlags.READ_STATES)
+    @register("getExecFeeFactor", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
     def get_exec_fee_factor(self, snapshot: storage.Snapshot) -> int:
         storage_item = snapshot.storages.get(self.key_exec_fee_factor, read_only=True)
         return int(vm.BigInteger(storage_item.value))
 
-    @register("getStoragePrice", 1000000, contracts.CallFlags.READ_STATES)
+    @register("getStoragePrice", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
     def get_storage_price(self, snapshot: storage.Snapshot) -> int:
         if self._storage_price:
             return self._storage_price
@@ -118,7 +118,7 @@ class PolicyContract(NativeContract):
         storage_item = snapshot.storages.get(self.key_storage_price, read_only=True)
         return int(vm.BigInteger(storage_item.value))
 
-    @register("setExecFeeFactor", 3000000, contracts.CallFlags.WRITE_STATES)
+    @register("setExecFeeFactor", contracts.CallFlags.WRITE_STATES, cpu_price=1 << 15)
     def _set_exec_fee_factor(self, engine: contracts.ApplicationEngine, value: int) -> None:
         if value == 0 or value > self.MAX_EXEC_FEE_FACTOR:
             raise ValueError("New exec fee value out of range")
@@ -127,7 +127,7 @@ class PolicyContract(NativeContract):
         storage_item = engine.snapshot.storages.get(self.key_exec_fee_factor, read_only=False)
         storage_item.value = vm.BigInteger(value).to_array()
 
-    @register("setStoragePrice", 3000000, contracts.CallFlags.WRITE_STATES)
+    @register("setStoragePrice", contracts.CallFlags.WRITE_STATES, cpu_price=1 << 15)
     def _set_storage_price(self, engine: contracts.ApplicationEngine, value: int) -> None:
         if value == 0 or value > self.MAX_STORAGE_PRICE:
             raise ValueError("New storage price value out of range")

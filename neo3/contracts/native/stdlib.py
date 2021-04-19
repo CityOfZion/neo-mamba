@@ -13,23 +13,23 @@ class StdLibContract(NativeContract):
     def init(self):
         super(StdLibContract, self).init()
 
-    @register("serialize", 1 << 12, contracts.CallFlags.NONE)
+    @register("serialize", contracts.CallFlags.NONE, cpu_price=1 << 12)
     def binary_serialize(self, engine: contracts.ApplicationEngine, stack_item: vm.StackItem) -> bytes:
         return contracts.BinarySerializer.serialize(stack_item, engine.MAX_ITEM_SIZE)
 
-    @register("deserialize", 1 << 14, contracts.CallFlags.NONE)
+    @register("deserialize", contracts.CallFlags.NONE, cpu_price=1 << 14)
     def binary_deserialize(self, engine: contracts.ApplicationEngine, data: bytes) -> vm.StackItem:
         return contracts.BinarySerializer.deserialize(data, engine.MAX_ITEM_SIZE, engine.reference_counter)
 
-    @register("jsonSerialize", 1 << 12, contracts.CallFlags.NONE)
+    @register("jsonSerialize", contracts.CallFlags.NONE, cpu_price=1 << 12)
     def json_serialize(self, engine: contracts.ApplicationEngine, stack_item: vm.StackItem) -> bytes:
         return bytes(contracts.JSONSerializer.serialize(stack_item, engine.MAX_ITEM_SIZE), 'utf-8')
 
-    @register("jsonDeserialize", 1 << 14, contracts.CallFlags.NONE)
+    @register("jsonDeserialize", contracts.CallFlags.NONE, cpu_price=1 << 14)
     def json_deserialize(self, engine: contracts.ApplicationEngine, data: bytes) -> vm.StackItem:
         return contracts.JSONSerializer.deserialize(data.decode(), engine.reference_counter)
 
-    @register("itoa", 1 << 12, contracts.CallFlags.NONE)
+    @register("itoa", contracts.CallFlags.NONE, cpu_price=1 << 12)
     def do_itoa(self, value: vm.BigInteger, base: int) -> str:
         if base == 10:
             return str(value)
@@ -38,25 +38,25 @@ class StdLibContract(NativeContract):
         else:
             raise ValueError("Invalid base specified")
 
-    @register("atoi", 1 << 12, contracts.CallFlags.NONE)
+    @register("atoi", contracts.CallFlags.NONE, cpu_price=1 << 12)
     def do_atoi(self, value: str, base: int) -> int:
         if base != 10 and base != 16:
             raise ValueError("Invalid base specified")
         else:
             return int(value, base)
 
-    @register("base64Encode", 1 << 12, contracts.CallFlags.NONE)
+    @register("base64Encode", contracts.CallFlags.NONE, cpu_price=1 << 12)
     def base64_encode(self, data: bytes) -> str:
         return base64.b64encode(data).decode()
 
-    @register("base64Decode", 1 << 12, contracts.CallFlags.NONE)
+    @register("base64Decode", contracts.CallFlags.NONE, cpu_price=1 << 12)
     def base64_decode(self, data: bytes) -> bytes:
         return base64.b64decode(data)
 
-    @register("base58Encode", 1 << 12, contracts.CallFlags.NONE)
+    @register("base58Encode", contracts.CallFlags.NONE, cpu_price=1 << 12)
     def base58_encode(self, data: bytes) -> str:
         return base58.b58encode(data).decode()
 
-    @register("base58Decode", 1 << 12, contracts.CallFlags.NONE)
+    @register("base58Decode", contracts.CallFlags.NONE, cpu_price=1 << 12)
     def base58_decode(self, data: bytes) -> bytes:
         return base58.b58decode(data)

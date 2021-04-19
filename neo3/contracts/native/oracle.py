@@ -50,9 +50,6 @@ class OracleRequest(serialization.ISerializable):
         return cls(types.UInt256.zero(), 0, "", "", types.UInt160.zero(), "", b'')
 
 
-_ORACLE_REQUEST_PRICE = 50000000
-
-
 class OracleContract(NativeContract):
     _MAX_URL_LENGTH = 256
     _MAX_FILTER_LEN = 128
@@ -63,6 +60,7 @@ class OracleContract(NativeContract):
     key_request_id = storage.StorageKey(_id, b'\x09')
     key_request = storage.StorageKey(_id, b'\x07')
     key_id_list = storage.StorageKey(_id, b'\x06')
+    key_price = storage.StorageKey(_id, b'\x05')
 
     def init(self):
         super(OracleContract, self).init()
@@ -87,9 +85,23 @@ class OracleContract(NativeContract):
 
     def _initialize(self, engine: contracts.ApplicationEngine) -> None:
         engine.snapshot.storages.put(self.key_request_id, storage.StorageItem(vm.BigInteger.zero().to_array()))
+        engine.snapshot.storages.put(self.key_price, storage.StorageItem(vm.BigInteger(50000000).to_array()))
 
-    @register("finish", 0, (contracts.CallFlags.WRITE_STATES | contracts.CallFlags.ALLOW_CALL
-                            | contracts.CallFlags.ALLOW_NOTIFY))
+    @register("setPrice", contracts.CallFlags.WRITE_STATES, cpu_price=1 << 15)
+    def set_price(self, engine: contracts.ApplicationEngine, price: int) -> None:
+        if price <= 0:
+            raise ValueError("Oracle->setPrice value cannot be negative or zero")
+        if not self._check_committee(engine):
+            raise ValueError("Oracle->setPrice check committee failed")
+        item = engine.snapshot.storages.get(self.key_price)
+        item.value = vm.BigInteger(price).to_array()
+
+    @register("getPrice", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
+    def get_price(self, snapshot: storage.Snapshot) -> int:
+        return int(vm.BigInteger(snapshot.storages.get(self.key_price).value))
+
+    @register("finish",
+              (contracts.CallFlags.WRITE_STATES | contracts.CallFlags.ALLOW_CALL | contracts.CallFlags.ALLOW_NOTIFY))
     def finish(self, engine: contracts.ApplicationEngine) -> None:
         tx = engine.script_container
         tx = cast(payloads.Transaction, tx)
@@ -141,7 +153,7 @@ class OracleContract(NativeContract):
             raise ValueError  # C# will throw null pointer access exception
         return request.original_tx_id
 
-    @register("request", _ORACLE_REQUEST_PRICE, contracts.CallFlags.WRITE_STATES | contracts.CallFlags.ALLOW_NOTIFY)
+    @register("request", contracts.CallFlags.WRITE_STATES | contracts.CallFlags.ALLOW_NOTIFY)
     def _request(self,
                  engine: contracts.ApplicationEngine,
                  url: str,
@@ -156,6 +168,7 @@ class OracleContract(NativeContract):
                 gas_for_response < 10000000:
             raise ValueError
 
+        engine.add_gas(self.get_price(engine.snapshot))
         engine.add_gas(gas_for_response)
         self._gas.mint(engine, self.hash, vm.BigInteger(gas_for_response), False)
 
@@ -210,7 +223,7 @@ class OracleContract(NativeContract):
 
         msgrouter.interop_notify(self.hash, "OracleRequest", state)
 
-    @register("verify", 1000000, contracts.CallFlags.NONE)
+    @register("verify", contracts.CallFlags.NONE, cpu_price=1 << 15)
     def _verify(self, engine: contracts.ApplicationEngine) -> bool:
         tx = engine.script_container
         if not isinstance(tx, payloads.Transaction):
@@ -263,7 +276,7 @@ class OracleContract(NativeContract):
             if len(nodes) > 0:
                 idx = response.id % len(nodes)
                 # mypy can't figure out that the second item is a BigInteger
-                nodes[idx][1] += _ORACLE_REQUEST_PRICE  # type: ignore
+                nodes[idx][1] += self.get_price(engine.snapshot)  # type: ignore
 
         for pair in nodes:
             if pair[1].sign > 0:  # type: ignore

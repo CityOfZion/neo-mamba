@@ -3,20 +3,24 @@ from neo3 import contracts
 
 
 def register(method: str,
-             price: int,
-             flags: contracts.CallFlags):
+             flags: contracts.CallFlags,
+             *,
+             cpu_price: int = 0,
+             storage_price: int = 0):
     """
     Register a publicly callable method on a native contract
 
     Args:
         method: name of call.
-        price: the price of calling the handler.
+        cpu_price: the computational price of calling the handler.
+        storage_price: the storage price of calling the handler.
         flags: ExecutionContext rights needed.
     """
     def inner_func(func):
         func.native_call = True
         func.name = method
-        func.price = price
+        func.cpu_price = cpu_price
+        func.storage_price = storage_price
         func.flags = flags
         return func
     return inner_func

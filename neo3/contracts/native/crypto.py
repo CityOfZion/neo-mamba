@@ -24,14 +24,14 @@ class CryptoContract(NativeContract):
     def init(self):
         super(CryptoContract, self).init()
 
-    @register("ripemd160", 1 << 15, contracts.CallFlags.NONE)
+    @register("ripemd160", contracts.CallFlags.NONE, cpu_price=1 << 15)
     def ripemd160(self, data: bytes) -> bytes:
         return hashlib.new('ripemd160', data).digest()
 
-    @register("sha256", 1 << 15, contracts.CallFlags.NONE)
+    @register("sha256", contracts.CallFlags.NONE, cpu_price=1 << 15)
     def sha256(self, data: bytes) -> bytes:
         return hashlib.sha256(data).digest()
 
-    @register("verifyWithECDsa", 1 << 15, contracts.CallFlags.NONE)
+    @register("verifyWithECDsa", contracts.CallFlags.NONE, cpu_price=1 << 15)
     def verify_with_ecdsa(self, message: bytes, public_key: bytes, signature: bytes, curve: NamedCurve) -> bool:
         return cryptography.verify_signature(message, signature, public_key, self.curves.get(curve))
