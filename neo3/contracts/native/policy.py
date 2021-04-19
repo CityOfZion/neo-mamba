@@ -13,11 +13,8 @@ class PolicyContract(NativeContract):
     DEFAULT_STORAGE_PRICE = 100000
     MAX_STORAGE_PRICE = 10000000
 
-    key_max_transactions_per_block = storage.StorageKey(_id, b'\x17')
     key_fee_per_byte = storage.StorageKey(_id, b'\x0A')
     key_blocked_account = storage.StorageKey(_id, b'\x0F')
-    key_max_block_size = storage.StorageKey(_id, b'\x0C')
-    key_max_block_system_fee = storage.StorageKey(_id, b'\x11')
     key_exec_fee_factor = storage.StorageKey(_id, b'\x12')
     key_storage_price = storage.StorageKey(_id, b'\x13')
 
@@ -33,48 +30,9 @@ class PolicyContract(NativeContract):
         def _to_si(value: int) -> storage.StorageItem:
             return storage.StorageItem(self._int_to_bytes(value))
 
-        engine.snapshot.storages.put(self.key_max_transactions_per_block, _to_si(512))
         engine.snapshot.storages.put(self.key_fee_per_byte, _to_si(1000))
-        engine.snapshot.storages.put(self.key_max_block_size, _to_si(1024 * 256))
-        engine.snapshot.storages.put(self.key_max_block_system_fee, _to_si(int(contracts.GasToken().factor * 9000)))
         engine.snapshot.storages.put(self.key_exec_fee_factor, _to_si(self.DEFAULT_EXEC_FEE_FACTOR))
         engine.snapshot.storages.put(self.key_storage_price, _to_si(self.DEFAULT_STORAGE_PRICE))
-
-    @register("getMaxBlockSize", 1000000, contracts.CallFlags.READ_STATES)
-    def get_max_block_size(self, snapshot: storage.Snapshot) -> int:
-        """
-        Retrieve the configured maximum size of a Block.
-
-        Returns:
-            int: maximum number of bytes.
-        """
-        data = snapshot.storages.get(
-            self.key_max_block_size,
-            read_only=True
-        )
-        return int.from_bytes(data.value, 'little', signed=True)
-
-    @register("getMaxTransactionsPerBlock", 1000000, contracts.CallFlags.READ_STATES)
-    def get_max_transactions_per_block(self, snapshot: storage.Snapshot) -> int:
-        """
-        Retrieve the configured maximum number of transaction in a Block.
-
-        Returns:
-            int: maximum number of transaction.
-        """
-        data = snapshot.storages.get(self.key_max_transactions_per_block, read_only=True)
-        return int.from_bytes(data.value, 'little', signed=True)
-
-    @register("getMaxBlockSystemFee", 1000000, contracts.CallFlags.READ_STATES)
-    def get_max_block_system_fee(self, snapshot: storage.Snapshot) -> int:
-        """
-        Retrieve the configured maximum system fee of a Block.
-
-        Returns:
-            int: maximum system fee.
-        """
-        data = snapshot.storages.get(self.key_max_block_system_fee, read_only=True)
-        return int.from_bytes(data.value, 'little', signed=True)
 
     @register("getFeePerByte", 1000000, contracts.CallFlags.READ_STATES)
     def get_fee_per_byte(self, snapshot: storage.Snapshot) -> int:
@@ -100,49 +58,6 @@ class PolicyContract(NativeContract):
             return False
         else:
             return True
-
-    @register("setMaxBlockSize", 3000000, contracts.CallFlags.WRITE_STATES)
-    def _set_max_block_size(self, engine: contracts.ApplicationEngine, value: int) -> None:
-        """
-        Should only be called through syscalls
-        """
-        if value >= message.Message.PAYLOAD_MAX_SIZE:
-            raise ValueError("New blocksize exceeds PAYLOAD_MAX_SIZE")
-
-        if not self._check_committee(engine):
-            raise ValueError("Check committee failed")
-
-        storage_item = engine.snapshot.storages.get(self.key_max_block_size, read_only=False)
-        storage_item.value = self._int_to_bytes(value)
-
-    @register("setMaxTransactionsPerBlock", 3000000, contracts.CallFlags.WRITE_STATES)
-    def _set_max_transactions_per_block(self, engine: contracts.ApplicationEngine, value: int) -> None:
-        """
-        Should only be called through syscalls
-        """
-        if value > 0xFFFE:  # MaxTransactionsPerBlock
-            raise ValueError("New value exceeds MAX_TRANSACTIONS_PER_BLOCK")
-
-        if not self._check_committee(engine):
-            raise ValueError("Check committee failed")
-
-        storage_item = engine.snapshot.storages.get(self.key_max_transactions_per_block, read_only=False)
-        storage_item.value = self._int_to_bytes(value)
-
-    @register("setMaxBlockSystemFee", 3000000, contracts.CallFlags.WRITE_STATES)
-    def _set_max_block_system_fee(self, engine: contracts.ApplicationEngine, value: int) -> None:
-        """
-        Should only be called through syscalls
-        """
-        # unknown magic value
-        if value <= 4007600:
-            raise ValueError("Invalid new system fee")
-
-        if not self._check_committee(engine):
-            raise ValueError("Check committee failed")
-
-        storage_item = engine.snapshot.storages.get(self.key_max_block_system_fee, read_only=False)
-        storage_item.value = self._int_to_bytes(value)
 
     @register("setFeePerByte", 3000000, contracts.CallFlags.WRITE_STATES)
     def _set_fee_per_byte(self, engine: contracts.ApplicationEngine, value: int) -> None:
