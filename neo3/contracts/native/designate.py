@@ -13,7 +13,7 @@ class DesignateRole(IntEnum):
 
 
 class DesignationContract(NativeContract):
-    _id = -6
+    _id = -8
     _service_name = "RoleManagement"
 
     def init(self):

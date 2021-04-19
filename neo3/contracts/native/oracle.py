@@ -58,7 +58,7 @@ class OracleContract(NativeContract):
     _MAX_FILTER_LEN = 128
     _MAX_CALLBACK_LEN = 32
     _MAX_USER_DATA_LEN = 512
-    _id = -7
+    _id = -9
 
     key_request_id = storage.StorageKey(_id, b'\x09')
     key_request = storage.StorageKey(_id, b'\x07')
@@ -112,7 +112,6 @@ class OracleContract(NativeContract):
 
         user_data = contracts.BinarySerializer.deserialize(request.user_data,
                                                            engine.MAX_STACK_SIZE,
-                                                           engine.MAX_ITEM_SIZE,
                                                            engine.reference_counter)
         args: List[vm.StackItem] = [vm.ByteStringStackItem(request.url.encode()),
                                     user_data,

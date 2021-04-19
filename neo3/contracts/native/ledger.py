@@ -7,7 +7,7 @@ from neo3.network import payloads
 
 
 class LedgerContract(NativeContract):
-    _id = -2
+    _id = -4
 
     def init(self):
         super(LedgerContract, self).init()

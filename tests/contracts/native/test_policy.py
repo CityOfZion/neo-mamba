@@ -50,7 +50,7 @@ class TestPolicyContract(unittest.TestCase):
 
     def test_basics(self):
         policy = contracts.PolicyContract()
-        self.assertEqual(-5, policy.id)
+        self.assertEqual(-7, policy.id)
         self.assertEqual("PolicyContract", contracts.PolicyContract().service_name())
 
     def test_policy_defaul_get_max_tx_per_block(self):

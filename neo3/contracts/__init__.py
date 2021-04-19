@@ -30,7 +30,9 @@ from .native import (NativeContract,
                      NonFungibleToken,
                      NFTState,
                      NameService,
-                     LedgerContract)
+                     LedgerContract,
+                     CryptoContract,
+                     StdLibContract)
 
 
 def syscall_name_to_int(name: str) -> int:
@@ -58,4 +60,6 @@ __all__ = ['ContractParameterType',
            'LedgerContract',
            'NEF',
            'MethodToken',
-           'FindOptions']
+           'FindOptions',
+           'CryptoContract',
+           'StdLibContract']

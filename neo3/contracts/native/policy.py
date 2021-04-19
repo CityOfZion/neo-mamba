@@ -6,7 +6,7 @@ from neo3.network import message
 
 
 class PolicyContract(NativeContract):
-    _id: int = -5
+    _id: int = -7
 
     DEFAULT_EXEC_FEE_FACTOR = 30
     MAX_EXEC_FEE_FACTOR = 1000

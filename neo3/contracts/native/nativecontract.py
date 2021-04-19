@@ -45,18 +45,14 @@ class _NativeMethodMeta:
                 if v != type(None):
                     self.return_type = v
                 continue
+            if v == contracts.ApplicationEngine:
+                self.add_engine = True
+                continue
+            elif v == storage.Snapshot:
+                self.add_snapshot = True
+                continue
             parameter_types.append(v)
             parameter_names.append(k)
-
-        # check if engine or snapshot should be included
-        # and filter this from the parameter list for the ABI
-        if len(parameter_types) > 0:
-            if parameter_types[0] == contracts.ApplicationEngine:
-                self.add_engine = True
-                parameter_types = parameter_types[1:]
-            elif parameter_types[0] == storage.Snapshot:
-                self.add_snapshot = True
-                parameter_types = parameter_types[1:]
 
         params = []
         for t, n in zip(parameter_types, parameter_names):
@@ -98,6 +94,8 @@ class NativeContract(convenience._Singleton):
         self._oracle = contracts.OracleContract()
         self._ledger = contracts.LedgerContract()
         self._role = contracts.DesignationContract()
+        self._crypto = contracts.CryptoContract()
+        self._stdlib = contracts.StdLibContract()
 
         methods_meta = []
         for pair in inspect.getmembers(self, lambda m: hasattr(m, "native_call")):

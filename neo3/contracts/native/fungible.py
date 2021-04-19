@@ -432,7 +432,7 @@ class GasBonusState(serialization.ISerializable, Sequence):
 
 
 class NeoToken(FungibleToken):
-    _id: int = -3
+    _id: int = -5
     _decimals: int = 0
 
     key_committee = storage.StorageKey(_id, b'\x0e')
@@ -852,7 +852,7 @@ class NeoToken(FungibleToken):
 
 
 class GasToken(FungibleToken):
-    _id: int = -4
+    _id: int = -6
     _decimals: int = 8
 
     _state = FungibleTokenStorageState
