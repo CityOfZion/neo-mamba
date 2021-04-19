@@ -21,10 +21,9 @@ class NameState(NFTState):
     def __init__(self,
                  owner: types.UInt160,
                  name: str,
-                 description: str,
                  expiration: int,
                  admin: Optional[types.UInt160] = None):
-        super(NameState, self).__init__(owner, name, description)
+        super(NameState, self).__init__(owner, name)
         self.expiration = expiration
         self.admin = admin if admin else types.UInt160.zero()
         self.id = name.encode()
@@ -44,7 +43,7 @@ class NameState(NFTState):
 
     @classmethod
     def _serializable_init(cls):
-        return cls(types.UInt160.zero(), "", "", 0, types.UInt160.zero())
+        return cls(types.UInt160.zero(), "", 0, types.UInt160.zero())
 
 
 class StringList(list, serialization.ISerializable):
@@ -144,7 +143,7 @@ class NameService(NonFungibleToken):
             raise ValueError("CheckWitness failed")
         engine.add_gas(self.get_price(engine.snapshot))
 
-        state = NameState(owner, name, "", (engine.snapshot.persisting_block.timestamp // 1000) + self.ONE_YEAR)
+        state = NameState(owner, name, (engine.snapshot.persisting_block.timestamp // 1000) + self.ONE_YEAR)
         self.mint(engine, state)
         engine.snapshot.storages.put(
             self.key_expiration + state.expiration.to_bytes(4, 'big') + name.encode(),

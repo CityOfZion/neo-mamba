@@ -8,10 +8,9 @@ from neo3.contracts import interop
 
 
 class NFTState(IInteroperable, serialization.ISerializable):
-    def __init__(self, owner: types.UInt160, name: str, description: str):
+    def __init__(self, owner: types.UInt160, name: str):
         self.owner = owner
         self.name = name
-        self.description = description
         # I don't understand where this ID is coming from as its abstract in C# and not overridden
         # we'll probably figure out once we implement the name service in a later PR
         self.id: bytes = b''
@@ -22,31 +21,28 @@ class NFTState(IInteroperable, serialization.ISerializable):
         owner = types.UInt160(stack_item[0].to_array())
         name = stack_item[1].to_array().decode()
         description = stack_item[2].to_array().decode()
-        return cls(owner, name, description)
+        return cls(owner, name)
 
     def to_stack_item(self, reference_counter: vm.ReferenceCounter) -> vm.StackItem:
         return vm.StructStackItem(reference_counter, [
             vm.ByteStringStackItem(self.owner.to_array()),
             vm.ByteStringStackItem(self.name),
-            vm.ByteStringStackItem(self.description)
         ])
 
     def serialize(self, writer: serialization.BinaryWriter) -> None:
         writer.write_serializable(self.owner)
         writer.write_var_string(self.name)
-        writer.write_var_string(self.description)
 
     def deserialize(self, reader: serialization.BinaryReader) -> None:
         self.owner = reader.read_serializable(types.UInt160)
         self.name = reader.read_var_string()
-        self.description = reader.read_var_string()
 
     def to_json(self) -> dict:
-        return {"name": self.name, "description": self.description}
+        return {"name": self.name}
 
     @classmethod
     def _serializable_init(cls):
-        return cls(types.UInt160.zero(), "", "")
+        return cls(types.UInt160.zero(), "")
 
 
 class NFTAccountState(FungibleTokenStorageState):
