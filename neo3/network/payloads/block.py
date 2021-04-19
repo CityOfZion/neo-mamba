@@ -226,7 +226,7 @@ class Block(payloads.IInventory):
                 or if the merkle root does not included the calculated root.
         """
         self.header = reader.read_serializable(Header)
-        self.transactions = reader.read_serializable_list(payloads.Transaction, max=settings.policy.max_tx_per_block)
+        self.transactions = reader.read_serializable_list(payloads.Transaction, max=0xFFFF)
 
         if len(set(self.transactions)) != len(self.transactions):
             raise ValueError("Deserialization error - block contains duplicate transaction")
@@ -294,7 +294,7 @@ class TrimmedBlock(serialization.ISerializable):
 
     def deserialize(self, reader: serialization.BinaryReader) -> None:
         self.header = reader.read_serializable(Header)
-        self.hashes = reader.read_serializable_list(types.UInt256, max=settings.policy.max_tx_per_block)
+        self.hashes = reader.read_serializable_list(types.UInt256, max=0xFFFF)
 
     @classmethod
     def _serializable_init(cls):
@@ -333,7 +333,7 @@ class MerkleBlockPayload(serialization.ISerializable):
             reader: instance.
         """
         self.header = reader.read_serializable(Header)
-        self.tx_count = reader.read_var_int(max=settings.policy.max_tx_per_block)
+        self.tx_count = reader.read_var_int(max=0xFFFF)
         self.hashes = reader.read_serializable_list(types.UInt256, max=self.tx_count)
         self.flags = reader.read_var_bytes(max=(max(self.tx_count, 1) + 7) // 8)
 
