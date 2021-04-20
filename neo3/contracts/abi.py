@@ -2,7 +2,7 @@ from __future__ import annotations
 import enum
 from typing import List, Optional, Type, Union, cast
 from enum import IntEnum
-from neo3.core import types, IJson, IInteroperable, serialization
+from neo3.core import types, IJson, IInteroperable, serialization, cryptography
 from neo3 import contracts, vm
 
 
@@ -41,6 +41,8 @@ class ContractParameterType(IntEnum):
             return ContractParameterType.INTEGER
         elif class_type in [bytes, bytearray, vm.BufferStackItem, vm.ByteStringStackItem]:
             return ContractParameterType.BYTEARRAY
+        elif class_type == cryptography.ECPoint:
+            return ContractParameterType.PUBLICKEY
         elif hasattr(class_type, '__origin__'):
             if class_type.__origin__ == list:  # type: ignore
                 return ContractParameterType.ARRAY
@@ -64,10 +66,12 @@ class ContractParameterType(IntEnum):
             return ContractParameterType.ARRAY
         elif issubclass(class_type, IInteroperable):
             return ContractParameterType.ARRAY
+        elif class_type == vm.StackItem:
+            return ContractParameterType.ANY
         elif issubclass(class_type, enum.Enum):
             return ContractParameterType.INTEGER
         else:
-            return ContractParameterType.ANY
+            return ContractParameterType.INTEROP_INTERFACE
 
 
 class ContractParameterDefinition(IJson):
