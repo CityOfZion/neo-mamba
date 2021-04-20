@@ -31,21 +31,6 @@ def contract_call(engine: contracts.ApplicationEngine,
     engine._contract_call_internal2(target_contract, method_descriptor, call_flags, has_return_value, list(args))
 
 
-@register("System.Contract.IsStandard", 1 << 10, contracts.CallFlags.READ_STATES)
-def contract_is_standard(engine: contracts.ApplicationEngine, hash_: types.UInt160) -> bool:
-    contract = contracts.ManagementContract().get_contract(engine.snapshot, hash_)
-    if contract:
-        return (contracts.Contract.is_signature_contract(contract.script)
-                or contracts.Contract.is_multisig_contract(contract.script))
-
-    if isinstance(engine.script_container, payloads.Transaction):
-        for witness in engine.script_container.witnesses:
-            if witness.script_hash() == hash_:
-                return contracts.Contract.is_signature_contract(witness.verification_script)
-
-    return False
-
-
 @register("System.Contract.GetCallFlags", 1 << 10, contracts.CallFlags.NONE)
 def get_callflags(engine: contracts.ApplicationEngine) -> contracts.CallFlags:
     return contracts.CallFlags(engine.current_context.call_flags)

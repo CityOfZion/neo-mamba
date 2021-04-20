@@ -250,55 +250,6 @@ class RuntimeInteropTestCase(unittest.TestCase):
             engine._contract_call_internal(target_contract.hash, "test_func", contracts.CallFlags.ALL, False, array)
         self.assertEqual("[System.Contract.Call] Method 'test_func' with 2 arguments does not exist on target contract", str(context.exception))
 
-    @unittest.SkipTest
-    def test_contract_is_standard_ok(self):
-        keypair = cryptography.KeyPair(b'\x01' * 32)
-        sig_contract = contracts.Contract.create_signature_contract(keypair.public_key)
-
-        engine = test_engine(has_snapshot=True)
-        contract = contracts.ContractState(sig_contract.script, contracts.ContractManifest(sig_contract.script_hash))
-        engine.snapshot.contracts.put(contract)
-        engine.push(vm.ByteStringStackItem(contract.script_hash().to_array()))
-        engine.invoke_syscall_by_name("System.Contract.IsStandard")
-        engine.execute()
-        self.assertEqual(True, engine.result_stack.pop().to_boolean())
-
-    def test_contract_is_standard_fail(self):
-        # can't find contract
-        engine = test_engine(has_snapshot=True)
-        engine.push(vm.ByteStringStackItem(types.UInt160.zero().to_array()))
-        engine.invoke_syscall_by_name("System.Contract.IsStandard")
-        engine.execute()
-        self.assertEqual(False, engine.result_stack.pop().to_boolean())
-
-    @unittest.SkipTest
-    def test_contract_is_standard_fail2(self):
-        # can find contract, but is not a signature contract
-        engine = test_engine(has_snapshot=True)
-
-        # create a non-standard contract
-        script = b'\x01\x02\x03'
-        script_hash = to_script_hash(script)
-        manifest = contracts.ContractManifest(script_hash)
-        contract = contracts.ContractState(script, manifest)
-        engine.snapshot.contracts.put(contract)
-
-        # push function argument and call
-        engine.push(vm.ByteStringStackItem(script_hash.to_array()))
-        engine.invoke_syscall_by_name("System.Contract.IsStandard")
-        engine.execute()
-        self.assertEqual(False, engine.result_stack.pop().to_boolean())
-
-    def test_contract_is_standard_fail3(self):
-        # test on witnesses of a transaction
-        engine = test_engine(has_container=True, has_snapshot=True)
-        witness = payloads.Witness(invocation_script=b'\x01', verification_script=b'\x02')
-        engine.script_container.witnesses = [witness]
-        engine.push(vm.ByteStringStackItem(witness.script_hash().to_array()))
-        engine.invoke_syscall_by_name("System.Contract.IsStandard")
-        engine.execute()
-        self.assertEqual(False, engine.result_stack.pop().to_boolean())
-
     def test_contract_call_flags(self):
         engine = test_engine()
         engine.invoke_syscall_by_name("System.Contract.GetCallFlags")
