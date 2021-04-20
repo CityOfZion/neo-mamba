@@ -28,10 +28,11 @@ class StorageItem(serialization.ISerializable, IClonable):
         self._cache = None
 
     def serialize(self, writer: serialization.BinaryWriter) -> None:
-        writer.write_var_bytes(self.value)
+        writer.write_bytes(self.value)
 
     def deserialize(self, reader: serialization.BinaryReader) -> None:
-        self.value = reader.read_var_bytes()
+        remaining_stream_size = len(reader) - reader._stream.tell()
+        self.value = reader.read_bytes(remaining_stream_size)
 
     def clone(self) -> StorageItem:
         return StorageItem(self.value)
