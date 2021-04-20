@@ -18,13 +18,13 @@ class ContractParameterType(IntEnum):
     SIGNATURE = 0x17,
     ARRAY = 0x20,
     MAP = 0x22,
-    INTEROP_INTERFACE = 0x30,
+    INTEROPINTERFACE = 0x30,
     VOID = 0xff
 
     def PascalCase(self) -> str:
         if self == ContractParameterType.BYTEARRAY:
             return "ByteArray"
-        elif self == ContractParameterType.INTEROP_INTERFACE:
+        elif self == ContractParameterType.INTEROPINTERFACE:
             return "InteropInterface"
         elif self == ContractParameterType.PUBLICKEY:
             return "PublicKey"
@@ -71,7 +71,7 @@ class ContractParameterType(IntEnum):
         elif issubclass(class_type, enum.Enum):
             return ContractParameterType.INTEGER
         else:
-            return ContractParameterType.INTEROP_INTERFACE
+            return ContractParameterType.INTEROPINTERFACE
 
 
 class ContractParameterDefinition(IJson):

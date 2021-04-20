@@ -149,9 +149,12 @@ class NonFungibleToken(NativeContract):
         return NFTState.from_stack_item(storage_item).owner
 
     @register("properties", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
-    def properties(self, snapshot: storage.Snapshot, token_id: bytes) -> dict:
-        storage_item = snapshot.storages.get(self.key_token + token_id, read_only=True)
-        return NFTState.deserialize_from_bytes(storage_item.value).to_json()
+    def properties(self, engine: contracts.ApplicationEngine, token_id: bytes) -> vm.MapStackItem:
+        storage_item = engine.snapshot.storages.get(self.key_token + token_id, read_only=True)
+        map_ = vm.MapStackItem(engine.reference_counter)
+        for k, v in NFTState.deserialize_from_bytes(storage_item.value).to_json():
+            map_[k] = v
+        return map_
 
     @register("balanceOf", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
     def balance_of(self, snapshot: storage.Snapshot, owner: types.UInt160) -> vm.BigInteger:
