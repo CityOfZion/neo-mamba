@@ -223,7 +223,7 @@ class OracleContract(NativeContract):
 
         msgrouter.interop_notify(self.hash, "OracleRequest", state)
 
-    @register("verify", contracts.CallFlags.NONE, cpu_price=1 << 15)
+    @register("verify", contracts.CallFlags.READ_ONLY, cpu_price=1 << 15)
     def _verify(self, engine: contracts.ApplicationEngine) -> bool:
         tx = engine.script_container
         if not isinstance(tx, payloads.Transaction):
