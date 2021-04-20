@@ -10,6 +10,7 @@ class PolicyContract(NativeContract):
 
     DEFAULT_EXEC_FEE_FACTOR = 30
     MAX_EXEC_FEE_FACTOR = 1000
+    DEFAULT_FEE_PER_BYTE = 1000
     DEFAULT_STORAGE_PRICE = 100000
     MAX_STORAGE_PRICE = 10000000
 
@@ -30,7 +31,7 @@ class PolicyContract(NativeContract):
         def _to_si(value: int) -> storage.StorageItem:
             return storage.StorageItem(self._int_to_bytes(value))
 
-        engine.snapshot.storages.put(self.key_fee_per_byte, _to_si(1000))
+        engine.snapshot.storages.put(self.key_fee_per_byte, _to_si(self.DEFAULT_FEE_PER_BYTE))
         engine.snapshot.storages.put(self.key_exec_fee_factor, _to_si(self.DEFAULT_EXEC_FEE_FACTOR))
         engine.snapshot.storages.put(self.key_storage_price, _to_si(self.DEFAULT_STORAGE_PRICE))
 
