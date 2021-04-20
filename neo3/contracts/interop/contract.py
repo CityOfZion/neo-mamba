@@ -64,7 +64,7 @@ def contract_create_multisigaccount(engine: contracts.ApplicationEngine,
     return to_script_hash(contracts.Contract.create_multisig_redeemscript(m, public_keys))
 
 
-@register("System.Contract.NativeOnPersist", 0, contracts.CallFlags.WRITE_STATES)
+@register("System.Contract.NativeOnPersist", 0, contracts.CallFlags.STATES)
 def native_on_persist(engine: contracts.ApplicationEngine) -> None:
     if engine.trigger != contracts.TriggerType.ON_PERSIST:
         raise SystemError()
@@ -77,7 +77,7 @@ def native_on_persist(engine: contracts.ApplicationEngine) -> None:
             contract.on_persist(engine)
 
 
-@register("System.Contract.NativePostPersist", 0, contracts.CallFlags.WRITE_STATES)
+@register("System.Contract.NativePostPersist", 0, contracts.CallFlags.STATES)
 def native_post_persist(engine: contracts.ApplicationEngine) -> None:
     if engine.trigger != contracts.TriggerType.POST_PERSIST:
         raise SystemError()

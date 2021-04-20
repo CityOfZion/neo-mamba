@@ -67,14 +67,14 @@ class ManagementContract(NativeContract):
     def get_contract(self, snapshot: storage.Snapshot, hash_: types.UInt160) -> Optional[contracts.ContractState]:
         return snapshot.contracts.try_get(hash_, read_only=True)
 
-    @register("deploy", contracts.CallFlags.WRITE_STATES | contracts.CallFlags.ALLOW_NOTIFY)
+    @register("deploy", contracts.CallFlags.STATES | contracts.CallFlags.ALLOW_NOTIFY)
     def contract_create(self,
                         engine: contracts.ApplicationEngine,
                         nef_file: bytes,
                         manifest: bytes) -> contracts.ContractState:
         return self.contract_create_with_data(engine, nef_file, manifest, vm.NullStackItem())
 
-    @register("deploy", contracts.CallFlags.WRITE_STATES | contracts.CallFlags.ALLOW_NOTIFY)
+    @register("deploy", contracts.CallFlags.STATES | contracts.CallFlags.ALLOW_NOTIFY)
     def contract_create_with_data(self,
                                   engine: contracts.ApplicationEngine,
                                   nef_file: bytes,
@@ -128,12 +128,19 @@ class ManagementContract(NativeContract):
                                  )
         return contract
 
-    @register("update", contracts.CallFlags.WRITE_STATES | contracts.CallFlags.ALLOW_NOTIFY)
+    @register("update", contracts.CallFlags.STATES | contracts.CallFlags.ALLOW_NOTIFY)
     def contract_update(self,
                         engine: contracts.ApplicationEngine,
                         nef_file: bytes,
-                        manifest: bytes,
-                        data: vm.StackItem) -> None:
+                        manifest: bytes) -> None:
+        self.contract_update_with_data(engine, nef_file, manifest, vm.NullStackItem())
+
+    @register("update", contracts.CallFlags.STATES | contracts.CallFlags.ALLOW_NOTIFY)
+    def contract_update_with_data(self,
+                                  engine: contracts.ApplicationEngine,
+                                  nef_file: bytes,
+                                  manifest: bytes,
+                                  data: vm.StackItem) -> None:
         nef_len = len(nef_file)
         manifest_len = len(manifest)
 
@@ -178,7 +185,7 @@ class ManagementContract(NativeContract):
                                                    )
                                  )
 
-    @register("destroy", contracts.CallFlags.WRITE_STATES | contracts.CallFlags.ALLOW_NOTIFY, cpu_price=1 << 15)
+    @register("destroy", contracts.CallFlags.STATES | contracts.CallFlags.ALLOW_NOTIFY, cpu_price=1 << 15)
     def contract_destroy(self, engine: contracts.ApplicationEngine) -> None:
         hash_ = engine.current_scripthash
         contract = engine.snapshot.contracts.try_get(hash_)
@@ -202,7 +209,7 @@ class ManagementContract(NativeContract):
     def get_minimum_deployment_fee(self, snapshot: storage.Snapshot) -> int:
         return int.from_bytes(snapshot.storages[self.key_min_deploy_fee].value, 'little')
 
-    @register("setMinimumDeploymentFee", contracts.CallFlags.WRITE_STATES, cpu_price=1 << 15)
+    @register("setMinimumDeploymentFee", contracts.CallFlags.STATES, cpu_price=1 << 15)
     def _set_minimum_deployment_fee(self, engine: contracts.ApplicationEngine, value: int) -> None:
         if value < 0:
             raise ValueError("Can't set deployment fee to a negative value")

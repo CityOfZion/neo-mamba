@@ -101,7 +101,7 @@ def _storage_put_internal(engine: contracts.ApplicationEngine,
     item.is_constant = is_constant
 
 
-@register("System.Storage.Put", 0, contracts.CallFlags.WRITE_STATES)
+@register("System.Storage.Put", 0, contracts.CallFlags.STATES)
 def storage_put(engine: contracts.ApplicationEngine,
                 context: storage.StorageContext,
                 key: bytes,
@@ -109,7 +109,7 @@ def storage_put(engine: contracts.ApplicationEngine,
     _storage_put_internal(engine, context, key, value, storage.StorageFlags.NONE)
 
 
-@register("System.Storage.PutEx", 0, contracts.CallFlags.WRITE_STATES)
+@register("System.Storage.PutEx", 0, contracts.CallFlags.STATES)
 def storage_put_ex(engine: contracts.ApplicationEngine,
                    context: storage.StorageContext,
                    key: bytes,
@@ -118,7 +118,7 @@ def storage_put_ex(engine: contracts.ApplicationEngine,
     _storage_put_internal(engine, context, key, value, flags)
 
 
-@register("System.Storage.Delete", 0, contracts.CallFlags.WRITE_STATES)
+@register("System.Storage.Delete", 0, contracts.CallFlags.STATES)
 def storage_delete(engine: contracts.ApplicationEngine, context: storage.StorageContext, key: bytes) -> None:
     if context.is_read_only:
         raise ValueError("Cannot delete from read-only storage context")

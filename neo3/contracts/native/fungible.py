@@ -207,7 +207,7 @@ class FungibleToken(NativeContract):
         engine.call_from_native(self.hash, account_to, "onNEP17Payment", [from_, vm.IntegerStackItem(amount), data])
 
     @register("transfer",
-              (contracts.CallFlags.WRITE_STATES | contracts.CallFlags.ALLOW_CALL | contracts.CallFlags.ALLOW_NOTIFY),
+              (contracts.CallFlags.STATES | contracts.CallFlags.ALLOW_CALL | contracts.CallFlags.ALLOW_NOTIFY),
               cpu_price=1 << 17, storage_price=50)
     def transfer(self,
                  engine: contracts.ApplicationEngine,
@@ -631,7 +631,7 @@ class NeoToken(FungibleToken):
         state = storage_item.get(self._state)
         return self._calculate_bonus(snapshot, state.vote_to, state.balance, state.balance_height, end)
 
-    @register("registerCandidate", contracts.CallFlags.WRITE_STATES)
+    @register("registerCandidate", contracts.CallFlags.STATES)
     def register_candidate(self,
                            engine: contracts.ApplicationEngine,
                            public_key: cryptography.ECPoint) -> bool:
@@ -663,7 +663,7 @@ class NeoToken(FungibleToken):
         self._candidates_dirty = True
         return True
 
-    @register("unregisterCandidate", contracts.CallFlags.WRITE_STATES, cpu_price=1 << 16)
+    @register("unregisterCandidate", contracts.CallFlags.STATES, cpu_price=1 << 16)
     def unregister_candidate(self,
                              engine: contracts.ApplicationEngine,
                              public_key: cryptography.ECPoint) -> bool:
@@ -694,7 +694,7 @@ class NeoToken(FungibleToken):
         self._candidates_dirty = True
         return True
 
-    @register("vote", contracts.CallFlags.WRITE_STATES, cpu_price=1 << 16)
+    @register("vote", contracts.CallFlags.STATES, cpu_price=1 << 16)
     def vote(self,
              engine: contracts.ApplicationEngine,
              account: types.UInt160,
@@ -819,7 +819,7 @@ class NeoToken(FungibleToken):
             results.update({candidate[0]: candidate[1]})
         return results
 
-    @register("setGasPerBlock", contracts.CallFlags.WRITE_STATES, cpu_price=1 << 15)
+    @register("setGasPerBlock", contracts.CallFlags.STATES, cpu_price=1 << 15)
     def _set_gas_per_block(self, engine: contracts.ApplicationEngine, gas_per_block: vm.BigInteger) -> None:
         if gas_per_block > 0 or gas_per_block > 10 * self._gas.factor:
             raise ValueError("new gas per block value exceeds limits")
@@ -844,7 +844,7 @@ class NeoToken(FungibleToken):
         else:
             raise ValueError
 
-    @register("setRegisterPrice", contracts.CallFlags.WRITE_STATES, cpu_price=1 << 15)
+    @register("setRegisterPrice", contracts.CallFlags.STATES, cpu_price=1 << 15)
     def set_register_price(self, engine: contracts.ApplicationEngine, register_price: int) -> None:
         if register_price <= 0:
             raise ValueError("Register price cannot be negative or zero")

@@ -38,7 +38,7 @@ class DesignationContract(NativeContract):
         else:
             return []
 
-    @register("designateAsRole", contracts.CallFlags.WRITE_STATES, cpu_price=1 << 15)
+    @register("designateAsRole", contracts.CallFlags.STATES, cpu_price=1 << 15)
     def designate_as_role(self,
                           engine: contracts.ApplicationEngine,
                           role: DesignateRole,

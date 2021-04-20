@@ -87,7 +87,7 @@ class OracleContract(NativeContract):
         engine.snapshot.storages.put(self.key_request_id, storage.StorageItem(vm.BigInteger.zero().to_array()))
         engine.snapshot.storages.put(self.key_price, storage.StorageItem(vm.BigInteger(50000000).to_array()))
 
-    @register("setPrice", contracts.CallFlags.WRITE_STATES, cpu_price=1 << 15)
+    @register("setPrice", contracts.CallFlags.STATES, cpu_price=1 << 15)
     def set_price(self, engine: contracts.ApplicationEngine, price: int) -> None:
         if price <= 0:
             raise ValueError("Oracle->setPrice value cannot be negative or zero")
@@ -101,7 +101,7 @@ class OracleContract(NativeContract):
         return int(vm.BigInteger(snapshot.storages.get(self.key_price).value))
 
     @register("finish",
-              (contracts.CallFlags.WRITE_STATES | contracts.CallFlags.ALLOW_CALL | contracts.CallFlags.ALLOW_NOTIFY))
+              (contracts.CallFlags.STATES | contracts.CallFlags.ALLOW_CALL | contracts.CallFlags.ALLOW_NOTIFY))
     def finish(self, engine: contracts.ApplicationEngine) -> None:
         tx = engine.script_container
         tx = cast(payloads.Transaction, tx)
@@ -153,7 +153,7 @@ class OracleContract(NativeContract):
             raise ValueError  # C# will throw null pointer access exception
         return request.original_tx_id
 
-    @register("request", contracts.CallFlags.WRITE_STATES | contracts.CallFlags.ALLOW_NOTIFY)
+    @register("request", contracts.CallFlags.STATES | contracts.CallFlags.ALLOW_NOTIFY)
     def _request(self,
                  engine: contracts.ApplicationEngine,
                  url: str,

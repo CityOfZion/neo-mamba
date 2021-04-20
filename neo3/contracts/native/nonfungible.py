@@ -161,7 +161,7 @@ class NonFungibleToken(NativeContract):
         return NFTAccountState.deserialize_from_bytes(storage_item.value).balance
 
     @register("transfer",
-              contracts.CallFlags.WRITE_STATES | contracts.CallFlags.ALLOW_NOTIFY,
+              contracts.CallFlags.STATES | contracts.CallFlags.ALLOW_CALL | contracts.CallFlags.ALLOW_NOTIFY,
               cpu_price=1 << 17,
               storage_price=50)
     def transfer(self, engine: contracts.ApplicationEngine, account_to: types.UInt160, token_id: bytes) -> bool:

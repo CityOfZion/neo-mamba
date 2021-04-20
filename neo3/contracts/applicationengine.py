@@ -415,7 +415,7 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
                                  has_return_value: bool,
                                  args: List[vm.StackItem]):
         if method_descriptor.safe:
-            flags &= ~contracts.CallFlags.WRITE_STATES
+            flags &= ~(contracts.CallFlags.WRITE_STATES | contracts.CallFlags.ALLOW_NOTIFY)
         else:
             current_contract = contracts.ManagementContract().get_contract(self.snapshot, self.current_scripthash)
             if current_contract and not current_contract.can_call(target_contract, method_descriptor.name):
