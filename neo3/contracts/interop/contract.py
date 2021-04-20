@@ -57,6 +57,13 @@ def contract_create_standard_account(engine: contracts.ApplicationEngine,
     return to_script_hash(contracts.Contract.create_signature_redeemscript(public_key))
 
 
+@register("System.Contract.CreateMultisigAccount", 1 << 8, contracts.CallFlags.NONE)
+def contract_create_multisigaccount(engine: contracts.ApplicationEngine,
+                                    m: int,
+                                    public_keys: List[cryptography.ECPoint]) -> types.UInt160:
+    return to_script_hash(contracts.Contract.create_multisig_redeemscript(m, public_keys))
+
+
 @register("System.Contract.NativeOnPersist", 0, contracts.CallFlags.WRITE_STATES)
 def native_on_persist(engine: contracts.ApplicationEngine) -> None:
     if engine.trigger != contracts.TriggerType.ON_PERSIST:
