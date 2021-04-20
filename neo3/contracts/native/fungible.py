@@ -776,7 +776,7 @@ class NeoToken(FungibleToken):
             array.append(struct)
         engine.push(array)
 
-    @register("getNextBlockValidators", contracts.CallFlags.READ_STATES, cpu_price=1 << 22)
+    @register("getNextBlockValidators", contracts.CallFlags.READ_STATES, cpu_price=1 << 16)
     def get_next_block_validators(self, snapshot: storage.Snapshot) -> List[cryptography.ECPoint]:
         keys = self.get_committee_from_cache(snapshot)[:settings.network.validators_count]
         keys.sort()
@@ -787,7 +787,7 @@ class NeoToken(FungibleToken):
             self._committee_state = _CommitteeState.from_snapshot(snapshot)
         return self._committee_state.validators
 
-    @register("getCommittee", contracts.CallFlags.READ_STATES, cpu_price=1 << 22)
+    @register("getCommittee", contracts.CallFlags.READ_STATES, cpu_price=1 << 16)
     def get_committee(self, snapshot: storage.Snapshot) -> List[cryptography.ECPoint]:
         return sorted(self.get_committee_from_cache(snapshot))
 
