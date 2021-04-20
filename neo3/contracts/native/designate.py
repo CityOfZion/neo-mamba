@@ -10,6 +10,7 @@ from neo3.core import serialization
 class DesignateRole(IntEnum):
     STATE_VALIDATOR = 4
     ORACLE = 8
+    NEO_FS_ALPHABET_NODE = 16
 
 
 class DesignationContract(NativeContract):
