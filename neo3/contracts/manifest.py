@@ -57,9 +57,10 @@ class ContractGroup(IJson):
             KeyError: if the data supplied does not contain the necessary keys.
             ValueError: if the signature length is not 64.
         """
+        pubkey = contracts.validate_type(json['pubkey'], str)
         c = cls(
-            public_key=cryptography.ECPoint.deserialize_from_bytes(binascii.unhexlify(json['pubkey'])),
-            signature=base64.b64decode(json['signature'].encode('utf8'))
+            public_key=cryptography.ECPoint.deserialize_from_bytes(binascii.unhexlify(pubkey)),
+            signature=base64.b64decode(contracts.validate_type(json['signature'], str).encode('utf8'))
         )
         if len(c.signature) != 64:
             raise ValueError("Format error - invalid signature length")
@@ -341,17 +342,18 @@ class ContractManifest(serialization.ISerializable, IJson):
         self._deserialize_from_json(json.loads(reader.read_var_string(self.MAX_LENGTH)))
 
     def _deserialize_from_json(self, json: dict) -> None:
-        self.name = json['name']
-        if self.name is None:
+        if json['name'] is None:
             self.name = ""
+        else:
+            self.name = contracts.validate_type(json['name'], str)
         self.abi = contracts.ContractABI.from_json(json['abi'])
         self.groups = list(map(lambda g: ContractGroup.from_json(g), json['groups']))
-        self.supported_standards = json['supportedstandards']
+        self.supported_standards = list(map(lambda ss: contracts.validate_type(ss, str), json['supportedstandards']))
         self.permissions = list(map(lambda p: ContractPermission.from_json(p), json['permissions']))
 
         self.trusts = WildcardContainer.from_json_as_type(
             {'wildcard': json['trusts']},
-            lambda t: types.UInt160.from_string(t))
+            lambda t: types.UInt160.from_string(contracts.validate_type(t, str)))
 
         # converting json key/value back to default WildcardContainer format
         self.extra = json['extra']

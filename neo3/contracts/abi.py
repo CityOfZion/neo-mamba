@@ -112,8 +112,8 @@ class ContractParameterDefinition(IJson):
             ValueError: if the type is VOID.
         """
         c = cls(
-            name=json['name'],
-            type=contracts.ContractParameterType[json['type'].upper()]
+            name=contracts.validate_type(json['name'], str),
+            type=contracts.ContractParameterType[contracts.validate_type(json['type'], str).upper()]
         )
         if c.name is None or len(c.name) == 0:
             raise ValueError("Format error - invalid 'name'")
@@ -169,7 +169,7 @@ class ContractEventDescriptor(IJson):
             ValueError: if the 'name' property has an incorrect format
         """
         c = cls(
-            name=json['name'],
+            name=contracts.validate_type(json['name'], str),
             parameters=list(map(lambda p: ContractParameterDefinition.from_json(p), json['parameters']))
         )
         if c.name is None or len(c.name) == 0:
@@ -241,11 +241,11 @@ class ContractMethodDescriptor(ContractEventDescriptor, IJson):
             ValueError: if the offset is negative.
         """
         c = cls(
-            name=json['name'],
-            offset=json['offset'],
+            name=contracts.validate_type(json['name'], str),
+            offset=contracts.validate_type(json['offset'], int),
             parameters=list(map(lambda p: contracts.ContractParameterDefinition.from_json(p), json['parameters'])),
-            return_type=contracts.ContractParameterType[json['returntype'].upper()],
-            safe=json['safe']
+            return_type=contracts.ContractParameterType[contracts.validate_type(json['returntype'], str).upper()],
+            safe=contracts.validate_type(json['safe'], bool)
         )
         if c.name is None or len(c.name) == 0:
             raise ValueError("Format error - invalid 'name'")
