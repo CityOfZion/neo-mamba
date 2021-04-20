@@ -211,14 +211,10 @@ class NativeContract(convenience._Singleton):
             version: which version of the smart contract to load
 
         Raises:
-             SystemError: if not the contract is not yet active
              ValueError: if the request contract version is not
              ValueError: if the function to be called does not exist on the contract
              ValueError: if trying to call a function without having the correct CallFlags
         """
-        if self.active_block_index > engine.snapshot.best_block_height:
-            raise SystemError(f"The request native contract {self.service_name()} is not active until height"
-                              f" {self.active_block_index}")
         if version != 0:
             raise ValueError(f"Native contract version {version} is not active")  # type: ignore
 

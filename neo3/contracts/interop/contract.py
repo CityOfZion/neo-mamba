@@ -84,4 +84,6 @@ def call_native(engine: contracts.ApplicationEngine, version: int) -> None:
     contract = contracts.NativeContract.get_contract_by_hash(engine.current_scripthash)
     if contract is None:
         raise ValueError(f"It is not allowed to use \"System.Contract.CallNative\" directly")
+    if contract.active_block_index > engine.snapshot.persisting_block.index:
+        raise ValueError(f"The native contract {contract.service_name()} is not active")
     contract.invoke(engine, version)
