@@ -9,4 +9,4 @@ from .contract import __name__
 from .crypto import __name__
 from .enumerator import IIterator, StorageIterator, ArrayWrapper, ByteArrayWrapper
 from .runtime import __name__
-from .storage import _storage_put_internal, MAX_STORAGE_VALUE_SIZE, MAX_STORAGE_KEY_SIZE
+from .storage import storage_put, MAX_STORAGE_VALUE_SIZE, MAX_STORAGE_KEY_SIZE

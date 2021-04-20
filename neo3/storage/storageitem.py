@@ -1,22 +1,15 @@
 from __future__ import annotations
 from typing import Type, Optional
-from enum import IntFlag
 from neo3.core import serialization, utils, IClonable, Size as s
 
 
-class StorageFlags(IntFlag):
-    NONE = 0
-    CONSTANT = 0x1
-
-
 class StorageItem(serialization.ISerializable, IClonable):
-    def __init__(self, value: bytes, is_constant=False):
+    def __init__(self, value: bytes):
         self._value = value
-        self.is_constant = is_constant
         self._cache: Optional[serialization.ISerializable] = None
 
     def __len__(self):
-        return utils.get_var_size(self.value) + s.uint8
+        return utils.get_var_size(self.value)
 
     def __eq__(self, other):
         if not isinstance(other, type(self)):
@@ -36,18 +29,15 @@ class StorageItem(serialization.ISerializable, IClonable):
 
     def serialize(self, writer: serialization.BinaryWriter) -> None:
         writer.write_var_bytes(self.value)
-        writer.write_bool(self.is_constant)
 
     def deserialize(self, reader: serialization.BinaryReader) -> None:
         self.value = reader.read_var_bytes()
-        self.is_constant = reader.read_bool()
 
     def clone(self) -> StorageItem:
-        return StorageItem(self.value, self.is_constant)
+        return StorageItem(self.value)
 
     def from_replica(self, replica: StorageItem) -> None:
         self.value = replica.value
-        self.is_constant = replica.is_constant
 
     def get(self, type_: Type[serialization.ISerializable]):
         if self._cache and type(self._cache) == type_:
