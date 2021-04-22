@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from neo3 import contracts, settings, wallet
-from neo3.core import cryptography, types
+from neo3 import contracts, settings
+from neo3.wallet import private_key_from_nep2, address_to_script_hash, to_address, NEP6Contract
+from neo3.core import cryptography, types, to_script_hash
 
 
 class Account:
@@ -18,7 +19,7 @@ class Account:
 
     @property
     def address(self) -> str:
-        return wallet.to_address(self._script_hash, settings.network.account_version)
+        return to_address(self._script_hash, settings.network.account_version)
 
     @property
     def decrypted(self) -> bool:
@@ -29,13 +30,21 @@ class Account:
         return self._nep2key is not None
 
     @classmethod
+    def from_nep2(cls, key: str, password: str) -> Account:
+        private_key = private_key_from_nep2(key, password)
+        key_pair = cryptography.KeyPair(private_key)
+        script_hash = to_script_hash(key_pair.public_key)
+        account = cls(script_hash, key)
+        return account
+
+    @classmethod
     def from_json(cls, json: dict) -> Account:
-        account = cls(wallet.address_to_script_hash(json['address'], settings.network.account_version), json['key'])
+        account = cls(address_to_script_hash(json['address'], settings.network.account_version), json['key'])
 
         account.label = json['label']
         account.is_default = json['isdefault']
         account.lock = json['lock']
-        account.contract = wallet.NEP6Contract.from_json(json['contract'])
+        account.contract = NEP6Contract.from_json(json['contract'])
         account.extra = json['extra']
 
         return account
