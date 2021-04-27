@@ -19,11 +19,13 @@ class WalletCreationTestCase(unittest.TestCase):
             os.remove(wallet_file_path)
 
         wallet = Wallet.new_wallet(wallet_file_name)
+        scrypt_parameters_default = ScryptParameters()
+        
         self.assertEqual(wallet_file_name, wallet.name)
         self.assertEqual('3.0', wallet.version)
-        self.assertEqual(ScryptParameters.default().n, wallet.scrypt.n)
-        self.assertEqual(ScryptParameters.default().r, wallet.scrypt.r)
-        self.assertEqual(ScryptParameters.default().p, wallet.scrypt.p)
+        self.assertEqual(scrypt_parameters_default.n, wallet.scrypt.n)
+        self.assertEqual(scrypt_parameters_default.r, wallet.scrypt.r)
+        self.assertEqual(scrypt_parameters_default.p, wallet.scrypt.p)
         self.assertEqual([], wallet.accounts)
         self.assertEqual(None, wallet.extra)
 
@@ -33,11 +35,13 @@ class WalletCreationTestCase(unittest.TestCase):
 
     def test_wallet_default_value(self):
         wallet = Wallet.default('wallet.json')
+        scrypt_parameters_default = ScryptParameters()
+        
         self.assertEqual(None, wallet.name)
         self.assertEqual('3.0', wallet.version)
-        self.assertEqual(ScryptParameters.default().n, wallet.scrypt.n)
-        self.assertEqual(ScryptParameters.default().r, wallet.scrypt.r)
-        self.assertEqual(ScryptParameters.default().p, wallet.scrypt.p)
+        self.assertEqual(scrypt_parameters_default.n, wallet.scrypt.n)
+        self.assertEqual(scrypt_parameters_default.r, wallet.scrypt.r)
+        self.assertEqual(scrypt_parameters_default.p, wallet.scrypt.p)
         self.assertEqual([], wallet.accounts)
         self.assertEqual(None, wallet.extra)
 

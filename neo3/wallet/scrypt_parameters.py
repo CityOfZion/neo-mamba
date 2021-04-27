@@ -1,14 +1,10 @@
 class ScryptParameters(object):
 
-    instance = None
+    def __init__(self,
+                 n: int = 16384,
+                 r: int = 8,
+                 p: int = 8):
 
-    @staticmethod
-    def default():
-        if ScryptParameters.instance is None:
-            ScryptParameters.instance = ScryptParameters(16384, 8, 8)
-        return ScryptParameters.instance
-
-    def __init__(self, n, r, p):
         self.n = n
         self.r = r
         self.p = p
