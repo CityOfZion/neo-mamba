@@ -11,7 +11,7 @@ class WalletCreationTestCase(unittest.TestCase):
         return None
 
     def test_wallet_new_wallet(self):
-        wallet_file_name = 'test_wallet'
+        wallet_file_name = 'new_wallet'
         wallet_file_path = '{0}.json'.format(wallet_file_name)
 
         # remove the file if it exists for proper testing
@@ -29,9 +29,24 @@ class WalletCreationTestCase(unittest.TestCase):
         self.assertEqual([], wallet.accounts)
         self.assertEqual(None, wallet.extra)
 
-        # if the file exists, it should return None
-        wallet = Wallet.new_wallet(wallet_file_name)
-        self.assertIsNone(wallet)
+        # if the target file is not a json, it should fail
+        with self.assertRaises(ValueError):
+            wallet = Wallet.new_wallet('{0}.txt'.format(wallet_file_name))
+
+        # if the file exists, it should fail
+        with self.assertRaises(FileExistsError):
+            wallet = Wallet.new_wallet(wallet_file_name)
+
+        # unless the user wants to overwrite it
+        wallet = Wallet.new_wallet(wallet_file_name, overwrite_if_exists=True)
+        self.assertEqual(wallet_file_name, wallet.name)
+        self.assertEqual('3.0', wallet.version)
+        self.assertEqual(scrypt_parameters_default.n, wallet.scrypt.n)
+        self.assertEqual(scrypt_parameters_default.r, wallet.scrypt.r)
+        self.assertEqual(scrypt_parameters_default.p, wallet.scrypt.p)
+        self.assertEqual(scrypt_parameters_default.length, wallet.scrypt.length)
+        self.assertEqual([], wallet.accounts)
+        self.assertEqual(None, wallet.extra)
 
     def test_wallet_default_value(self):
         wallet = Wallet.default('wallet.json')

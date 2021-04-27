@@ -114,32 +114,28 @@ class Wallet(IJson):
                    extra=None)
 
     @classmethod
-    def new_wallet(cls, location: str):
+    def new_wallet(cls, location: str, overwrite_if_exists: bool = False) -> Optional[Wallet]:
         filepath, extension = os.path.splitext(location)
         if len(extension) == 0:
             location += '.json'
         elif extension != '.json':
             # won't create if the file is not a json file
-            return None
+            raise ValueError("Expecting a .json file, received {0} instead".format(extension))
 
-        try:
-            # creates the wallet file. If it already exists, returns None instead
-            file = open(location, 'x')
-            file.close()
-        except FileExistsError:
-            return None
+        if not os.path.isfile(location):
+            # creates the wallet file
+            with open(location, 'x'):
+                pass
+        elif not overwrite_if_exists:
+            raise FileExistsError("File exists: '{0}'".format(location))
 
-        return cls._new_wallet(location)
-
-    @classmethod
-    def _new_wallet(cls, path: str):
         # sets the wallet name as the same as the file name
-        dir_path, filename = os.path.split(path)
+        dir_path, filename = os.path.split(location)
         filename, extension = os.path.splitext(filename)
 
         wallet = cls(
             name=filename,
-            path=path,
+            path=location,
             version=cls._wallet_version,
             scrypt=ScryptParameters(),
             accounts=[]
