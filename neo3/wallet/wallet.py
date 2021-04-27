@@ -111,7 +111,7 @@ class Wallet(IJson):
         return cls(path=path,
                    name=name,
                    version=cls._wallet_version,
-                   scrypt=ScryptParameters.default(),
+                   scrypt=ScryptParameters(),
                    accounts=[],
                    extra=None)
 
@@ -143,7 +143,7 @@ class Wallet(IJson):
             name=filename,
             path=path,
             version=cls._wallet_version,
-            scrypt=ScryptParameters.default(),
+            scrypt=ScryptParameters(),
             accounts=[]
         )
         wallet.save()
