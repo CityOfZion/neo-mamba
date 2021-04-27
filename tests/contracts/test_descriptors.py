@@ -22,7 +22,7 @@ class ContractPermissionDescriptorTestCase(unittest.TestCase):
         self.assertTrue(cpd.is_hash)
         self.assertFalse(cpd.is_group)
         self.assertFalse(cpd.is_wildcard)
-        self.assertDictEqual({'contract': '0000000000000000000000000000000000000000'}, cpd.to_json())
+        self.assertDictEqual({'contract': '0x0000000000000000000000000000000000000000'}, cpd.to_json())
         cpd_from_json = contracts.ContractPermissionDescriptor.from_json(cpd.to_json())
         self.assertEqual(cpd.contract_hash, cpd_from_json.contract_hash)
         self.assertEqual(cpd.group, cpd_from_json.group)

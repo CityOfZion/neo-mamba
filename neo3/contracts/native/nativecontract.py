@@ -229,7 +229,7 @@ class NativeContract(convenience._Singleton):
         engine.add_gas(method.cpu_price
                        * contracts.PolicyContract().get_exec_fee_factor(engine.snapshot)
                        + method.storage_price
-                       + contracts.PolicyContract().get_storage_price(engine.snapshot))
+                       * contracts.PolicyContract().get_storage_price(engine.snapshot))
 
         params: List[Any] = []
         if method.add_engine:

@@ -4,7 +4,6 @@ from .version import VersionPayload
 from .address import NetworkAddress, AddrPayload, AddressState, DisconnectReason
 from .ping import PingPayload
 from .verification import Witness, WitnessScope, Signer, IVerifiable
-from .consensus import ConsensusPayload
 from .transaction import Transaction, TransactionAttribute, TransactionAttributeType
 from .block import (Header,
                     Block,
@@ -19,7 +18,7 @@ from .extensible import ExtensiblePayload
 
 __all__ = ['EmptyPayload', 'InventoryPayload', 'InventoryType', 'VersionPayload', 'NetworkAddress',
            'AddrPayload', 'PingPayload', 'Witness', 'WitnessScope', 'Header', 'Block', 'MerkleBlockPayload',
-           'HeadersPayload', 'ConsensusPayload', 'Transaction', 'TransactionAttribute',
+           'HeadersPayload', 'Transaction', 'TransactionAttribute',
            'TransactionAttributeType', 'Signer', 'GetBlocksPayload', 'GetBlockByIndexPayload', 'FilterAddPayload',
            'FilterLoadPayload', 'TrimmedBlock', 'IVerifiable', 'OracleReponseCode', 'OracleReponseCode',
            'ExtensiblePayload']

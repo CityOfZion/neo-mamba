@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from neo3 import contracts, storage, settings, vm
 from neo3.core import cryptography, types, to_script_hash, msgrouter, syscall_name_to_int
 from neo3.network import payloads, convenience
+from audit import Audit
 
 
 class Blockchain(convenience._Singleton):
@@ -53,6 +54,7 @@ class Blockchain(convenience._Singleton):
     def persist(self, block: payloads.Block):
         with self.backend.get_snapshotview() as snapshot:
             snapshot.persisting_block = block
+            audit = Audit(block)
 
             engine = contracts.ApplicationEngine(contracts.TriggerType.ON_PERSIST,
                                                  None, snapshot, 0, True)  # type: ignore
@@ -72,10 +74,12 @@ class Blockchain(convenience._Singleton):
                                                      tx.system_fee)
                 engine.load_script(vm.Script(tx.script))
                 state = engine.execute()
+                audit.add_tx(tx, engine)
                 if state == vm.VMState.HALT:
                     cloned_snapshot.commit()
                 else:
                     cloned_snapshot = snapshot.clone()
+
             engine = contracts.ApplicationEngine(contracts.TriggerType.POST_PERSIST,
                                                  None, snapshot, 0, True)  # type: ignore
             engine.load_script(vm.Script(self.native_postpersist_script))
@@ -89,6 +93,10 @@ class Blockchain(convenience._Singleton):
             Therefore we wait with persisting the block until here
             """
             snapshot.blocks.put(block)
+            snapshot.best_block_height = block.index
+            if block.index > 0:
+                audit.commit(snapshot)
+
             snapshot.commit()
             self._current_snapshot = snapshot
         msgrouter.on_block_persisted(block)

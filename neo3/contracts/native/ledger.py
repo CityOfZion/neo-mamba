@@ -22,7 +22,7 @@ class LedgerContract(NativeContract):
         return snapshot.persisting_block.hash()
 
     @register("currentIndex", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
-    def current_index(self, snapshot) -> int:
+    def current_index(self, snapshot: storage.Snapshot) -> int:
         return snapshot.best_block_height
 
     @register("getBlock", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)

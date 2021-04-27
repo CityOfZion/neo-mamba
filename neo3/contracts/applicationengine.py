@@ -48,7 +48,6 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
             self.exec_fee_factor = contracts.PolicyContract().get_exec_fee_factor(snapshot)
             self.STORAGE_PRICE = contracts.PolicyContract().get_storage_price(snapshot)
 
-        self._context_state: Dict[vm.ExecutionContext, contracts.ContractState] = {}
         from neo3.contracts import interop
         self.interop = interop
 
@@ -322,8 +321,6 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
                                    contract_state: Optional[contracts.ContractState] = None):
         context = super(ApplicationEngine, self).load_script(script, rvcount, initial_position)
         context.call_flags = int(call_flags)
-        if contract_state is not None:
-            self._context_state.update({context: contract_state})
         return context
 
     def call_from_native(self,
@@ -358,6 +355,7 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
         # configure state
         context.call_flags = int(flags)
         context.scripthash_bytes = contract.hash.to_array()
+        context.nef_bytes = contract.nef.to_array()
 
         init = contract.manifest.abi.get_method("_initialize", 0)
         if init is not None:
@@ -366,22 +364,19 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
 
     def load_token(self, token_id: int) -> vm.ExecutionContext:
         self._validate_callflags(contracts.CallFlags.READ_STATES | contracts.CallFlags.ALLOW_CALL)
-        contract = self._context_state.get(self.current_context, None)
-        if contract is None:
-            raise ValueError("Current context has no contract state")
-        if token_id >= len(contract.nef.tokens):
+        if len(self.current_context.nef_bytes) == 0:
+            raise ValueError("Current context has no NEF state")
+        nef = contracts.NEF.deserialize_from_bytes(self.current_context.nef_bytes)
+        if token_id >= len(nef.tokens):
             raise ValueError("token_id exceeds available tokens")
 
-        token = contract.nef.tokens[token_id]
+        token = nef.tokens[token_id]
         if token.parameters_count > len(self.current_context.evaluation_stack):
             raise ValueError("Token count exceeds available paremeters on evaluation stack")
         args: List[vm.StackItem] = []
         for _ in range(token.parameters_count):
             args.append(self.pop())
         return self._contract_call_internal(token.hash, token.method, token.call_flags, token.has_return_value, args)
-
-    def context_unloaded(self, context: vm.ExecutionContext) -> None:
-        self._context_state.pop(context, None)
 
     def _contract_call_internal(self,
                                 contract_hash: types.UInt160,

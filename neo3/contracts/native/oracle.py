@@ -98,7 +98,7 @@ class OracleContract(NativeContract):
 
     @register("getPrice", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
     def get_price(self, snapshot: storage.Snapshot) -> int:
-        return int(vm.BigInteger(snapshot.storages.get(self.key_price).value))
+        return int(vm.BigInteger(snapshot.storages.get(self.key_price, read_only=True).value))
 
     @register("finish",
               (contracts.CallFlags.STATES | contracts.CallFlags.ALLOW_CALL | contracts.CallFlags.ALLOW_NOTIFY))
@@ -252,12 +252,7 @@ class OracleContract(NativeContract):
             if si_id_list is None:
                 si_id_list = storage.StorageItem(b'\x00')
 
-            with serialization.BinaryReader(si_id_list.value) as reader:
-                count = reader.read_var_int()
-                id_list = []
-                for _ in range(count):
-                    id_list.append(reader.read_uint64())
-
+            id_list = si_id_list.get(_IdList)
             id_list.remove(response.id)
             if len(id_list) == 0:
                 engine.snapshot.storages.delete(sk_id_list)
@@ -281,3 +276,14 @@ class OracleContract(NativeContract):
         for pair in nodes:
             if pair[1].sign > 0:  # type: ignore
                 self._gas.mint(engine, pair[0], pair[1], False)
+
+
+class _IdList(list, serialization.ISerializable):
+    def serialize(self, writer: serialization.BinaryWriter) -> None:
+        for item in self:
+            writer.write_uint64(item)
+
+    def deserialize(self, reader: serialization.BinaryReader) -> None:
+        count = reader.read_var_int()
+        for _ in range(count):
+            self.append(reader.read_uint64())

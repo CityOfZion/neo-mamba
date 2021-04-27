@@ -59,9 +59,11 @@ class ExtensiblePayload(payloads.IInventory):
         self.data = reader.read_var_bytes(message.Message.PAYLOAD_MAX_SIZE)
 
     def hash(self) -> types.UInt256:
-        intermediate_data = hashlib.sha256(self.get_hash_data(settings.network.magic)).digest()
-        data = hashlib.sha256(intermediate_data).digest()
-        return types.UInt256(data)
+        with serialization.BinaryWriter() as bw:
+            self.serialize_unsigned(bw)
+            data_to_hash = bytearray(bw._stream.getvalue())
+            data = hashlib.sha256(data_to_hash).digest()
+            return types.UInt256(data=data)
 
     @property
     def inventory_type(self) -> InventoryType:

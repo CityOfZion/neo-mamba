@@ -146,7 +146,7 @@ class ManagementContract(NativeContract):
 
         engine.add_gas(engine.STORAGE_PRICE * (nef_len + manifest_len))
 
-        contract = engine.snapshot.contracts.try_get(engine.current_scripthash, read_only=False)
+        contract = engine.snapshot.contracts.try_get(engine.calling_scripthash, read_only=False)
         if contract is None:
             raise ValueError("Can't find contract to update")
 
@@ -187,15 +187,15 @@ class ManagementContract(NativeContract):
 
     @register("destroy", contracts.CallFlags.STATES | contracts.CallFlags.ALLOW_NOTIFY, cpu_price=1 << 15)
     def contract_destroy(self, engine: contracts.ApplicationEngine) -> None:
-        hash_ = engine.current_scripthash
+        hash_ = engine.calling_scripthash
         contract = engine.snapshot.contracts.try_get(hash_)
 
         if contract is None:
             return
 
-        engine.snapshot.storages.delete(hash_)
+        engine.snapshot.contracts.delete(hash_)
 
-        for key, _ in engine.snapshot.storages.find(contract.id.to_bytes(4, 'little', signed=True), b''):
+        for key, _ in engine.snapshot.storages.find(contract.id.to_bytes(4, 'little', signed=True)):
             engine.snapshot.storages.delete(key)
 
         msgrouter.interop_notify(self.hash,
@@ -207,7 +207,7 @@ class ManagementContract(NativeContract):
 
     @register("getMinimumDeploymentFee", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
     def get_minimum_deployment_fee(self, snapshot: storage.Snapshot) -> int:
-        return int.from_bytes(snapshot.storages[self.key_min_deploy_fee].value, 'little')
+        return int.from_bytes(snapshot.storages.get(self.key_min_deploy_fee, read_only=True).value, 'little')
 
     @register("setMinimumDeploymentFee", contracts.CallFlags.STATES, cpu_price=1 << 15)
     def _set_minimum_deployment_fee(self, engine: contracts.ApplicationEngine, value: int) -> None:

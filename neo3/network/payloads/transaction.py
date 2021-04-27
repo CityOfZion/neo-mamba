@@ -192,10 +192,9 @@ class Transaction(payloads.IInventory, IInteroperable):
         Get a unique block identifier based on the unsigned data portion of the object.
         """
         with serialization.BinaryWriter() as bw:
-            bw.write_uint32(self.protocol_magic)
             self.serialize_unsigned(bw)
             data_to_hash = bytearray(bw._stream.getvalue())
-            data = hashlib.sha256(hashlib.sha256(data_to_hash).digest()).digest()
+            data = hashlib.sha256(data_to_hash).digest()
             return types.UInt256(data=data)
 
     @property

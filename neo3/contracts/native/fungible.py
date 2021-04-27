@@ -64,6 +64,10 @@ class FungibleToken(NativeContract):
         ]
         self.factor = pow(vm.BigInteger(10), vm.BigInteger(self._decimals))
 
+    @register("decimals", contracts.CallFlags.READ_STATES)
+    def decimals(self) -> int:
+        return self._decimals
+
     @register("symbol", contracts.CallFlags.READ_STATES)
     def symbol(self) -> str:
         """ Token symbol. """
@@ -474,7 +478,7 @@ class NeoToken(FungibleToken):
         key_start = (self.key_voter_reward_per_committee + vote + start_bytes).to_array()
 
         try:
-            pair = next(snapshot.storages.find_range(self.hash, key_start, border, "reverse"))
+            pair = next(snapshot.storages.find_range(key_start, border, "reverse"))
             start_reward_per_neo = vm.BigInteger(pair[1].value)  # first pair returned, StorageItem
         except StopIteration:
             start_reward_per_neo = vm.BigInteger.zero()
@@ -483,7 +487,7 @@ class NeoToken(FungibleToken):
         key_end = (self.key_voter_reward_per_committee + vote + end_bytes).to_array()
 
         try:
-            pair = next(snapshot.storages.find_range(self.hash, key_end, border, "reverse"))
+            pair = next(snapshot.storages.find_range(key_end, border, "reverse"))
             end_reward_per_neo = vm.BigInteger(pair[1].value)  # first pair returned, StorageItem
         except StopIteration:
             end_reward_per_neo = vm.BigInteger.zero()
@@ -720,7 +724,7 @@ class NeoToken(FungibleToken):
 
         storage_key_candidate = self.key_candidate + vote_to
         storage_item_candidate = engine.snapshot.storages.try_get(storage_key_candidate, read_only=False)
-        if storage_key_candidate is None:
+        if storage_item_candidate is None:
             return False
 
         candidate_state = storage_item_candidate.get(_CandidateState)
@@ -808,7 +812,12 @@ class NeoToken(FungibleToken):
         if voter_turnout < 0.2 or len(candidates) < len(settings.standby_committee):
             results = {}
             for key in settings.standby_committee:
-                results.update({key: self._committee_state[key]})
+                for pair in candidates:
+                    if pair[0] == key:
+                        results.update({key: pair[1]})
+                        break
+                else:
+                    results.update({key: vm.BigInteger.zero()})
             return results
         # first sort by votes descending, then by ECPoint ascending
         # we negate the value of the votes (c[1]) such that they get sorted in descending order
@@ -855,7 +864,7 @@ class NeoToken(FungibleToken):
 
     @register("getRegisterPrice", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
     def get_register_price(self, snapshot: storage.Snapshot) -> int:
-        return int(vm.BigInteger(snapshot.storages.get(self.key_register_price).value))
+        return int(vm.BigInteger(snapshot.storages.get(self.key_register_price, read_only=True).value))
 
     def _distribute_gas(self,
                         engine: contracts.ApplicationEngine,

@@ -1,7 +1,6 @@
 from __future__ import annotations
 from typing import Optional
 from neo3 import contracts, storage
-from neo3.core import types
 from neo3.contracts.interop import register, IIterator, StorageIterator
 
 MAX_STORAGE_KEY_SIZE = 64
@@ -66,7 +65,7 @@ def storage_find(engine: contracts.ApplicationEngine,
     return it
 
 
-@register("System.Storage.Put", 1 << 15, contracts.CallFlags.STATES)
+@register("System.Storage.Put", 1 << 15, contracts.CallFlags.WRITE_STATES)
 def storage_put(engine: contracts.ApplicationEngine, context: storage.StorageContext, key: bytes, value: bytes) -> None:
     if len(key) > MAX_STORAGE_KEY_SIZE:
         raise ValueError(f"Storage key length exceeds maximum of {MAX_STORAGE_KEY_SIZE}")
@@ -96,10 +95,9 @@ def storage_put(engine: contracts.ApplicationEngine, context: storage.StorageCon
     item.value = value
 
 
-@register("System.Storage.Delete", 1 << 15, contracts.CallFlags.STATES)
+@register("System.Storage.Delete", 1 << 15, contracts.CallFlags.WRITE_STATES)
 def storage_delete(engine: contracts.ApplicationEngine, context: storage.StorageContext, key: bytes) -> None:
     if context.is_read_only:
         raise ValueError("Cannot delete from read-only storage context")
-    engine.add_gas(engine.STORAGE_PRICE)
     storage_key = storage.StorageKey(context.id, key)
     engine.snapshot.storages.delete(storage_key)
