@@ -49,10 +49,10 @@ class WalletCreationTestCase(unittest.TestCase):
         self.assertEqual(None, wallet.extra)
 
     def test_wallet_default_value(self):
-        wallet = Wallet.default('wallet.json')
+        wallet = Wallet.default()
         scrypt_parameters_default = ScryptParameters()
         
-        self.assertEqual(None, wallet.name)
+        self.assertEqual('wallet.json', wallet.name)
         self.assertEqual('3.0', wallet.version)
         self.assertEqual(scrypt_parameters_default.n, wallet.scrypt.n)
         self.assertEqual(scrypt_parameters_default.r, wallet.scrypt.r)

@@ -73,17 +73,17 @@ class Wallet(IJson):
 
     def __init__(self,
                  path: str,
-                 version: str,
-                 scrypt: ScryptParameters,
                  name: Optional[str] = None,
+                 version: str = _wallet_version,
+                 scrypt: ScryptParameters = ScryptParameters(),
                  accounts: List[Account] = None,
                  extra: Optional[Dict[Any, Any]] = None):
         """
         Args:
             path: the JSON's path
             name: a label that the user has given to the wallet
-            version: the wallet's version, must be equal or greater then 3.0
-            scrypt: a ScryptParameters object which describes the parameters of the SCrypt algorithm used for encrypting
+            version: the wallet's version, must be equal to or greater than 3.0
+            scrypt: a ScryptParameters object which describes the parameters of the Scrypt algorithm used for encrypting
                     and decrypting the private keys in the wallet.
             accounts: an array of Account objects which describe the details of each account in the wallet.
             extra: an object that is defined by the implementor of the client for storing extra data. This field can be
@@ -98,7 +98,7 @@ class Wallet(IJson):
         self.extra = extra
 
     @classmethod
-    def default(cls, path: str, name: Optional[str] = None) -> Wallet:
+    def default(cls, path: str = './wallet.json', name: Optional[str] = 'wallet.json') -> Wallet:
         """
         Create a new Wallet with the default settings.
 
