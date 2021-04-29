@@ -3,28 +3,32 @@ from neo3.wallet import Account
 
 account_list = [
     {
-        'Address': "NQrEVKgpx2qEg6DpVMT5H8kFa7kc2DFgqS",
-        'PrivateKey': "7d128a6d096f0c14c3a25a2b0c41cf79661bfcb4a8cc95aaaea28bde4d732344",
-        'PublicKey': "02028a99826edc0c97d18e22b6932373d908d323aa7f92656a77ec26e8861699ef",
-        'Wif': "L1QqQJnpBwbsPGAuutuzPTac8piqvbR1HRjrY5qHup48TBCBFe4g",
-        'Passphrase': "city of zion",
-        'EncryptedWif': "6PYWaEBMd9UTVFKi1YahYXY5NMLDg9U6w2gpQYUnx8wvaFgdo8EeVPaD7o",
+        "address": "NdgRTnfiYyLr3N7dqTE7J33KRyvuyHzv7q",
+        "encrypted_key": "6PYRrDT4mQyq3ieXVWn4KGgQ8E747s8sCDJ4jzoHj3QG3Z2RCg5Rr1prqY",
+        "password": "city of zion",
+        "private_key": "c54da3dc31b6a6247b8ff476c569b1452cf3790a68174e533eaaba2cc5af6c2a",
+        "script_hash": "dcdd336dee6ad4f6bdba32fde98351070660e2c2",
     },
     {
-        'Address': "NYaVsrMV9GS8aaspRS4odXf1WHZdMmJiPC",
-        'PrivateKey': "9ab7e154840daca3a2efadaf0df93cd3a5b51768c632f5433f86909d9b994a69",
-        'PublicKey': "031d8e1630ce640966967bc6d95223d21f44304133003140c3b52004dc981349c9",
-        'Wif': "L2QTooFoDFyRFTxmtiVHt5CfsXfVnexdbENGDkkrrgTTryiLsPMG",
-        'Passphrase': "我的密码",
-        'EncryptedWif': "6PYUpn5uxTpsoawM3YKEWamk2oiKeafQBBK3Vutsowogy8a86jPu71xhE9",
+        "address": "NjEafNb9EjStKrxbTLAkWGwYFwPWEZHzzH",
+        "encrypted_key": "6PYM7Dm3aginArMuUTXQMSCkHMnQVYij7wy1uvffVzLsMckQiVH7Gsroyb",
+        "password": "123",
+        "private_key": "5784bb76c26788f177df17de1c014f3667ed1e7d6655c5c232b46b36415b4d63",
+        "script_hash": "2d646d71d38f3468982d0ec851ce43488dfecfff",
     },
     {
-        'Address': "NWcpK2143ZjgzDYyQJhoKrodJUymHTxPzR",
-        'PrivateKey': "3edee7036b8fd9cef91de47386b191dd76db2888a553e7736bb02808932a915b",
-        'PublicKey': "02232ce8d2e2063dce0451131851d47421bfc4fc1da4db116fca5302c0756462fa",
-        'Wif': "KyKvWLZsNwBJx5j9nurHYRwhYfdQUu9tTEDsLCUHDbYBL8cHxMiG",
-        'Passphrase': "MyL33tP@33w0rd",
-        'EncryptedWif': "6PYRbKt55d4NXxCESqk8n9kURqopvixEY5nhAYe2ZJ4c1oDWAjtFX8hd1M",
+        "address": "NLXsQj5Bw7FMevM8Zd5gkwGABDcHtub94p",
+        "encrypted_key": "6PYURBhofSKgFSSQQrpUkGxKytWVeWtoXpwAwuVFxtztKKStW84FwRyRXC",
+        "password": "neo",
+        "private_key": "d7352d0c0bf4a82db05780a175fc2614ed09d28e03cc8ae93318d6c320e61f8a",
+        "script_hash": "8b6542f5133a8c2177193402f2e464951a27ca06",
+    },
+    {
+        "address": "NVZtTRsEFCbMMYjrQB5NguyqpjEFXpRHHZ",
+        "encrypted_key": "6PYTo46szFt1YwgqTy5kc6vp1cuKJqLFJYXHCNcoXvHGetjK65WMVWVn8r",
+        "password": "neo-mamba",
+        "private_key": "25caf316e359781767d66feacc37b4f24bc5a86856842aeb4e645dfe260632a7",
+        "script_hash": "76e83a307b5a21421511d8f30ffdc35b8afde469",
     }
 ]
 
@@ -33,5 +37,41 @@ class AccountCreationTestCase(unittest.TestCase):
 
     def test_account_from_password(self):
         for testcase in account_list:
-            account = Account.from_password(testcase.get('Passphrase'))
+            account = Account.from_password(testcase['password'])
             self.assertIsNotNone(account)
+            self.assertIsNotNone(account.address)
+            self.assertIsNotNone(account.encrypted_key)
+            self.assertIsNotNone(account.public_key)
+
+    def test_account_from_private_key(self):
+        for testcase in account_list:
+            account = Account.from_private_key(bytes.fromhex(testcase['private_key']), testcase['password'])
+            self.assertEqual(testcase['address'], account.address)
+            self.assertEqual(testcase['encrypted_key'].encode('utf-8'), account.encrypted_key)
+            self.assertEqual(testcase['script_hash'], account.script_hash.__str__())
+            self.assertIsNotNone(account.public_key)
+
+    def test_account_from_encrypted_key(self):
+        for testcase in account_list:
+            account = Account.from_encrypted_key(testcase['encrypted_key'], testcase['password'])
+            self.assertEqual(testcase['address'], account.address)
+            self.assertEqual(testcase['encrypted_key'].encode('utf-8'), account.encrypted_key)
+            self.assertEqual(testcase['script_hash'], account.script_hash.__str__())
+            self.assertIsNotNone(account.public_key)
+
+    def test_account_from_script_hash(self):
+        from neo3.core.types import UInt160
+        for testcase in account_list:
+            account = Account.from_script_hash(UInt160.from_string(testcase['script_hash']))
+            self.assertEqual(testcase['address'], account.address)
+            self.assertIsNone(account.encrypted_key)
+            self.assertEqual(testcase['script_hash'], account.script_hash.__str__())
+            self.assertIsNone(account.public_key)
+
+    def test_account_from_address(self):
+        for testcase in account_list:
+            account = Account.from_address(testcase['address'])
+            self.assertEqual(testcase['address'], account.address)
+            self.assertIsNone(account.encrypted_key)
+            self.assertEqual(testcase['script_hash'], account.script_hash.__str__())
+            self.assertIsNone(account.public_key)

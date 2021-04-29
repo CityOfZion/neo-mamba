@@ -48,7 +48,8 @@ class Account:
                 key_pair = KeyPair(private_key)
             encrypted_key = private_key_to_nep2(private_key, password)
             from neo3.core import to_script_hash
-            script_hash = to_script_hash(key_pair.public_key.encode_point(True))
+            from neo3 import contracts
+            script_hash = to_script_hash(contracts.Contract.create_signature_redeemscript(key_pair.public_key))
             address = self.script_hash_to_address(script_hash)
             public_key = key_pair.public_key
 
@@ -147,12 +148,16 @@ class Account:
 
         Args:
             address: address to convert
+
+        Raises:
+            ValueError: if the length of data_ isn't 21.
+            ValueErros: if the script hash version isn't 3.0.
         """
         data_ = base58.b58decode_check(address)
         if len(data_) != len(types.UInt160.zero()) + 1:
-            raise Exception
+            raise ValueError('The address is wrong, because data_ length should be 21')
 
-        if data_[0] != 3:   # Only accepted version
-            raise Exception
+        if data_[0] != settings.network.account_version:   # Only accepted version is 3.0
+            raise ValueError('The version is not 3.0')
 
-        return types.UInt160(data_[1:])
+        return types.UInt160(data=data_[1:])
