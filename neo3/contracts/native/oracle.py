@@ -132,27 +132,6 @@ class OracleContract(NativeContract):
 
         engine.call_from_native(self.hash, request.callback_contract, request.callback_method, args)
 
-    def get_request(self, snapshot: storage.Snapshot, id: int) -> Optional[OracleRequest]:
-        id_bytes = id.to_bytes(8, 'little', signed=False)
-        storage_item = snapshot.storages.try_get(self.key_request + id_bytes)
-        if storage_item is None:
-            return None
-
-        return OracleRequest.deserialize_from_bytes(storage_item.value)
-
-    def _get_url_hash(self, url: str) -> bytes:
-        return to_script_hash(url.encode('utf-8')).to_array()
-
-    def _get_original_txid(self, engine: contracts.ApplicationEngine) -> types.UInt256:
-        tx = cast(payloads.Transaction, engine.script_container)
-        response = tx.try_get_attribute(payloads.OracleResponse)
-        if response is None:
-            return tx.hash()
-        request = self.get_request(engine.snapshot, response.id)
-        if request is None:
-            raise ValueError  # C# will throw null pointer access exception
-        return request.original_tx_id
-
     @register("request", contracts.CallFlags.STATES | contracts.CallFlags.ALLOW_NOTIFY)
     def _request(self,
                  engine: contracts.ApplicationEngine,
@@ -230,6 +209,14 @@ class OracleContract(NativeContract):
             return False
         return bool(tx.try_get_attribute(payloads.OracleResponse))
 
+    def get_request(self, snapshot: storage.Snapshot, id: int) -> Optional[OracleRequest]:
+        id_bytes = id.to_bytes(8, 'little', signed=False)
+        storage_item = snapshot.storages.try_get(self.key_request + id_bytes)
+        if storage_item is None:
+            return None
+
+        return OracleRequest.deserialize_from_bytes(storage_item.value)
+
     def post_persist(self, engine: contracts.ApplicationEngine) -> None:
         super(OracleContract, self).post_persist(engine)
         nodes = []
@@ -277,8 +264,24 @@ class OracleContract(NativeContract):
             if pair[1].sign > 0:  # type: ignore
                 self._gas.mint(engine, pair[0], pair[1], False)
 
+    def _get_url_hash(self, url: str) -> bytes:
+        return to_script_hash(url.encode('utf-8')).to_array()
+
+    def _get_original_txid(self, engine: contracts.ApplicationEngine) -> types.UInt256:
+        tx = cast(payloads.Transaction, engine.script_container)
+        response = tx.try_get_attribute(payloads.OracleResponse)
+        if response is None:
+            return tx.hash()
+        request = self.get_request(engine.snapshot, response.id)
+        if request is None:
+            raise ValueError  # C# will throw null pointer access exception
+        return request.original_tx_id
+
 
 class _IdList(list, serialization.ISerializable):
+    """
+    Helper class to get an IdList from storage and deal with caching.
+    """
     def serialize(self, writer: serialization.BinaryWriter) -> None:
         for item in self:
             writer.write_uint64(item)

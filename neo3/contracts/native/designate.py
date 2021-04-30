@@ -20,9 +20,6 @@ class DesignationContract(NativeContract):
     def init(self):
         super(DesignationContract, self).init()
 
-    def _to_uint32(self, value: int) -> bytes:
-        return struct.pack(">I", value)
-
     @register("getDesignatedByRole", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
     def get_designated_by_role(self,
                                snapshot: storage.Snapshot,
@@ -63,3 +60,6 @@ class DesignationContract(NativeContract):
             writer.write_serializable_list(nodes)
             storage_item = storage.StorageItem(writer.to_array())
         engine.snapshot.storages.update(storage_key, storage_item)
+
+    def _to_uint32(self, value: int) -> bytes:
+        return struct.pack(">I", value)

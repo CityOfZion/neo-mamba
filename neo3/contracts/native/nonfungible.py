@@ -99,45 +99,6 @@ class NonFungibleToken(NativeContract):
     def _initialize(self, engine: contracts.ApplicationEngine) -> None:
         engine.snapshot.storages.put(self.key_total_suppply, storage.StorageItem(b'\x00'))
 
-    def mint(self, engine: contracts.ApplicationEngine, token: NFTState) -> None:
-        engine.snapshot.storages.put(self.key_token + token.id, storage.StorageItem(token.to_array()))
-        sk_account = self.key_account + token.id
-        si_account = engine.snapshot.storages.try_get(sk_account, read_only=False)
-
-        if si_account is None:
-            si_account = storage.StorageItem(NFTAccountState().to_array())
-            engine.snapshot.storages.put(sk_account, si_account)
-
-        account = si_account.get(NFTAccountState)
-        account.add(token.id)
-
-        si_total_supply = engine.snapshot.storages.get(self.key_total_suppply, read_only=False)
-        new_value = vm.BigInteger(si_total_supply.value) + 1
-        si_total_supply.value = new_value.to_array()
-
-        self._post_transfer(engine, types.UInt160.zero(), token.owner, token.id)
-
-    def burn(self, engine: contracts.ApplicationEngine, token_id: bytes) -> None:
-        key_token = self.key_token + token_id
-        si_token = engine.snapshot.storages.try_get(key_token, read_only=True)
-        if si_token is None:
-            raise ValueError("Token cannot be found")
-        token = NFTState.deserialize_from_bytes(si_token.value)
-        engine.snapshot.storages.delete(key_token)
-
-        key_account = self.key_account + token.owner.to_array()
-        account_state = engine.snapshot.storages.get(key_account).get(NFTAccountState)
-        account_state.remove(token_id)
-
-        if account_state.balance == 0:
-            engine.snapshot.storages.delete(key_account)
-
-        si_total_supply = engine.snapshot.storages.get(self.key_total_suppply)
-        new_value = vm.BigInteger(si_total_supply.value) + 1
-        si_total_supply.value = new_value.to_array()
-
-        self._post_transfer(engine, token.owner, types.UInt160.zero(), token_id)
-
     @register("totalSupply", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
     def total_supply(self, snapshot: storage.Snapshot) -> vm.BigInteger:
         storage_item = snapshot.storages.get(self.key_total_suppply)
@@ -216,6 +177,45 @@ class NonFungibleToken(NativeContract):
         account = storage_item_account.get(NFTAccountState)
         tokens: List[vm.StackItem] = list(map(lambda t: vm.ByteStringStackItem(t), account.tokens))
         return interop.ArrayWrapper(vm.ArrayStackItem(reference_counter, tokens))
+
+    def mint(self, engine: contracts.ApplicationEngine, token: NFTState) -> None:
+        engine.snapshot.storages.put(self.key_token + token.id, storage.StorageItem(token.to_array()))
+        sk_account = self.key_account + token.id
+        si_account = engine.snapshot.storages.try_get(sk_account, read_only=False)
+
+        if si_account is None:
+            si_account = storage.StorageItem(NFTAccountState().to_array())
+            engine.snapshot.storages.put(sk_account, si_account)
+
+        account = si_account.get(NFTAccountState)
+        account.add(token.id)
+
+        si_total_supply = engine.snapshot.storages.get(self.key_total_suppply, read_only=False)
+        new_value = vm.BigInteger(si_total_supply.value) + 1
+        si_total_supply.value = new_value.to_array()
+
+        self._post_transfer(engine, types.UInt160.zero(), token.owner, token.id)
+
+    def burn(self, engine: contracts.ApplicationEngine, token_id: bytes) -> None:
+        key_token = self.key_token + token_id
+        si_token = engine.snapshot.storages.try_get(key_token, read_only=True)
+        if si_token is None:
+            raise ValueError("Token cannot be found")
+        token = NFTState.deserialize_from_bytes(si_token.value)
+        engine.snapshot.storages.delete(key_token)
+
+        key_account = self.key_account + token.owner.to_array()
+        account_state = engine.snapshot.storages.get(key_account).get(NFTAccountState)
+        account_state.remove(token_id)
+
+        if account_state.balance == 0:
+            engine.snapshot.storages.delete(key_account)
+
+        si_total_supply = engine.snapshot.storages.get(self.key_total_suppply)
+        new_value = vm.BigInteger(si_total_supply.value) + 1
+        si_total_supply.value = new_value.to_array()
+
+        self._post_transfer(engine, token.owner, types.UInt160.zero(), token_id)
 
     def on_transferred(self, engine: contracts.ApplicationEngine, from_account: types.UInt160, token: NFTState) -> None:
         pass

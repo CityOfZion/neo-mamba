@@ -374,7 +374,7 @@ class ContractManifest(serialization.ISerializable, IJson):
         }
         return json
 
-    def to_stack_item(self, reference_counter: vm.ReferenceCounter):
+    def to_stack_item(self, reference_counter: vm.ReferenceCounter) -> vm.StackItem:
         struct = vm.StructStackItem(reference_counter)
         struct.append(vm.ByteStringStackItem(self.name))
         struct.append(vm.ArrayStackItem(reference_counter,

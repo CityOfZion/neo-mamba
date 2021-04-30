@@ -12,11 +12,6 @@ class LedgerContract(NativeContract):
     def init(self):
         super(LedgerContract, self).init()
 
-    def on_persist(self, engine: contracts.ApplicationEngine) -> None:
-        # Unlike C# the current block or its transactions are not persisted here,
-        # it is still done in the Blockchain class in the persist() function
-        pass
-
     @register("currentHash", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
     def current_hash(self, snapshot: storage.Snapshot) -> types.UInt256:
         return snapshot.persisting_block.hash()
@@ -77,6 +72,11 @@ class LedgerContract(NativeContract):
         if tx_index < 0 or tx_index >= len(block.transactions):
             raise ValueError("Transaction index out of range")
         return block.transactions[tx_index]
+
+    def on_persist(self, engine: contracts.ApplicationEngine) -> None:
+        # Unlike C# the current block or its transactions are not persisted here,
+        # it is still done in the Blockchain class in the persist() function
+        pass
 
     def _is_traceable_block(self, snapshot: storage.Snapshot, index: int) -> bool:
         current_idx = self.current_index(snapshot)

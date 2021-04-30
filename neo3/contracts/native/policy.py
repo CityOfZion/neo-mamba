@@ -24,17 +24,6 @@ class PolicyContract(NativeContract):
     def init(self):
         super(PolicyContract, self).init()
 
-    def _int_to_bytes(self, value: int) -> bytes:
-        return value.to_bytes((value.bit_length() + 7 + 1) // 8, 'little', signed=True)  # +1 for signed
-
-    def _initialize(self, engine: contracts.ApplicationEngine) -> None:
-        def _to_si(value: int) -> storage.StorageItem:
-            return storage.StorageItem(self._int_to_bytes(value))
-
-        engine.snapshot.storages.put(self.key_fee_per_byte, _to_si(self.DEFAULT_FEE_PER_BYTE))
-        engine.snapshot.storages.put(self.key_exec_fee_factor, _to_si(self.DEFAULT_EXEC_FEE_FACTOR))
-        engine.snapshot.storages.put(self.key_storage_price, _to_si(self.DEFAULT_STORAGE_PRICE))
-
     @register("getFeePerByte", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
     def get_fee_per_byte(self, snapshot: storage.Snapshot) -> int:
         """
@@ -138,3 +127,14 @@ class PolicyContract(NativeContract):
         storage_item.value = vm.BigInteger(value).to_array()
 
         self._storage_price = value
+
+    def _int_to_bytes(self, value: int) -> bytes:
+        return value.to_bytes((value.bit_length() + 7 + 1) // 8, 'little', signed=True)  # +1 for signed
+
+    def _initialize(self, engine: contracts.ApplicationEngine) -> None:
+        def _to_si(value: int) -> storage.StorageItem:
+            return storage.StorageItem(self._int_to_bytes(value))
+
+        engine.snapshot.storages.put(self.key_fee_per_byte, _to_si(self.DEFAULT_FEE_PER_BYTE))
+        engine.snapshot.storages.put(self.key_exec_fee_factor, _to_si(self.DEFAULT_EXEC_FEE_FACTOR))
+        engine.snapshot.storages.put(self.key_storage_price, _to_si(self.DEFAULT_STORAGE_PRICE))

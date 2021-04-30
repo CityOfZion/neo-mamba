@@ -1,31 +1,9 @@
 from __future__ import annotations
 import inspect
-from typing import List, Callable, Dict, Tuple, Any, Optional, get_type_hints
+from typing import List, Callable, Dict, Any, Optional, get_type_hints
 from neo3 import contracts, vm, storage, settings
 from neo3.core import types, to_script_hash
 from neo3.network import convenience
-
-
-class _ContractMethodMetadata:
-    """
-    Internal helper class containing meta data that helps in translating VM Stack Items to the arguments types of the
-     handling function. Applies to native contracts only.
-    """
-
-    def __init__(self, handler: Callable[..., None],
-                 price: int,
-                 required_flags: contracts.CallFlags,
-                 add_engine: bool,
-                 add_snapshot: bool,
-                 return_type,
-                 parameter_types=None):
-        self.handler = handler
-        self.price = price
-        self.return_type = return_type
-        self.parameters = parameter_types if parameter_types else []
-        self.required_flags = required_flags
-        self.add_engine = add_engine
-        self.add_snapshot = add_snapshot
 
 
 class _NativeMethodMeta:
@@ -80,8 +58,10 @@ class NativeContract(convenience._Singleton):
     #: A dictionary for accessing a native contract by its hash
     _contract_hashes: Dict[types.UInt160, NativeContract] = {}
 
+    #: Allows for overriding the contract name in the ABI. Otherwise the name equals the class name.
     _service_name: Optional[str] = None
 
+    #: The block index at which the native contract becomes active.
     active_block_index = 0
 
     def init(self):
@@ -98,6 +78,8 @@ class NativeContract(convenience._Singleton):
         self._crypto = contracts.CryptoContract()
         self._stdlib = contracts.StdLibContract()
 
+        # Find all methods that have been augmented by the @register decorator
+        # and turn them into methods that can be called by VM scripts
         methods_meta = []
         for pair in inspect.getmembers(self, lambda m: hasattr(m, "native_call")):
             methods_meta.append(_NativeMethodMeta(pair[1]))
@@ -145,6 +127,7 @@ class NativeContract(convenience._Singleton):
 
     @classmethod
     def get_contract_by_id(cls, contract_id: int) -> Optional[NativeContract]:
+        """ Get the native contract by its service id """
         for contract in cls._contracts.values():
             if contract_id == contract.id:
                 return contract
@@ -153,6 +136,7 @@ class NativeContract(convenience._Singleton):
 
     @classmethod
     def get_contract_by_hash(cls, contract_hash: types.UInt160) -> Optional[NativeContract]:
+        """ Get the native contract by its contract hash """
         return cls._contract_hashes.get(contract_hash, None)
 
     @property
@@ -191,14 +175,6 @@ class NativeContract(convenience._Singleton):
     def manifest(self) -> contracts.ContractManifest:
         """ The associated contract manifest. """
         return self._manifest
-
-    def _initialize(self, engine: contracts.ApplicationEngine) -> None:
-        """
-        Called once when a native contract is deployed
-
-        Args:
-            engine: ApplicationEngine
-        """
 
     def invoke(self, engine: contracts.ApplicationEngine, version: int) -> None:
         """
@@ -273,9 +249,23 @@ class NativeContract(convenience._Singleton):
     def post_persist(self, engine: contracts.ApplicationEngine):
         pass
 
+    def create_key(self, prefix: bytes) -> storage.StorageKey:
+        """
+        Helper to create a storage key for the contract
+
+        Args:
+            prefix: the storage prefix to be used
+        """
+        return storage.StorageKey(self._id, prefix)
+
+    def _initialize(self, engine: contracts.ApplicationEngine) -> None:
+        """
+        Called once when a native contract is deployed
+
+        Args:
+            engine: ApplicationEngine
+        """
+
     def _check_committee(self, engine: contracts.ApplicationEngine) -> bool:
         addr = contracts.NeoToken().get_committee_address(engine.snapshot)
         return engine.checkwitness(addr)
-
-    def create_key(self, prefix: bytes) -> storage.StorageKey:
-        return storage.StorageKey(self._id, prefix)

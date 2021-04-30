@@ -45,24 +45,6 @@ class ManagementContract(NativeContract):
         )
         engine.snapshot.storages.put(self.key_next_id, storage.StorageItem(vm.BigInteger(1).to_array()))
 
-    def get_next_available_id(self, snapshot: storage.Snapshot) -> int:
-        si = snapshot.storages.get(self.key_next_id, read_only=False)
-        value = vm.BigInteger(si.value)
-        si.value = (value + 1).to_array()
-        return int(value)
-
-    def on_persist(self, engine: contracts.ApplicationEngine) -> None:
-        # NEO implicitely expects a certain order of contract initialization
-        # Native contracts have negative values for `id`, so we reverse the results
-        sorted_contracts = sorted(self.registered_contracts, key=lambda contract: contract.id, reverse=True)
-        for contract in sorted_contracts:
-            if contract.active_block_index != engine.snapshot.persisting_block.index:
-                continue
-            engine.snapshot.contracts.put(
-                contracts.ContractState(contract.id, contract.nef, contract.manifest, 0, contract.hash)
-            )
-            contract._initialize(engine)
-
     @register("getContract", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
     def get_contract(self, snapshot: storage.Snapshot, hash_: types.UInt160) -> Optional[contracts.ContractState]:
         return snapshot.contracts.try_get(hash_, read_only=True)
@@ -216,6 +198,24 @@ class ManagementContract(NativeContract):
         if not self._check_committee(engine):
             raise ValueError
         engine.snapshot.storages.update(self.key_min_deploy_fee, storage.StorageItem(vm.BigInteger(value).to_array()))
+
+    def get_next_available_id(self, snapshot: storage.Snapshot) -> int:
+        si = snapshot.storages.get(self.key_next_id, read_only=False)
+        value = vm.BigInteger(si.value)
+        si.value = (value + 1).to_array()
+        return int(value)
+
+    def on_persist(self, engine: contracts.ApplicationEngine) -> None:
+        # NEO implicitely expects a certain order of contract initialization
+        # Native contracts have negative values for `id`, so we reverse the results
+        sorted_contracts = sorted(self.registered_contracts, key=lambda contract: contract.id, reverse=True)
+        for contract in sorted_contracts:
+            if contract.active_block_index != engine.snapshot.persisting_block.index:
+                continue
+            engine.snapshot.contracts.put(
+                contracts.ContractState(contract.id, contract.nef, contract.manifest, 0, contract.hash)
+            )
+            contract._initialize(engine)
 
     def validate(self, script: bytes, abi: contracts.ContractABI):
         s = vm.Script(script, True)
