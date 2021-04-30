@@ -1,7 +1,6 @@
 from __future__ import annotations
 from typing import Optional
 from neo3 import contracts, storage
-from neo3.core import types
 from neo3.contracts.interop import register, IIterator, StorageIterator
 
 MAX_STORAGE_KEY_SIZE = 64
@@ -66,11 +65,8 @@ def storage_find(engine: contracts.ApplicationEngine,
     return it
 
 
-def _storage_put_internal(engine: contracts.ApplicationEngine,
-                          context: storage.StorageContext,
-                          key: bytes,
-                          value: bytes,
-                          flags: storage.StorageFlags) -> None:
+@register("System.Storage.Put", 1 << 15, contracts.CallFlags.WRITE_STATES)
+def storage_put(engine: contracts.ApplicationEngine, context: storage.StorageContext, key: bytes, value: bytes) -> None:
     if len(key) > MAX_STORAGE_KEY_SIZE:
         raise ValueError(f"Storage key length exceeds maximum of {MAX_STORAGE_KEY_SIZE}")
     if len(value) > MAX_STORAGE_VALUE_SIZE:
@@ -81,50 +77,27 @@ def _storage_put_internal(engine: contracts.ApplicationEngine,
     storage_key = storage.StorageKey(context.id, key)
     item = engine.snapshot.storages.try_get(storage_key, read_only=False)
 
-    is_constant = storage.StorageFlags.CONSTANT in flags
     if item is None:
         new_data_len = len(key) + len(value)
-        item = storage.StorageItem(b'', is_constant)
+        item = storage.StorageItem(b'')
         engine.snapshot.storages.put(storage_key, item)
     else:
-        if item.is_constant:
-            raise ValueError("StorageItem is marked as constant")
         if len(value) == 0:
-            new_data_len = 1
+            new_data_len = 0
         elif len(value) <= len(item.value):
             new_data_len = (len(value) - 1) // 4 + 1
+        elif len(item.value) == 0:
+            new_data_len = len(value)
         else:
             new_data_len = (len(item.value) - 1) // 4 + 1 + len(value) - len(item.value)
 
     engine.add_gas(new_data_len * engine.STORAGE_PRICE)
     item.value = value
-    item.is_constant = is_constant
 
 
-@register("System.Storage.Put", 0, contracts.CallFlags.WRITE_STATES)
-def storage_put(engine: contracts.ApplicationEngine,
-                context: storage.StorageContext,
-                key: bytes,
-                value: bytes) -> None:
-    _storage_put_internal(engine, context, key, value, storage.StorageFlags.NONE)
-
-
-@register("System.Storage.PutEx", 0, contracts.CallFlags.WRITE_STATES)
-def storage_put_ex(engine: contracts.ApplicationEngine,
-                   context: storage.StorageContext,
-                   key: bytes,
-                   value: bytes,
-                   flags: storage.StorageFlags) -> None:
-    _storage_put_internal(engine, context, key, value, flags)
-
-
-@register("System.Storage.Delete", 0, contracts.CallFlags.WRITE_STATES)
+@register("System.Storage.Delete", 1 << 15, contracts.CallFlags.WRITE_STATES)
 def storage_delete(engine: contracts.ApplicationEngine, context: storage.StorageContext, key: bytes) -> None:
     if context.is_read_only:
         raise ValueError("Cannot delete from read-only storage context")
-    engine.add_gas(engine.STORAGE_PRICE)
     storage_key = storage.StorageKey(context.id, key)
-    item = engine.snapshot.storages.try_get(storage_key)
-    if item and item.is_constant:
-        raise ValueError("Cannot delete a storage item that is marked constant")
     engine.snapshot.storages.delete(storage_key)

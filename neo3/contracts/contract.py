@@ -66,8 +66,7 @@ class Contract:
             sb.emit_push(key.encode_point(True))
 
         sb.emit_push(len(public_keys))
-        sb.emit(vm.OpCode.PUSHNULL)
-        sb.emit_syscall(contracts.syscall_name_to_int("Neo.Crypto.CheckMultisigWithECDsaSecp256r1"))
+        sb.emit_syscall(contracts.syscall_name_to_int("Neo.Crypto.CheckMultisig"))
         return sb.to_array()
 
     @classmethod
@@ -95,8 +94,7 @@ class Contract:
         """
         sb = vm.ScriptBuilder()
         sb.emit_push(public_key.encode_point(True))
-        sb.emit(vm.OpCode.PUSHNULL)
-        sb.emit_syscall(contracts.syscall_name_to_int("Neo.Crypto.VerifyWithECDsaSecp256r1"))
+        sb.emit_syscall(contracts.syscall_name_to_int("Neo.Crypto.CheckSig"))
         return sb.to_array()
 
     @staticmethod
@@ -107,15 +105,14 @@ class Contract:
         Args:
             script: contract script.
         """
-        if len(script) != 41:
+        if len(script) != 40:
             return False
 
         if (script[0] != vm.OpCode.PUSHDATA1
                 or script[1] != 33
-                or script[35] != vm.OpCode.PUSHNULL
-                or script[36] != vm.OpCode.SYSCALL
-                or int.from_bytes(script[37:41], 'little') != contracts.syscall_name_to_int(
-                    "Neo.Crypto.VerifyWithECDsaSecp256r1")):
+                or script[35] != vm.OpCode.SYSCALL
+                or int.from_bytes(script[36:40], 'little') != contracts.syscall_name_to_int(
+                    "Neo.Crypto.CheckSig")):
             return False
         return True
 
@@ -129,7 +126,7 @@ class Contract:
         """
 
         len_script = len(script)
-        if len_script < 43:
+        if len_script < 42:
             return False
 
         # read signature length, which is encoded as variable_length
@@ -180,17 +177,15 @@ class Contract:
         else:
             return False
 
-        if len_script != i + 6:
+        if len_script != i + 5:
             return False
 
-        if script[i] != int(vm.OpCode.PUSHNULL):
+        if script[i] != int(vm.OpCode.SYSCALL):
             return False
-        if script[i + 1] != int(vm.OpCode.SYSCALL):
-            return False
-        i += 2
+        i += 1
 
         syscall_num = int.from_bytes(script[i:i + 4], 'little')
-        if syscall_num != contracts.syscall_name_to_int("Neo.Crypto.CheckMultisigWithECDsaSecp256r1"):
+        if syscall_num != contracts.syscall_name_to_int("Neo.Crypto.CheckMultisig"):
             return False
         return True
 

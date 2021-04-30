@@ -1,6 +1,6 @@
 from __future__ import annotations
 import json
-from . import NativeContract
+from . import NativeContract, register
 from typing import Optional
 from neo3 import storage, contracts, vm
 from neo3.core import to_script_hash, types, msgrouter
@@ -16,48 +16,6 @@ class ManagementContract(NativeContract):
 
     def init(self):
         super(ManagementContract, self).init()
-
-        self._register_contract_method(self.get_contract,
-                                       "getContract",
-                                       1000000,
-                                       parameter_names=["contract_hash"],
-                                       call_flags=contracts.CallFlags.READ_STATES)
-        self._register_contract_method(self.contract_create,
-                                       "deploy",
-                                       0,
-                                       parameter_names=["nef_file", "manifest"],
-                                       call_flags=(contracts.CallFlags.WRITE_STATES
-                                                   | contracts.CallFlags.ALLOW_NOTIFY)
-                                       )
-        self._register_contract_method(self.contract_create_with_data,
-                                       "deploy",
-                                       0,
-                                       parameter_names=["nef_file", "manifest", "data"],
-                                       call_flags=(contracts.CallFlags.WRITE_STATES
-                                                   | contracts.CallFlags.ALLOW_NOTIFY)
-                                       )
-        self._register_contract_method(self.contract_update,
-                                       "update",
-                                       0,
-                                       parameter_names=["nef_file", "manifest", "data"],
-                                       call_flags=(contracts.CallFlags.WRITE_STATES
-                                                   | contracts.CallFlags.ALLOW_NOTIFY)
-                                       )
-        self._register_contract_method(self.contract_destroy,
-                                       "destroy",
-                                       1000000,
-                                       call_flags=(contracts.CallFlags.WRITE_STATES
-                                                   | contracts.CallFlags.ALLOW_NOTIFY)
-                                       )
-        self._register_contract_method(self.get_minimum_deployment_fee,
-                                       "getMinimumDeploymentFee",
-                                       1000000,
-                                       call_flags=contracts.CallFlags.READ_STATES)
-        self._register_contract_method(self._set_minimum_deployment_fee,
-                                       "setMinimumDeploymentFee",
-                                       3000000,
-                                       parameter_names=["new_fee"],
-                                       call_flags=contracts.CallFlags.WRITE_STATES)
 
         self.manifest.abi.events = [
             contracts.ContractEventDescriptor(
@@ -87,33 +45,18 @@ class ManagementContract(NativeContract):
         )
         engine.snapshot.storages.put(self.key_next_id, storage.StorageItem(vm.BigInteger(1).to_array()))
 
-    def get_next_available_id(self, snapshot: storage.Snapshot) -> int:
-        si = snapshot.storages.get(self.key_next_id, read_only=False)
-        value = vm.BigInteger(si.value)
-        si.value = (value + 1).to_array()
-        return int(value)
-
-    def on_persist(self, engine: contracts.ApplicationEngine) -> None:
-        # NEO implicitely expects a certain order of contract initialization
-        # Native contracts have negative values for `id`, so we reverse the results
-        sorted_contracts = sorted(self.registered_contracts, key=lambda contract: contract.id, reverse=True)
-        for contract in sorted_contracts:
-            if contract.active_block_index != engine.snapshot.persisting_block.index:
-                continue
-            engine.snapshot.contracts.put(
-                contracts.ContractState(contract.id, contract.nef, contract.manifest, 0, contract.hash)
-            )
-            contract._initialize(engine)
-
+    @register("getContract", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
     def get_contract(self, snapshot: storage.Snapshot, hash_: types.UInt160) -> Optional[contracts.ContractState]:
         return snapshot.contracts.try_get(hash_, read_only=True)
 
+    @register("deploy", contracts.CallFlags.STATES | contracts.CallFlags.ALLOW_NOTIFY)
     def contract_create(self,
                         engine: contracts.ApplicationEngine,
                         nef_file: bytes,
                         manifest: bytes) -> contracts.ContractState:
         return self.contract_create_with_data(engine, nef_file, manifest, vm.NullStackItem())
 
+    @register("deploy", contracts.CallFlags.STATES | contracts.CallFlags.ALLOW_NOTIFY)
     def contract_create_with_data(self,
                                   engine: contracts.ApplicationEngine,
                                   nef_file: bytes,
@@ -167,17 +110,25 @@ class ManagementContract(NativeContract):
                                  )
         return contract
 
+    @register("update", contracts.CallFlags.STATES | contracts.CallFlags.ALLOW_NOTIFY)
     def contract_update(self,
                         engine: contracts.ApplicationEngine,
                         nef_file: bytes,
-                        manifest: bytes,
-                        data: vm.StackItem) -> None:
+                        manifest: bytes) -> None:
+        self.contract_update_with_data(engine, nef_file, manifest, vm.NullStackItem())
+
+    @register("update", contracts.CallFlags.STATES | contracts.CallFlags.ALLOW_NOTIFY)
+    def contract_update_with_data(self,
+                                  engine: contracts.ApplicationEngine,
+                                  nef_file: bytes,
+                                  manifest: bytes,
+                                  data: vm.StackItem) -> None:
         nef_len = len(nef_file)
         manifest_len = len(manifest)
 
         engine.add_gas(engine.STORAGE_PRICE * (nef_len + manifest_len))
 
-        contract = engine.snapshot.contracts.try_get(engine.current_scripthash, read_only=False)
+        contract = engine.snapshot.contracts.try_get(engine.calling_scripthash, read_only=False)
         if contract is None:
             raise ValueError("Can't find contract to update")
 
@@ -216,16 +167,17 @@ class ManagementContract(NativeContract):
                                                    )
                                  )
 
+    @register("destroy", contracts.CallFlags.STATES | contracts.CallFlags.ALLOW_NOTIFY, cpu_price=1 << 15)
     def contract_destroy(self, engine: contracts.ApplicationEngine) -> None:
-        hash_ = engine.current_scripthash
+        hash_ = engine.calling_scripthash
         contract = engine.snapshot.contracts.try_get(hash_)
 
         if contract is None:
             return
 
-        engine.snapshot.storages.delete(hash_)
+        engine.snapshot.contracts.delete(hash_)
 
-        for key, _ in engine.snapshot.storages.find(contract.id.to_bytes(4, 'little', signed=True), b''):
+        for key, _ in engine.snapshot.storages.find(contract.id.to_bytes(4, 'little', signed=True)):
             engine.snapshot.storages.delete(key)
 
         msgrouter.interop_notify(self.hash,
@@ -235,15 +187,35 @@ class ManagementContract(NativeContract):
                                                    )
                                  )
 
+    @register("getMinimumDeploymentFee", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
     def get_minimum_deployment_fee(self, snapshot: storage.Snapshot) -> int:
-        return int.from_bytes(snapshot.storages[self.key_min_deploy_fee].value, 'little')
+        return int.from_bytes(snapshot.storages.get(self.key_min_deploy_fee, read_only=True).value, 'little')
 
+    @register("setMinimumDeploymentFee", contracts.CallFlags.STATES, cpu_price=1 << 15)
     def _set_minimum_deployment_fee(self, engine: contracts.ApplicationEngine, value: int) -> None:
         if value < 0:
             raise ValueError("Can't set deployment fee to a negative value")
         if not self._check_committee(engine):
             raise ValueError
         engine.snapshot.storages.update(self.key_min_deploy_fee, storage.StorageItem(vm.BigInteger(value).to_array()))
+
+    def get_next_available_id(self, snapshot: storage.Snapshot) -> int:
+        si = snapshot.storages.get(self.key_next_id, read_only=False)
+        value = vm.BigInteger(si.value)
+        si.value = (value + 1).to_array()
+        return int(value)
+
+    def on_persist(self, engine: contracts.ApplicationEngine) -> None:
+        # NEO implicitely expects a certain order of contract initialization
+        # Native contracts have negative values for `id`, so we reverse the results
+        sorted_contracts = sorted(self.registered_contracts, key=lambda contract: contract.id, reverse=True)
+        for contract in sorted_contracts:
+            if contract.active_block_index != engine.snapshot.persisting_block.index:
+                continue
+            engine.snapshot.contracts.put(
+                contracts.ContractState(contract.id, contract.nef, contract.manifest, 0, contract.hash)
+            )
+            contract._initialize(engine)
 
     def validate(self, script: bytes, abi: contracts.ContractABI):
         s = vm.Script(script, True)

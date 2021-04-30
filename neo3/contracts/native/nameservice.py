@@ -4,6 +4,7 @@ import struct
 import ipaddress
 from enum import IntEnum
 from .nonfungible import NFTState, NonFungibleToken
+from . import register
 from typing import Optional, Iterator, Tuple
 from neo3 import contracts, storage, vm
 from neo3.core import serialization, types
@@ -20,10 +21,9 @@ class NameState(NFTState):
     def __init__(self,
                  owner: types.UInt160,
                  name: str,
-                 description: str,
                  expiration: int,
                  admin: Optional[types.UInt160] = None):
-        super(NameState, self).__init__(owner, name, description)
+        super(NameState, self).__init__(owner, name)
         self.expiration = expiration
         self.admin = admin if admin else types.UInt160.zero()
         self.id = name.encode()
@@ -43,7 +43,7 @@ class NameState(NFTState):
 
     @classmethod
     def _serializable_init(cls):
-        return cls(types.UInt160.zero(), "", "", 0, types.UInt160.zero())
+        return cls(types.UInt160.zero(), "", 0, types.UInt160.zero())
 
 
 class StringList(list, serialization.ISerializable):
@@ -61,7 +61,7 @@ class StringList(list, serialization.ISerializable):
 
 
 class NameService(NonFungibleToken):
-    _id = -8
+    _id = -10
     _symbol = "NNS"
     _service_name = None
 
@@ -76,42 +76,13 @@ class NameService(NonFungibleToken):
 
     def init(self):
         super(NameService, self).init()
-        self._register_contract_method(self.add_root,
-                                       "addRoot",
-                                       3000000,
-                                       parameter_names=["root"],
-                                       call_flags=contracts.CallFlags.WRITE_STATES
-                                       )
-        self._register_contract_method(self.set_price,
-                                       "setPrice",
-                                       3000000,
-                                       parameter_names=["price"],
-                                       call_flags=contracts.CallFlags.WRITE_STATES)
-        self._register_contract_method(self.register,
-                                       "register",
-                                       1000000,
-                                       parameter_names=["name", "owner"],
-                                       call_flags=contracts.CallFlags.WRITE_STATES
-                                       )
 
     def _initialize(self, engine: contracts.ApplicationEngine) -> None:
         super(NameService, self)._initialize(engine)
         engine.snapshot.storages.put(self.key_domain_price, storage.StorageItem(vm.BigInteger(1000000000).to_array()))
         engine.snapshot.storages.put(self.key_roots, storage.StorageItem(b'\x00'))
 
-    def on_persist(self, engine: contracts.ApplicationEngine) -> None:
-        now = (engine.snapshot.persisting_block.timestamp // 1000) + 1
-        start = (self.key_expiration + self._to_uint32(0)).to_array()
-        end = (self.key_expiration + self._to_uint32(now)).to_array()
-        for key, _ in engine.snapshot.storages.find_range(start, end):
-            engine.snapshot.storages.delete(key)
-            for key2, _ in engine.snapshot.storages.find(self.key_record + key.key[5:]).to_array():
-                engine.snapshot.storages.delete(key2)
-            self.burn(engine, self.key_token + key.key[5:])
-
-    def on_transferred(self, engine: contracts.ApplicationEngine, from_account: types.UInt160, token: NFTState) -> None:
-        token.owner = types.UInt160.zero()
-
+    @register("addRoot", contracts.CallFlags.STATES, cpu_price=1 << 15)
     def add_root(self, engine: contracts.ApplicationEngine, root: str) -> None:
         if not self.REGEX_ROOT.match(root):
             raise ValueError("Regex failure - root not found")
@@ -123,6 +94,7 @@ class NameService(NonFungibleToken):
             raise ValueError("The name already exists")
         roots.append(root)
 
+    @register("setPrice", contracts.CallFlags.STATES, cpu_price=1 << 15)
     def set_price(self, engine: contracts.ApplicationEngine, price: int) -> None:
         if price <= 0 or price > 10000_00000000:
             raise ValueError(f"New price '{price}' exceeds limits")
@@ -131,9 +103,11 @@ class NameService(NonFungibleToken):
         storage_item = engine.snapshot.storages.get(self.key_domain_price, read_only=False)
         storage_item.value = price.to_bytes(8, 'little')
 
+    @register("getPrice", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
     def get_price(self, snapshot: storage.Snapshot) -> int:
         return int.from_bytes(snapshot.storages.get(self.key_domain_price, read_only=True).value, 'little')
 
+    @register("isAvailable", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
     def is_available(self, snapshot: storage.Snapshot, name: str) -> bool:
         if not self.REGEX_NAME.match(name):
             raise ValueError("Regex failure - name is not valid")
@@ -149,7 +123,8 @@ class NameService(NonFungibleToken):
             raise ValueError(f"'{names[1]}' is not a registered root")
         return True
 
-    def register(self, engine: contracts.ApplicationEngine, name: str, owner: types.UInt160) -> bool:
+    @register("register", contracts.CallFlags.STATES, cpu_price=1 << 15)
+    def do_register(self, engine: contracts.ApplicationEngine, name: str, owner: types.UInt160) -> bool:
         if not self.is_available(engine.snapshot, name):
             raise ValueError(f"Registration failure - '{name}' is not available")
 
@@ -157,7 +132,7 @@ class NameService(NonFungibleToken):
             raise ValueError("CheckWitness failed")
         engine.add_gas(self.get_price(engine.snapshot))
 
-        state = NameState(owner, name, "", (engine.snapshot.persisting_block.timestamp // 1000) + self.ONE_YEAR)
+        state = NameState(owner, name, (engine.snapshot.persisting_block.timestamp // 1000) + self.ONE_YEAR)
         self.mint(engine, state)
         engine.snapshot.storages.put(
             self.key_expiration + state.expiration.to_bytes(4, 'big') + name.encode(),
@@ -165,6 +140,7 @@ class NameService(NonFungibleToken):
         )
         return True
 
+    @register("renew", contracts.CallFlags.STATES, cpu_price=1 << 15)
     def renew(self, engine: contracts.ApplicationEngine, name: str) -> int:
         if not self.REGEX_NAME.match(name):
             raise ValueError("Regex failure - name is not valid")
@@ -176,6 +152,7 @@ class NameService(NonFungibleToken):
         state.expiration += self.ONE_YEAR
         return state.expiration
 
+    @register("setAdmin", contracts.CallFlags.STATES, cpu_price=1 << 15, storage_price=20)
     def set_admin(self, engine: contracts.ApplicationEngine, name: str, admin: types.UInt160) -> None:
         if not self.REGEX_NAME.match(name):
             raise ValueError("Regex failure - name is not valid")
@@ -194,6 +171,7 @@ class NameService(NonFungibleToken):
 
         state.admin = admin
 
+    @register("setRecord", contracts.CallFlags.STATES, cpu_price=1 << 15, storage_price=200)
     def set_record(self, engine: contracts.ApplicationEngine, name: str, record_type: RecordType, data: str) -> None:
         if not self.REGEX_NAME.match(name):
             raise ValueError("Regex failure - name is not valid")
@@ -220,6 +198,7 @@ class NameService(NonFungibleToken):
         storage_key_record = self.key_record + domain.encode() + name.encode() + record_type.to_bytes(1, 'little')
         engine.snapshot.storages.update(storage_key_record, storage.StorageItem(data.encode()))
 
+    @register("getRecord", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
     def get_record(self, snapshot: storage.Snapshot, name: str, record_type: RecordType) -> Optional[str]:
         if not self.REGEX_NAME.match(name):
             raise ValueError("Regex failure - name is not valid")
@@ -230,15 +209,7 @@ class NameService(NonFungibleToken):
             return None
         return storage_item.value.decode()
 
-    def get_records(self, snapshot: storage.Snapshot, name: str) -> Iterator[Tuple[RecordType, str]]:
-        if not self.REGEX_NAME.match(name):
-            raise ValueError("Regex failure - name is not valid")
-        domain = '.'.join(name.split('.')[2:])
-        storage_key = self.key_record + domain.encode() + name.encode()
-        for key, value in snapshot.storages.find(storage_key.to_array()):
-            record_type = RecordType(int.from_bytes(key.key[-1], 'little'))
-            yield record_type, value.value.decode()
-
+    @register("deleteRecord", contracts.CallFlags.STATES, cpu_price=1 << 15)
     def delete_record(self, engine: contracts.ApplicationEngine, name: str, record_type: RecordType) -> None:
         if not self.REGEX_NAME.match(name):
             raise ValueError("Regex failure - name is not valid")
@@ -252,6 +223,7 @@ class NameService(NonFungibleToken):
         storage_key_record = self.key_record + domain.encode() + name.encode() + record_type.to_bytes(1, 'little')
         engine.snapshot.storages.delete(storage_key_record)
 
+    @register("resolve", contracts.CallFlags.READ_STATES, cpu_price=1 << 17)
     def resolve(self,
                 snapshot: storage.Snapshot,
                 name: str,
@@ -268,6 +240,28 @@ class NameService(NonFungibleToken):
         if data is None:
             return None
         return self.resolve(snapshot, data, record_type, redirect_count - 1)
+
+    def get_records(self, snapshot: storage.Snapshot, name: str) -> Iterator[Tuple[RecordType, str]]:
+        if not self.REGEX_NAME.match(name):
+            raise ValueError("Regex failure - name is not valid")
+        domain = '.'.join(name.split('.')[2:])
+        storage_key = self.key_record + domain.encode() + name.encode()
+        for key, value in snapshot.storages.find(storage_key.to_array()):
+            record_type = RecordType(int.from_bytes(key.key[-1], 'little'))
+            yield record_type, value.value.decode()
+
+    def on_persist(self, engine: contracts.ApplicationEngine) -> None:
+        now = (engine.snapshot.persisting_block.timestamp // 1000) + 1
+        start = (self.key_expiration + self._to_uint32(0)).to_array()
+        end = (self.key_expiration + self._to_uint32(now)).to_array()
+        for key, _ in engine.snapshot.storages.find_range(start, end):
+            engine.snapshot.storages.delete(key)
+            for key2, _ in engine.snapshot.storages.find(self.key_record + key.key[5:]).to_array():
+                engine.snapshot.storages.delete(key2)
+            self.burn(engine, self.key_token + key.key[5:])
+
+    def on_transferred(self, engine: contracts.ApplicationEngine, from_account: types.UInt160, token: NFTState) -> None:
+        token.owner = types.UInt160.zero()
 
     def _check_admin(self, engine: contracts.ApplicationEngine, state: NameState) -> bool:
         if engine.checkwitness(state.owner):

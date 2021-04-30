@@ -68,15 +68,13 @@ class StorageItemTest(unittest.TestCase):
 
     def test_len(self):
         si = storage.StorageItem(b'\x01')
-        self.assertEqual(3, len(si))
+        self.assertEqual(2, len(si))
 
     def test_serialization(self):
         si_data = b'\x01\x02\x03'
-        si = storage.StorageItem(si_data, False)
-        length_indicator = b'\x03'
-        bool_false = b'\x00'
-        self.assertEqual(length_indicator + si_data + bool_false, si.to_array())
-        self.assertEqual(si, storage.StorageItem.deserialize_from_bytes(length_indicator + si_data + bool_false))
+        si = storage.StorageItem(si_data)
+        self.assertEqual(si_data, si.to_array())
+        self.assertEqual(si, storage.StorageItem.deserialize_from_bytes(si_data))
 
     def test_clone_from_replica(self):
         si_data = b'\x01\x02\x03'

@@ -109,12 +109,12 @@ class NameServiceTestCase(unittest.TestCase):
 
         # not signed
         with self.assertRaises(ValueError) as context:
-            nameservice.register(engine, "coz.org", types.UInt160.zero())
+            nameservice.do_register(engine, "coz.org", types.UInt160.zero())
         self.assertEqual("CheckWitness failed", str(context.exception))
 
-        self.assertTrue(nameservice.register(engine, "coz.org", tx.sender))
+        self.assertTrue(nameservice.do_register(engine, "coz.org", tx.sender))
 
         # already registered
         with self.assertRaises(ValueError) as context:
-            nameservice.register(engine, "coz.org", tx.sender)
+            nameservice.do_register(engine, "coz.org", tx.sender)
         self.assertEqual("Registration failure - 'coz.org' is not available", str(context.exception))
