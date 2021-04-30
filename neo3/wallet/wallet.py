@@ -1,0 +1,158 @@
+from __future__ import annotations
+
+import json
+import os.path
+from typing import Any, Dict, List, Optional
+
+from jsonschema import validate  # type: ignore
+
+from neo3.core import IJson
+from neo3.wallet.account import Account
+from neo3.wallet.scrypt_parameters import ScryptParameters
+
+
+class Wallet(IJson):
+
+    _wallet_version = '3.0'
+
+    # A sample schema, like what we'd get from json.load()
+    json_schema = {
+        "type": "object",
+        "properties": {
+            "path": {"type": "string"},
+            "name": {"type": "string"},
+            "scrypt": {"$ref": "#/$defs/scrypt_parameters"},
+            "accounts": {
+                "type": "array",
+                "items": {"$ref": "#/$defs/account"},
+                "minItems": 0,
+            },
+            "extra": {"type": ["object", "null"],
+                      "properties": {},
+                      "additionalProperties": True
+                      },
+        },
+        "required": ["path", "name", "scrypt", "accounts", "extra"],
+        "$defs": {
+            "account": Account.json_schema,
+            "scrypt_parameters": ScryptParameters.json_schema
+        }
+    }
+
+    def __init__(self,
+                 path: str,
+                 name: Optional[str] = None,
+                 version: str = _wallet_version,
+                 scrypt: ScryptParameters = ScryptParameters(),
+                 accounts: List[Account] = None,
+                 extra: Optional[Dict[Any, Any]] = None):
+        """
+        Args:
+            path: the JSON's path
+            name: a label that the user has given to the wallet
+            version: the wallet's version, must be equal to or greater than 3.0
+            scrypt: a ScryptParameters object which describes the parameters of the Scrypt algorithm used for encrypting
+                    and decrypting the private keys in the wallet.
+            accounts: an array of Account objects which describe the details of each account in the wallet.
+            extra: an object that is defined by the implementor of the client for storing extra data. This field can be
+                   None.
+        """
+
+        self.path = path
+        self.name = name
+        self.version = version
+        self.scrypt = scrypt
+        self.accounts = accounts if accounts is not None else []
+        self.extra = extra
+
+    @classmethod
+    def default(cls, path: str = './wallet.json', name: Optional[str] = 'wallet.json') -> Wallet:
+        """
+        Create a new Wallet with the default settings.
+
+        Args:
+            path: the JSON's path.
+            name: the Wallet name.
+        """
+        return cls(path=path,
+                   name=name,
+                   version=cls._wallet_version,
+                   scrypt=ScryptParameters(),
+                   accounts=[],
+                   extra=None)
+
+    @classmethod
+    def new_wallet(cls, location: str, overwrite_if_exists: bool = False) -> Optional[Wallet]:
+        filepath, extension = os.path.splitext(location)
+        if len(extension) == 0:
+            location += '.json'
+        elif extension != '.json':
+            # won't create if the file is not a json file
+            raise ValueError("Expecting a .json file, received {0} instead".format(extension))
+
+        if not os.path.isfile(location):
+            # creates the wallet file
+            with open(location, 'x'):
+                pass
+        elif not overwrite_if_exists:
+            raise FileExistsError("File exists: '{0}'".format(location))
+
+        # sets the wallet name as the same as the file name
+        dir_path, filename = os.path.split(location)
+        filename, extension = os.path.splitext(filename)
+
+        wallet = cls(
+            name=filename,
+            path=location,
+            version=cls._wallet_version,
+            scrypt=ScryptParameters(),
+            accounts=[]
+        )
+        wallet.save()
+        return wallet
+
+    def save(self):
+        """
+        Save a wallet as a JSON.
+        """
+        with open(self.path, 'w') as json_file:
+            json.dump(self.to_json(), json_file, indent=4)
+
+    def to_json(self) -> dict:
+        """
+        Convert object into JSON representation.
+        """
+        return {
+            'path': self.path,
+            'name': self.name,
+            'version': self.version,
+            'scrypt': self.scrypt.to_json(),
+            'accounts': [account.to_json() for account in self.accounts],
+            'extra': self.extra
+        }
+
+    @classmethod
+    def from_json(cls, json: dict) -> Wallet:
+        """
+        Parse object out of JSON data.
+
+        Args:
+            json: a dictionary.
+
+        Raises:
+            KeyError: if the data supplied does not contain the necessary key.
+            ValueError: if the 'version' property is under 3.0 or is not a valid string.
+        """
+        validate(json, schema=cls.json_schema)
+        try:
+            if float(json['version']) < 3.0:
+                raise ValueError("Format error - invalid 'version'")
+        except ValueError:
+            raise ValueError("Format error - invalid 'version'")
+
+        return cls(path=json['path'],
+                   name=json['name'],
+                   version=json['version'],
+                   scrypt=ScryptParameters.from_json(json['scrypt']),
+                   accounts=[Account.from_json(json_account) for json_account in json['accounts']],
+                   extra=json['extra'])

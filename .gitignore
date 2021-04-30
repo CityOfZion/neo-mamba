@@ -5,3 +5,6 @@ build
 htmlcov
 .coverage
 /venv37/
+.idea/
+neo_mamba.egg-info/
+tests/**/*.json

@@ -58,6 +58,7 @@ class Settings(IndexableNamespace):
     default_settings = {
         'network': {
             'magic': 5195086,
+            'account_version': 53,
             'seedlist': [],
             'validators_count': 1,
             'standby_committee': ['02158c4a4810fa2a6a12f7d33d835680429e1a68ae61161c5b3fbc98c7f1f17765']
