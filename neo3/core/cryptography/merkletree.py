@@ -34,7 +34,10 @@ class MerkleTree:
             ValueError: if the `hashes` list is empty.
         """
         if len(hashes) == 0:
-            raise ValueError("Hashes list can't empty")
+            self.has_root = False
+            return
+        else:
+            self.has_root = True
 
         self.root = self._build(leaves=[_MerkleTreeNode(h) for h in hashes])
         _depth = 1
@@ -51,7 +54,8 @@ class MerkleTree:
         Note: does not include the Merkle root hash.
         """
         hashes: List[types.UInt256] = []
-        MerkleTree._depth_first_search(self.root, hashes)
+        if self.has_root:
+            MerkleTree._depth_first_search(self.root, hashes)
         return hashes
 
     @staticmethod
@@ -101,6 +105,8 @@ class MerkleTree:
         Raises:
              ValueError: if the `hashes` list is empty.
         """
+        if len(hashes) == 0:
+            return types.UInt256.zero()
         if len(hashes) == 1:
             return hashes[0]
         tree = MerkleTree(hashes)

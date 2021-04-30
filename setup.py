@@ -75,7 +75,7 @@ for ir in install_reqs:
 setup(
     name='neo-mamba',
     python_requires='>=3.7',
-    version='0.5',
+    version='0.6',
     description="Python SDK for the NEO 3 blockchain",
     long_description=readme,
     long_description_content_type="text/x-rst",

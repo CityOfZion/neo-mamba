@@ -41,21 +41,21 @@ class AbstractBlockStorageTest(abc.ABC, unittest.TestCase):
                                   attributes=[],
                                   signers=[signer],
                                   script=b'\x01',
-                                  witnesses=[])
+                                  witnesses=[payloads.Witness(invocation_script=b'', verification_script=b'\x55')])
 
-        self.block1 = payloads.Block(version=0,
-                                   prev_hash=types.UInt256.from_string("f782c7fbb2eef6afe629b96c0d53fb525eda64ce5345057caf975ac3c2b9ae0a"),
-                                   timestamp=123,
-                                   index=1,
-                                   next_consensus=types.UInt160.from_string("d7678dd97c000be3f33e9362e673101bac4ca654"),
-                                   witness=payloads.Witness(invocation_script=b'', verification_script=b'\x55'),
-                                   consensus_data=payloads.ConsensusData(primary_index=0, nonce=123),
-                                   transactions=[tx])
+        self.header = payloads.Header(version=0,
+                                      prev_hash=types.UInt256.from_string("f782c7fbb2eef6afe629b96c0d53fb525eda64ce5345057caf975ac3c2b9ae0a"),
+                                      timestamp=123,
+                                      index=1,
+                                      primary_index=0,
+                                      next_consensus=types.UInt160.from_string("d7678dd97c000be3f33e9362e673101bac4ca654"),
+                                      witness=payloads.Witness(invocation_script=b'', verification_script=b'\x55'),)
+        self.block1 = payloads.Block(self.header, transactions=[tx])
         self.block1.rebuild_merkle_root()
         self.block1_hash = self.block1.hash()
 
         self.block2 = deepcopy(self.block1)
-        self.block2.index = 2
+        self.block2.header.index = 2
         self.block2_hash = self.block2.hash()
 
     def test_raw(self):
@@ -189,7 +189,7 @@ class AbstractBlockStorageTest(abc.ABC, unittest.TestCase):
         raw_view = self.db.get_rawview()
         raw_view.blocks.put(self.block1)
         block = snapshot_view.blocks.get(self.block1_hash, read_only=True)
-        block.index = 123
+        block.header.index = 123
 
         block_again = snapshot_view.blocks.get(self.block1_hash, read_only=True)
         # We validate the hash of the original with the hash of the block we retrieved.
@@ -199,7 +199,7 @@ class AbstractBlockStorageTest(abc.ABC, unittest.TestCase):
 
         # same as above but test read_only for get_by_height()
         block = snapshot_view.blocks.get_by_height(self.block1.index, read_only=True)
-        block.index = 123
+        block.header.index = 123
         block_again = snapshot_view.blocks.get(self.block1_hash, read_only=True)
         self.assertEqual(self.block1_hash, block_again.hash())
 
@@ -272,15 +272,15 @@ class AbstractBlockStorageTest(abc.ABC, unittest.TestCase):
         snapshot_view = self.db.get_snapshotview()
 
         # get() a block to fill the cache so we can test sorting and readonly behaviour
-        # block2's hash comes before block1 when sorting. So we cache that first as the all() function internals
-        # collect the results from the backend (=block1) before results from the cache (=block2).
-        # Therefore if block2 is found in the first position of the all() results, we can
+        # block1's hash comes before block2 when sorting. So we cache that first as the all() function internals
+        # collect the results from the backend (=block2) before results from the cache (=block1).
+        # Therefore if block1 is found in the first position of the all() results, we can
         # conclude that the sort() happened correctly.
-        snapshot_view.blocks.get(self.block2_hash)
+        snapshot_view.blocks.get(self.block1_hash)
         blocks = list(snapshot_view.blocks.all())
         self.assertEqual(2, len(blocks))
-        self.assertEqual(self.block2, blocks[0])
-        self.assertEqual(self.block1, blocks[1])
+        self.assertEqual(self.block1, blocks[0])
+        self.assertEqual(self.block2, blocks[1])
 
         # ensure all() results are readonly
         blocks[0].transactions.append(payloads.Transaction._serializable_init())
@@ -293,7 +293,7 @@ class AbstractBlockStorageTest(abc.ABC, unittest.TestCase):
 
         # test clone all()
         block3 = deepcopy(self.block1)
-        block3.index = 3
+        block3.header.index = 3
 
         clone_view = snapshot_view.clone()
         clone_view.blocks.put(block3)
@@ -301,8 +301,8 @@ class AbstractBlockStorageTest(abc.ABC, unittest.TestCase):
         self.assertEqual(3, len(blocks))
         self.assertEqual(2, len(list(snapshot_view.blocks.all())))
         self.assertEqual(self.block1, blocks[1])
-        self.assertEqual(self.block2, blocks[0])
-        self.assertEqual(block3, blocks[2])
+        self.assertEqual(self.block2, blocks[2])
+        self.assertEqual(block3, blocks[0])
 
     def test_snapshot_bestblockheight(self):
         snapshot_view = self.db.get_snapshotview()
@@ -1471,5 +1471,5 @@ class AbstractTransactionStorageTest(abc.ABC, unittest.TestCase):
         self.assertEqual(3, len(txs))
         self.assertEqual(2, len(list(snapshot_view.transactions.all())))
         self.assertEqual(self.tx1, txs[2])
-        self.assertEqual(self.tx2, txs[1])
-        self.assertEqual(tx3, txs[0])
+        self.assertEqual(self.tx2, txs[0])
+        self.assertEqual(tx3, txs[1])

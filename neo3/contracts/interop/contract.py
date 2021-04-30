@@ -7,7 +7,7 @@ from neo3.core import cryptography, types, to_script_hash
 from neo3.contracts.interop import register
 
 
-@register("System.Contract.Call", 1 << 15, contracts.CallFlags.ALLOW_CALL)
+@register("System.Contract.Call", 1 << 15, contracts.CallFlags.READ_STATES | contracts.CallFlags.ALLOW_CALL)
 def contract_call(engine: contracts.ApplicationEngine,
                   contract_hash: types.UInt160,
                   method: str,
@@ -31,21 +31,6 @@ def contract_call(engine: contracts.ApplicationEngine,
     engine._contract_call_internal2(target_contract, method_descriptor, call_flags, has_return_value, list(args))
 
 
-@register("System.Contract.IsStandard", 1 << 10, contracts.CallFlags.READ_STATES)
-def contract_is_standard(engine: contracts.ApplicationEngine, hash_: types.UInt160) -> bool:
-    contract = contracts.ManagementContract().get_contract(engine.snapshot, hash_)
-    if contract:
-        return (contracts.Contract.is_signature_contract(contract.script)
-                or contracts.Contract.is_multisig_contract(contract.script))
-
-    if isinstance(engine.script_container, payloads.Transaction):
-        for witness in engine.script_container.witnesses:
-            if witness.script_hash() == hash_:
-                return contracts.Contract.is_signature_contract(witness.verification_script)
-
-    return False
-
-
 @register("System.Contract.GetCallFlags", 1 << 10, contracts.CallFlags.NONE)
 def get_callflags(engine: contracts.ApplicationEngine) -> contracts.CallFlags:
     return contracts.CallFlags(engine.current_context.call_flags)
@@ -57,7 +42,14 @@ def contract_create_standard_account(engine: contracts.ApplicationEngine,
     return to_script_hash(contracts.Contract.create_signature_redeemscript(public_key))
 
 
-@register("System.Contract.NativeOnPersist", 0, contracts.CallFlags.WRITE_STATES)
+@register("System.Contract.CreateMultisigAccount", 1 << 8, contracts.CallFlags.NONE)
+def contract_create_multisigaccount(engine: contracts.ApplicationEngine,
+                                    m: int,
+                                    public_keys: List[cryptography.ECPoint]) -> types.UInt160:
+    return to_script_hash(contracts.Contract.create_multisig_redeemscript(m, public_keys))
+
+
+@register("System.Contract.NativeOnPersist", 0, contracts.CallFlags.STATES)
 def native_on_persist(engine: contracts.ApplicationEngine) -> None:
     if engine.trigger != contracts.TriggerType.ON_PERSIST:
         raise SystemError()
@@ -70,7 +62,7 @@ def native_on_persist(engine: contracts.ApplicationEngine) -> None:
             contract.on_persist(engine)
 
 
-@register("System.Contract.NativePostPersist", 0, contracts.CallFlags.WRITE_STATES)
+@register("System.Contract.NativePostPersist", 0, contracts.CallFlags.STATES)
 def native_post_persist(engine: contracts.ApplicationEngine) -> None:
     if engine.trigger != contracts.TriggerType.POST_PERSIST:
         raise SystemError()
@@ -80,11 +72,10 @@ def native_post_persist(engine: contracts.ApplicationEngine) -> None:
 
 
 @register("System.Contract.CallNative", 0, contracts.CallFlags.NONE)
-def call_native(engine: contracts.ApplicationEngine, contract_id: int) -> None:
-    contract = contracts.NativeContract.get_contract_by_id(contract_id)
+def call_native(engine: contracts.ApplicationEngine, version: int) -> None:
+    contract = contracts.NativeContract.get_contract_by_hash(engine.current_scripthash)
     if contract is None:
-        raise ValueError(f"Can't find native contract with id {contract_id}")
-
-    if contract.active_block_index > engine.snapshot.best_block_height:
-        raise ValueError(f"Native contract is not active until blockheight {contract.active_block_index}")
-    contract.invoke(engine)
+        raise ValueError(f"It is not allowed to use \"System.Contract.CallNative\" directly")
+    if contract.active_block_index > engine.snapshot.persisting_block.index:
+        raise ValueError(f"The native contract {contract.service_name()} is not active")
+    contract.invoke(engine, version)

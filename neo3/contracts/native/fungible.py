@@ -1,9 +1,10 @@
 from __future__ import annotations
 import struct
 from .nativecontract import NativeContract
+from .decorator import register
 from neo3 import storage, contracts, vm, settings
 from neo3.core import types, msgrouter, cryptography, serialization, to_script_hash, Size as s, IInteroperable
-from typing import Tuple, List, Dict, Sequence, cast, Optional
+from typing import Tuple, List, Dict, Sequence, cast
 
 
 class FungibleTokenStorageState(IInteroperable, serialization.ISerializable):
@@ -25,9 +26,9 @@ class FungibleTokenStorageState(IInteroperable, serialization.ISerializable):
         self.balance = vm.BigInteger(reader.read_var_bytes())
 
     def to_stack_item(self, reference_counter: vm.ReferenceCounter) -> vm.StackItem:
-        struct = vm.StructStackItem(reference_counter)
-        struct.append(vm.IntegerStackItem(self.balance))
-        return struct
+        struct_ = vm.StructStackItem(reference_counter)
+        struct_.append(vm.IntegerStackItem(self.balance))
+        return struct_
 
     @classmethod
     def from_stack_item(cls, stack_item: vm.StackItem):
@@ -63,34 +64,107 @@ class FungibleToken(NativeContract):
         ]
         self.factor = pow(vm.BigInteger(10), vm.BigInteger(self._decimals))
 
-        self._register_contract_method(self.total_supply,
-                                       "totalSupply",
-                                       1000000,
-                                       call_flags=contracts.CallFlags.READ_STATES)
-        self._register_contract_method(self.balance_of,
-                                       "balanceOf",
-                                       1000000,
-                                       parameter_names=["account"],
-                                       call_flags=contracts.CallFlags.READ_STATES)
-        self._register_contract_method(self.transfer,
-                                       "transfer",
-                                       9000000,
-                                       parameter_names=["account_from", "account_to", "amount", "data"],
-                                       call_flags=(contracts.CallFlags.WRITE_STATES
-                                                   | contracts.CallFlags.ALLOW_CALL
-                                                   | contracts.CallFlags.ALLOW_NOTIFY))
-        self._register_contract_method(self.symbol,
-                                       "symbol",
-                                       0,
-                                       call_flags=contracts.CallFlags.READ_STATES)
-        self._register_contract_method(self.on_persist,
-                                       "onPersist",
-                                       0,
-                                       call_flags=contracts.CallFlags.WRITE_STATES)
+    @register("decimals", contracts.CallFlags.READ_STATES)
+    def decimals(self) -> int:
+        return self._decimals
 
+    @register("symbol", contracts.CallFlags.READ_STATES)
     def symbol(self) -> str:
         """ Token symbol. """
         return self._symbol
+
+    @register("totalSupply", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
+    def total_supply(self, snapshot: storage.Snapshot) -> vm.BigInteger:
+        """ Get the total deployed tokens. """
+        storage_item = snapshot.storages.try_get(self.key_total_supply)
+        if storage_item is None:
+            return vm.BigInteger.zero()
+        else:
+            return vm.BigInteger(storage_item.value)
+
+    @register("balanceOf", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
+    def balance_of(self, snapshot: storage.Snapshot, account: types.UInt160) -> vm.BigInteger:
+        """
+        Get the balance of an account.
+
+        Args:
+            snapshot: snapshot of the storage
+            account: script hash of the account to obtain the balance of
+
+        Returns:
+            amount of balance.
+
+        Note: The returned value is still in internal format. Divide the results by the contract's `decimals`
+        """
+        storage_item = snapshot.storages.try_get(self.key_account + account)
+        if storage_item is None:
+            return vm.BigInteger.zero()
+        else:
+            state = self._state.deserialize_from_bytes(storage_item.value)
+            return state.balance
+
+    @register("transfer",
+              (contracts.CallFlags.STATES | contracts.CallFlags.ALLOW_CALL | contracts.CallFlags.ALLOW_NOTIFY),
+              cpu_price=1 << 17, storage_price=50)
+    def transfer(self,
+                 engine: contracts.ApplicationEngine,
+                 account_from: types.UInt160,
+                 account_to: types.UInt160,
+                 amount: vm.BigInteger,
+                 data: vm.StackItem
+                 ) -> bool:
+        """
+        Transfer tokens from one account to another.
+
+        Raises:
+            ValueError: if the requested amount is negative.
+
+        Returns:
+            True on success. False otherwise.
+        """
+        if amount.sign < 0:
+            raise ValueError("Can't transfer a negative amount")
+
+        # transfer from an account not owned by the smart contract that is requesting the transfer
+        # and there is no signature that approves we are allowed todo so
+        if account_from != engine.calling_scripthash and not engine.checkwitness(account_from):
+            return False
+
+        storage_key_from = self.key_account + account_from
+        storage_item_from = engine.snapshot.storages.try_get(storage_key_from, read_only=False)
+
+        if storage_item_from is None:
+            return False
+
+        state_from = storage_item_from.get(self._state)
+        if amount == vm.BigInteger.zero():
+            self.on_balance_changing(engine, account_from, state_from, amount)
+        else:
+            if state_from.balance < amount:
+                return False
+
+            if account_from == account_to:
+                self.on_balance_changing(engine, account_from, state_from, vm.BigInteger.zero())
+            else:
+                self.on_balance_changing(engine, account_from, state_from, -amount)
+                if state_from.balance == amount:
+                    engine.snapshot.storages.delete(storage_key_from)
+                else:
+                    state_from.balance -= amount
+
+                storage_key_to = self.key_account + account_to
+                storage_item_to = engine.snapshot.storages.try_get(storage_key_to, read_only=False)
+                if storage_item_to is None:
+                    storage_item_to = storage.StorageItem(self._state().to_array())
+                    engine.snapshot.storages.put(storage_key_to, storage_item_to)
+
+                state_to = storage_item_to.get(self._state)
+
+                self.on_balance_changing(engine, account_to, state_to, amount)
+                state_to.balance += amount
+
+        self._post_transfer(engine, account_from, account_to, amount, data, True)
+        return True
 
     def mint(self,
              engine: contracts.ApplicationEngine,
@@ -167,33 +241,14 @@ class FungibleToken(NativeContract):
             storage_item.value = new_value.to_array()
         self._post_transfer(engine, account, types.UInt160.zero(), amount, vm.NullStackItem(), False)
 
-    def total_supply(self, snapshot: storage.Snapshot) -> vm.BigInteger:
-        """ Get the total deployed tokens. """
-        storage_item = snapshot.storages.try_get(self.key_total_supply)
-        if storage_item is None:
-            return vm.BigInteger.zero()
-        else:
-            return vm.BigInteger(storage_item.value)
+    def on_balance_changing(self, engine: contracts.ApplicationEngine,
+                            account: types.UInt160,
+                            state,
+                            amount: vm.BigInteger) -> None:
+        pass
 
-    def balance_of(self, snapshot: storage.Snapshot, account: types.UInt160) -> vm.BigInteger:
-        """
-        Get the balance of an account.
-
-        Args:
-            snapshot: snapshot of the storage
-            account: script hash of the account to obtain the balance of
-
-        Returns:
-            amount of balance.
-
-        Note: The returned value is still in internal format. Divide the results by the contract's `decimals`
-        """
-        storage_item = snapshot.storages.try_get(self.key_account + account)
-        if storage_item is None:
-            return vm.BigInteger.zero()
-        else:
-            state = self._state.deserialize_from_bytes(storage_item.value)
-            return state.balance
+    def on_persist(self, engine: contracts.ApplicationEngine) -> None:
+        pass
 
     def _post_transfer(self,
                        engine: contracts.ApplicationEngine,
@@ -226,72 +281,6 @@ class FungibleToken(NativeContract):
         else:
             from_ = vm.ByteStringStackItem(account_from.to_array())
         engine.call_from_native(self.hash, account_to, "onNEP17Payment", [from_, vm.IntegerStackItem(amount), data])
-
-    def transfer(self,
-                 engine: contracts.ApplicationEngine,
-                 account_from: types.UInt160,
-                 account_to: types.UInt160,
-                 amount: vm.BigInteger,
-                 data: vm.StackItem
-                 ) -> bool:
-        """
-        Transfer tokens from one account to another.
-
-        Raises:
-            ValueError: if the requested amount is negative.
-
-        Returns:
-            True on success. False otherwise.
-        """
-        if amount.sign < 0:
-            raise ValueError("Can't transfer a negative amount")
-
-        # transfer from an account not owned by the smart contract that is requesting the transfer
-        # and there is no signature that approves we are allowed todo so
-        if account_from != engine.calling_scripthash and not engine.checkwitness(account_from):
-            return False
-
-        storage_key_from = self.key_account + account_from
-        storage_item_from = engine.snapshot.storages.try_get(storage_key_from, read_only=False)
-
-        if storage_item_from is None:
-            return False
-
-        state_from = storage_item_from.get(self._state)
-        if amount == vm.BigInteger.zero():
-            self.on_balance_changing(engine, account_from, state_from, amount)
-        else:
-            if state_from.balance < amount:
-                return False
-
-            if account_from == account_to:
-                self.on_balance_changing(engine, account_from, state_from, vm.BigInteger.zero())
-            else:
-                self.on_balance_changing(engine, account_from, state_from, -amount)
-                if state_from.balance == amount:
-                    engine.snapshot.storages.delete(storage_key_from)
-                else:
-                    state_from.balance -= amount
-
-                storage_key_to = self.key_account + account_to
-                storage_item_to = engine.snapshot.storages.try_get(storage_key_to, read_only=False)
-                if storage_item_to is None:
-                    storage_item_to = storage.StorageItem(self._state().to_array())
-                    engine.snapshot.storages.put(storage_key_to, storage_item_to)
-
-                state_to = storage_item_to.get(self._state)
-
-                self.on_balance_changing(engine, account_to, state_to, amount)
-                state_to.balance += amount
-
-        self._post_transfer(engine, account_from, account_to, amount, data, True)
-        return True
-
-    def on_balance_changing(self, engine: contracts.ApplicationEngine,
-                            account: types.UInt160,
-                            state,
-                            amount: vm.BigInteger) -> None:
-        pass
 
 
 class _NeoTokenStorageState(FungibleTokenStorageState):
@@ -447,7 +436,7 @@ class GasBonusState(serialization.ISerializable, Sequence):
 
 
 class NeoToken(FungibleToken):
-    _id: int = -3
+    _id: int = -5
     _decimals: int = 0
 
     key_committee = storage.StorageKey(_id, b'\x0e')
@@ -455,6 +444,7 @@ class NeoToken(FungibleToken):
     key_voters_count = storage.StorageKey(_id, b'\x01')
     key_gas_per_block = storage.StorageKey(_id, b'\x29')
     key_voter_reward_per_committee = storage.StorageKey(_id, b'\x17')
+    key_register_price = storage.StorageKey(_id, b'\x0D')
 
     _NEO_HOLDER_REWARD_RATIO = 10
     _COMMITTEE_REWARD_RATIO = 10
@@ -464,126 +454,10 @@ class NeoToken(FungibleToken):
     _candidates_dirty = True
     _candidates: List[Tuple[cryptography.ECPoint, vm.BigInteger]] = []
 
-    def _to_uint32(self, value: int) -> bytes:
-        return struct.pack(">I", value)
-
-    def _calculate_bonus(self,
-                         snapshot: storage.Snapshot,
-                         vote: cryptography.ECPoint,
-                         value: vm.BigInteger,
-                         start: int,
-                         end: int) -> vm.BigInteger:
-        if value == vm.BigInteger.zero() or start >= end:
-            return vm.BigInteger.zero()
-
-        if value.sign < 0:
-            raise ValueError("Can't calculate bonus over negative balance")
-
-        neo_holder_reward = self._calculate_neo_holder_reward(snapshot, value, start, end)
-        if vote.is_zero():
-            return neo_holder_reward
-        border = (self.key_voter_reward_per_committee + vote).to_array()
-        start_bytes = self._to_uint32(start)
-        key_start = (self.key_voter_reward_per_committee + vote + start_bytes).to_array()
-
-        try:
-            pair = next(snapshot.storages.find_range(self.hash, key_start, border, "reverse"))
-            start_reward_per_neo = vm.BigInteger(pair[1].value)  # first pair returned, StorageItem
-        except StopIteration:
-            start_reward_per_neo = vm.BigInteger.zero()
-
-        end_bytes = self._to_uint32(end)
-        key_end = (self.key_voter_reward_per_committee + vote + end_bytes).to_array()
-
-        try:
-            pair = next(snapshot.storages.find_range(self.hash, key_end, border, "reverse"))
-            end_reward_per_neo = vm.BigInteger(pair[1].value)  # first pair returned, StorageItem
-        except StopIteration:
-            end_reward_per_neo = vm.BigInteger.zero()
-
-        return neo_holder_reward + value * (end_reward_per_neo - start_reward_per_neo) / 100000000
-
-    def _calculate_neo_holder_reward(self,
-                                     snapshot: storage.Snapshot,
-                                     value: vm.BigInteger,
-                                     start: int,
-                                     end: int) -> vm.BigInteger:
-        gas_bonus_state = GasBonusState.from_snapshot(snapshot, read_only=True)
-        gas_sum = 0
-        for pair in reversed(gas_bonus_state):  # type: _GasRecord
-            cur_idx = pair.index
-            if cur_idx >= end:
-                continue
-            if cur_idx > start:
-                gas_sum += pair.gas_per_block * (end - cur_idx)
-                end = cur_idx
-            else:
-                gas_sum += pair.gas_per_block * (end - start)
-                break
-        return value * gas_sum * self._NEO_HOLDER_REWARD_RATIO / 100 / self.total_amount
-
-    def _should_refresh_committee(self, height: int) -> bool:
-        return height % len(settings.standby_committee) == 0
-
-    def _check_candidate(self,
-                         snapshot: storage.Snapshot,
-                         public_key: cryptography.ECPoint,
-                         candidate: _CandidateState) -> None:
-        if not candidate.registered and candidate.votes == 0:
-            for k, v in snapshot.storages.find((self.key_voter_reward_per_committee + public_key).to_array()):
-                snapshot.storages.delete(k)
-            snapshot.storages.delete(self.key_candidate + public_key)
-
     def init(self):
         super(NeoToken, self).init()
         # singleton init, similar to __init__ but called only once
         self.total_amount = self.factor * 100_000_000
-
-        self._register_contract_method(self.register_candidate,
-                                       "registerCandidate",
-                                       1000_00000000,
-                                       parameter_names=["public_key"],
-                                       call_flags=contracts.CallFlags.WRITE_STATES)
-
-        self._register_contract_method(self.unregister_candidate,
-                                       "unregisterCandidate",
-                                       5000000,
-                                       parameter_names=["public_key"],
-                                       call_flags=contracts.CallFlags.WRITE_STATES)
-
-        self._register_contract_method(self.vote,
-                                       "vote",
-                                       5000000,
-                                       parameter_names=["account", "public_key"],
-                                       call_flags=contracts.CallFlags.WRITE_STATES)
-        self._register_contract_method(self._set_gas_per_block,
-                                       "setGasPerBlock",
-                                       5000000,
-                                       parameter_names=["gas_per_block"],
-                                       call_flags=contracts.CallFlags.WRITE_STATES
-                                       )
-        self._register_contract_method(self.get_gas_per_block,
-                                       "getGasPerBlock",
-                                       1000000,
-                                       call_flags=contracts.CallFlags.READ_STATES
-                                       )
-        self._register_contract_method(self.get_committee,
-                                       "getCommittee",
-                                       100000000,
-                                       call_flags=contracts.CallFlags.READ_STATES
-                                       )
-
-        self._register_contract_method(self.get_candidates,
-                                       "getCandidates",
-                                       100000000,
-                                       call_flags=contracts.CallFlags.READ_STATES
-                                       )
-
-        self._register_contract_method(self.get_next_block_validators,
-                                       "getNextBlockValidators",
-                                       100000000,
-                                       call_flags=contracts.CallFlags.READ_STATES
-                                       )
         self._committee_state = None
 
     def _initialize(self, engine: contracts.ApplicationEngine) -> None:
@@ -595,10 +469,220 @@ class NeoToken(FungibleToken):
 
         gas_bonus_state = GasBonusState(_GasRecord(0, GasToken().factor * 5))
         engine.snapshot.storages.put(self.key_gas_per_block, storage.StorageItem(gas_bonus_state.to_array()))
+        engine.snapshot.storages.put(self.key_register_price,
+                                     storage.StorageItem((GasToken().factor * 1000).to_array()))
         self.mint(engine,
                   contracts.Contract.get_consensus_address(settings.standby_validators),
                   self.total_amount,
                   False)
+
+    @register("unclaimedGas", contracts.CallFlags.READ_STATES, cpu_price=1 << 17)
+    def unclaimed_gas(self, snapshot: storage.Snapshot, account: types.UInt160, end: int) -> vm.BigInteger:
+        """
+        Return the available bonus GAS for an account.
+
+        Requires sending the accounts balance to release the bonus GAS.
+
+        Args:
+            snapshot: snapshot of storage
+            account: account to calculate bonus for
+            end: ending block height to calculate bonus up to. You should use mostlikly use the current chain height.
+        """
+        storage_item = snapshot.storages.try_get(self.key_account + account)
+        if storage_item is None:
+            return vm.BigInteger.zero()
+        state = storage_item.get(self._state)
+        return self._calculate_bonus(snapshot, state.vote_to, state.balance, state.balance_height, end)
+
+    @register("registerCandidate", contracts.CallFlags.STATES)
+    def register_candidate(self,
+                           engine: contracts.ApplicationEngine,
+                           public_key: cryptography.ECPoint) -> bool:
+        """
+        Register a candidate for consensus node election.
+
+        Args:
+            engine: Application engine instance
+            public_key: the candidate's public key
+
+        Returns:
+            True is succesfully registered. False otherwise.
+        """
+        script_hash = to_script_hash(contracts.Contract.create_signature_redeemscript(public_key))
+        if not engine.checkwitness(script_hash):
+            return False
+
+        engine.add_gas(self.get_register_price(engine.snapshot))
+        storage_key = self.key_candidate + public_key
+        storage_item = engine.snapshot.storages.try_get(storage_key, read_only=False)
+        if storage_item is None:
+            state = _CandidateState()
+            state.registered = True
+            storage_item = storage.StorageItem(state.to_array())
+            engine.snapshot.storages.put(storage_key, storage_item)
+        else:
+            state = storage_item.get(_CandidateState)
+            state.registered = True
+        self._candidates_dirty = True
+        return True
+
+    @register("unregisterCandidate", contracts.CallFlags.STATES, cpu_price=1 << 16)
+    def unregister_candidate(self,
+                             engine: contracts.ApplicationEngine,
+                             public_key: cryptography.ECPoint) -> bool:
+        """
+        Remove a candidate from the consensus node candidate list.
+        Args:
+            engine: Application engine instance
+            public_key: the candidate's public key
+
+        Returns:
+            True is succesfully removed. False otherwise.
+
+        """
+        script_hash = to_script_hash(contracts.Contract.create_signature_redeemscript(public_key))
+        if not engine.checkwitness(script_hash):
+            return False
+
+        storage_key = self.key_candidate + public_key
+        storage_item = engine.snapshot.storages.try_get(storage_key, read_only=False)
+        if storage_item is None:
+            return True
+        else:
+            state = storage_item.get(_CandidateState)
+            state.registered = False
+            if state.votes == 0:
+                engine.snapshot.storages.delete(storage_key)
+
+        self._candidates_dirty = True
+        return True
+
+    @register("vote", contracts.CallFlags.STATES, cpu_price=1 << 16)
+    def vote(self,
+             engine: contracts.ApplicationEngine,
+             account: types.UInt160,
+             vote_to: cryptography.ECPoint) -> bool:
+        """
+        Vote on a consensus candidate
+        Args:
+            engine: Application engine instance.
+            account: source account to take voting balance from
+            vote_to: candidate public key
+
+        Returns:
+            True is vote registered succesfully. False otherwise.
+        """
+        if not engine.checkwitness(account):
+            return False
+
+        storage_key_account = self.key_account + account
+        storage_item = engine.snapshot.storages.try_get(storage_key_account, read_only=False)
+        if storage_item is None:
+            return False
+        account_state = storage_item.get(self._state)
+
+        storage_key_candidate = self.key_candidate + vote_to
+        storage_item_candidate = engine.snapshot.storages.try_get(storage_key_candidate, read_only=False)
+        if storage_item_candidate is None:
+            return False
+
+        candidate_state = storage_item_candidate.get(_CandidateState)
+        if not candidate_state.registered:
+            return False
+
+        if account_state.vote_to.is_zero():
+            si_voters_count = engine.snapshot.storages.get(self.key_voters_count, read_only=False)
+
+            old_value = vm.BigInteger(si_voters_count.value)
+            new_value = old_value + account_state.balance
+            si_voters_count.value = new_value.to_array()
+
+        self._distribute_gas(engine, account, account_state)
+
+        if not account_state.vote_to.is_zero():
+            sk_validator = self.key_candidate + account_state.vote_to
+            si_validator = engine.snapshot.storages.get(sk_validator, read_only=False)
+            validator_state = si_validator.get(_CandidateState)
+            validator_state.votes -= account_state.balance
+
+            if not validator_state.registered and validator_state.votes == 0:
+                engine.snapshot.storages.delete(sk_validator)
+
+        account_state.vote_to = vote_to
+        candidate_state.votes += account_state.balance
+        self._candidates_dirty = True
+
+        return True
+
+    @register("getCandidates", contracts.CallFlags.READ_STATES, cpu_price=1 << 22)
+    def get_candidates(self, engine: contracts.ApplicationEngine) -> None:
+        array = vm.ArrayStackItem(engine.reference_counter)
+        for k, v in self._get_candidates(engine.snapshot):
+            struct = vm.StructStackItem(engine.reference_counter)
+            struct.append(vm.ByteStringStackItem(k.to_array()))
+            struct.append(vm.IntegerStackItem(v))
+            array.append(struct)
+        engine.push(array)
+
+    @register("getNextBlockValidators", contracts.CallFlags.READ_STATES, cpu_price=1 << 16)
+    def get_next_block_validators(self, snapshot: storage.Snapshot) -> List[cryptography.ECPoint]:
+        keys = self.get_committee_from_cache(snapshot)[:settings.network.validators_count]
+        keys.sort()
+        return keys
+
+    @register("setGasPerBlock", contracts.CallFlags.STATES, cpu_price=1 << 15)
+    def _set_gas_per_block(self, engine: contracts.ApplicationEngine, gas_per_block: vm.BigInteger) -> None:
+        if gas_per_block > 0 or gas_per_block > 10 * self._gas.factor:
+            raise ValueError("new gas per block value exceeds limits")
+
+        if not self._check_committee(engine):
+            raise ValueError("Check committee failed")
+
+        index = engine.snapshot.persisting_block.index + 1
+        gas_bonus_state = GasBonusState.from_snapshot(engine.snapshot, read_only=False)
+        if gas_bonus_state[-1].index == index:
+            gas_bonus_state[-1] = _GasRecord(index, gas_per_block)
+        else:
+            gas_bonus_state.append(_GasRecord(index, gas_per_block))
+
+    @register("getGasPerBlock", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
+    def get_gas_per_block(self, snapshot: storage.Snapshot) -> vm.BigInteger:
+        index = snapshot.best_block_height + 1
+        gas_bonus_state = GasBonusState.from_snapshot(snapshot, read_only=True)
+        for record in reversed(gas_bonus_state):  # type: _GasRecord
+            if record.index <= index:
+                return record.gas_per_block
+        else:
+            raise ValueError
+
+    @register("setRegisterPrice", contracts.CallFlags.STATES, cpu_price=1 << 15)
+    def set_register_price(self, engine: contracts.ApplicationEngine, register_price: int) -> None:
+        if register_price <= 0:
+            raise ValueError("Register price cannot be negative or zero")
+        if not self._check_committee(engine):
+            raise ValueError("CheckCommittee failed for setRegisterPrice")
+        item = engine.snapshot.storages.get(self.key_register_price, read_only=False)
+        item.value = vm.BigInteger(register_price).to_array()
+
+    @register("getRegisterPrice", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
+    def get_register_price(self, snapshot: storage.Snapshot) -> int:
+        return int(vm.BigInteger(snapshot.storages.get(self.key_register_price, read_only=True).value))
+
+    def _distribute_gas(self,
+                        engine: contracts.ApplicationEngine,
+                        account: types.UInt160,
+                        state: _NeoTokenStorageState) -> None:
+        if engine.snapshot.persisting_block is None:
+            return
+
+        gas = self._calculate_bonus(engine.snapshot, state.vote_to, state.balance, state.balance_height,
+                                    engine.snapshot.persisting_block.index)
+        state.balance_height = engine.snapshot.persisting_block.index
+        GasToken().mint(engine, account, gas, True)
+
+    @register("getCommittee", contracts.CallFlags.READ_STATES, cpu_price=1 << 16)
+    def get_committee(self, snapshot: storage.Snapshot) -> List[cryptography.ECPoint]:
+        return sorted(self.get_committee_from_cache(snapshot))
 
     def total_supply(self, snapshot: storage.Snapshot) -> vm.BigInteger:
         """ Get the total deployed tokens. """
@@ -670,138 +754,107 @@ class NeoToken(FungibleToken):
                     engine.snapshot.storages.put(voter_reward_key,
                                                  storage.StorageItem(voter_sum_reward_per_neo.to_array()))
 
-    def unclaimed_gas(self, snapshot: storage.Snapshot, account: types.UInt160, end: int) -> vm.BigInteger:
-        """
-        Return the available bonus GAS for an account.
+    def get_committee_from_cache(self, snapshot: storage.Snapshot) -> List[cryptography.ECPoint]:
+        if self._committee_state is None:
+            self._committee_state = _CommitteeState.from_snapshot(snapshot)
+        return self._committee_state.validators
 
-        Requires sending the accounts balance to release the bonus GAS.
+    def get_committee_address(self, snapshot: storage.Snapshot) -> types.UInt160:
+        comittees = self.get_committee(snapshot)
+        return to_script_hash(
+            contracts.Contract.create_multisig_redeemscript(
+                len(comittees) - (len(comittees) - 1) // 2,
+                comittees)
+        )
 
-        Args:
-            snapshot: snapshot of storage
-            account: account to calculate bonus for
-            end: ending block height to calculate bonus up to. You should use mostlikly use the current chain height.
-        """
-        storage_item = snapshot.storages.try_get(self.key_account + account)
-        if storage_item is None:
+    def _calculate_bonus(self,
+                         snapshot: storage.Snapshot,
+                         vote: cryptography.ECPoint,
+                         value: vm.BigInteger,
+                         start: int,
+                         end: int) -> vm.BigInteger:
+        if value == vm.BigInteger.zero() or start >= end:
             return vm.BigInteger.zero()
-        state = storage_item.get(self._state)
-        return self._calculate_bonus(snapshot, state.vote_to, state.balance, state.balance_height, end)
 
-    def register_candidate(self,
-                           engine: contracts.ApplicationEngine,
-                           public_key: cryptography.ECPoint) -> bool:
-        """
-        Register a candidate for consensus node election.
+        if value.sign < 0:
+            raise ValueError("Can't calculate bonus over negative balance")
 
-        Args:
-            engine: Application engine instance
-            public_key: the candidate's public key
+        neo_holder_reward = self._calculate_neo_holder_reward(snapshot, value, start, end)
+        if vote.is_zero():
+            return neo_holder_reward
+        border = (self.key_voter_reward_per_committee + vote).to_array()
+        start_bytes = self._to_uint32(start)
+        key_start = (self.key_voter_reward_per_committee + vote + start_bytes).to_array()
 
-        Returns:
-            True is succesfully registered. False otherwise.
-        """
-        script_hash = to_script_hash(contracts.Contract.create_signature_redeemscript(public_key))
-        if not engine.checkwitness(script_hash):
-            return False
+        try:
+            pair = next(snapshot.storages.find_range(key_start, border, "reverse"))
+            start_reward_per_neo = vm.BigInteger(pair[1].value)  # first pair returned, StorageItem
+        except StopIteration:
+            start_reward_per_neo = vm.BigInteger.zero()
 
-        storage_key = self.key_candidate + public_key
-        storage_item = engine.snapshot.storages.try_get(storage_key, read_only=False)
-        if storage_item is None:
-            state = _CandidateState()
-            state.registered = True
-            storage_item = storage.StorageItem(state.to_array())
-            engine.snapshot.storages.put(storage_key, storage_item)
-        else:
-            state = storage_item.get(_CandidateState)
-            state.registered = True
-        self._candidates_dirty = True
-        return True
+        end_bytes = self._to_uint32(end)
+        key_end = (self.key_voter_reward_per_committee + vote + end_bytes).to_array()
 
-    def unregister_candidate(self,
-                             engine: contracts.ApplicationEngine,
-                             public_key: cryptography.ECPoint) -> bool:
-        """
-        Remove a candidate from the consensus node candidate list.
-        Args:
-            engine: Application engine instance
-            public_key: the candidate's public key
+        try:
+            pair = next(snapshot.storages.find_range(key_end, border, "reverse"))
+            end_reward_per_neo = vm.BigInteger(pair[1].value)  # first pair returned, StorageItem
+        except StopIteration:
+            end_reward_per_neo = vm.BigInteger.zero()
 
-        Returns:
-            True is succesfully removed. False otherwise.
+        return neo_holder_reward + value * (end_reward_per_neo - start_reward_per_neo) / 100000000
 
-        """
-        script_hash = to_script_hash(contracts.Contract.create_signature_redeemscript(public_key))
-        if not engine.checkwitness(script_hash):
-            return False
+    def _calculate_neo_holder_reward(self,
+                                     snapshot: storage.Snapshot,
+                                     value: vm.BigInteger,
+                                     start: int,
+                                     end: int) -> vm.BigInteger:
+        gas_bonus_state = GasBonusState.from_snapshot(snapshot, read_only=True)
+        gas_sum = 0
+        for pair in reversed(gas_bonus_state):  # type: _GasRecord
+            cur_idx = pair.index
+            if cur_idx >= end:
+                continue
+            if cur_idx > start:
+                gas_sum += pair.gas_per_block * (end - cur_idx)
+                end = cur_idx
+            else:
+                gas_sum += pair.gas_per_block * (end - start)
+                break
+        return value * gas_sum * self._NEO_HOLDER_REWARD_RATIO / 100 / self.total_amount
 
-        storage_key = self.key_candidate + public_key
-        storage_item = engine.snapshot.storages.try_get(storage_key, read_only=False)
-        if storage_item is None:
-            return True
-        else:
-            state = storage_item.get(_CandidateState)
-            state.registered = False
-            if state.votes == 0:
-                engine.snapshot.storages.delete(storage_key)
+    def _check_candidate(self,
+                         snapshot: storage.Snapshot,
+                         public_key: cryptography.ECPoint,
+                         candidate: _CandidateState) -> None:
+        if not candidate.registered and candidate.votes == 0:
+            for k, v in snapshot.storages.find((self.key_voter_reward_per_committee + public_key).to_array()):
+                snapshot.storages.delete(k)
+            snapshot.storages.delete(self.key_candidate + public_key)
 
-        self._candidates_dirty = True
-        return True
+    def _compute_committee_members(self, snapshot: storage.Snapshot) -> Dict[cryptography.ECPoint, vm.BigInteger]:
+        storage_item = snapshot.storages.get(self.key_voters_count, read_only=True)
+        voters_count = int(vm.BigInteger(storage_item.value))
+        voter_turnout = voters_count / float(self.total_amount)
 
-    def vote(self,
-             engine: contracts.ApplicationEngine,
-             account: types.UInt160,
-             vote_to: cryptography.ECPoint) -> bool:
-        """
-        Vote on a consensus candidate
-        Args:
-            engine: Application engine instance.
-            account: source account to take voting balance from
-            vote_to: candidate public key
-
-        Returns:
-            True is vote registered succesfully. False otherwise.
-        """
-        if not engine.checkwitness(account):
-            return False
-
-        storage_key_account = self.key_account + account
-        storage_item = engine.snapshot.storages.try_get(storage_key_account, read_only=False)
-        if storage_item is None:
-            return False
-        account_state = storage_item.get(self._state)
-
-        storage_key_candidate = self.key_candidate + vote_to
-        storage_item_candidate = engine.snapshot.storages.try_get(storage_key_candidate, read_only=False)
-        if storage_key_candidate is None:
-            return False
-
-        candidate_state = storage_item_candidate.get(_CandidateState)
-        if not candidate_state.registered:
-            return False
-
-        if account_state.vote_to.is_zero():
-            si_voters_count = engine.snapshot.storages.get(self.key_voters_count, read_only=False)
-
-            old_value = vm.BigInteger(si_voters_count.value)
-            new_value = old_value + account_state.balance
-            si_voters_count.value = new_value.to_array()
-
-        self._distribute_gas(engine, account, account_state)
-
-        if not account_state.vote_to.is_zero():
-            sk_validator = self.key_candidate + account_state.vote_to
-            si_validator = engine.snapshot.storages.get(sk_validator, read_only=False)
-            validator_state = si_validator.get(_CandidateState)
-            validator_state.votes -= account_state.balance
-
-            if not validator_state.registered and validator_state.votes == 0:
-                engine.snapshot.storages.delete(sk_validator)
-
-        account_state.vote_to = vote_to
-        candidate_state.votes += account_state.balance
-        self._candidates_dirty = True
-
-        return True
+        candidates = self._get_candidates(snapshot)
+        if voter_turnout < 0.2 or len(candidates) < len(settings.standby_committee):
+            results = {}
+            for key in settings.standby_committee:
+                for pair in candidates:
+                    if pair[0] == key:
+                        results.update({key: pair[1]})
+                        break
+                else:
+                    results.update({key: vm.BigInteger.zero()})
+            return results
+        # first sort by votes descending, then by ECPoint ascending
+        # we negate the value of the votes (c[1]) such that they get sorted in descending order
+        candidates.sort(key=lambda c: (-c[1], c[0]))
+        trimmed_candidates = candidates[:len(settings.standby_committee)]
+        results = {}
+        for candidate in trimmed_candidates:
+            results.update({candidate[0]: candidate[1]})
+        return results
 
     def _get_candidates(self,
                         snapshot: storage.Snapshot) -> \
@@ -818,94 +871,15 @@ class NeoToken(FungibleToken):
 
         return self._candidates
 
-    def get_candidates(self, engine: contracts.ApplicationEngine) -> None:
-        array = vm.ArrayStackItem(engine.reference_counter)
-        for k, v in self._get_candidates(engine.snapshot):
-            struct = vm.StructStackItem(engine.reference_counter)
-            struct.append(vm.ByteStringStackItem(k.to_array()))
-            struct.append(vm.IntegerStackItem(v))
-            array.append(struct)
-        engine.push(array)
+    def _should_refresh_committee(self, height: int) -> bool:
+        return height % len(settings.standby_committee) == 0
 
-    def get_next_block_validators(self, snapshot: storage.Snapshot) -> List[cryptography.ECPoint]:
-        keys = self.get_committee_from_cache(snapshot)[:settings.network.validators_count]
-        keys.sort()
-        return keys
-
-    def get_committee_from_cache(self, snapshot: storage.Snapshot) -> List[cryptography.ECPoint]:
-        if self._committee_state is None:
-            self._committee_state = _CommitteeState.from_snapshot(snapshot)
-        return self._committee_state.validators
-
-    def get_committee(self, snapshot: storage.Snapshot) -> List[cryptography.ECPoint]:
-        return sorted(self.get_committee_from_cache(snapshot))
-
-    def get_committee_address(self, snapshot: storage.Snapshot) -> types.UInt160:
-        comittees = self.get_committee(snapshot)
-        return to_script_hash(
-            contracts.Contract.create_multisig_redeemscript(
-                len(comittees) - (len(comittees) - 1) // 2,
-                comittees)
-        )
-
-    def _compute_committee_members(self, snapshot: storage.Snapshot) -> Dict[cryptography.ECPoint, vm.BigInteger]:
-        storage_item = snapshot.storages.get(self.key_voters_count, read_only=True)
-        voters_count = int(vm.BigInteger(storage_item.value))
-        voter_turnout = voters_count / float(self.total_amount)
-
-        candidates = self._get_candidates(snapshot)
-        if voter_turnout < 0.2 or len(candidates) < len(settings.standby_committee):
-            results = {}
-            for key in settings.standby_committee:
-                results.update({key: self._committee_state[key]})
-            return results
-        # first sort by votes descending, then by ECPoint ascending
-        # we negate the value of the votes (c[1]) such that they get sorted in descending order
-        candidates.sort(key=lambda c: (-c[1], c[0]))
-        trimmed_candidates = candidates[:len(settings.standby_committee)]
-        results = {}
-        for candidate in trimmed_candidates:
-            results.update({candidate[0]: candidate[1]})
-        return results
-
-    def _set_gas_per_block(self, engine: contracts.ApplicationEngine, gas_per_block: vm.BigInteger) -> None:
-        if gas_per_block > 0 or gas_per_block > 10 * self._gas.factor:
-            raise ValueError("new gas per block value exceeds limits")
-
-        if not self._check_committee(engine):
-            raise ValueError("Check committee failed")
-
-        index = engine.snapshot.persisting_block.index + 1
-        gas_bonus_state = GasBonusState.from_snapshot(engine.snapshot, read_only=False)
-        if gas_bonus_state[-1].index == index:
-            gas_bonus_state[-1] = _GasRecord(index, gas_per_block)
-        else:
-            gas_bonus_state.append(_GasRecord(index, gas_per_block))
-
-    def get_gas_per_block(self, snapshot: storage.Snapshot) -> vm.BigInteger:
-        index = snapshot.best_block_height + 1
-        gas_bonus_state = GasBonusState.from_snapshot(snapshot, read_only=True)
-        for record in reversed(gas_bonus_state):  # type: _GasRecord
-            if record.index <= index:
-                return record.gas_per_block
-        else:
-            raise ValueError
-
-    def _distribute_gas(self,
-                        engine: contracts.ApplicationEngine,
-                        account: types.UInt160,
-                        state: _NeoTokenStorageState) -> None:
-        if engine.snapshot.persisting_block is None:
-            return
-
-        gas = self._calculate_bonus(engine.snapshot, state.vote_to, state.balance, state.balance_height,
-                                    engine.snapshot.persisting_block.index)
-        state.balance_height = engine.snapshot.persisting_block.index
-        GasToken().mint(engine, account, gas, True)
+    def _to_uint32(self, value: int) -> bytes:
+        return struct.pack(">I", value)
 
 
 class GasToken(FungibleToken):
-    _id: int = -4
+    _id: int = -6
     _decimals: int = 8
 
     _state = FungibleTokenStorageState
@@ -922,6 +896,6 @@ class GasToken(FungibleToken):
             total_network_fee += tx.network_fee
             self.burn(engine, tx.sender, vm.BigInteger(tx.system_fee + tx.network_fee))
         pub_keys = NeoToken().get_next_block_validators(engine.snapshot)
-        primary = pub_keys[engine.snapshot.persisting_block.consensus_data.primary_index]
+        primary = pub_keys[engine.snapshot.persisting_block.primary_index]
         script_hash = to_script_hash(contracts.Contract.create_signature_redeemscript(primary))
         self.mint(engine, script_hash, vm.BigInteger(total_network_fee), False)

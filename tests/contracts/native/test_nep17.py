@@ -109,7 +109,7 @@ class Nep5TestCase(unittest.TestCase):
         engine.snapshot.persisting_block.transactions[0].signers = [mock_signer]
         # our consensus_data is not setup in a realistic way, so we have to correct for that here
         # or we fail to get the account of primary consensus node
-        engine.snapshot.persisting_block.consensus_data.primary_index = settings.network.validators_count - 1
+        engine.snapshot.persisting_block.header.primary_index = settings.network.validators_count - 1
 
         gas.on_persist(engine)
 

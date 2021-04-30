@@ -41,7 +41,7 @@ class BinarySerializerTestCase(unittest.TestCase):
 
         # now test deserialization
         m[i] = b # restore m[i] to original content
-        new_m = contracts.BinarySerializer.deserialize(out, 2048, len(out), self.reference_counter)
+        new_m = contracts.BinarySerializer.deserialize(out, 2048, self.reference_counter)
         self.assertEqual(len(m), len(new_m))
         self.assertEqual(m.keys(), new_m.keys())
         self.assertEqual(m.values(), new_m.values())
@@ -74,7 +74,7 @@ class BinarySerializerTestCase(unittest.TestCase):
         # now test deserialization
         # first remove the reference to self
         a.remove(len(a) - 1)
-        new_a = contracts.BinarySerializer.deserialize(out, 2048, len(out), self.reference_counter)
+        new_a = contracts.BinarySerializer.deserialize(out, 2048, self.reference_counter)
         self.assertIsInstance(a, vm.ArrayStackItem)
         self.assertEqual(a._items, new_a._items)
 
@@ -83,7 +83,7 @@ class BinarySerializerTestCase(unittest.TestCase):
         x = contracts.BinarySerializer.serialize(n, 999)
         self.assertEqual(b'\x00', x)
 
-        new_n = contracts.BinarySerializer.deserialize(x, 1, 1, self.reference_counter)
+        new_n = contracts.BinarySerializer.deserialize(x, 1, self.reference_counter)
         self.assertIsInstance(new_n, vm.NullStackItem)
 
     def test_serialize_with_invalid_stackitem(self):
@@ -102,14 +102,14 @@ class BinarySerializerTestCase(unittest.TestCase):
 
     def test_deserialize_invalid_data(self):
         with self.assertRaises(ValueError) as context:
-            contracts.BinarySerializer.deserialize(b'', 1, 1, self.reference_counter)
+            contracts.BinarySerializer.deserialize(b'', 1, self.reference_counter)
         self.assertEqual("Nothing to deserialize", str(context.exception))
 
     def test_deserialize_bytestring(self):
         data = b'\x01\x02'
         b = vm.ByteStringStackItem(data)
         b_serialized = contracts.BinarySerializer.serialize(b, 999)
-        new_b = contracts.BinarySerializer.deserialize(b_serialized, 999, len(data), self.reference_counter)
+        new_b = contracts.BinarySerializer.deserialize(b_serialized, 999, self.reference_counter)
         self.assertIsInstance(new_b, vm.ByteStringStackItem)
         self.assertEqual(new_b, b)
 
@@ -117,7 +117,7 @@ class BinarySerializerTestCase(unittest.TestCase):
         data = b'\x01\x02'
         b = vm.BufferStackItem(data)
         b_serialized = contracts.BinarySerializer.serialize(b, 999)
-        new_b = contracts.BinarySerializer.deserialize(b_serialized, 999, len(data), self.reference_counter)
+        new_b = contracts.BinarySerializer.deserialize(b_serialized, 999, self.reference_counter)
         self.assertIsInstance(new_b, vm.BufferStackItem)
         self.assertEqual(new_b.to_array(), b.to_array())
 
@@ -127,7 +127,7 @@ class BinarySerializerTestCase(unittest.TestCase):
         bool2 = vm.BooleanStackItem(False)
         s.append([bool1, bool2])
         s_serialized = contracts.BinarySerializer.serialize(s, 999)
-        new_s = contracts.BinarySerializer.deserialize(s_serialized, 999, 2, self.reference_counter)
+        new_s = contracts.BinarySerializer.deserialize(s_serialized, 999, self.reference_counter)
         self.assertIsInstance(new_s, vm.StructStackItem)
         for l, r in zip(new_s._items, s._items):
             self.assertEqual(l, r)
@@ -138,5 +138,5 @@ class BinarySerializerTestCase(unittest.TestCase):
         b_serialized = bytearray(contracts.BinarySerializer.serialize(b, 999))
         b_serialized[0] = 0xFF # non existing stackitem type
         with self.assertRaises(ValueError) as context:
-            contracts.BinarySerializer.deserialize(b_serialized, 999, len(data), self.reference_counter)
+            contracts.BinarySerializer.deserialize(b_serialized, 999, self.reference_counter)
         self.assertEqual("Invalid format", str(context.exception))

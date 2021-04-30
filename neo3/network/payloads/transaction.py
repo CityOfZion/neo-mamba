@@ -192,10 +192,9 @@ class Transaction(payloads.IInventory, IInteroperable):
         Get a unique block identifier based on the unsigned data portion of the object.
         """
         with serialization.BinaryWriter() as bw:
-            bw.write_uint32(self.protocol_magic)
             self.serialize_unsigned(bw)
             data_to_hash = bytearray(bw._stream.getvalue())
-            data = hashlib.sha256(hashlib.sha256(data_to_hash).digest()).digest()
+            data = hashlib.sha256(data_to_hash).digest()
             return types.UInt256(data=data)
 
     @property
@@ -242,7 +241,9 @@ class Transaction(payloads.IInventory, IInteroperable):
             reader: instance.
         """
         self.deserialize_unsigned(reader)
-        self.witnesses = reader.read_serializable_list(payloads.Witness)
+        self.witnesses = reader.read_serializable_list(payloads.Witness, max=len(self.signers))
+        if len(self.witnesses) != len(self.signers):
+            raise ValueError("Deserialization error - witness length does not match signers length")
 
     def deserialize_unsigned(self, reader: serialization.BinaryReader) -> None:
         (self.version,

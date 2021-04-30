@@ -1,0 +1,18 @@
+.. _whatsnew-v06:
+
+*****************************
+  What's New in neo-mamba 0.6
+*****************************
+
+:Author: Erik van den Brink
+
+RC1 compatability
+=======================
+
+This release catches up with all RC1 changes done in the C# core project.
+
+There is a significant resource difference between neo-mamba and the core C# project. As such the mamba project had to
+choose a strategy that allowed faster catching up at the cost of lower code coverage and less documentation. The less
+core critical changes are made, the more time can be spend on updating documentation. For now compatibility is
+prioritized over the user experience.
+

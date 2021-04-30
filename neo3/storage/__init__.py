@@ -1,6 +1,6 @@
 from .base import (IDBImplementation,
                    StorageContext)
-from .storageitem import StorageItem, StorageFlags
+from .storageitem import StorageItem
 from .storagekey import StorageKey
 from .cache import (Trackable,
                     TrackState,

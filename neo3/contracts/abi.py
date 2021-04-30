@@ -2,7 +2,7 @@ from __future__ import annotations
 import enum
 from typing import List, Optional, Type, Union, cast
 from enum import IntEnum
-from neo3.core import types, IJson, IInteroperable, serialization
+from neo3.core import types, IJson, IInteroperable, serialization, cryptography
 from neo3 import contracts, vm
 
 
@@ -18,13 +18,13 @@ class ContractParameterType(IntEnum):
     SIGNATURE = 0x17,
     ARRAY = 0x20,
     MAP = 0x22,
-    INTEROP_INTERFACE = 0x30,
+    INTEROPINTERFACE = 0x30,
     VOID = 0xff
 
     def PascalCase(self) -> str:
         if self == ContractParameterType.BYTEARRAY:
             return "ByteArray"
-        elif self == ContractParameterType.INTEROP_INTERFACE:
+        elif self == ContractParameterType.INTEROPINTERFACE:
             return "InteropInterface"
         elif self == ContractParameterType.PUBLICKEY:
             return "PublicKey"
@@ -41,6 +41,8 @@ class ContractParameterType(IntEnum):
             return ContractParameterType.INTEGER
         elif class_type in [bytes, bytearray, vm.BufferStackItem, vm.ByteStringStackItem]:
             return ContractParameterType.BYTEARRAY
+        elif class_type == cryptography.ECPoint:
+            return ContractParameterType.PUBLICKEY
         elif hasattr(class_type, '__origin__'):
             if class_type.__origin__ == list:  # type: ignore
                 return ContractParameterType.ARRAY
@@ -64,10 +66,12 @@ class ContractParameterType(IntEnum):
             return ContractParameterType.ARRAY
         elif issubclass(class_type, IInteroperable):
             return ContractParameterType.ARRAY
+        elif class_type == vm.StackItem:
+            return ContractParameterType.ANY
         elif issubclass(class_type, enum.Enum):
             return ContractParameterType.INTEGER
         else:
-            return ContractParameterType.ANY
+            return ContractParameterType.INTEROPINTERFACE
 
 
 class ContractParameterDefinition(IJson):
@@ -112,8 +116,8 @@ class ContractParameterDefinition(IJson):
             ValueError: if the type is VOID.
         """
         c = cls(
-            name=json['name'],
-            type=contracts.ContractParameterType[json['type'].upper()]
+            name=contracts.validate_type(json['name'], str),
+            type=contracts.ContractParameterType[contracts.validate_type(json['type'], str).upper()]
         )
         if c.name is None or len(c.name) == 0:
             raise ValueError("Format error - invalid 'name'")
@@ -169,7 +173,7 @@ class ContractEventDescriptor(IJson):
             ValueError: if the 'name' property has an incorrect format
         """
         c = cls(
-            name=json['name'],
+            name=contracts.validate_type(json['name'], str),
             parameters=list(map(lambda p: ContractParameterDefinition.from_json(p), json['parameters']))
         )
         if c.name is None or len(c.name) == 0:
@@ -241,11 +245,11 @@ class ContractMethodDescriptor(ContractEventDescriptor, IJson):
             ValueError: if the offset is negative.
         """
         c = cls(
-            name=json['name'],
-            offset=json['offset'],
+            name=contracts.validate_type(json['name'], str),
+            offset=contracts.validate_type(json['offset'], int),
             parameters=list(map(lambda p: contracts.ContractParameterDefinition.from_json(p), json['parameters'])),
-            return_type=contracts.ContractParameterType[json['returntype'].upper()],
-            safe=json['safe']
+            return_type=contracts.ContractParameterType[contracts.validate_type(json['returntype'], str).upper()],
+            safe=contracts.validate_type(json['safe'], bool)
         )
         if c.name is None or len(c.name) == 0:
             raise ValueError("Format error - invalid 'name'")

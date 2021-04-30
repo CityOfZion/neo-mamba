@@ -22,11 +22,10 @@ def get_time(engine: contracts.ApplicationEngine) -> int:
 
 
 @register("System.Runtime.GetScriptContainer", 1 << 3, contracts.CallFlags.NONE)
-def get_scriptcontainer(engine: contracts.ApplicationEngine) -> IInteroperable:
+def get_scriptcontainer(engine: contracts.ApplicationEngine) -> vm.StackItem:
     if not isinstance(engine.script_container, IInteroperable):
         raise ValueError("script container is not a valid IInteroperable type")
-    container = cast(IInteroperable, engine.script_container)
-    return container
+    return engine.script_container.to_stack_item(engine.reference_counter)
 
 
 @register("System.Runtime.GetExecutingScriptHash", 1 << 4, contracts.CallFlags.NONE)

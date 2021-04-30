@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import Optional, cast, List
-from . import NativeContract
+from . import NativeContract, register
 from neo3 import contracts, storage, vm
 from neo3.core import types, cryptography, serialization, to_script_hash, msgrouter
 from neo3.network import payloads
@@ -55,13 +55,12 @@ class OracleContract(NativeContract):
     _MAX_FILTER_LEN = 128
     _MAX_CALLBACK_LEN = 32
     _MAX_USER_DATA_LEN = 512
-    _id = -7
+    _id = -9
 
     key_request_id = storage.StorageKey(_id, b'\x09')
     key_request = storage.StorageKey(_id, b'\x07')
     key_id_list = storage.StorageKey(_id, b'\x06')
-
-    _ORACLE_REQUEST_PRICE = 50000000
+    key_price = storage.StorageKey(_id, b'\x05')
 
     def init(self):
         super(OracleContract, self).init()
@@ -84,27 +83,25 @@ class OracleContract(NativeContract):
             )
         ]
 
-        self._register_contract_method(self.finish,
-                                       "finish",
-                                       0,
-                                       call_flags=(contracts.CallFlags.WRITE_STATES
-                                                   | contracts.CallFlags.ALLOW_CALL
-                                                   | contracts.CallFlags.ALLOW_NOTIFY))
-
-        self._register_contract_method(self._request,
-                                       "request",
-                                       self._ORACLE_REQUEST_PRICE,
-                                       parameter_names=["url", "filter", "callback", "userdata", "gas_for_response"],
-                                       call_flags=contracts.CallFlags.WRITE_STATES | contracts.CallFlags.ALLOW_NOTIFY)
-
-        self._register_contract_method(self._verify,
-                                       "verify",
-                                       1000000,
-                                       call_flags=contracts.CallFlags.NONE)
-
     def _initialize(self, engine: contracts.ApplicationEngine) -> None:
         engine.snapshot.storages.put(self.key_request_id, storage.StorageItem(vm.BigInteger.zero().to_array()))
+        engine.snapshot.storages.put(self.key_price, storage.StorageItem(vm.BigInteger(50000000).to_array()))
 
+    @register("setPrice", contracts.CallFlags.STATES, cpu_price=1 << 15)
+    def set_price(self, engine: contracts.ApplicationEngine, price: int) -> None:
+        if price <= 0:
+            raise ValueError("Oracle->setPrice value cannot be negative or zero")
+        if not self._check_committee(engine):
+            raise ValueError("Oracle->setPrice check committee failed")
+        item = engine.snapshot.storages.get(self.key_price)
+        item.value = vm.BigInteger(price).to_array()
+
+    @register("getPrice", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
+    def get_price(self, snapshot: storage.Snapshot) -> int:
+        return int(vm.BigInteger(snapshot.storages.get(self.key_price, read_only=True).value))
+
+    @register("finish",
+              (contracts.CallFlags.STATES | contracts.CallFlags.ALLOW_CALL | contracts.CallFlags.ALLOW_NOTIFY))
     def finish(self, engine: contracts.ApplicationEngine) -> None:
         tx = engine.script_container
         tx = cast(payloads.Transaction, tx)
@@ -127,7 +124,6 @@ class OracleContract(NativeContract):
 
         user_data = contracts.BinarySerializer.deserialize(request.user_data,
                                                            engine.MAX_STACK_SIZE,
-                                                           engine.MAX_ITEM_SIZE,
                                                            engine.reference_counter)
         args: List[vm.StackItem] = [vm.ByteStringStackItem(request.url.encode()),
                                     user_data,
@@ -136,27 +132,7 @@ class OracleContract(NativeContract):
 
         engine.call_from_native(self.hash, request.callback_contract, request.callback_method, args)
 
-    def get_request(self, snapshot: storage.Snapshot, id: int) -> Optional[OracleRequest]:
-        id_bytes = id.to_bytes(8, 'little', signed=False)
-        storage_item = snapshot.storages.try_get(self.key_request + id_bytes)
-        if storage_item is None:
-            return None
-
-        return OracleRequest.deserialize_from_bytes(storage_item.value)
-
-    def _get_url_hash(self, url: str) -> bytes:
-        return to_script_hash(url.encode('utf-8')).to_array()
-
-    def _get_original_txid(self, engine: contracts.ApplicationEngine) -> types.UInt256:
-        tx = cast(payloads.Transaction, engine.script_container)
-        response = tx.try_get_attribute(payloads.OracleResponse)
-        if response is None:
-            return tx.hash()
-        request = self.get_request(engine.snapshot, response.id)
-        if request is None:
-            raise ValueError  # C# will throw null pointer access exception
-        return request.original_tx_id
-
+    @register("request", contracts.CallFlags.STATES | contracts.CallFlags.ALLOW_NOTIFY)
     def _request(self,
                  engine: contracts.ApplicationEngine,
                  url: str,
@@ -171,6 +147,7 @@ class OracleContract(NativeContract):
                 gas_for_response < 10000000:
             raise ValueError
 
+        engine.add_gas(self.get_price(engine.snapshot))
         engine.add_gas(gas_for_response)
         self._gas.mint(engine, self.hash, vm.BigInteger(gas_for_response), False)
 
@@ -225,11 +202,20 @@ class OracleContract(NativeContract):
 
         msgrouter.interop_notify(self.hash, "OracleRequest", state)
 
+    @register("verify", contracts.CallFlags.READ_ONLY, cpu_price=1 << 15)
     def _verify(self, engine: contracts.ApplicationEngine) -> bool:
         tx = engine.script_container
         if not isinstance(tx, payloads.Transaction):
             return False
         return bool(tx.try_get_attribute(payloads.OracleResponse))
+
+    def get_request(self, snapshot: storage.Snapshot, id: int) -> Optional[OracleRequest]:
+        id_bytes = id.to_bytes(8, 'little', signed=False)
+        storage_item = snapshot.storages.try_get(self.key_request + id_bytes)
+        if storage_item is None:
+            return None
+
+        return OracleRequest.deserialize_from_bytes(storage_item.value)
 
     def post_persist(self, engine: contracts.ApplicationEngine) -> None:
         super(OracleContract, self).post_persist(engine)
@@ -253,12 +239,7 @@ class OracleContract(NativeContract):
             if si_id_list is None:
                 si_id_list = storage.StorageItem(b'\x00')
 
-            with serialization.BinaryReader(si_id_list.value) as reader:
-                count = reader.read_var_int()
-                id_list = []
-                for _ in range(count):
-                    id_list.append(reader.read_uint64())
-
+            id_list = si_id_list.get(_IdList)
             id_list.remove(response.id)
             if len(id_list) == 0:
                 engine.snapshot.storages.delete(sk_id_list)
@@ -277,8 +258,35 @@ class OracleContract(NativeContract):
             if len(nodes) > 0:
                 idx = response.id % len(nodes)
                 # mypy can't figure out that the second item is a BigInteger
-                nodes[idx][1] += self._ORACLE_REQUEST_PRICE  # type: ignore
+                nodes[idx][1] += self.get_price(engine.snapshot)  # type: ignore
 
         for pair in nodes:
             if pair[1].sign > 0:  # type: ignore
                 self._gas.mint(engine, pair[0], pair[1], False)
+
+    def _get_url_hash(self, url: str) -> bytes:
+        return to_script_hash(url.encode('utf-8')).to_array()
+
+    def _get_original_txid(self, engine: contracts.ApplicationEngine) -> types.UInt256:
+        tx = cast(payloads.Transaction, engine.script_container)
+        response = tx.try_get_attribute(payloads.OracleResponse)
+        if response is None:
+            return tx.hash()
+        request = self.get_request(engine.snapshot, response.id)
+        if request is None:
+            raise ValueError  # C# will throw null pointer access exception
+        return request.original_tx_id
+
+
+class _IdList(list, serialization.ISerializable):
+    """
+    Helper class to get an IdList from storage and deal with caching.
+    """
+    def serialize(self, writer: serialization.BinaryWriter) -> None:
+        for item in self:
+            writer.write_uint64(item)
+
+    def deserialize(self, reader: serialization.BinaryReader) -> None:
+        count = reader.read_var_int()
+        for _ in range(count):
+            self.append(reader.read_uint64())

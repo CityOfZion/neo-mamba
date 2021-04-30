@@ -68,13 +68,15 @@ separate repositories but be included here by default (e.g. virtual machine impl
 - Virtual Machine
 - Smart contracts (v0.4)
 
-Up next: RC1 parity and Wallet support
+Up next: RC2 parity and Wallet support
 
 Performance
 -----------
-`neo-mamba` syncs the blockchain a respectable ~20% faster than the official client `neo-cli <https://github.com/neo-project/neo-node>`_.
+RC1 is the first release, out of 5, where `neo-mamba` syncs the blockchain slower than the official client `neo-cli <https://github.com/neo-project/neo-node>`_.
+Specifically, 30% slower. New bottlenecks as a result of the RC1 updates have been identified and will be improved on after
+the required RC2 updates.
 
-Performance was measured by letting each client sync the Preview 5 TestNet from an offline file up to block height 181131
+Performance was measured by letting each client sync the RC1 TestNet from an offline file up to block height 146253
 as available at that time. Syncing was done without verifying the block witnesses (``--noverify`` flag in ``neo-cli``).
 Each client used LevelDB as storage backend, with no other additional plugins running. Each client was synced separately
 with no additional resource usage on the system. The test was performed on OSX 10.15.7 on a i7-9750H with 16 GB ram.
