@@ -3,7 +3,6 @@ import socket
 import logging
 import asyncio
 import binascii
-from functools import partial
 from neo3.network import node, message, payloads, capabilities, ipfilter, protocol, encode_base62
 
 from neo3 import settings, network_logger
@@ -25,8 +24,8 @@ class NeoNodeSocketMock(asynctest.SocketMock):
                 capabilities.ServerCapability(n_type=capabilities.NodeCapabilityType.TCPSERVER, port=10333)]
         self.m_send_version = message.Message(msg_type=message.MessageType.VERSION,
                                               payload=payloads.VersionPayload(nonce=123,
-                                                                          user_agent="NEO3-MOCK-CLIENT",
-                                                                                 capabilities=caps))
+                                                                              user_agent="NEO3-MOCK-CLIENT",
+                                                                              capabilities=caps))
         self.m_verack = message.Message(msg_type=message.MessageType.VERACK)
 
     def _recv_data(self):
@@ -377,7 +376,7 @@ class NeoNodeTestCase(asynctest.TestCase):
         m_mempool = message.Message(msg_type=message.MessageType.MEMPOOL, payload=payloads.EmptyPayload())
 
         # taken from the Headers testcase in `test_payloads`
-        raw_headers_payload = binascii.unhexlify(b'020000000001FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A402FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A400000000000000007B0000008A2B438EACA8B4B2AB6B4524B5A69A45D920C35101020102020304000000000001FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A402FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A400000000000000007B0000008A2B438EACA8B4B2AB6B4524B5A69A45D920C3510102010202030400')
+        raw_headers_payload = binascii.unhexlify(b'0000000001FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A402FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A400000000000000007B00000000F7B4D00143932F3B6243CFC06CB4A68F22C739E201020102020304')
         m_headers = message.Message(msg_type=message.MessageType.HEADERS,
                                     payload=payloads.HeadersPayload.deserialize_from_bytes(raw_headers_payload))
         m_ping = message.Message(msg_type=message.MessageType.PING, payload=payloads.PingPayload(0))

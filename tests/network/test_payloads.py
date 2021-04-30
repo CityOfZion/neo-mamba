@@ -122,33 +122,43 @@ class BlockTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         """
-        Transaction tx = new Transaction();
-        tx.Nonce = 123;
-        tx.SystemFee = 456;
-        tx.NetworkFee = 789;
-        tx.ValidUntilBlock = 1;
-        tx.Attributes = new TransactionAttribute[0];
-        tx.Signers = new Signer[] { new Signer() { Account = UInt160.Parse("0xe239c7228fa6b46cc0cf43623b2f934301d0b4f7")}};
-        tx.Script = new byte[] { 0x1 };
-        tx.Witnesses = new Witness[0];
+            Transaction tx = new Transaction();
+            tx.Nonce = 123;
+            tx.SystemFee = 456;
+            tx.NetworkFee = 789;
+            tx.ValidUntilBlock = 1;
+            tx.Attributes = new TransactionAttribute[0];
+            tx.Signers = new Signer[] { new Signer() { Account = UInt160.Parse("0xe239c7228fa6b46cc0cf43623b2f934301d0b4f7")}};
+            tx.Script = new byte[] { 0x1 };
+            tx.Witnesses = new Witness[] {new Witness { InvocationScript = new byte[0], VerificationScript = new byte[] { 0x55 } }};
 
+            Block b = new Block
+            {
+                Header = new Header
+                {
+                    Version = 0,
+                    PrevHash = UInt256.Parse("0xf782c7fbb2eef6afe629b96c0d53fb525eda64ce5345057caf975ac3c2b9ae0a"),
+                    Timestamp = 123,
+                    Index = 1,
+                    PrimaryIndex = 0,
+                    NextConsensus = UInt160.Parse("0xd7678dd97c000be3f33e9362e673101bac4ca654"),
+                    Witness = new Witness { InvocationScript = new byte[0], VerificationScript = new byte[] { 0x55 } },
+                    MerkleRoot = UInt256.Zero
+                },
+                Transactions = new Transaction[] { tx }
+            };
+            b.Header.MerkleRoot = MerkleTree.ComputeRoot(b.Transactions.Select(p => p.Hash).ToArray());
+            Console.WriteLine($"{b.Size}");
+            Console.WriteLine($"{BitConverter.ToString(b.ToArray()).Replace("-", "")}");
 
+            var trimmedBlock = new TrimmedBlock
+            {
+                Header = b.Header,
+                Hashes = b.Transactions.Select(p => p.Hash).ToArray()
+            };
+            Console.WriteLine($"{trimmedBlock.Size}");
+            Console.WriteLine($"{BitConverter.ToString(trimmedBlock.ToArray()).Replace("-", "")}");
 
-        Block b = new Block();
-        b.Version = 0;
-        b.PrevHash = UInt256.Parse("0xf782c7fbb2eef6afe629b96c0d53fb525eda64ce5345057caf975ac3c2b9ae0a");
-        b.Timestamp = 123;
-        b.Index = 1;
-        b.NextConsensus = UInt160.Parse("0xd7678dd97c000be3f33e9362e673101bac4ca654");
-        b.Witness = new Witness { InvocationScript = new byte[0], VerificationScript = new byte[] { 0x55 } };
-        b.ConsensusData = new ConsensusData { Nonce = 123, PrimaryIndex = 0 };
-        b.Transactions = new Transaction[] { tx };
-        b.RebuildMerkleRoot();
-
-        Console.WriteLine($"{b.Size}");
-        Console.WriteLine($"{BitConverter.ToString(b.ToArray()).Replace("-", "")}");
-        Console.WriteLine($"{b.Trim().Size}");
-        Console.WriteLine($"{BitConverter.ToString(b.Trim().ToArray()).Replace("-", "")}");
         """
         cls.tx = payloads.Transaction(version=0,
                                       nonce=123,
@@ -158,22 +168,22 @@ class BlockTestCase(unittest.TestCase):
                                       attributes=[],
                                       signers=[payloads.Signer(types.UInt160.from_string("e239c7228fa6b46cc0cf43623b2f934301d0b4f7"))],
                                       script=b'\x01',
-                                      witnesses=[])
+                                      witnesses=[payloads.Witness(invocation_script=b'', verification_script=b'\x55')])
 
-        cls.block = payloads.Block(version=0,
-                                   prev_hash=types.UInt256.from_string("f782c7fbb2eef6afe629b96c0d53fb525eda64ce5345057caf975ac3c2b9ae0a"),
-                                   timestamp=123,
-                                   index=1,
-                                   next_consensus=types.UInt160.from_string("d7678dd97c000be3f33e9362e673101bac4ca654"),
-                                   witness=payloads.Witness(invocation_script=b'', verification_script=b'\x55'),
-                                   consensus_data=payloads.ConsensusData(primary_index=0, nonce=123),
+        cls.header = payloads.Header(version=0,
+                                     prev_hash=types.UInt256.from_string("f782c7fbb2eef6afe629b96c0d53fb525eda64ce5345057caf975ac3c2b9ae0a"),
+                                     timestamp=123,
+                                     index=1,
+                                     primary_index=0,
+                                     next_consensus=types.UInt160.from_string("d7678dd97c000be3f33e9362e673101bac4ca654"),
+                                     witness=payloads.Witness(invocation_script=b'', verification_script=b'\x55'))
+        cls.block = payloads.Block(cls.header,
                                    transactions=[cls.tx])
         cls.block.rebuild_merkle_root()
-        cls.trimmed_block = cls.block.trim()
 
     def test_len(self):
         # captured from C#, see setUpClass() for the capture code
-        expected_len = 165
+        expected_len = 160
         self.assertEqual(expected_len, len(self.block))
 
     def test_equals(self):
@@ -182,13 +192,13 @@ class BlockTestCase(unittest.TestCase):
 
         # test different hashes
         modified_block = deepcopy(self.block)
-        modified_block.timestamp = 1
+        modified_block.header.timestamp = 1
         self.assertFalse(self.block == modified_block)
         self.assertTrue(self.block == self.block)
 
     def test_serialization(self):
         # captured from C#, see setUpClass() for the capture code
-        expected_data = binascii.unhexlify("000000000AAEB9C2C35A97AF7C054553CE64DA5E52FB530D6CB929E6AFF6EEB2FBC782F749A149B5AEED7B7DBD753FE54F9FCC4A0B368221EF06F76DC4ABB0317972BEE07B000000000000000100000054A64CAC1B1073E662933EF3E30B007CD98D67D70100015502007B00000000000000007B000000C80100000000000015030000000000000100000001F7B4D00143932F3B6243CFC06CB4A68F22C739E20000010100")
+        expected_data = binascii.unhexlify("000000000AAEB9C2C35A97AF7C054553CE64DA5E52FB530D6CB929E6AFF6EEB2FBC782F75618ADD6F91FAD691D6A4D430DB27CE5CA607296863E73A23FC3622A415CDD407B00000000000000010000000054A64CAC1B1073E662933EF3E30B007CD98D67D70100015501007B000000C80100000000000015030000000000000100000001F7B4D00143932F3B6243CFC06CB4A68F22C739E20000010101000155")
         self.assertEqual(expected_data, self.block.to_array())
 
     def test_deserialization(self):
@@ -198,23 +208,11 @@ class BlockTestCase(unittest.TestCase):
         self.assertEqual(self.block.prev_hash, deserialized_block.prev_hash)
         self.assertEqual(self.block.timestamp, deserialized_block.timestamp)
         self.assertEqual(self.block.index, deserialized_block.index)
+        self.assertEqual(self.block.primary_index, deserialized_block.primary_index)
         self.assertEqual(self.block.next_consensus, deserialized_block.next_consensus)
         self.assertEqual(self.block.witness.invocation_script, deserialized_block.witness.invocation_script)
         self.assertEqual(self.block.witness.verification_script, deserialized_block.witness.verification_script)
-        self.assertEqual(self.block.consensus_data.primary_index, deserialized_block.consensus_data.primary_index)
-        self.assertEqual(self.block.consensus_data.nonce, deserialized_block.consensus_data.nonce)
         self.assertEqual(1, len(deserialized_block.transactions))
-
-    def test_deserialization_zero_contents(self):
-        # a block can't have 0 contents
-        block_contents_length_index = 104
-        raw_data = bytearray(self.block.to_array())
-
-        # we force the block contents length to 0
-        raw_data[block_contents_length_index] = 0
-        with self.assertRaises(ValueError) as context:
-            payloads.Block.deserialize_from_bytes(raw_data)
-        self.assertIn("Deserialization error - no contents", str(context.exception))
 
     def test_deserialization_no_duplicate_transactions(self):
         # A block should not have duplicate transactions
@@ -226,7 +224,7 @@ class BlockTestCase(unittest.TestCase):
 
     def test_deserialization_wrong_merkle_root(self):
         block_copy = deepcopy(self.block)
-        block_copy.merkle_root = types.UInt256.zero()
+        block_copy.header.merkle_root = types.UInt256.zero()
         with self.assertRaises(ValueError) as context:
             payloads.Block.deserialize_from_bytes(block_copy.to_array())
         self.assertIn("Deserialization error - merkle root mismatch", str(context.exception))
@@ -238,130 +236,16 @@ class BlockTestCase(unittest.TestCase):
         trimmed_block = self.block.trim()
         self.assertIsInstance(trimmed_block, payloads.TrimmedBlock)
         # captured from C#, see setUpClass() for the capture code
-        expected_len = 178
+        expected_len = 138
         self.assertEqual(expected_len, len(trimmed_block))
 
-        expected_data = binascii.unhexlify('000000000AAEB9C2C35A97AF7C054553CE64DA5E52FB530D6CB929E6AFF6EEB2FBC782F749A149B5AEED7B7DBD753FE54F9FCC4A0B368221EF06F76DC4ABB0317972BEE07B000000000000000100000054A64CAC1B1073E662933EF3E30B007CD98D67D70100015502CEBBAA303E74D5CAC6DF34823B7484B7760460295EC1E97845FDF138F9A87A62DBB73FBF82438E317ABA947D8853907AB259BDCEB8A5771AF394371492BD7D88007B00000000000000')
+        expected_data = binascii.unhexlify('000000000AAEB9C2C35A97AF7C054553CE64DA5E52FB530D6CB929E6AFF6EEB2FBC782F75618ADD6F91FAD691D6A4D430DB27CE5CA607296863E73A23FC3622A415CDD407B00000000000000010000000054A64CAC1B1073E662933EF3E30B007CD98D67D701000155015618ADD6F91FAD691D6A4D430DB27CE5CA607296863E73A23FC3622A415CDD40')
         self.assertEqual(expected_data, trimmed_block.to_array())
 
         deserialized_trimmed_block = payloads.TrimmedBlock.deserialize_from_bytes(trimmed_block.to_array())
-        self.assertEqual(trimmed_block.version, deserialized_trimmed_block.version)
-        self.assertEqual(trimmed_block.prev_hash, deserialized_trimmed_block.prev_hash)
-        self.assertEqual(trimmed_block.timestamp, deserialized_trimmed_block.timestamp)
-        self.assertEqual(trimmed_block.index, deserialized_trimmed_block.index)
-        self.assertEqual(trimmed_block.next_consensus, deserialized_trimmed_block.next_consensus)
-        self.assertEqual(trimmed_block.witness.invocation_script, deserialized_trimmed_block.witness.invocation_script)
-        self.assertEqual(trimmed_block.witness.verification_script, deserialized_trimmed_block.witness.verification_script)
-        self.assertEqual(trimmed_block.consensus_data.primary_index, deserialized_trimmed_block.consensus_data.primary_index)
-        self.assertEqual(trimmed_block.consensus_data.nonce, deserialized_trimmed_block.consensus_data.nonce)
+        self.assertEqual(trimmed_block.header, deserialized_trimmed_block.header)
         self.assertEqual(trimmed_block.hashes, deserialized_trimmed_block.hashes)
-        self.assertEqual(2, len(deserialized_trimmed_block.hashes))
-
-
-class ConsensusDataTestCase(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls) -> None:
-        """
-        ConsensusData cd = new ConsensusData();
-        cd.PrimaryIndex = 0;
-        cd.Nonce = 456;
-        Console.WriteLine(cd.Size);
-        Console.WriteLine(cd.Hash);
-        Console.WriteLine($"b\'{BitConverter.ToString(cd.ToArray()).Replace("-", "")}\'");
-        """
-        cd = payloads.ConsensusData()
-        cd.primary_index = 0
-        cd.nonce = 456
-        cls.consensus_data = cd
-
-    def test_len_and_hash(self):
-        # captured from C#, see setUpClass() for the capture code
-        expected_len = 9
-        expected_hash = types.UInt256.from_string('b616ce734d5d6bfb0c5b3c9fe890b29299f5338c1af9156342e4df9d5828a303')
-        self.assertEqual(expected_len, len(self.consensus_data))
-        self.assertEqual(expected_hash, self.consensus_data.hash())
-
-    def test_serialization(self):
-        # captured from C#, see setUpClass() for the capture code
-        expected_data = binascii.unhexlify(b'00C801000000000000')
-        self.assertEqual(expected_data, self.consensus_data.to_array())
-
-    def test_deserialization(self):
-        # if the serialization() test for this class passes, we can use that as a reference to test deserialization against
-        deserialized_consensus = payloads.ConsensusData.deserialize_from_bytes(self.consensus_data.to_array())
-        self.assertEqual(self.consensus_data.primary_index, deserialized_consensus.primary_index)
-        self.assertEqual(self.consensus_data.nonce, deserialized_consensus.nonce)
-
-
-class ConsensusPayloadTestCase(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls) -> None:
-        """
-        ConsensusPayload cp = new ConsensusPayload
-        {
-            Version = 1,
-            PrevHash = UInt256.Parse("f782c7fbb2eef6afe629b96c0d53fb525eda64ce5345057caf975ac3c2b9ae0a"),
-            BlockIndex = 2,
-            ValidatorIndex = 0,
-            Witness = new Witness
-            {
-                InvocationScript = new byte[0],
-                VerificationScript = new byte[0]
-            },
-            Data = new byte[] {
-                0x0, /* ConsensusMessageType.CHANGEVIEW */
-                0x1, /* View number */
-                0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, /* ChangeView.Timestamp */
-                0x0 /* ChangeViewReason.Timeout */
-            }
-        };
-        Console.WriteLine(cp.Size);
-        Console.WriteLine(cp.Hash);
-        Console.WriteLine($"b\'{BitConverter.ToString(cp.ToArray()).Replace("-", "")}\'");
-        """
-        cls.payload = payloads.ConsensusPayload(
-            version=1,
-            prev_hash=types.UInt256.from_string("f782c7fbb2eef6afe629b96c0d53fb525eda64ce5345057caf975ac3c2b9ae0a"),
-            block_index=2,
-            validator_index=0,
-            data=b'\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00',
-            witness=payloads.Witness(bytearray(), bytearray())
-        )
-
-    def test_len_and_hash(self):
-        # captured from C#, see setUpClass() for the capture code
-        expected_len = 56
-        expected_hash = types.UInt256.from_string('44d22b68b530cfc7f1c1586e7e516368227bffd95a912413af7ea424f5605633')
-        self.assertEqual(expected_len, len(self.payload))
-        self.assertEqual(expected_hash, self.payload.hash())
-
-    def test_serialization(self):
-        # captured from C#, see setUpClass() for the capture code
-        expected_data = binascii.unhexlify(b'010000000AAEB9C2C35A97AF7C054553CE64DA5E52FB530D6CB929E6AFF6EEB2FBC782F702000000000B0001000000000000000000010000')
-        self.assertEqual(expected_data, self.payload.to_array())
-
-    def test_deserialization(self):
-        # if the serialization() test for this class passes, we can use that as a reference to test deserialization against
-        deserialized_consensus_payload = payloads.ConsensusPayload.deserialize_from_bytes(self.payload.to_array())
-        self.assertEqual(self.payload.version, deserialized_consensus_payload.version)
-        self.assertEqual(self.payload.prev_hash, deserialized_consensus_payload.prev_hash)
-        self.assertEqual(self.payload.block_index, deserialized_consensus_payload.block_index)
-        self.assertEqual(self.payload.validator_index, deserialized_consensus_payload.validator_index)
-        self.assertEqual(self.payload.data, deserialized_consensus_payload.data)
-        self.assertEqual(self.payload.witness.invocation_script, deserialized_consensus_payload.witness.invocation_script)
-        self.assertEqual(self.payload.witness.verification_script, deserialized_consensus_payload.witness.verification_script)
-
-    def test_deserialization_error(self):
-        # an exception should be thrown if the validation byte is wrong
-        payload_data = bytearray(self.payload.to_array())
-        # modify validation byte
-        payload_data[-3] = 0xEE
-        with self.assertRaises(ValueError) as context:
-            payloads.ConsensusPayload.deserialize_from_bytes(payload_data)
-        self.assertIn("Deserialization error - validation byte not 1", str(context.exception))
-
-    def test_inventory_type(self):
-        self.assertEqual(payloads.InventoryType.CONSENSUS, self.payload.inventory_type)
+        self.assertEqual(1, len(deserialized_trimmed_block.hashes))
 
 
 class SignerTestCase(unittest.TestCase):
@@ -572,6 +456,7 @@ class HeaderTestCase(unittest.TestCase):
             MerkleRoot = UInt256.Parse("a400ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff02"),
             Timestamp = 0,
             Index = 123,
+            PrimaryIndex = 0,
             NextConsensus = UInt160.Parse("0xe239c7228fa6b46cc0cf43623b2f934301d0b4f7"),
             Witness = new Witness
             {
@@ -588,21 +473,22 @@ class HeaderTestCase(unittest.TestCase):
         merkleroot = types.UInt256.from_string("a400ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff02")
         timestamp = 0
         index = 123
+        primary_index = 0
         next_consensus = types.UInt160.from_string("e239c7228fa6b46cc0cf43623b2f934301d0b4f7")
         witness = payloads.Witness(invocation_script=b'\x01\x02', verification_script=b'\x03\x04')
 
-        cls.header = payloads.Header(version, previous_hash, timestamp, index, next_consensus, witness, merkleroot)
+        cls.header = payloads.Header(version, previous_hash, timestamp, index, primary_index, next_consensus, witness, merkleroot)
 
     def test_len_and_hash(self):
         # captured from C#, see setUpClass() for the capture code
         expected_len = 108
-        expected_hash = types.UInt256.from_string('8672a4dbd51bb911d1988d633f539ccf05e46cf614160be15472b9ae10e43a88')
+        expected_hash = types.UInt256.from_string('47a455f322441b6c3b4dffd039df34ca724fac222686e515043f01c494687868')
         self.assertEqual(expected_len, len(self.header))
         self.assertEqual(expected_hash, self.header.hash())
 
     def test_serialization(self):
         # captured from C#, see setUpClass() for the capture code
-        expected_data = binascii.unhexlify(b'0000000001FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A402FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A400000000000000007B000000F7B4D00143932F3B6243CFC06CB4A68F22C739E20102010202030400')
+        expected_data = binascii.unhexlify(b'0000000001FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A402FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A400000000000000007B00000000F7B4D00143932F3B6243CFC06CB4A68F22C739E201020102020304')
         self.assertEqual(expected_data, self.header.to_array())
 
     def test_deserialization(self):
@@ -621,26 +507,14 @@ class HeaderTestCase(unittest.TestCase):
     def test_deserialization_failure1(self):
         # there should be a 1 byte witness object count (fixed to value 1) before the actual witness object.
         # see https://github.com/neo-project/neo/issues/1128
-        raw_data = binascii.unhexlify(b'0000000001FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A402FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A400000000000000007B0000008A2B438EACA8B4B2AB6B4524B5A69A45D920C351FF02010202030400')
+        raw_data = binascii.unhexlify(b'0000000001FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A402FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A400000000000000007B00000000F7B4D00143932F3B6243CFC06CB4A68F22C739E200020102020304')
         deserialized_header = payloads.Header._serializable_init()
 
         with self.assertRaises(ValueError) as context:
             with serialization.BinaryReader(raw_data) as br:
                     deserialized_header.deserialize(br)
         self.assertIn("Deserialization error", str(context.exception))
-        self.assertIn("Witness object count is 255 must be 1", str(context.exception))
-
-
-    def test_deserialization_failure2(self):
-        # the last byte in the stream should always be 0, this is to differentiate between blocks and headers according to
-        # https://github.com/neo-project/neo/pull/1129#issuecomment-537102207
-        raw_data = binascii.unhexlify(b'0000000001FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A402FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A400000000000000007B0000008A2B438EACA8B4B2AB6B4524B5A69A45D920C3510102010202030411')
-        deserialized_header = payloads.Header._serializable_init()
-
-        with self.assertRaises(ValueError) as context:
-            with serialization.BinaryReader(raw_data) as br:
-                    deserialized_header.deserialize(br)
-        self.assertIn("Deserialization error", str(context.exception))
+        self.assertIn("Witness object count is 0 must be 1", str(context.exception))
 
     def test_equals(self):
         self.assertFalse(None == self.header)
@@ -657,26 +531,28 @@ class HeadersPayloadTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         """
-        Neo.IO.Json.JObject json = new Neo.IO.Json.JObject
+        Header h1 = new Header
         {
-            ["version"] = 0,
-            ["previousblockhash"] = "a400ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff01",
-            ["merkleroot"] = "a400ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff02",
-            ["time"] = 0,
-            ["index"] = 123,
-            ["nextconsensus"] = "AUNSizuErA3dv1a2ag2ozvikkQS7hhPY1X",
-            ["witnesses"] = new Neo.IO.Json.JArray
-        {
-            new Neo.IO.Json.JObject {
-                ["invocation"] = "0102",
-                ["verification"] = "0304"
+            Version = 0,
+            PrevHash = UInt256.Parse("a400ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff01"),
+            MerkleRoot = UInt256.Parse("a400ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff02"),
+            Timestamp = 0,
+            Index = 123,
+            PrimaryIndex = 0,
+            NextConsensus = UInt160.Parse("8a2b438eaca8b4b2ab6b4524b5a69a45d920c351"),
+            Witness = new Witness
+            {
+                InvocationScript = new byte[] {0x1, 0x2},
+                VerificationScript = new byte[] {0x3, 0x4}
             }
-        }
         };
+        Header h2;
+        using (BinaryReader reader = new BinaryReader(new MemoryStream(h1.ToArray())))
+        {
+            h2 = reader.ReadSerializable<Header>();
+        }
 
-        Header h1 = Header.FromJson(json);
-        Header h2 = Header.FromJson(json);
-        HeadersPayload hp = HeadersPayload.Create(new List<Header> { h1, h2 });
+        HeadersPayload hp = HeadersPayload.Create(new Header[] { h1, h2 });
         Console.WriteLine(hp.Size);
         Console.WriteLine($"b\'{BitConverter.ToString(hp.ToArray()).Replace("-", "")}\'");
         """
@@ -685,12 +561,12 @@ class HeadersPayloadTestCase(unittest.TestCase):
         merkleroot = types.UInt256.from_string("a400ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff02")
         timestamp = 0
         index = 123
-        addr_data = base58.b58decode_check('AUNSizuErA3dv1a2ag2ozvikkQS7hhPY1X')[1:]
-        next_consensus = types.UInt160(data=addr_data)
+        primary_index = 0
+        next_consensus = types.UInt160.from_string("8a2b438eaca8b4b2ab6b4524b5a69a45d920c351")
         witness = payloads.Witness(invocation_script=b'\x01\x02', verification_script=b'\x03\x04')
 
-        h1 = payloads.Header(version, previous_hash, timestamp, index, next_consensus, witness, merkleroot)
-        h2 = payloads.Header(version, previous_hash, timestamp, index, next_consensus, witness, merkleroot)
+        h1 = payloads.Header(version, previous_hash, timestamp, index, primary_index, next_consensus, witness, merkleroot)
+        h2 = payloads.Header(version, previous_hash, timestamp, index, primary_index, next_consensus, witness, merkleroot)
         cls.payload = payloads.HeadersPayload.create([h1, h2])
 
     def test_len(self):
@@ -700,7 +576,7 @@ class HeadersPayloadTestCase(unittest.TestCase):
 
     def test_serialization(self):
         # captured from C#, see setUpClass() for the capture code
-        expected_data = binascii.unhexlify(b'020000000001FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A402FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A400000000000000007B0000008A2B438EACA8B4B2AB6B4524B5A69A45D920C35101020102020304000000000001FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A402FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A400000000000000007B0000008A2B438EACA8B4B2AB6B4524B5A69A45D920C3510102010202030400')
+        expected_data = binascii.unhexlify(b'020000000001FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A402FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A400000000000000007B0000000051C320D9459AA6B524456BABB2B4A8AC8E432B8A010201020203040000000001FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A402FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A400000000000000007B0000000051C320D9459AA6B524456BABB2B4A8AC8E432B8A01020102020304')
         self.assertEqual(expected_data, self.payload.to_array())
 
     def test_deserialization(self):
@@ -758,24 +634,29 @@ class MerkleBlockPayloadTestCase(unittest.TestCase):
         tx.Script = new byte[] { 0x1 };
         tx.Witnesses = new Witness[0];
 
+        Block b = new Block
+        {
+            Header = new Header
+            {
+                Version = 0,
+                PrevHash = UInt256.Parse("0xf782c7fbb2eef6afe629b96c0d53fb525eda64ce5345057caf975ac3c2b9ae0a"),
+                Timestamp = 123,
+                Index = 1,
+                PrimaryIndex = 0,
+                NextConsensus = UInt160.Parse("0xd7678dd97c000be3f33e9362e673101bac4ca654"),
+                Witness = new Witness { InvocationScript = new byte[0], VerificationScript = new byte[] { 0x55 } },
+                MerkleRoot = UInt256.Zero
+            },
+            Transactions = new Transaction[] { tx }
+        };
+        b.Header.MerkleRoot = MerkleTree.ComputeRoot(b.Transactions.Select(p => p.Hash).ToArray());
 
-
-        Block b = new Block();
-        b.Version = 0;
-        b.PrevHash = UInt256.Parse("0xf782c7fbb2eef6afe629b96c0d53fb525eda64ce5345057caf975ac3c2b9ae0a");
-        b.Timestamp = 123;
-        b.Index = 1;
-        b.NextConsensus = UInt160.Parse("0xd7678dd97c000be3f33e9362e673101bac4ca654");
-        b.Witness = new Witness { InvocationScript = new byte[0], VerificationScript = new byte[] { 0x55 } };
-        b.ConsensusData = new ConsensusData { Nonce = 123, PrimaryIndex = 1 };
-        b.Transactions = new Transaction[] { tx };
-        b.RebuildMerkleRoot();
-
-        byte[] bytes = { 0x1, 0x2 };
+        byte[] bytes = { 0x1 };
         BitArray flags = new BitArray(bytes);
         MerkleBlockPayload mbp = MerkleBlockPayload.Create(b, flags);
         Console.WriteLine($"b\'{BitConverter.ToString(mbp.ToArray()).Replace("-", "")}\'");
         """
+
         cls.tx = payloads.Transaction(version=0,
                                       nonce=123,
                                       system_fee=456,
@@ -784,38 +665,38 @@ class MerkleBlockPayloadTestCase(unittest.TestCase):
                                       attributes=[],
                                       signers=[payloads.Signer(types.UInt160.from_string("e239c7228fa6b46cc0cf43623b2f934301d0b4f7"))],
                                       script=b'\x01',
-                                      witnesses=[])
+                                      witnesses=[payloads.Witness(invocation_script=b'', verification_script=b'\x55')])
 
-        cls.block = payloads.Block(version=0,
-                                   prev_hash=types.UInt256.from_string("f782c7fbb2eef6afe629b96c0d53fb525eda64ce5345057caf975ac3c2b9ae0a"),
-                                   timestamp=123,
-                                   index=1,
-                                   next_consensus=types.UInt160.from_string("d7678dd97c000be3f33e9362e673101bac4ca654"),
-                                   witness=payloads.Witness(invocation_script=b'', verification_script=b'\x55'),
-                                   consensus_data=payloads.ConsensusData(primary_index=1, nonce=123),
+        cls.header = payloads.Header(version=0,
+                                     prev_hash=types.UInt256.from_string("f782c7fbb2eef6afe629b96c0d53fb525eda64ce5345057caf975ac3c2b9ae0a"),
+                                     timestamp=123,
+                                     index=1,
+                                     primary_index=0,
+                                     next_consensus=types.UInt160.from_string("d7678dd97c000be3f33e9362e673101bac4ca654"),
+                                     witness=payloads.Witness(invocation_script=b'', verification_script=b'\x55'))
+        cls.block = payloads.Block(cls.header,
                                    transactions=[cls.tx])
         cls.block.rebuild_merkle_root()
         flags = bitarray()
-        flags.frombytes(b'\x01\x02')
+        flags.frombytes(b'\x01')
         cls.merkle_payload = payloads.MerkleBlockPayload(cls.block, flags)
 
     def test_len(self):
         # captured from C#, see setUpClass() for the capture code
-        expected_len = 176
+        expected_len = 144
         self.assertEqual(expected_len, len(self.merkle_payload))
 
     def test_serialization(self):
         # captured from C#, see setUpClass() for the capture code
-        expected_data = binascii.unhexlify(b'000000000AAEB9C2C35A97AF7C054553CE64DA5E52FB530D6CB929E6AFF6EEB2FBC782F72F9B61E3B410EF24D86B2BAFD9F2611AD8F43A9F7167FC58C3FCCC80BBFD40A67B000000000000000100000054A64CAC1B1073E662933EF3E30B007CD98D67D7010001550202FCAF61CDF5BEF2AB0FFAC66D846D14EDF06C84A0FD852264918E2F1E2E0A546CDBB73FBF82438E317ABA947D8853907AB259BDCEB8A5771AF394371492BD7D88020102')
+        expected_data = binascii.unhexlify(b'000000000AAEB9C2C35A97AF7C054553CE64DA5E52FB530D6CB929E6AFF6EEB2FBC782F75618ADD6F91FAD691D6A4D430DB27CE5CA607296863E73A23FC3622A415CDD407B00000000000000010000000054A64CAC1B1073E662933EF3E30B007CD98D67D70100015501015618ADD6F91FAD691D6A4D430DB27CE5CA607296863E73A23FC3622A415CDD400101')
         self.assertEqual(expected_data, self.merkle_payload.to_array())
 
     def test_deserialization(self):
         # if the serialization() test for this class passes, we can use that as a reference to test deserialization against
         deserialized_merkle_payload = payloads.MerkleBlockPayload.deserialize_from_bytes(self.merkle_payload.to_array())
         # not testing all properties again. It re-uses the same block as created in the Block test case
-        self.assertEqual(self.merkle_payload.prev_hash, deserialized_merkle_payload.prev_hash)
         # only testing new properties
-        self.assertEqual(self.merkle_payload.content_count, deserialized_merkle_payload.content_count)
+        self.assertEqual(self.merkle_payload.tx_count, deserialized_merkle_payload.tx_count)
         self.assertEqual(len(self.merkle_payload.hashes), len(deserialized_merkle_payload.hashes))
         self.assertEqual(self.merkle_payload.hashes[0], deserialized_merkle_payload.hashes[0])
         self.assertEqual(self.merkle_payload.flags, deserialized_merkle_payload.flags)
@@ -962,7 +843,7 @@ class TransactionTestCase(unittest.TestCase):
 
         Signer co = new Signer();
         co.Account = UInt160.Parse("0xd7678dd97c000be3f33e9362e673101bac4ca654");
-        co.Scopes = WitnessScope.FeeOnly;
+        co.Scopes = WitnessScope.None;
         tx.Signers = new Signer[] { co };
 
         tx.Script = new byte[] { 0x1, 0x2 };
@@ -994,7 +875,7 @@ class TransactionTestCase(unittest.TestCase):
     def test_len_and_hash(self):
         # captured from C#, see setUpClass() for the capture code
         expected_len = 55
-        expected_hash = types.UInt256.from_string('175cdc35664fc27e09b1970f190b6dce41d82c5409882e74c395f57de5c84ecd')
+        expected_hash = types.UInt256.from_string('da0343daadf88f95ece657fed6c20e05256d37f0d68757034da1d34f534d2c2c')
         self.assertEqual(expected_len, len(self.tx))
         self.assertEqual(expected_hash, self.tx.hash())
 

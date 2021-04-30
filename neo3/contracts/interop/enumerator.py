@@ -99,7 +99,7 @@ class StorageIterator(IIterator):
             key = key[1:]
 
         if contracts.FindOptions.DESERIALIZE_VALUES in self.options:
-            item: vm.StackItem = contracts.BinarySerializer.deserialize(value, 1024, len(value), self.reference_counter)
+            item: vm.StackItem = contracts.BinarySerializer.deserialize(value, 1024, self.reference_counter)
         else:
             item = vm.ByteStringStackItem(value)
 

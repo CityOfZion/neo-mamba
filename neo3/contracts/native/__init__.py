@@ -1,3 +1,4 @@
+from .decorator import register
 from .nativecontract import NativeContract
 from .fungible import (FungibleToken, NeoToken, GasToken, FungibleTokenStorageState)
 from .policy import PolicyContract
@@ -7,6 +8,8 @@ from .management import ManagementContract
 from .nonfungible import NonFungibleToken, NFTState
 from .nameservice import NameService
 from .ledger import LedgerContract
+from .crypto import CryptoContract
+from .stdlib import StdLibContract
 
 __all__ = ['NativeContract',
            'PolicyContract',
@@ -17,5 +20,8 @@ __all__ = ['NativeContract',
            'ManagementContract',
            'NameService',
            'LedgerContract',
-           'FungibleToken'
+           'FungibleToken',
+           'CryptoContract',
+           'StdLibContract',
+           'register'
            ]

@@ -2,7 +2,7 @@ from __future__ import annotations
 import struct
 from enum import IntEnum
 from typing import List
-from . import NativeContract
+from . import NativeContract, register
 from neo3 import storage, contracts, cryptography, vm
 from neo3.core import serialization
 
@@ -10,29 +10,17 @@ from neo3.core import serialization
 class DesignateRole(IntEnum):
     STATE_VALIDATOR = 4
     ORACLE = 8
+    NEO_FS_ALPHABET_NODE = 16
 
 
 class DesignationContract(NativeContract):
-    _id = -6
+    _id = -8
     _service_name = "RoleManagement"
 
     def init(self):
         super(DesignationContract, self).init()
-        self._register_contract_method(self.get_designated_by_role,
-                                       "getDesignatedByRole",
-                                       1000000,
-                                       parameter_names=["role", "index"],
-                                       call_flags=contracts.CallFlags.READ_STATES)
 
-        self._register_contract_method(self.designate_as_role,
-                                       "designateAsRole",
-                                       0,
-                                       parameter_names=["role", "nodes"],
-                                       call_flags=contracts.CallFlags.WRITE_STATES)
-
-    def _to_uint32(self, value: int) -> bytes:
-        return struct.pack(">I", value)
-
+    @register("getDesignatedByRole", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
     def get_designated_by_role(self,
                                snapshot: storage.Snapshot,
                                role: DesignateRole,
@@ -48,6 +36,7 @@ class DesignationContract(NativeContract):
         else:
             return []
 
+    @register("designateAsRole", contracts.CallFlags.STATES, cpu_price=1 << 15)
     def designate_as_role(self,
                           engine: contracts.ApplicationEngine,
                           role: DesignateRole,
@@ -71,3 +60,6 @@ class DesignationContract(NativeContract):
             writer.write_serializable_list(nodes)
             storage_item = storage.StorageItem(writer.to_array())
         engine.snapshot.storages.update(storage_key, storage_item)
+
+    def _to_uint32(self, value: int) -> bytes:
+        return struct.pack(">I", value)
