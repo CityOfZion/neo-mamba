@@ -1,6 +1,7 @@
 import unittest
 from neo3.wallet import Account
 
+# the accounts were generated at neo cli v3.0.0-preview3
 account_list = [
     {
         "address": "NdgRTnfiYyLr3N7dqTE7J33KRyvuyHzv7q",
@@ -35,15 +36,15 @@ account_list = [
 
 class AccountCreationTestCase(unittest.TestCase):
 
-    def test_account_from_password(self):
+    def test_new_account(self):
         for testcase in account_list:
-            account = Account.from_password(testcase['password'])
+            account = Account(testcase['password'])
             self.assertIsNotNone(account)
             self.assertIsNotNone(account.address)
             self.assertIsNotNone(account.encrypted_key)
             self.assertIsNotNone(account.public_key)
 
-    def test_account_from_private_key(self):
+    def test_new_account_from_private_key(self):
         for testcase in account_list:
             account = Account.from_private_key(bytes.fromhex(testcase['private_key']), testcase['password'])
             self.assertEqual(testcase['address'], account.address)
@@ -51,7 +52,7 @@ class AccountCreationTestCase(unittest.TestCase):
             self.assertEqual(testcase['script_hash'], account.script_hash.__str__())
             self.assertIsNotNone(account.public_key)
 
-    def test_account_from_encrypted_key(self):
+    def test_new_account_from_encrypted_key(self):
         for testcase in account_list:
             account = Account.from_encrypted_key(testcase['encrypted_key'], testcase['password'])
             self.assertEqual(testcase['address'], account.address)
@@ -59,18 +60,18 @@ class AccountCreationTestCase(unittest.TestCase):
             self.assertEqual(testcase['script_hash'], account.script_hash.__str__())
             self.assertIsNotNone(account.public_key)
 
-    def test_account_from_script_hash(self):
+    def test_new_watch_only_account(self):
         from neo3.core.types import UInt160
         for testcase in account_list:
-            account = Account.from_script_hash(UInt160.from_string(testcase['script_hash']))
+            account = Account.watch_only(UInt160.from_string(testcase['script_hash']))
             self.assertEqual(testcase['address'], account.address)
             self.assertIsNone(account.encrypted_key)
             self.assertEqual(testcase['script_hash'], account.script_hash.__str__())
             self.assertIsNone(account.public_key)
 
-    def test_account_from_address(self):
+    def test_new_watch_only_account_from_address(self):
         for testcase in account_list:
-            account = Account.from_address(testcase['address'])
+            account = Account.watch_only_from_address(testcase['address'])
             self.assertEqual(testcase['address'], account.address)
             self.assertIsNone(account.encrypted_key)
             self.assertEqual(testcase['script_hash'], account.script_hash.__str__())
