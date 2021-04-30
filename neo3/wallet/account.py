@@ -14,6 +14,9 @@ from neo3.core.cryptography import KeyPair
 # both constants below are used to encrypt/decrypt a private key to/from a nep2 key
 NEP_HEADER = bytes([0x01, 0x42])
 NEP_FLAG = bytes([0xe0])
+# both constants are used when trying to decrypt a private key from a wif
+WIF_PREFIX = bytes([0x80])
+WIF_SUFFIX = bytes([0x01])
 
 
 class Account:
@@ -86,6 +89,20 @@ class Account:
             The newly created account.
         """
         return cls(password=password, private_key=private_key)
+
+    @classmethod
+    def from_wif(cls, wif: str, password: str) -> Account:
+        """
+        Instantiate and returns an account from a given wif and password.
+
+        Args:
+            wif: the wif that will be decrypted to get a private key and generate an encrypted key.
+            password: the password to encrypt a private key.
+
+        Returns:
+            The newly created account.
+        """
+        return cls(password=password, private_key=cls.private_key_from_wif(wif))
 
     @classmethod
     def watch_only(cls, script_hash: types.UInt160) -> Account:
@@ -246,6 +263,34 @@ class Account:
         encoded_nep2 = base58.b58encode_check(bytes(nep2))
 
         return encoded_nep2
+
+    @staticmethod
+    def private_key_from_wif(wif: str) -> bytes:
+        """
+        Decrypt a private key from a wif.
+
+        Args:
+            wif: the wif that will be decrypted.
+
+        Raises:
+            ValueError: if the wif is not valid.
+        """
+        try:
+            decoded_key: bytes = base58.b58decode_check(wif)
+        except Exception:
+            raise ValueError("Base58decode failure of wif")
+
+        if len(decoded_key) != 34:
+            raise ValueError(f"The decoded wif length should be {len(types.UInt160.zero()) + 1}, while the given wif "
+                             f"length is {len(decoded_key)}")
+        elif decoded_key[:1] != WIF_PREFIX:
+            raise ValueError(f"The decoded wif first bytes should be {WIF_PREFIX}")
+        elif decoded_key[-1:] != WIF_SUFFIX:
+            raise ValueError(f"The decoded wif last bytes should be {WIF_SUFFIX}")
+
+        private_key = decoded_key[1: 33]
+
+        return private_key
 
     @staticmethod
     def _xor_bytes(a: bytes, b: bytes) -> bytes:
