@@ -22,8 +22,7 @@ class ContractTestCase(unittest.TestCase):
         var c = Contract.CreateSignatureContract(kp1.PublicKey);
         Console.WriteLine(c.Script.ToHexString());
         """
-
-        expected = binascii.unhexlify(b'0c21026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca160b4195440d78')
+        expected = binascii.unhexlify(b'0c21026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca1641747476aa')
         keypair = cryptography.KeyPair(private_key=b'\x01' * 32)
         contract = contracts.Contract.create_signature_contract(keypair.public_key)
         self.assertEqual(expected, contract.script)
@@ -47,15 +46,16 @@ class ContractTestCase(unittest.TestCase):
         var kp1 = new KeyPair(priv_key1);
         var kp2 = new KeyPair(priv_key2);
         var c = Contract.CreateMultiSigContract(1, new ECPoint[] {kp1.PublicKey, kp2.PublicKey});
+        Console.WriteLine(c.Script.ToHexString());
+        Console.WriteLine(c.ScriptHash.ToArray().ToHexString());
         """
-        expected_script = binascii.unhexlify(b'110c2102550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e240c21026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca16120b41138defaf')
-        expected_script_hash = types.UInt160(binascii.unhexlify(b'205bc1a9d199eecb30ab0c1ff027456ce7998e1f'))
+        expected_script = binascii.unhexlify(b'110c2102550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e240c21026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca1612417bce6ca5')
+        expected_script_hash = types.UInt160(binascii.unhexlify(b'2514b406a154dd2b1148a79f33a8d6926e4a30c3'))
         keypair1 = cryptography.KeyPair(private_key=b'\x01' * 32)
         keypair2 = cryptography.KeyPair(private_key=b'\x02' * 32)
         contract = contracts.Contract.create_multisig_contract(1, [keypair1.public_key, keypair2.public_key])
         self.assertEqual(expected_script, contract.script)
-        self.assertEqual(expected_script_hash, contract.script_hash)
-
+        self.assertEqual(str(expected_script_hash), str(contract.script_hash))
 
     def test_create_multisignature_redeemscript_invalid_arguments(self):
         with self.assertRaises(ValueError) as context:
@@ -76,43 +76,36 @@ class ContractTestCase(unittest.TestCase):
         - PUSHDATA1 (0xC)
         - LEN PUBLIC KEY (33)
         - PUBLIC KEY data
-        - PUSHNULL (0xB)
         - SYSCALL (0x41)
-        - "Neo.Crypto.VerifyWithECDsaSecp256r1" identifier
+        - "Neo.Crypto.CheckSig" identifier
         """
 
         incorrect_script_len = b'\x01' * 10
         self.assertFalse(contracts.Contract.is_signature_contract(incorrect_script_len))
 
         # first byte should be PUSHDATA1 (0xC)
-        incorrect_script_start_byte = b'\x01' * 41
+        incorrect_script_start_byte = b'\x01' * 40
         self.assertFalse(contracts.Contract.is_signature_contract(incorrect_script_start_byte))
 
         # second byte should be 33
-        incorrect_second_byte = bytearray(b'\x01' * 41)
+        incorrect_second_byte = bytearray(b'\x01' * 40)
         incorrect_second_byte[0] = int(vm.OpCode.PUSHDATA1)
         self.assertFalse(contracts.Contract.is_signature_contract(incorrect_second_byte))
 
-        # index 35 should be PUSHNULL
-        incorrect_idx_35 = bytearray([0xc, 33]) + b'\01' * 39
-        self.assertFalse(contracts.Contract.is_signature_contract(incorrect_idx_35))
+        # index 35 should be SYSCALL
+        incorrect_idx_35 = bytearray([0xc, 33]) + b'\01' * 38
+        incorrect_idx_35[35] = int(vm.OpCode.PUSHNULL)
+        self.assertFalse(contracts.Contract.is_signature_contract(incorrect_idx_35))  # index 35 should be SYSCALL
 
-        # index 36 should be SYSCALL
-        incorrect_idx_36 = bytearray([0xc, 33]) + b'\01' * 39
-        incorrect_idx_36[35] = int(vm.OpCode.PUSHNULL)
-        self.assertFalse(contracts.Contract.is_signature_contract(incorrect_idx_36))        # index 36 should be SYSCALL
-
-        # the last 4 bytes should be the "Neo.Crypto.VerifyWithECDsaSecp256r1" SYSCALL
-        incorrect_syscall_number = bytearray([0xc, 33]) + b'\01' * 39
-        incorrect_syscall_number[35] = int(vm.OpCode.PUSHNULL)
-        incorrect_syscall_number[36] = int(vm.OpCode.SYSCALL)
+        # the last 4 bytes should be the "Neo.Crypto.CheckSig" SYSCALL
+        incorrect_syscall_number = bytearray([0xc, 33]) + b'\01' * 38
+        incorrect_syscall_number[35] = int(vm.OpCode.SYSCALL)
         self.assertFalse(contracts.Contract.is_signature_contract(incorrect_syscall_number))
 
         # and finally a contract that matches the correct format
-        correct = bytearray([0xc, 33]) + b'\01' * 39
-        correct[35] = int(vm.OpCode.PUSHNULL)
-        correct[36] = int(vm.OpCode.SYSCALL)
-        correct[37:41] = contracts.syscall_name_to_int("Neo.Crypto.VerifyWithECDsaSecp256r1").to_bytes(4, 'little')
+        correct = bytearray([0xc, 33]) + b'\01' * 38
+        correct[35] = int(vm.OpCode.SYSCALL)
+        correct[36:40] = contracts.syscall_name_to_int("Neo.Crypto.CheckSig").to_bytes(4, 'little')
         self.assertTrue(contracts.Contract.is_signature_contract(correct))
 
     def test_is_multisig_contract_too_short(self):
@@ -185,18 +178,14 @@ class ContractTestCase(unittest.TestCase):
         # and assert we don't have enough data left for the remainder of the checks
         self.assertFalse(contracts.Contract.is_multisig_contract(script))
 
-        # now we extend with 6 bytes to give enough data
-        # the first should be PUSHNULL (0xB) but isn't
-        script += b'\x00' * 6
+        # now we extend with 5 bytes to give enough data
+        script += b'\x00' * 5
+        # the first byte should be a SYSCALL, but it isn't
         self.assertFalse(contracts.Contract.is_multisig_contract(script))
 
-        # we fix the PUSHNULL, and the next should be SYSCALL, but isn't
-        script[-6] = int(vm.OpCode.PUSHNULL)
-        self.assertFalse(contracts.Contract.is_multisig_contract(script))
-
-        # finally test the last 4 bytes should be "Neo.Crypto.VerifyWithECDsaSecp256r1" syscall number
-        # all we have to do is fix the syscall opcode
+        # we fix the SYSCALL byte
         script[-5] = int(vm.OpCode.SYSCALL)
+        # finally test the last 4 bytes should be "Neo.Crypto.CheckSig" syscall number
         self.assertFalse(contracts.Contract.is_multisig_contract(script))
 
     def test_is_multsig_contract_ok(self):
@@ -222,9 +211,8 @@ class ContractTestCase(unittest.TestCase):
 
         # now we correct the public key count in the script and make it valid by adding the expected tail
         script[-2] = 2
-        script += bytearray([int(vm.OpCode.PUSHNULL)])
         script += bytearray([int(vm.OpCode.SYSCALL)])
-        script += contracts.syscall_name_to_int("Neo.Crypto.CheckMultisigWithECDsaSecp256r1").to_bytes(4, 'little')
+        script += contracts.syscall_name_to_int("Neo.Crypto.CheckMultisig").to_bytes(4, 'little')
         self.assertTrue(contracts.Contract.is_multisig_contract(script))
 
     def test_is_multsig_contract_invalid_pubkey_count(self):
@@ -235,11 +223,11 @@ class ContractTestCase(unittest.TestCase):
         contract = contracts.Contract.create_multisig_contract(1, [keypair.public_key])
         # and modify the claimed public key length from 1 to 255
         data = bytearray(contract.script)
-        data[-7] = int(vm.OpCode.PUSH16) - 1
+        data[-6] = int(vm.OpCode.PUSH16) - 1
         self.assertFalse(contracts.Contract.is_multisig_contract(data))
 
         # and finally we try it again but this time the public key length is in an invalid range
-        data[-7] = int(vm.OpCode.PUSH16) + 1
+        data[-6] = int(vm.OpCode.PUSH16) + 1
         self.assertFalse(contracts.Contract.is_multisig_contract(data))
 
     def test_is_multisig_contract_invalid_sig_counts(self):

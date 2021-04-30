@@ -140,10 +140,10 @@ class StorageInteropTestCase(unittest.TestCase):
         engine.snapshot.contracts.put(self.contract)
 
         storage_key1 = storage.StorageKey(self.contract.id, b'\x01')
-        storage_item1 = storage.StorageItem(b'\x11', is_constant=False)
+        storage_item1 = storage.StorageItem(b'\x11')
         engine.snapshot.storages.put(storage_key1, storage_item1)
         storage_key2 = storage.StorageKey(self.contract.id, b'\x02')
-        storage_item2 = storage.StorageItem(b'\x22', is_constant=False)
+        storage_item2 = storage.StorageItem(b'\x22')
         engine.snapshot.storages.put(storage_key2, storage_item2)
 
         ctx = engine.invoke_syscall_by_name("System.Storage.GetContext")
@@ -166,79 +166,60 @@ class StorageInteropTestCase(unittest.TestCase):
     def test_storage_put_helper_parameter_validation(self):
         with self.assertRaises(ValueError) as context:
             key = (b'\x01' * contracts.interop.MAX_STORAGE_KEY_SIZE) + b'\x01'
-            contracts.interop._storage_put_internal(None, None, key, b'', None)
+            contracts.interop.storage_put(None, None, key, b'')
         self.assertEqual(f"Storage key length exceeds maximum of {contracts.interop.MAX_STORAGE_KEY_SIZE}", str(context.exception))
 
         with self.assertRaises(ValueError) as context:
             value = (b'\x01' * contracts.interop.MAX_STORAGE_VALUE_SIZE) + b'\x01'
-            contracts.interop._storage_put_internal(None, None, b'', value, None)
+            contracts.interop.storage_put(None, None, b'', value)
         self.assertEqual(f"Storage value length exceeds maximum of {contracts.interop.MAX_STORAGE_VALUE_SIZE}", str(context.exception))
 
         with self.assertRaises(ValueError) as context:
             ctx = storage.StorageContext(None, is_read_only=True)
-            contracts.interop._storage_put_internal(None, ctx, b'', b'', None)
+            contracts.interop.storage_put(None, ctx, b'', b'')
         self.assertEqual("Cannot persist to read-only storage context", str(context.exception))
-
-        # finaly make sure it fails if we try to modify an item that is marked constant
-        engine = test_engine(has_snapshot=True)
-        key = storage.StorageKey(1, b'\x01')
-        item = storage.StorageItem(b'', is_constant=True)
-        engine.snapshot.storages.put(key, item)
-
-        with self.assertRaises(ValueError) as context:
-            ctx = storage.StorageContext(1, is_read_only=False)
-            contracts.interop._storage_put_internal(engine, ctx, b'\x01', b'', storage.StorageFlags.NONE)
-        self.assertEqual("StorageItem is marked as constant", str(context.exception))
 
     def test_storage_put_new(self):
         # see `test_storage_get_key_not_found()` for a description on why the storage is setup with a script as is
 
-        for i in range(2):
-            # setup
-            engine = test_engine(has_snapshot=True)
-            script = vm.ScriptBuilder()
-            if i == 0:
-                script.emit(vm.OpCode.PUSH2)  # storage put value
-                script.emit(vm.OpCode.PUSH1)  # storage put key
-                script.emit_syscall(syscall_name_to_int("System.Storage.GetContext"))
-                script.emit_syscall(syscall_name_to_int("System.Storage.Put"))
-            else:
-                script.emit(vm.OpCode.PUSH0)  # storage put call flags
-                script.emit(vm.OpCode.PUSH2)  # storage put value
-                script.emit(vm.OpCode.PUSH1)  # storage put key
-                script.emit_syscall(syscall_name_to_int("System.Storage.GetContext"))
-                script.emit_syscall(syscall_name_to_int("System.Storage.PutEx"))
-            engine.load_script(vm.Script(script.to_array()))
+        # setup
+        engine = test_engine(has_snapshot=True)
+        script = vm.ScriptBuilder()
+        script.emit(vm.OpCode.PUSH2)  # storage put value
+        script.emit(vm.OpCode.PUSH1)  # storage put key
+        script.emit_syscall(syscall_name_to_int("System.Storage.GetContext"))
+        script.emit_syscall(syscall_name_to_int("System.Storage.Put"))
+        engine.load_script(vm.Script(script.to_array()))
 
-            nef = contracts.NEF(script=script.to_array())
-            manifest = contracts.ContractManifest(f"contractname{i}")
-            manifest.abi.methods = [
-                contracts.ContractMethodDescriptor("test_func", 0, [], contracts.ContractParameterType.ANY, True)
-            ]
-            hash_ = to_script_hash(nef.script)
+        nef = contracts.NEF(script=script.to_array())
+        manifest = contracts.ContractManifest(f"contractname1")
+        manifest.abi.methods = [
+            contracts.ContractMethodDescriptor("test_func", 0, [], contracts.ContractParameterType.ANY, True)
+        ]
+        hash_ = to_script_hash(nef.script)
 
-            contract = contracts.ContractState(i, nef, manifest, 0, hash_)
-            engine.snapshot.contracts.put(contract)
+        contract = contracts.ContractState(1, nef, manifest, 0, hash_)
+        engine.snapshot.contracts.put(contract)
 
-            engine.execute()
+        engine.execute()
 
-            self.assertEqual(vm.VMState.HALT, engine.state)
-            storage_key = storage.StorageKey(i, b'\x01')
-            item = engine.snapshot.storages.try_get(storage_key)
-            self.assertIsNotNone(item)
-            self.assertEqual(b'\x02', item.value)
+        self.assertEqual(vm.VMState.HALT, engine.state)
+        storage_key = storage.StorageKey(1, b'\x01')
+        item = engine.snapshot.storages.try_get(storage_key)
+        self.assertIsNotNone(item)
+        self.assertEqual(b'\x02', item.value)
 
     def test_storage_put_overwrite(self):
         # test with new data being shorter than the old data
         engine = test_engine(has_snapshot=True)
         key = b'\x01'
         storage_key = storage.StorageKey(1, key)
-        storage_item = storage.StorageItem(b'\x11\x22\x33', is_constant=False)
+        storage_item = storage.StorageItem(b'\x11\x22\x33')
         engine.snapshot.storages.put(storage_key, storage_item)
 
         ctx = storage.StorageContext(1, is_read_only=False)
         new_item_value = b'\x11\x22'
-        contracts.interop._storage_put_internal(engine, ctx, key, new_item_value, storage.StorageFlags.NONE)
+        contracts.interop.storage_put(engine, ctx, key, new_item_value)
 
         item = engine.snapshot.storages.get(storage_key)
         self.assertIsNotNone(item)
@@ -246,7 +227,7 @@ class StorageInteropTestCase(unittest.TestCase):
 
         # now test with data being longer than before
         longer_item_value = b'\x11\x22\x33\x44'
-        contracts.interop._storage_put_internal(engine, ctx, key, longer_item_value, storage.StorageFlags.NONE)
+        contracts.interop.storage_put(engine, ctx, key, longer_item_value)
 
         item = engine.snapshot.storages.get(storage_key)
         self.assertIsNotNone(item)
@@ -269,28 +250,12 @@ class StorageInteropTestCase(unittest.TestCase):
             engine.invoke_syscall_by_name("System.Storage.Delete")
         self.assertEqual("Cannot delete from read-only storage context", str(context.exception))
 
-    def test_storage_delete_constant_item(self):
-        engine = test_engine(has_snapshot=True)
-        engine.snapshot.contracts.put(self.contract)
-
-        storage_key = storage.StorageKey(self.contract.id, b'\x01')
-        storage_item = storage.StorageItem(b'\x11', is_constant=True)
-        engine.snapshot.storages.put(storage_key, storage_item)
-
-        ctx = engine.invoke_syscall_by_name("System.Storage.GetContext")
-        engine.push(vm.ByteStringStackItem(storage_key.key))
-        engine.push(vm.StackItem.from_interface(ctx))
-
-        with self.assertRaises(ValueError) as context:
-            engine.invoke_syscall_by_name("System.Storage.Delete")
-        self.assertEqual("Cannot delete a storage item that is marked constant", str(context.exception))
-
     def test_delete_ok(self):
         engine = test_engine(has_snapshot=True)
         engine.snapshot.contracts.put(self.contract)
 
         storage_key = storage.StorageKey(self.contract.id, b'\x01')
-        storage_item = storage.StorageItem(b'\x11', is_constant=False)
+        storage_item = storage.StorageItem(b'\x11')
         engine.snapshot.storages.put(storage_key, storage_item)
 
         ctx = engine.invoke_syscall_by_name("System.Storage.GetContext")

@@ -53,7 +53,7 @@ class ContractPermissionDescriptor(IJson):
         """
         # NEO C# deviates here. They return a string
         if self.contract_hash:
-            val = str(self.contract_hash)
+            val = "0x" + str(self.contract_hash)
         elif self.group:
             val = str(self.group)
         else:
@@ -77,8 +77,8 @@ class ContractPermissionDescriptor(IJson):
         if value is None:
             raise ValueError(f"Invalid JSON - Cannot deduce permission type from None")
 
-        if len(value) == 40:
-            return cls(contract_hash=types.UInt160.from_string(value))
+        if len(value) == 42:
+            return cls(contract_hash=types.UInt160.from_string(value[2:]))
         if len(value) == 66:
             ecpoint = cryptography.ECPoint.deserialize_from_bytes(binascii.unhexlify(value))
             return cls(group=ecpoint)

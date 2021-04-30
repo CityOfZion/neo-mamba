@@ -50,32 +50,8 @@ class TestPolicyContract(unittest.TestCase):
 
     def test_basics(self):
         policy = contracts.PolicyContract()
-        self.assertEqual(-5, policy.id)
+        self.assertEqual(-7, policy.id)
         self.assertEqual("PolicyContract", contracts.PolicyContract().service_name())
-
-    def test_policy_defaul_get_max_tx_per_block(self):
-        engine = test_native_contract(contracts.PolicyContract().hash, "getMaxTransactionsPerBlock")
-        engine.execute()
-        self.assertEqual(vm.VMState.HALT, engine.state)
-        self.assertEqual(1, len(engine.result_stack))
-        item = engine.result_stack.pop()
-        self.assertEqual(vm.IntegerStackItem(512), item)
-
-    def test_policy_default_get_max_block_size(self):
-        engine = test_native_contract(contracts.PolicyContract().hash, "getMaxBlockSize")
-        engine.execute()
-        self.assertEqual(vm.VMState.HALT, engine.state)
-        self.assertEqual(1, len(engine.result_stack))
-        item = engine.result_stack.pop()
-        self.assertEqual(vm.IntegerStackItem(262144), item)
-
-    def test_policy_default_get_max_block_system_fee(self):
-        engine = test_native_contract(contracts.PolicyContract().hash, "getMaxBlockSystemFee")
-        engine.execute()
-        self.assertEqual(vm.VMState.HALT, engine.state)
-        self.assertEqual(1, len(engine.result_stack))
-        item = engine.result_stack.pop()
-        self.assertEqual(vm.IntegerStackItem(900000000000), item)
 
     def test_policy_default_get_fee_per_byte(self):
         engine = test_native_contract(contracts.PolicyContract().hash, "getFeePerByte")
@@ -165,18 +141,6 @@ class TestPolicyContract(unittest.TestCase):
         block = test_block(0)
         engine.snapshot.persisting_block = block
         engine.script_container = TestIVerifiable()
-
-        with self.assertRaises(ValueError) as context:
-            policy._set_max_block_size(engine, 0)
-        self.assertEqual("Check committee failed", str(context.exception))
-
-        with self.assertRaises(ValueError) as context:
-            policy._set_max_transactions_per_block(engine, 0)
-        self.assertEqual("Check committee failed", str(context.exception))
-
-        with self.assertRaises(ValueError) as context:
-            policy._set_max_block_system_fee(engine, 5000000)
-        self.assertEqual("Check committee failed", str(context.exception))
 
         with self.assertRaises(ValueError) as context:
             policy._set_fee_per_byte(engine, 0)

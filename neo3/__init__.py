@@ -85,6 +85,9 @@ class Settings(IndexableNamespace):
                 }
             }
         },
+        'policy': {
+            'max_tx_per_block': 512
+        },
         'native_contract_activation': {}
     }
 

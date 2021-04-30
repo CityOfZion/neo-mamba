@@ -49,7 +49,7 @@ class NEF(serialization.ISerializable):
                 and self.checksum == other.checksum)
 
     @property
-    def checksum(self):
+    def checksum(self) -> int:
         if self._checksum == 0:
             self._checksum = self.compute_checksum()
         return self._checksum
