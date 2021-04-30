@@ -3,6 +3,14 @@ Changelog
 
 All notable changes to this project are documented in this file.
 
+[0.6] 2021-04-30
+----------------
+- RC1 updates
+
+[0.5] 2021-04-07
+----------------
+- Preview 5 updates
+
 [0.4.1] 2020-12-23
 ------------------
 - Cache candidates
