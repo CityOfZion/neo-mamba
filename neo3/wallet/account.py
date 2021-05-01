@@ -11,7 +11,7 @@ from neo3.core import types, to_script_hash
 from neo3.core.cryptography import ECPoint
 from neo3.core.cryptography import KeyPair
 
-# both constants are used to encrypt/decrypt a private key to/from a nep2 key
+# both constants below are used to encrypt/decrypt a private key to/from a nep2 key
 NEP_HEADER = bytes([0x01, 0x42])
 NEP_FLAG = bytes([0xe0])
 
@@ -24,8 +24,9 @@ class Account:
                  address: Optional[str] = None
                  ):
         """
-        Instantiate an account. This constructor should only be called by the user when they want to create a new
-        account using just a password, otherwise, they should call another function.
+        Instantiate an account. This constructor should only be directly called when it's desired to create a new
+        account using just a password and a randomly generated private key, otherwise, they should call another
+        function.
         """
 
         public_key: Optional[ECPoint] = None
@@ -142,6 +143,19 @@ class Account:
 
     @staticmethod
     def private_key_from_nep2(nep2_key: str, passphrase: str) -> bytes:
+        """
+        Decrypt a nep2 key into a private key.
+
+        Args:
+            nep2_key: the key that will be decrypt.
+            passphrase: the password to decrypt the nep2 key.
+
+        Raises:
+            ValueError: if the passphrase is incorrect or the version of the account is not 3.0.
+
+        Returns:
+            the private key.
+        """
         if len(nep2_key) != 58:
             raise ValueError(f"Please provide a nep2_key with a length of 58 bytes (LEN: {len(nep2_key)})")
 
@@ -184,6 +198,16 @@ class Account:
 
     @staticmethod
     def private_key_to_nep2(private_key: bytes, passphrase: str) -> bytes:
+        """
+        Encrypt a private key into a nep2 key.
+
+        Args:
+            private_key: the key that will be encrypt.
+            passphrase: the password to encrypt the nep2 key.
+
+        Returns:
+            the encrypted nep2 key.
+        """
         key_pair = KeyPair(private_key=private_key)
         script_hash = to_script_hash(contracts.Contract.create_signature_redeemscript(key_pair.public_key))
         address = Account.script_hash_to_address(script_hash)

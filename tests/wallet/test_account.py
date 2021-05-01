@@ -49,7 +49,7 @@ class AccountCreationTestCase(unittest.TestCase):
             account = Account.from_private_key(bytes.fromhex(testcase['private_key']), testcase['password'])
             self.assertEqual(testcase['address'], account.address)
             self.assertEqual(testcase['encrypted_key'].encode('utf-8'), account.encrypted_key)
-            self.assertEqual(testcase['script_hash'], account.script_hash.__str__())
+            self.assertEqual(testcase['script_hash'], str(account.script_hash))
             self.assertIsNotNone(account.public_key)
 
     def test_new_account_from_encrypted_key(self):
@@ -57,7 +57,7 @@ class AccountCreationTestCase(unittest.TestCase):
             account = Account.from_encrypted_key(testcase['encrypted_key'], testcase['password'])
             self.assertEqual(testcase['address'], account.address)
             self.assertEqual(testcase['encrypted_key'].encode('utf-8'), account.encrypted_key)
-            self.assertEqual(testcase['script_hash'], account.script_hash.__str__())
+            self.assertEqual(testcase['script_hash'], str(account.script_hash))
             self.assertIsNotNone(account.public_key)
 
     def test_new_watch_only_account(self):
@@ -66,7 +66,7 @@ class AccountCreationTestCase(unittest.TestCase):
             account = Account.watch_only(UInt160.from_string(testcase['script_hash']))
             self.assertEqual(testcase['address'], account.address)
             self.assertIsNone(account.encrypted_key)
-            self.assertEqual(testcase['script_hash'], account.script_hash.__str__())
+            self.assertEqual(testcase['script_hash'], str(account.script_hash))
             self.assertIsNone(account.public_key)
 
     def test_new_watch_only_account_from_address(self):
@@ -74,5 +74,5 @@ class AccountCreationTestCase(unittest.TestCase):
             account = Account.watch_only_from_address(testcase['address'])
             self.assertEqual(testcase['address'], account.address)
             self.assertIsNone(account.encrypted_key)
-            self.assertEqual(testcase['script_hash'], account.script_hash.__str__())
+            self.assertEqual(testcase['script_hash'], str(account.script_hash))
             self.assertIsNone(account.public_key)
