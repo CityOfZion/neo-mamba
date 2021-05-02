@@ -30,7 +30,6 @@ from .native import (NativeContract,
                      ManagementContract,
                      NonFungibleToken,
                      NFTState,
-                     NameService,
                      LedgerContract,
                      CryptoContract,
                      StdLibContract)
