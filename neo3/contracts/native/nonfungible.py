@@ -169,6 +169,7 @@ class NonFungibleToken(NativeContract):
         # this deviates from C#, but we can't use a 'null' as reference counter.
         reference_counter = vm.ReferenceCounter()
         return interop.StorageIterator(result,
+                                       1,
                                        options.VALUES_ONLY | options.DESERIALIZE_VALUES | options.PICK_FIELD1,
                                        reference_counter)
 

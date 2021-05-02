@@ -76,8 +76,13 @@ class MapWrapper(IIterator):
 
 
 class StorageIterator(IIterator):
-    def __init__(self, generator, options: contracts.FindOptions, reference_counter: vm.ReferenceCounter):
+    def __init__(self,
+                 generator,
+                 prefix_length: int,
+                 options: contracts.FindOptions,
+                 reference_counter: vm.ReferenceCounter):
         self.it = generator
+        self.prefix_len = prefix_length
         self.options = options
         self.reference_counter = reference_counter
         self._pair = None
@@ -96,7 +101,7 @@ class StorageIterator(IIterator):
         key = self._pair[0].key
         value = self._pair[1].value
         if contracts.FindOptions.REMOVE_PREFIX in self.options:
-            key = key[1:]
+            key = key[self.prefix_len:]
 
         if contracts.FindOptions.DESERIALIZE_VALUES in self.options:
             item: vm.StackItem = contracts.BinarySerializer.deserialize(value, 1024, self.reference_counter)
