@@ -244,7 +244,7 @@ class ManifestTestCase(unittest.TestCase):
                 }
             },
             Permissions = new[] { ContractPermission.DefaultPermission },
-            Trusts = WildcardContainer<UInt160>.Create(),
+            Trusts = WildcardContainer<ContractPermissionDescriptor>.Create(),
             Extra = null
         };
         Console.WriteLine($"{manifest.ToJson()}");
@@ -290,14 +290,13 @@ class ManifestTestCase(unittest.TestCase):
         )
         m.abi.methods = [method1]
 
-        t1 = types.UInt160.from_string("01" * 20)
-        t2 = types.UInt160.from_string("02" * 20)
+        t1 = contracts.ContractPermissionDescriptor(contract_hash=types.UInt160.from_string("01" * 20))
+        t2 = contracts.ContractPermissionDescriptor(contract_hash=types.UInt160.from_string("02" * 20))
         m.trusts = contracts.WildcardContainer(data=[t1, t2])
         m.extra = False
         json_out = m.to_json()
-
-        self.assertIn("0x" + str(t1), json_out['trusts'])
-        self.assertIn("0x" + str(t2), json_out['trusts'])
+        self.assertIn(t1.to_json()['contract'], json_out['trusts'])
+        self.assertIn(t2.to_json()['contract'], json_out['trusts'])
         self.assertFalse(json_out['extra'])
 
     def test_from_json(self):

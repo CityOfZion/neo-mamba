@@ -351,9 +351,12 @@ class ContractManifest(serialization.ISerializable, IJson):
         self.supported_standards = list(map(lambda ss: contracts.validate_type(ss, str), json['supportedstandards']))
         self.permissions = list(map(lambda p: ContractPermission.from_json(p), json['permissions']))
 
-        self.trusts = WildcardContainer.from_json_as_type(
-            {'wildcard': json['trusts']},
-            lambda t: types.UInt160.from_string(contracts.validate_type(t, str)))
+        if json['trusts'] == '*':
+            self.trusts = WildcardContainer.create_wildcard()
+        else:
+            self.trusts = WildcardContainer.from_json_as_type(
+                {'wildcard': json['trusts']},
+                lambda t: contracts.ContractPermissionDescriptor.from_json({'contract': t}))
 
         # converting json key/value back to default WildcardContainer format
         self.extra = json['extra']
@@ -362,7 +365,10 @@ class ContractManifest(serialization.ISerializable, IJson):
         """
         Convert object into JSON representation.
         """
-        trusts = list(map(lambda m: "0x" + m, self.trusts.to_json()['wildcard']))
+        if self.trusts.is_wildcard:
+            trusts = '*'
+        else:
+            trusts = list(map(lambda m: m.to_json()['contract'], self.trusts))  # type: ignore
         json = {
             "name": self.name if self.name else None,
             "groups": list(map(lambda g: g.to_json(), self.groups)),
