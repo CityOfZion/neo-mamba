@@ -30,6 +30,10 @@ class StdLibContract(NativeContract):
         return contracts.JSONSerializer.deserialize(data.decode(), engine.reference_counter)
 
     @register("itoa", contracts.CallFlags.NONE, cpu_price=1 << 12)
+    def do_itoa_base10(self, value: vm.BigInteger) -> str:
+        return self.do_itoa(value, 10)
+
+    @register("itoa", contracts.CallFlags.NONE, cpu_price=1 << 12)
     def do_itoa(self, value: vm.BigInteger, base: int) -> str:
         if base == 10:
             return str(value)
@@ -37,6 +41,10 @@ class StdLibContract(NativeContract):
             return hex(int(value))[2:]
         else:
             raise ValueError("Invalid base specified")
+
+    @register("atoi", contracts.CallFlags.NONE, cpu_price=1 << 12)
+    def do_atoi_base10(self, value: str) -> int:
+        return self.do_atoi(value, 10)
 
     @register("atoi", contracts.CallFlags.NONE, cpu_price=1 << 12)
     def do_atoi(self, value: str, base: int) -> int:
