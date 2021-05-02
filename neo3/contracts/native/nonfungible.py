@@ -128,7 +128,11 @@ class NonFungibleToken(NativeContract):
               contracts.CallFlags.STATES | contracts.CallFlags.ALLOW_CALL | contracts.CallFlags.ALLOW_NOTIFY,
               cpu_price=1 << 17,
               storage_price=50)
-    def transfer(self, engine: contracts.ApplicationEngine, account_to: types.UInt160, token_id: bytes) -> bool:
+    def transfer(self,
+                 engine: contracts.ApplicationEngine,
+                 account_to: types.UInt160,
+                 token_id: bytes,
+                 data: vm.StackItem) -> bool:
         if account_to == types.UInt160.zero():
             raise ValueError("To account can't be zero")
 
@@ -155,7 +159,7 @@ class NonFungibleToken(NativeContract):
             storage_item.get(NFTAccountState).add(token_id)
             self.on_transferred(engine, token.owner, token)
 
-        self._post_transfer(engine, token_state.owner, account_to, token_id)
+        self._post_transfer(engine, token_state.owner, account_to, token_id, data)
         return True
 
     @register("tokens", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
@@ -194,7 +198,7 @@ class NonFungibleToken(NativeContract):
         new_value = vm.BigInteger(si_total_supply.value) + 1
         si_total_supply.value = new_value.to_array()
 
-        self._post_transfer(engine, types.UInt160.zero(), token.owner, token.id)
+        self._post_transfer(engine, types.UInt160.zero(), token.owner, token.id, vm.NullStackItem())
 
     def burn(self, engine: contracts.ApplicationEngine, token_id: bytes) -> None:
         key_token = self.key_token + token_id
@@ -215,7 +219,7 @@ class NonFungibleToken(NativeContract):
         new_value = vm.BigInteger(si_total_supply.value) + 1
         si_total_supply.value = new_value.to_array()
 
-        self._post_transfer(engine, token.owner, types.UInt160.zero(), token_id)
+        self._post_transfer(engine, token.owner, types.UInt160.zero(), token_id, vm.NullStackItem())
 
     def on_transferred(self, engine: contracts.ApplicationEngine, from_account: types.UInt160, token: NFTState) -> None:
         pass
@@ -224,7 +228,8 @@ class NonFungibleToken(NativeContract):
                        engine: contracts.ApplicationEngine,
                        account_from: types.UInt160,
                        account_to: types.UInt160,
-                       token_id: bytes) -> None:
+                       token_id: bytes,
+                       data: vm.StackItem) -> None:
         state = vm.ArrayStackItem(engine.reference_counter)
         if account_from == types.UInt160.zero():
             state.append(vm.NullStackItem())
@@ -236,9 +241,10 @@ class NonFungibleToken(NativeContract):
             state.append(vm.ByteStringStackItem(account_to.to_array()))
         state.append(vm.IntegerStackItem(1))
         state.append(vm.ByteStringStackItem(token_id))
+        state.append(data)
 
         msgrouter.interop_notify(self.hash, "Transfer", state)
 
         if account_to != types.UInt160.zero() and \
                 contracts.ManagementContract().get_contract(engine.snapshot, account_to) is not None:
-            engine.call_from_native(self.hash, account_to, "onNEP17Payment", list(state))
+            engine.call_from_native(self.hash, account_to, "onNEP11Payment", list(state))
