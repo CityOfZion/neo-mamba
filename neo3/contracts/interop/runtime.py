@@ -115,5 +115,7 @@ def get_gasleft(engine: contracts.ApplicationEngine) -> int:
 
 
 @register("System.Runtime.BurnGas", 1 << 4, contracts.CallFlags.NONE)
-def interop_add_gas(engine: contracts.ApplicationEngine, gas: int) -> None:
+def do_burn_gas(engine: contracts.ApplicationEngine, gas: int) -> None:
+    if gas <= 0:
+        raise ValueError("Burn gas cannot be called with negative value")
     engine.add_gas(gas)
