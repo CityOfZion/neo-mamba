@@ -112,3 +112,8 @@ def get_gasleft(engine: contracts.ApplicationEngine) -> int:
         return -1
     else:
         return engine.gas_amount - engine.gas_consumed
+
+
+@register("System.Runtime.BurnGas", 1 << 4, contracts.CallFlags.NONE)
+def interop_add_gas(engine: contracts.ApplicationEngine, gas: int) -> None:
+    engine.add_gas(gas)
