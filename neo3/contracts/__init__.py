@@ -28,8 +28,6 @@ from .native import (NativeContract,
                      DesignationContract,
                      DesignateRole,
                      ManagementContract,
-                     NonFungibleToken,
-                     NFTState,
                      LedgerContract,
                      CryptoContract,
                      StdLibContract)

@@ -5,7 +5,6 @@ from .policy import PolicyContract
 from .oracle import OracleContract
 from .designate import DesignateRole, DesignationContract
 from .management import ManagementContract
-from .nonfungible import NonFungibleToken, NFTState
 from .ledger import LedgerContract
 from .crypto import CryptoContract
 from .stdlib import StdLibContract

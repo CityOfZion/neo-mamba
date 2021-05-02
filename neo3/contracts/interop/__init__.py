@@ -7,6 +7,6 @@ from .decorator import register
 # which in turn executes the decorators to register the SYSCALLS
 from .contract import __name__
 from .crypto import __name__
-from .enumerator import IIterator, StorageIterator, ArrayWrapper, ByteArrayWrapper
+from .enumerator import IIterator, StorageIterator
 from .runtime import __name__
 from .storage import storage_put, MAX_STORAGE_VALUE_SIZE, MAX_STORAGE_KEY_SIZE
