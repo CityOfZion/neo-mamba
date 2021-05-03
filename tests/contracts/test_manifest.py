@@ -249,7 +249,7 @@ class ManifestTestCase(unittest.TestCase):
         };
         Console.WriteLine($"{manifest.ToJson()}");
         """
-        cls.expected_json = {"name":"test_contract","groups":[],"supportedstandards":[],"abi":{"methods":[{"name":"main_entry","parameters":[],"returntype":"Integer","offset":0,"safe":True}],"events":[]},"permissions":[{"contract":"*","methods":"*"}],"trusts":[],"extra":None}
+        cls.expected_json = {"name":"test_contract","groups":[],"features":{},"supportedstandards":[],"abi":{"methods":[{"name":"main_entry","parameters":[],"returntype":"Integer","offset":0,"safe":True}],"events":[]},"permissions":[{"contract":"*","methods":"*"}],"trusts":[],"extra":None}
 
     def test_create(self):
         cm = contracts.ContractManifest("test_contract")

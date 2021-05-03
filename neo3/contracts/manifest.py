@@ -2,7 +2,7 @@ from __future__ import annotations
 import base64
 import binascii
 import orjson as json
-from typing import List, Callable, Optional
+from typing import List, Callable, Optional, Dict, Any
 from neo3 import contracts, storage, vm
 from neo3.core import serialization, types, IJson, cryptography, utils
 from neo3.core.serialization import BinaryReader, BinaryWriter
@@ -348,6 +348,10 @@ class ContractManifest(serialization.ISerializable, IJson):
             self.name = contracts.validate_type(json['name'], str)
         self.abi = contracts.ContractABI.from_json(json['abi'])
         self.groups = list(map(lambda g: ContractGroup.from_json(g), json['groups']))
+
+        if len(json['features']) != 0:
+            raise ValueError("Manifest features is reserved and cannot have any content at this time")
+
         self.supported_standards = list(map(lambda ss: contracts.validate_type(ss, str), json['supportedstandards']))
         self.permissions = list(map(lambda p: ContractPermission.from_json(p), json['permissions']))
 
@@ -369,9 +373,10 @@ class ContractManifest(serialization.ISerializable, IJson):
             trusts = '*'
         else:
             trusts = list(map(lambda m: m.to_json()['contract'], self.trusts))  # type: ignore
-        json = {
+        json: Dict[str, Any] = {
             "name": self.name if self.name else None,
             "groups": list(map(lambda g: g.to_json(), self.groups)),
+            "features": {},
             "supportedstandards": self.supported_standards,
             "abi": self.abi.to_json(),
             "permissions": list(map(lambda p: p.to_json(), self.permissions)),
@@ -386,6 +391,7 @@ class ContractManifest(serialization.ISerializable, IJson):
         struct.append(vm.ArrayStackItem(reference_counter,
                                         list(map(lambda g: g.to_stack_item(reference_counter), self.groups)))
                       )
+        struct.append(vm.MapStackItem(reference_counter))
         struct.append(vm.ArrayStackItem(reference_counter,
                                         list(map(lambda s: vm.ByteStringStackItem(s), self.supported_standards)))
                       )
