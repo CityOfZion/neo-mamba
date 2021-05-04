@@ -32,6 +32,13 @@ class Account:
         public_key: Optional[ECPoint] = None
         encrypted_key: Optional[bytes] = None
 
+        if watch_only:
+            if address is None:
+                raise ValueError("Creating a watch only account requires an address")
+            elif not self.is_valid_address(address):
+                raise ValueError(f"The given address is not valid. It's size is not {len(types.UInt160.zero()) + 1}"
+                                 f"or the account version is not {settings.network.account_version}")
+
         if not watch_only:
             key_pair: KeyPair
 
@@ -45,7 +52,7 @@ class Account:
             address = self.script_hash_to_address(script_hash)
             public_key = key_pair.public_key
 
-        self.address = address
+        self.address: str = address
         self.public_key = public_key
         self.encrypted_key = encrypted_key
 
@@ -113,7 +120,7 @@ class Account:
         Converts the specified script hash to an address.
 
         Args:
-            script_hash: script hash to convert
+            script_hash: script hash to convert.
         """
         version = settings.network.account_version  # this is the current Neo's protocol version
         data_ = version.to_bytes(1, 'little') + script_hash.to_array()
@@ -129,15 +136,17 @@ class Account:
             address: address to convert
 
         Raises:
-            ValueError: if the length of data_ isn't 21.
-            ValueError: if the script hash version isn't 3.0.
+            ValueError: if the length of data_ is not valid.
+            ValueError: if the script hash version is not valid.
         """
         data_ = base58.b58decode_check(address)
-        if len(data_) != len(types.UInt160.zero()) + 1:
-            raise ValueError('The address is wrong, because data_ length should be 21')
+        if not Account.is_valid_address(address):
+            if len(data_) != len(types.UInt160.zero()) + 1:
+                raise ValueError(f"The address is wrong, because data_ length should be "
+                                 f"{len(types.UInt160.zero()) + 1}")
 
-        if data_[0] != settings.network.account_version:   # Only accepted version is 3.0
-            raise ValueError('The version is not 3.0')
+            if data_[0] != settings.network.account_version:
+                raise ValueError(f"The account version is not {settings.network.account_version}")
 
         return types.UInt160(data=data_[1:])
 
@@ -151,7 +160,9 @@ class Account:
             passphrase: the password to decrypt the nep2 key.
 
         Raises:
-            ValueError: if the passphrase is incorrect or the version of the account is not 3.0.
+            ValueError: if the length of the nep2_key is not valid.
+            ValueError: if it's not possible to decode the nep2_key.
+            ValueError: if the passphrase is incorrect or the version of the account is not valid.
 
         Returns:
             the private key.
@@ -170,7 +181,7 @@ class Account:
         address_checksum = decoded_key[address_hash_offset:address_hash_offset + address_hash_size]
         encrypted = decoded_key[-32:]
 
-        pwd_normalized = bytes(unicodedata.normalize('NFC', passphrase), 'utf-8')
+        pwd_normalized = bytes(unicodedata.normalize("NFC", passphrase), "utf-8")
         derived = hashlib.scrypt(password=pwd_normalized, salt=address_checksum,
                                  n=16384,
                                  r=8,
@@ -182,7 +193,7 @@ class Account:
 
         cipher = AES.new(derived2, AES.MODE_ECB)
         decrypted = cipher.decrypt(encrypted)
-        private_key = Account.xor_bytes(decrypted, derived1)
+        private_key = Account._xor_bytes(decrypted, derived1)
 
         # Now check that the address hashes match. If they don't, the password was wrong.
         key_pair = KeyPair(private_key=private_key)
@@ -192,7 +203,8 @@ class Account:
         second_hash = hashlib.sha256(first_hash).digest()
         checksum = second_hash[:4]
         if checksum != address_checksum:
-            raise ValueError("Wrong passphrase")
+            raise ValueError(f"Wrong passphrase or key was encrypted with an address version that is not"
+                             f"{settings.network.account_version}")
 
         return private_key
 
@@ -216,7 +228,7 @@ class Account:
         second_hash = hashlib.sha256(first_hash).digest()
         checksum = second_hash[:4]
 
-        pwd_normalized = bytes(unicodedata.normalize('NFC', passphrase), 'utf-8')
+        pwd_normalized = bytes(unicodedata.normalize("NFC", passphrase), "utf-8")
         derived = hashlib.scrypt(password=pwd_normalized, salt=checksum,
                                  n=16384,
                                  r=8,
@@ -226,7 +238,7 @@ class Account:
         derived1 = derived[:32]
         derived2 = derived[32:]
 
-        xor_ed = Account.xor_bytes(bytes(private_key), derived1)
+        xor_ed = Account._xor_bytes(bytes(private_key), derived1)
         cipher = AES.new(derived2, AES.MODE_ECB)
         encrypted = cipher.encrypt(xor_ed)
 
@@ -242,7 +254,7 @@ class Account:
         return encoded_nep2
 
     @staticmethod
-    def xor_bytes(a: bytes, b: bytes) -> bytes:
+    def _xor_bytes(a: bytes, b: bytes) -> bytes:
         """
         XOR on two bytes objects
         Args:
@@ -256,3 +268,16 @@ class Account:
         for i in range(len(a)):
             res.append(a[i] ^ b[i])
         return bytes(res)
+
+    @staticmethod
+    def is_valid_address(address: str) -> bool:
+        """
+        Test if the provided address is a valid address.
+
+        Args:
+            address: an address.
+        """
+        data_ = base58.b58decode_check(address)
+        if len(data_) != len(types.UInt160.zero()) + 1 or data_[0] != settings.network.account_version:
+            return False
+        return True
