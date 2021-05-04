@@ -76,3 +76,14 @@ class AccountCreationTestCase(unittest.TestCase):
             self.assertIsNone(account.encrypted_key)
             self.assertEqual(testcase['script_hash'], str(account.script_hash))
             self.assertIsNone(account.public_key)
+
+    def test_new_account_wrong_password(self):
+        wrong_password: bool = True
+        for testcase in account_list:
+            try:
+                Account.from_encrypted_key(testcase['encrypted_key'], "wrong password")
+                wrong_password = False
+            except ValueError:
+                continue
+
+        self.assertEqual(True, wrong_password)
