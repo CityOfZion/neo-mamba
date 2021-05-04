@@ -1,35 +1,35 @@
 import unittest
 from neo3.wallet import Account
 
-# the accounts were generated at neo cli v3.0.0-preview3
+# the accounts were generated using neo-cli v3.0.0-rc1
 account_list = [
     {
-        "address": "NdgRTnfiYyLr3N7dqTE7J33KRyvuyHzv7q",
-        "encrypted_key": "6PYRrDT4mQyq3ieXVWn4KGgQ8E747s8sCDJ4jzoHj3QG3Z2RCg5Rr1prqY",
+        "address": "NM4Hq7DDaMrNvhhN16aDiS3fLxXaqjGePy",
+        "encrypted_key": "6PYX6MzwNZHhxfUD82qTgATzUuGQgdajcnZQZuL5wKH77mo6JHLMB3o5zy",
         "password": "city of zion",
-        "private_key": "c54da3dc31b6a6247b8ff476c569b1452cf3790a68174e533eaaba2cc5af6c2a",
-        "script_hash": "dcdd336dee6ad4f6bdba32fde98351070660e2c2",
+        "private_key": "58124574dfcca1a7a958775f6ea94e3d6c392ec3ba125b5bc591dd5e14f05e52",
+        "script_hash": "23ec53ddbbd356acd4a5e730aa7f5ec346048b0c",
     },
     {
-        "address": "NjEafNb9EjStKrxbTLAkWGwYFwPWEZHzzH",
-        "encrypted_key": "6PYM7Dm3aginArMuUTXQMSCkHMnQVYij7wy1uvffVzLsMckQiVH7Gsroyb",
+        "address": "NaeLNuvaTdB2pX3HjDrJdsjL2CxxkfLAKY",
+        "encrypted_key": "6PYWxh9YyxvjQUYVUkb8B6QbEAEFmF1RiNEm9D3aqfiSNHmW5SNidrJ3R9",
         "password": "123",
-        "private_key": "5784bb76c26788f177df17de1c014f3667ed1e7d6655c5c232b46b36415b4d63",
-        "script_hash": "2d646d71d38f3468982d0ec851ce43488dfecfff",
+        "private_key": "2032b737522d22e2b6faf30555faa91d95c5aa5113c18f218f45815b6934c558",
+        "script_hash": "78f02e886e0e2cc8f3e679ca5da06868ffeb94a1",
     },
     {
-        "address": "NLXsQj5Bw7FMevM8Zd5gkwGABDcHtub94p",
-        "encrypted_key": "6PYURBhofSKgFSSQQrpUkGxKytWVeWtoXpwAwuVFxtztKKStW84FwRyRXC",
+        "address": "NRn16PPhEKpgLRKg4C11ZQjfKSekwjuUkn",
+        "encrypted_key": "6PYUgEmLRdX4JkpBR6KLoQZZUKTSCBpp8VBNpGG148G1PuTqJyNsvXuUFh",
         "password": "neo",
-        "private_key": "d7352d0c0bf4a82db05780a175fc2614ed09d28e03cc8ae93318d6c320e61f8a",
-        "script_hash": "8b6542f5133a8c2177193402f2e464951a27ca06",
+        "private_key": "4c5182d9041f416bee1a6adac6a03f3e0319a83e75e78e6ff739304095791f19",
+        "script_hash": "6c70044e25ca0fcbe1d43f85e3cf8099ed044f40",
     },
     {
-        "address": "NVZtTRsEFCbMMYjrQB5NguyqpjEFXpRHHZ",
-        "encrypted_key": "6PYTo46szFt1YwgqTy5kc6vp1cuKJqLFJYXHCNcoXvHGetjK65WMVWVn8r",
+        "address": "NUQnpUFs4Vw2nKyDtCK4tZNrdBUSYecXae",
+        "encrypted_key": "6PYKMoTLa16CkxX2q5RTfyJ17tVCY2QDYyfbeWoh7SFfzD7ReL1MChhijn",
         "password": "neo-mamba",
-        "private_key": "25caf316e359781767d66feacc37b4f24bc5a86856842aeb4e645dfe260632a7",
-        "script_hash": "76e83a307b5a21421511d8f30ffdc35b8afde469",
+        "private_key": "1c43f87ce2ce3ea676bdfec4928705f3e9fedbdb3acf1fed6b3cc0c3d87c4cad",
+        "script_hash": "9f1992832dd88e3f8698e65058f645074d6a345d",
     }
 ]
 
