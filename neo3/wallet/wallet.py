@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import json
-import os.path
 from typing import Any, Dict, List, Optional
 
 from jsonschema import validate  # type: ignore
@@ -11,19 +9,10 @@ from neo3.wallet.account import Account
 from neo3.wallet.scrypt_parameters import ScryptParameters
 
 
-def encode_scrypt_parameters(scrypt_parameters):
-    if isinstance(scrypt_parameters, ScryptParameters):
-        return {'n': scrypt_parameters.n, 'r': scrypt_parameters.r, 'p': scrypt_parameters.p}
-    else:
-        type_name = scrypt_parameters.__class__.__name__
-        raise TypeError(f"Object of type '{type_name}' is not JSON serializable")
-
-
 # A sample schema, like what we'd get from json.load()
 schema = {
     "type": "object",
     "properties": {
-        "path": {"type": "string"},
         "name": {"type": "string"},
         "scrypt": {"$ref": "#/$defs/scrypt_parameters"},
         "accounts": {
@@ -70,9 +59,10 @@ schema = {
 class Wallet(IJson):
 
     _wallet_version = '3.0'
+    _default_path = './wallet.json'
 
     def __init__(self,
-                 path: str,
+                 path: Optional[str] = None,
                  name: Optional[str] = None,
                  version: str = _wallet_version,
                  scrypt: ScryptParameters = ScryptParameters(),
@@ -80,7 +70,7 @@ class Wallet(IJson):
                  extra: Optional[Dict[Any, Any]] = None):
         """
         Args:
-            path: the JSON's path
+            path: if the wallet must be persisted, the file path where it is persisted
             name: a label that the user has given to the wallet
             version: the wallet's version, must be equal to or greater than 3.0
             scrypt: a ScryptParameters object which describes the parameters of the Scrypt algorithm used for encrypting
@@ -98,7 +88,7 @@ class Wallet(IJson):
         self.extra = extra
 
     @classmethod
-    def default(cls, path: str = './wallet.json', name: Optional[str] = 'wallet.json') -> Wallet:
+    def default(cls, path: str = _default_path, name: Optional[str] = 'wallet.json') -> Wallet:
         """
         Create a new Wallet with the default settings.
 
@@ -113,53 +103,26 @@ class Wallet(IJson):
                    accounts=[],
                    extra=None)
 
-    @classmethod
-    def new_wallet(cls, location: str, overwrite_if_exists: bool = False) -> Optional[Wallet]:
-        filepath, extension = os.path.splitext(location)
-        if len(extension) == 0:
-            location += '.json'
-        elif extension != '.json':
-            # won't create if the file is not a json file
-            raise ValueError("Expecting a .json file, received {0} instead".format(extension))
-
-        if not os.path.isfile(location):
-            # creates the wallet file
-            with open(location, 'x'):
-                pass
-        elif not overwrite_if_exists:
-            raise FileExistsError("File exists: '{0}'".format(location))
-
-        # sets the wallet name as the same as the file name
-        dir_path, filename = os.path.split(location)
-        filename, extension = os.path.splitext(filename)
-
-        wallet = cls(
-            name=filename,
-            path=location,
-            version=cls._wallet_version,
-            scrypt=ScryptParameters(),
-            accounts=[]
-        )
-        wallet.save()
-        return wallet
-
     def save(self):
         """
-        Save a wallet as a JSON.
+        Saves the wallet.
+        If it's required a specific way of saving it, this should be overwritten in a specialized wallet.
         """
-        with open(self.path, 'w') as json_file:
-            json.dump(self.to_json(), json_file, default=encode_scrypt_parameters)
+        pass
 
     def to_json(self) -> dict:
         """
         Convert object into JSON representation.
         """
-
+        # it's a placeholder, it'll be refined on #70
         json = {
-            'path': self.path,
             'name': self.name,
             'version': self.version,
-            'scrypt': self.scrypt,
+            'scrypt': {
+                'n': self.scrypt.n,
+                'r': self.scrypt.r,
+                'p': self.scrypt.p
+            },
             'accounts': self.accounts,
             'extra': self.extra
         }
@@ -185,11 +148,16 @@ class Wallet(IJson):
         except ValueError:
             raise ValueError("Format error - invalid 'version'")
 
-        return cls(json['path'],
-                   json['name'],
-                   json['version'],
-                   ScryptParameters(json['scrypt']['n'],
-                                    json['scrypt']['r'],
-                                    json['scrypt']['p']),
-                   json['accounts'],
-                   json['extra'])
+        return cls(name=json['name'],
+                   version=json['version'],
+                   scrypt=ScryptParameters(json['scrypt']['n'],
+                                           json['scrypt']['r'],
+                                           json['scrypt']['p']),
+                   accounts=json['accounts'],
+                   extra=json['extra'])
+
+    def __enter__(self) -> Wallet:
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.save()
