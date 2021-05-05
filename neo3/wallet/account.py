@@ -35,11 +35,10 @@ class Account:
         if watch_only:
             if address is None:
                 raise ValueError("Creating a watch only account requires an address")
-            elif not self.is_valid_address(address):
-                raise ValueError(f"The given address is not valid. It's size is not {len(types.UInt160.zero()) + 1}"
-                                 f"or the account version is not {settings.network.account_version}")
+            else:
+                self.validate_address(address)
 
-        if not watch_only:
+        else:
             key_pair: KeyPair
 
             if private_key is None:
@@ -123,9 +122,9 @@ class Account:
             script_hash: script hash to convert.
         """
         version = settings.network.account_version  # this is the current Neo's protocol version
-        data_ = version.to_bytes(1, 'little') + script_hash.to_array()
+        data = version.to_bytes(1, 'little') + script_hash.to_array()
 
-        return base58.b58encode_check(data_).decode('utf-8')
+        return base58.b58encode_check(data).decode('utf-8')
 
     @staticmethod
     def address_to_script_hash(address: str) -> types.UInt160:
@@ -136,19 +135,14 @@ class Account:
             address: address to convert
 
         Raises:
-            ValueError: if the length of data_ is not valid.
-            ValueError: if the script hash version is not valid.
+            ValueError: if the length of data (address value in bytes) is not valid.
+            ValueError: if the account version is not valid.
         """
-        data_ = base58.b58decode_check(address)
-        if not Account.is_valid_address(address):
-            if len(data_) != len(types.UInt160.zero()) + 1:
-                raise ValueError(f"The address is wrong, because data_ length should be "
-                                 f"{len(types.UInt160.zero()) + 1}")
+        Account.validate_address(address)
 
-            if data_[0] != settings.network.account_version:
-                raise ValueError(f"The account version is not {settings.network.account_version}")
+        data = base58.b58decode_check(address)
 
-        return types.UInt160(data=data_[1:])
+        return types.UInt160(data[1:])
 
     @staticmethod
     def private_key_from_nep2(nep2_key: str, passphrase: str) -> bytes:
@@ -176,7 +170,7 @@ class Account:
         try:
             decoded_key = base58.b58decode_check(nep2_key)
         except Exception:
-            raise ValueError("Invalid nep2_key")
+            raise ValueError("Base58decode failure of nep2 key")
 
         address_checksum = decoded_key[address_hash_offset:address_hash_offset + address_hash_size]
         encrypted = decoded_key[-32:]
@@ -277,7 +271,27 @@ class Account:
         Args:
             address: an address.
         """
-        data_ = base58.b58decode_check(address)
-        if len(data_) != len(types.UInt160.zero()) + 1 or data_[0] != settings.network.account_version:
+        try:
+            Account.validate_address(address)
+        except ValueError:
             return False
         return True
+
+    @staticmethod
+    def validate_address(address: str):
+        """
+        Validate a given address. If address is not valid an exception will be raised.
+
+        Args:
+            address: an address.
+
+        Raises:
+            ValueError: if the length of data(address value in bytes) is not valid.
+            ValueError: if the account version is not valid.
+        """
+        data: bytes = base58.b58decode_check(address)
+        if len(data) != len(types.UInt160.zero()) + 1:
+            raise ValueError(f"The address is wrong, because data (address value in bytes) length should be "
+                             f"{len(types.UInt160.zero()) + 1}")
+        elif data[0] != settings.network.account_version:
+            raise ValueError(f"The account version is not {settings.network.account_version}")
