@@ -15,6 +15,7 @@ netaddr>=0.8.0
 orjson>=3.4.6
 Sphinx==3.5.2
 sphinx-autodoc-typehints==1.11.1
+pycryptodome==3.10.1
 pycodestyle==2.5.0
 pybiginteger>=1.2.3
 pybiginteger-stubs>=1.2.3
