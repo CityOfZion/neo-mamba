@@ -1,1 +1,1 @@
-from .nep6wallet import NEP6Wallet
+from .nep6diskwallet import NEP6DiskWallet

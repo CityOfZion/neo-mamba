@@ -9,7 +9,9 @@ from neo3.wallet.scrypt_parameters import ScryptParameters
 from neo3.wallet.wallet import Wallet
 
 
-class NEP6Wallet(Wallet):
+class NEP6DiskWallet(Wallet):
+
+    _default_path = './wallet.json'
 
     def __init__(self,
                  path: str,
@@ -19,8 +21,8 @@ class NEP6Wallet(Wallet):
                  accounts: List[Account] = None,
                  extra: Optional[dict] = None):
 
-        super().__init__(path=path,
-                         name=name,
+        self.path: str = path
+        super().__init__(name=name,
                          version=version,
                          scrypt=scrypt,
                          accounts=accounts,
@@ -30,12 +32,27 @@ class NEP6Wallet(Wallet):
         """
         Persists the wallet
         """
-        if self.path is not None:
-            with open(self.path, 'w') as json_file:
-                json.dump(self.to_json(), json_file)
+        with open(self.path, 'w') as json_file:
+            json.dump(self.to_json(), json_file)
 
     @classmethod
-    def new_wallet(cls, location: str) -> NEP6Wallet:
+    def default(cls, path: str = _default_path, name: Optional[str] = 'wallet.json') -> NEP6DiskWallet:
+        """
+        Create a new Wallet with the default settings.
+
+        Args:
+            path: the JSON's path.
+            name: the Wallet name.
+        """
+        return cls(path=path,
+                   name=name,
+                   version=cls._wallet_version,
+                   scrypt=ScryptParameters(),
+                   accounts=[],
+                   extra=None)
+
+    @classmethod
+    def new_wallet(cls, location: str) -> NEP6DiskWallet:
         """
         Create a new Wallet that should be persisted to the given file
 

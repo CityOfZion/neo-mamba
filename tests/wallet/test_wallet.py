@@ -20,7 +20,7 @@ class WalletCreationTestCase(unittest.TestCase):
         if os.path.isfile(wallet_file_path):
             os.remove(wallet_file_path)
 
-        test_wallet = nep6.NEP6Wallet.new_wallet(wallet_file_name)
+        test_wallet = nep6.NEP6DiskWallet.new_wallet(wallet_file_name)
         scrypt_parameters_default = wallet.ScryptParameters()
 
         self.assertEqual(wallet_file_name, test_wallet.name)
@@ -32,7 +32,7 @@ class WalletCreationTestCase(unittest.TestCase):
         self.assertEqual(None, test_wallet.extra)
 
     def test_wallet_default_value(self):
-        test_wallet = Wallet.default()
+        test_wallet = nep6.NEP6DiskWallet.default()
         scrypt_parameters_default = wallet.ScryptParameters()
 
         self.assertEqual('wallet.json', test_wallet.name)
@@ -49,7 +49,7 @@ class WalletCreationTestCase(unittest.TestCase):
         if os.path.isfile(wallet_path):
             os.remove(wallet_path)
 
-        test_wallet = nep6.NEP6Wallet.default(wallet_path, 'NEP6 Wallet')
+        test_wallet = nep6.NEP6DiskWallet.default(wallet_path, 'NEP6 Wallet')
         test_wallet.save()
         self.assertTrue(os.path.isfile(wallet_path))
 
@@ -63,7 +63,7 @@ class WalletCreationTestCase(unittest.TestCase):
         self.assertEqual(data['accounts'], test_wallet.accounts)
         self.assertEqual(data['extra'], test_wallet.extra)
 
-        default_path = Wallet._default_path
+        default_path = nep6.NEP6DiskWallet._default_path
         # remove the file if it exists for proper testing
         if os.path.isfile(default_path):
             os.remove(default_path)
@@ -78,12 +78,12 @@ class WalletCreationTestCase(unittest.TestCase):
             os.remove(wallet_path)
 
         # save using context manager
-        with nep6.NEP6Wallet.default(wallet_path, 'NEP6 Wallet'):
+        with nep6.NEP6DiskWallet.default(wallet_path, 'NEP6 Wallet'):
             pass
         self.assertTrue(os.path.isfile(wallet_path))
 
     def test_wallet_create_without_persisting(self):
-        default_path = Wallet._default_path
+        default_path = nep6.NEP6DiskWallet._default_path
 
         # remove the file if it exists for proper testing
         if os.path.isfile(default_path):

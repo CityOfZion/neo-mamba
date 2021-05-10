@@ -59,10 +59,8 @@ schema = {
 class Wallet(IJson):
 
     _wallet_version = '3.0'
-    _default_path = './wallet.json'
 
     def __init__(self,
-                 path: Optional[str] = None,
                  name: Optional[str] = None,
                  version: str = _wallet_version,
                  scrypt: ScryptParameters = ScryptParameters(),
@@ -70,7 +68,6 @@ class Wallet(IJson):
                  extra: Optional[Dict[Any, Any]] = None):
         """
         Args:
-            path: if the wallet must be persisted, the file path where it is persisted
             name: a label that the user has given to the wallet
             version: the wallet's version, must be equal to or greater than 3.0
             scrypt: a ScryptParameters object which describes the parameters of the Scrypt algorithm used for encrypting
@@ -80,28 +77,11 @@ class Wallet(IJson):
                    None.
         """
 
-        self.path = path
         self.name = name
         self.version = version
         self.scrypt = scrypt
         self.accounts = accounts if accounts is not None else []
         self.extra = extra
-
-    @classmethod
-    def default(cls, path: str = _default_path, name: Optional[str] = 'wallet.json') -> Wallet:
-        """
-        Create a new Wallet with the default settings.
-
-        Args:
-            path: the JSON's path.
-            name: the Wallet name.
-        """
-        return cls(path=path,
-                   name=name,
-                   version=cls._wallet_version,
-                   scrypt=ScryptParameters(),
-                   accounts=[],
-                   extra=None)
 
     def save(self):
         """
