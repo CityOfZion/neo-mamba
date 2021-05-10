@@ -21,6 +21,16 @@ class NEP6DiskWallet(Wallet):
                  accounts: List[Account] = None,
                  extra: Optional[dict] = None):
 
+        filepath, extension = os.path.splitext(path)
+        if len(extension) == 0:
+            # if the path doesn't have a file extension, sets it as a .json file
+            path += '.json'
+
+        if name is None:
+            # sets the wallet name as the same as the file name
+            dir_path, name = os.path.split(path)
+            name, extension = os.path.splitext(name)
+
         self.path: str = path
         super().__init__(name=name,
                          version=version,
@@ -50,28 +60,3 @@ class NEP6DiskWallet(Wallet):
                    scrypt=ScryptParameters(),
                    accounts=[],
                    extra=None)
-
-    @classmethod
-    def new_wallet(cls, location: str) -> NEP6DiskWallet:
-        """
-        Create a new Wallet that should be persisted to the given file
-
-        Args:
-            location: target file where the wallet's going to be persisted
-        """
-        filepath, extension = os.path.splitext(location)
-        if len(extension) == 0:
-            # if the path doesn't have a file extension, sets it as a .json file
-            location += '.json'
-
-        # sets the wallet name as the same as the file name
-        dir_path, filename = os.path.split(location)
-        filename, extension = os.path.splitext(filename)
-
-        return cls(
-            name=filename,
-            path=location,
-            version=cls._wallet_version,
-            scrypt=ScryptParameters(),
-            accounts=[]
-        )

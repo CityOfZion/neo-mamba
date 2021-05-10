@@ -20,7 +20,7 @@ class WalletCreationTestCase(unittest.TestCase):
         if os.path.isfile(wallet_file_path):
             os.remove(wallet_file_path)
 
-        test_wallet = nep6.NEP6DiskWallet.new_wallet(wallet_file_name)
+        test_wallet = nep6.NEP6DiskWallet(wallet_file_name)
         scrypt_parameters_default = wallet.ScryptParameters()
 
         self.assertEqual(wallet_file_name, test_wallet.name)

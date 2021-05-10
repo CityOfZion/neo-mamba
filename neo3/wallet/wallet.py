@@ -8,7 +8,6 @@ from neo3.core import IJson
 from neo3.wallet.account import Account
 from neo3.wallet.scrypt_parameters import ScryptParameters
 
-
 # A sample schema, like what we'd get from json.load()
 schema = {
     "type": "object",

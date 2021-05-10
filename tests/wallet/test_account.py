@@ -1,4 +1,5 @@
 import unittest
+
 from neo3.wallet import Account
 
 # the accounts were generated using neo-cli v3.0.0-rc1
