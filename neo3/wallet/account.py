@@ -1,10 +1,8 @@
 from __future__ import annotations
-
-import base58
+import base58  # type: ignore
 import hashlib
 import unicodedata
 from typing import Optional
-
 from Crypto.Cipher import AES
 from neo3 import settings, contracts
 from neo3.core import types, to_script_hash
@@ -278,7 +276,7 @@ class Account:
         return True
 
     @staticmethod
-    def validate_address(address: str):
+    def validate_address(address: str) -> None:
         """
         Validate a given address. If address is not valid an exception will be raised.
 

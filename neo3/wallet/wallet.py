@@ -1,14 +1,11 @@
 from __future__ import annotations
-
 from typing import Any, Dict, List, Optional
-
 from jsonschema import validate  # type: ignore
-
 from neo3.core import IJson
 from neo3.wallet.account import Account
 from neo3.wallet.scrypt_parameters import ScryptParameters
 
-# A sample schema, like what we'd get from json.load()
+# Wallet JSON validation schema
 schema = {
     "type": "object",
     "properties": {
@@ -67,13 +64,12 @@ class Wallet(IJson):
                  extra: Optional[Dict[Any, Any]] = None):
         """
         Args:
-            name: a label that the user has given to the wallet
+            name: a user defined label for the wallet
             version: the wallet's version, must be equal to or greater than 3.0
-            scrypt: a ScryptParameters object which describes the parameters of the Scrypt algorithm used for encrypting
-                    and decrypting the private keys in the wallet.
-            accounts: an array of Account objects which describe the details of each account in the wallet.
-            extra: an object that is defined by the implementor of the client for storing extra data. This field can be
-                   None.
+            scrypt:  the parameters of the Scrypt algorithm used for encrypting and decrypting the private keys in the
+            wallet.
+            accounts: an array of Account objects to add to the wallet.
+            extra: a user defined object for storing extra data. This field can be None.
         """
 
         self.name = name
@@ -82,10 +78,14 @@ class Wallet(IJson):
         self.accounts = accounts if accounts is not None else []
         self.extra = extra
 
-    def save(self):
+    def save(self) -> None:
         """
         Saves the wallet.
-        If it's required a specific way of saving it, this should be overwritten in a specialized wallet.
+
+        This is called automatically when using the context manager.
+
+        See Also:
+            :class:`~neo3.wallet.nep6.nep6diskwallet.NEP6DiskWallet`
         """
         pass
 
@@ -117,7 +117,7 @@ class Wallet(IJson):
             json: a dictionary.
 
         Raises:
-            KeyError: if the data supplied does not contain the necessary key.
+            KeyError: if the data supplied does not contain the necessary keys.
             ValueError: if the 'version' property is under 3.0 or is not a valid string.
         """
         validate(json, schema=schema)
@@ -138,5 +138,5 @@ class Wallet(IJson):
     def __enter__(self) -> Wallet:
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         self.save()
