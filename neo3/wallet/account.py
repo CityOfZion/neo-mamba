@@ -97,7 +97,7 @@ class Account:
 
         Args:
             wif: the wif that will be decrypted to get a private key and generate an encrypted key.
-            password: the password to encrypt a private key.
+            password: the password to encrypt the private key with.
 
         Returns:
             The newly created account.
@@ -281,7 +281,8 @@ class Account:
             raise ValueError("Base58decode failure of wif")
 
         if len(decoded_key) != 34:
-            raise ValueError(f"The decoded wif length should be {len(types.UInt160.zero()) + 1}, while the given wif "
+            raise ValueError(f"The decoded wif length should be "
+                             f"{len(WIF_PREFIX) + len(types.UInt256.zero()) + len(WIF_SUFFIX)}, while the given wif "
                              f"length is {len(decoded_key)}")
         elif decoded_key[:1] != WIF_PREFIX:
             raise ValueError(f"The decoded wif first bytes should be {WIF_PREFIX}")
