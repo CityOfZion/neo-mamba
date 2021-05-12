@@ -22,7 +22,7 @@ class ContractTestCase(unittest.TestCase):
         var c = Contract.CreateSignatureContract(kp1.PublicKey);
         Console.WriteLine(c.Script.ToHexString());
         """
-        expected = binascii.unhexlify(b'0c21026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca1641747476aa')
+        expected = binascii.unhexlify(b'0c21026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca164156e7b327')
         keypair = cryptography.KeyPair(private_key=b'\x01' * 32)
         contract = contracts.Contract.create_signature_contract(keypair.public_key)
         self.assertEqual(expected, contract.script)
@@ -49,8 +49,8 @@ class ContractTestCase(unittest.TestCase):
         Console.WriteLine(c.Script.ToHexString());
         Console.WriteLine(c.ScriptHash.ToArray().ToHexString());
         """
-        expected_script = binascii.unhexlify(b'110c2102550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e240c21026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca1612417bce6ca5')
-        expected_script_hash = types.UInt160(binascii.unhexlify(b'2514b406a154dd2b1148a79f33a8d6926e4a30c3'))
+        expected_script = binascii.unhexlify(b'110c2102550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e240c21026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca1612419ed0dc3a')
+        expected_script_hash = types.UInt160(binascii.unhexlify(b'a72d98260b3dd7d7dd4f733490b9c16b5c352644'))
         keypair1 = cryptography.KeyPair(private_key=b'\x01' * 32)
         keypair2 = cryptography.KeyPair(private_key=b'\x02' * 32)
         contract = contracts.Contract.create_multisig_contract(1, [keypair1.public_key, keypair2.public_key])
@@ -77,7 +77,7 @@ class ContractTestCase(unittest.TestCase):
         - LEN PUBLIC KEY (33)
         - PUBLIC KEY data
         - SYSCALL (0x41)
-        - "Neo.Crypto.CheckSig" identifier
+        - "System.Crypto.CheckSig" identifier
         """
 
         incorrect_script_len = b'\x01' * 10
@@ -97,7 +97,7 @@ class ContractTestCase(unittest.TestCase):
         incorrect_idx_35[35] = int(vm.OpCode.PUSHNULL)
         self.assertFalse(contracts.Contract.is_signature_contract(incorrect_idx_35))  # index 35 should be SYSCALL
 
-        # the last 4 bytes should be the "Neo.Crypto.CheckSig" SYSCALL
+        # the last 4 bytes should be the "System.Crypto.CheckSig" SYSCALL
         incorrect_syscall_number = bytearray([0xc, 33]) + b'\01' * 38
         incorrect_syscall_number[35] = int(vm.OpCode.SYSCALL)
         self.assertFalse(contracts.Contract.is_signature_contract(incorrect_syscall_number))
@@ -105,7 +105,7 @@ class ContractTestCase(unittest.TestCase):
         # and finally a contract that matches the correct format
         correct = bytearray([0xc, 33]) + b'\01' * 38
         correct[35] = int(vm.OpCode.SYSCALL)
-        correct[36:40] = contracts.syscall_name_to_int("Neo.Crypto.CheckSig").to_bytes(4, 'little')
+        correct[36:40] = contracts.syscall_name_to_int("System.Crypto.CheckSig").to_bytes(4, 'little')
         self.assertTrue(contracts.Contract.is_signature_contract(correct))
 
     def test_is_multisig_contract_too_short(self):
@@ -185,7 +185,7 @@ class ContractTestCase(unittest.TestCase):
 
         # we fix the SYSCALL byte
         script[-5] = int(vm.OpCode.SYSCALL)
-        # finally test the last 4 bytes should be "Neo.Crypto.CheckSig" syscall number
+        # finally test the last 4 bytes should be "System.Crypto.CheckSig" syscall number
         self.assertFalse(contracts.Contract.is_multisig_contract(script))
 
     def test_is_multsig_contract_ok(self):
@@ -212,7 +212,7 @@ class ContractTestCase(unittest.TestCase):
         # now we correct the public key count in the script and make it valid by adding the expected tail
         script[-2] = 2
         script += bytearray([int(vm.OpCode.SYSCALL)])
-        script += contracts.syscall_name_to_int("Neo.Crypto.CheckMultisig").to_bytes(4, 'little')
+        script += contracts.syscall_name_to_int("System.Crypto.CheckMultisig").to_bytes(4, 'little')
         self.assertTrue(contracts.Contract.is_multisig_contract(script))
 
     def test_is_multsig_contract_invalid_pubkey_count(self):

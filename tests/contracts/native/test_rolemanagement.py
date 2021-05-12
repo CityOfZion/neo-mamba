@@ -23,7 +23,7 @@ class TestDesignationContract(unittest.TestCase):
         engine = test_engine(has_snapshot=True, has_container=True)
         # set signers list to our committee to pass check_committee() validation
         engine.script_container.signers = [payloads.Signer(
-            types.UInt160.from_string("54166e586e86b9d653bf96f61e6568df7a8ecb50"),
+            types.UInt160.from_string("2006cf497676f551841a150550dc3f561c1b6c67"),
             payloads.WitnessScope.GLOBAL
         )]
         public_key1 = cryptography.KeyPair(b'\x01' * 32).public_key

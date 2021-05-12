@@ -17,6 +17,7 @@ raw_hello_world_nef = b'NEF3neo3-boa by COZ-0.7.0.0\x00\x00\x00\x00\x00\x00\x00\
 raw_hello_world_manifest = {
     "name": "hello_world",
     "groups": [],
+    "features": {},
     "abi": {
         "methods": [
             {
@@ -47,6 +48,7 @@ raw_bye_world_nef = b'NEF3neo3-boa by COZ-0.7.0.0\x00\x00\x00\x00\x00\x00\x00\x0
 raw_bye_world_manifest = {
     "name": "bye_world",
     "groups": [],
+    "features": {},
     "abi": {
         "methods": [
             {
@@ -93,6 +95,7 @@ raw_contract3_nef = b'NEF3neo3-boa by COZ-0.7.0.0\x00\x00\x00\x00\x00\x00\x00\x0
 raw_contract3_manifest = {
     "name": "contract3",
     "groups": [],
+    "features": {},
     "abi": {
         "methods": [
             {

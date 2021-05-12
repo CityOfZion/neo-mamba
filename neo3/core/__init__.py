@@ -5,7 +5,8 @@ from typing import TypeVar, Type
 from neo3 import vm
 from enum import IntEnum
 from events import Events  # type: ignore
-from neo3.core import types
+from neo3.core import types, jsonpath
+
 
 msgrouter = Events()
 
