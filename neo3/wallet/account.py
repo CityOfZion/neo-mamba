@@ -1,10 +1,8 @@
 from __future__ import annotations
-
-import base58
+import base58  # type: ignore
 import hashlib
 import unicodedata
 from typing import Optional
-
 from Crypto.Cipher import AES
 from neo3 import settings, contracts
 from neo3.core import types, to_script_hash
@@ -17,6 +15,7 @@ NEP_FLAG = bytes([0xe0])
 # both constants are used when trying to decrypt a private key from a wif
 WIF_PREFIX = bytes([0x80])
 WIF_SUFFIX = bytes([0x01])
+PRIVATE_KEY_LENGTH = 32
 
 
 class Account:
@@ -282,12 +281,12 @@ class Account:
 
         if len(decoded_key) != 34:
             raise ValueError(f"The decoded wif length should be "
-                             f"{len(WIF_PREFIX) + len(types.UInt256.zero()) + len(WIF_SUFFIX)}, while the given wif "
+                             f"{len(WIF_PREFIX) + PRIVATE_KEY_LENGTH + len(WIF_SUFFIX)}, while the given wif "
                              f"length is {len(decoded_key)}")
         elif decoded_key[:1] != WIF_PREFIX:
-            raise ValueError(f"The decoded wif first bytes should be {WIF_PREFIX}")
+            raise ValueError(f"The decoded wif first byte should be {str(WIF_PREFIX)}")
         elif decoded_key[-1:] != WIF_SUFFIX:
-            raise ValueError(f"The decoded wif last bytes should be {WIF_SUFFIX}")
+            raise ValueError(f"The decoded wif last byte should be {str(WIF_SUFFIX)}")
 
         private_key = decoded_key[1: 33]
 
