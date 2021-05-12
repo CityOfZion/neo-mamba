@@ -8,6 +8,7 @@ from neo3 import settings, contracts
 from neo3.core import types, to_script_hash
 from neo3.core.cryptography import ECPoint
 from neo3.core.cryptography import KeyPair
+from neo3.wallet.scrypt_parameters import ScryptParameters
 
 # both constants below are used to encrypt/decrypt a private key to/from a nep2 key
 NEP_HEADER = bytes([0x01, 0x42])
@@ -143,13 +144,15 @@ class Account:
         return types.UInt160(data[1:])
 
     @staticmethod
-    def private_key_from_nep2(nep2_key: str, passphrase: str) -> bytes:
+    def private_key_from_nep2(nep2_key: str, passphrase: str,
+                              scrypt_parameters: ScryptParameters = ScryptParameters()) -> bytes:
         """
         Decrypt a nep2 key into a private key.
 
         Args:
             nep2_key: the key that will be decrypt.
             passphrase: the password to decrypt the nep2 key.
+            scrypt_parameters: a ScryptParameters object that will be used when generating the Scrypt.
 
         Raises:
             ValueError: if the length of the nep2_key is not valid.
@@ -175,9 +178,9 @@ class Account:
 
         pwd_normalized = bytes(unicodedata.normalize("NFC", passphrase), "utf-8")
         derived = hashlib.scrypt(password=pwd_normalized, salt=address_checksum,
-                                 n=16384,
-                                 r=8,
-                                 p=8,
+                                 n=scrypt_parameters.n,
+                                 r=scrypt_parameters.r,
+                                 p=scrypt_parameters.p,
                                  dklen=64)
 
         derived1 = derived[:32]
@@ -201,13 +204,15 @@ class Account:
         return private_key
 
     @staticmethod
-    def private_key_to_nep2(private_key: bytes, passphrase: str) -> bytes:
+    def private_key_to_nep2(private_key: bytes, passphrase: str,
+                            scrypt_parameters: ScryptParameters = ScryptParameters()) -> bytes:
         """
         Encrypt a private key into a nep2 key.
 
         Args:
             private_key: the key that will be encrypt.
             passphrase: the password to encrypt the nep2 key.
+            scrypt_parameters: a ScryptParameters object that will be used when generating the Scrypt.
 
         Returns:
             the encrypted nep2 key.
@@ -222,9 +227,9 @@ class Account:
 
         pwd_normalized = bytes(unicodedata.normalize("NFC", passphrase), "utf-8")
         derived = hashlib.scrypt(password=pwd_normalized, salt=checksum,
-                                 n=16384,
-                                 r=8,
-                                 p=8,
+                                 n=scrypt_parameters.n,
+                                 r=scrypt_parameters.r,
+                                 p=scrypt_parameters.p,
                                  dklen=64)
 
         derived1 = derived[:32]
