@@ -68,10 +68,15 @@ separate repositories but be included here by default (e.g. virtual machine impl
 - Virtual Machine
 - Smart contracts (v0.4)
 
-Up next: RC2 parity and Wallet support
+Up next: Wallet support
 
 Performance
 -----------
+At the time of releasing v0.7 there is no RC2 test net available for performance measuring. Very few changes in RC2
+should affect performance, therefore the RC1 measurements below should still be pretty accurate.
+
+RC1 measurements
+~~~~~~~~~~~~~~~~
 RC1 is the first release, out of 5, where `neo-mamba` syncs the blockchain slower than the official client `neo-cli <https://github.com/neo-project/neo-node>`_.
 Specifically, 30% slower. New bottlenecks as a result of the RC1 updates have been identified and will be improved on after
 the required RC2 updates.
