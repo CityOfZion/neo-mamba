@@ -61,7 +61,7 @@ class JsonPathToken:
                 token.type = JsonPathType.COLON
             elif c == '\'':
                 token.type = JsonPathType.STRING
-                token.content = JsonPathToken
+                token.content = JsonPathToken.parse_string(expression, i)
                 i += len(token) - 1
             elif c == '_' or c.isalpha():
                 token.type = JsonPathType.IDENTIFIER
@@ -120,7 +120,7 @@ class JsonPath:
         if first.type != JsonPathType.ROOT:
             raise FormatException("First token must be ROOT ($)")
 
-        objects = [self.json]
+        objects: List[object] = [self.json]
         for token in self.tokens:
             if token.type == JsonPathType.DOT:
                 objects = self.process_dot(objects)
