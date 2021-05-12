@@ -66,7 +66,7 @@ class Contract:
             sb.emit_push(key.encode_point(True))
 
         sb.emit_push(len(public_keys))
-        sb.emit_syscall(contracts.syscall_name_to_int("Neo.Crypto.CheckMultisig"))
+        sb.emit_syscall(contracts.syscall_name_to_int("System.Crypto.CheckMultisig"))
         return sb.to_array()
 
     @classmethod
@@ -94,7 +94,7 @@ class Contract:
         """
         sb = vm.ScriptBuilder()
         sb.emit_push(public_key.encode_point(True))
-        sb.emit_syscall(contracts.syscall_name_to_int("Neo.Crypto.CheckSig"))
+        sb.emit_syscall(contracts.syscall_name_to_int("System.Crypto.CheckSig"))
         return sb.to_array()
 
     @staticmethod
@@ -112,7 +112,7 @@ class Contract:
                 or script[1] != 33
                 or script[35] != vm.OpCode.SYSCALL
                 or int.from_bytes(script[36:40], 'little') != contracts.syscall_name_to_int(
-                    "Neo.Crypto.CheckSig")):
+                    "System.Crypto.CheckSig")):
             return False
         return True
 
@@ -185,7 +185,7 @@ class Contract:
         i += 1
 
         syscall_num = int.from_bytes(script[i:i + 4], 'little')
-        if syscall_num != contracts.syscall_name_to_int("Neo.Crypto.CheckMultisig"):
+        if syscall_num != contracts.syscall_name_to_int("System.Crypto.CheckMultisig"):
             return False
         return True
 

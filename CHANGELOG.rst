@@ -3,6 +3,10 @@ Changelog
 
 All notable changes to this project are documented in this file.
 
+[0.7] 2021-05-12
+----------------
+- RC2 updates
+
 [0.6] 2021-04-30
 ----------------
 - RC1 updates

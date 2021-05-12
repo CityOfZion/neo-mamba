@@ -112,3 +112,10 @@ def get_gasleft(engine: contracts.ApplicationEngine) -> int:
         return -1
     else:
         return engine.gas_amount - engine.gas_consumed
+
+
+@register("System.Runtime.BurnGas", 1 << 4, contracts.CallFlags.NONE)
+def do_burn_gas(engine: contracts.ApplicationEngine, gas: int) -> None:
+    if gas <= 0:
+        raise ValueError("Burn gas cannot be called with negative value")
+    engine.add_gas(gas)

@@ -899,3 +899,12 @@ class GasToken(FungibleToken):
         primary = pub_keys[engine.snapshot.persisting_block.primary_index]
         script_hash = to_script_hash(contracts.Contract.create_signature_redeemscript(primary))
         self.mint(engine, script_hash, vm.BigInteger(total_network_fee), False)
+
+    @register("refuel", contracts.CallFlags.STATES | contracts.CallFlags.ALLOW_NOTIFY, cpu_price=1 << 15)
+    def refuel(self, engine: contracts.ApplicationEngine, account: types.UInt160, amount: int):
+        if amount < 0:
+            raise ValueError("Cannot refuel with negative amount")
+        if not engine.checkwitness(account):
+            raise ValueError("[refuel] check witness failed")
+        self.burn(engine, account, vm.BigInteger(amount))
+        engine.refuel(amount)

@@ -8,7 +8,7 @@ from typing import List
 CHECKSIG_PRICE = 1 << 15
 
 
-@register("Neo.Crypto.CheckSig", CHECKSIG_PRICE, contracts.CallFlags.NONE)
+@register("System.Crypto.CheckSig", CHECKSIG_PRICE, contracts.CallFlags.NONE)
 def verify_with_ECDSA_Secp256r1(engine: contracts.ApplicationEngine,
                                 public_key: bytes,
                                 signature: bytes) -> bool:
@@ -18,7 +18,7 @@ def verify_with_ECDSA_Secp256r1(engine: contracts.ApplicationEngine,
                                          cryptography.ECCCurve.SECP256R1)
 
 
-@register("Neo.Crypto.CheckMultisig", 0, contracts.CallFlags.NONE)
+@register("System.Crypto.CheckMultisig", 0, contracts.CallFlags.NONE)
 def check_multisig_with_ECDSA_Secp256r1(engine: contracts.ApplicationEngine,
                                         public_keys: List[bytes],
                                         signatures: List[bytes]) -> bool:

@@ -85,3 +85,11 @@ class ContractPermissionDescriptor(IJson):
         if value == '*':
             return cls()  # no args == wildcard
         raise ValueError(f"Invalid JSON - Cannot deduce permission type from: {value}")
+
+    def to_array(self) -> bytes:
+        if self.is_hash:
+            return self.contract_hash.to_array()  # type: ignore
+        if self.is_group:
+            return self.group.to_array()  # type: ignore
+        # wildcard
+        return b''
