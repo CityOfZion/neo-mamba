@@ -4,7 +4,7 @@ from enum import IntEnum
 from typing import List
 from . import NativeContract, register
 from neo3 import storage, contracts, cryptography, vm
-from neo3.core import serialization
+from neo3.core import serialization, msgrouter
 
 
 class DesignateRole(IntEnum):
@@ -19,6 +19,22 @@ class DesignationContract(NativeContract):
 
     def init(self):
         super(DesignationContract, self).init()
+        self.manifest.abi.events = [
+            contracts.ContractEventDescriptor(
+                "Designation",
+                parameters=[
+                    contracts.ContractParameterDefinition("Role", contracts.ContractParameterType.INTEGER),
+                    contracts.ContractParameterDefinition("BlockIndex", contracts.ContractParameterType.INTEGER),
+                ]
+            ),
+            contracts.ContractEventDescriptor(
+                "OracleResponse",
+                parameters=[
+                    contracts.ContractParameterDefinition("Id", contracts.ContractParameterType.INTEGER),
+                    contracts.ContractParameterDefinition("OriginalTx", contracts.ContractParameterType.HASH160)
+                ]
+            )
+        ]
 
     @register("getDesignatedByRole", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
     def get_designated_by_role(self,
@@ -36,7 +52,7 @@ class DesignationContract(NativeContract):
         else:
             return []
 
-    @register("designateAsRole", contracts.CallFlags.STATES, cpu_price=1 << 15)
+    @register("designateAsRole", contracts.CallFlags.STATES | contracts.CallFlags.ALLOW_NOTIFY, cpu_price=1 << 15)
     def designate_as_role(self,
                           engine: contracts.ApplicationEngine,
                           role: DesignateRole,
@@ -60,6 +76,11 @@ class DesignationContract(NativeContract):
             writer.write_serializable_list(nodes)
             storage_item = storage.StorageItem(writer.to_array())
         engine.snapshot.storages.update(storage_key, storage_item)
+
+        state = vm.ArrayStackItem(engine.reference_counter)
+        state.append(vm.IntegerStackItem(role.value))
+        state.append(vm.IntegerStackItem(engine.snapshot.persisting_block.index))
+        msgrouter.interop_notify(self.hash, "Designation", state)
 
     def _to_uint32(self, value: int) -> bytes:
         return struct.pack(">I", value)

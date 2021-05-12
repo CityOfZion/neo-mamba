@@ -213,7 +213,7 @@ class Account:
         second_hash = hashlib.sha256(first_hash).digest()
         checksum = second_hash[:4]
         if checksum != address_checksum:
-            raise ValueError(f"Wrong passphrase or key was encrypted with an address version that is not"
+            raise ValueError(f"Wrong passphrase or key was encrypted with an address version that is not "
                              f"{settings.network.account_version}")
 
         return private_key
@@ -323,7 +323,7 @@ class Account:
         return True
 
     @staticmethod
-    def validate_address(address: str):
+    def validate_address(address: str) -> None:
         """
         Validate a given address. If address is not valid an exception will be raised.
 
