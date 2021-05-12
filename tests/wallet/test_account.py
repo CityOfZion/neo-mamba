@@ -2,35 +2,34 @@ import unittest
 
 from neo3.wallet import Account
 
-# the accounts were generated using neo-cli v3.0.0-rc1
 account_list = [
     {
-        "address": "NM4Hq7DDaMrNvhhN16aDiS3fLxXaqjGePy",
-        "encrypted_key": "6PYX6MzwNZHhxfUD82qTgATzUuGQgdajcnZQZuL5wKH77mo6JHLMB3o5zy",
+        "address": "NRaKbRA5JAEJtfUgJJZzmeDnKvP3pJwKp1",
+        "encrypted_key": "6PYKuriAL7pFeVTr3tKksbD1SpKUP7K82vjGuskZ5zpo9EWDhLRW6GcnyL",
         "password": "city of zion",
         "private_key": "58124574dfcca1a7a958775f6ea94e3d6c392ec3ba125b5bc591dd5e14f05e52",
-        "script_hash": "23ec53ddbbd356acd4a5e730aa7f5ec346048b0c",
+        "script_hash": "18f13748e08d53c9a164227e1a3e8d8d9e78193e",
     },
     {
-        "address": "NaeLNuvaTdB2pX3HjDrJdsjL2CxxkfLAKY",
-        "encrypted_key": "6PYWxh9YyxvjQUYVUkb8B6QbEAEFmF1RiNEm9D3aqfiSNHmW5SNidrJ3R9",
+        "address": "NgPptMp2tcjnXuYbUrTozvwvLExGKk5jXc",
+        "encrypted_key": "6PYMEujkLs249znmr3v59x3M12iPbdPTZftv8f2TapuLyHn8TQBZLVJUV6",
         "password": "123",
         "private_key": "2032b737522d22e2b6faf30555faa91d95c5aa5113c18f218f45815b6934c558",
-        "script_hash": "78f02e886e0e2cc8f3e679ca5da06868ffeb94a1",
+        "script_hash": "cfa9032d65b3d0fc1df3956a4ef01666f23ba7e0",
     },
     {
-        "address": "NRn16PPhEKpgLRKg4C11ZQjfKSekwjuUkn",
-        "encrypted_key": "6PYUgEmLRdX4JkpBR6KLoQZZUKTSCBpp8VBNpGG148G1PuTqJyNsvXuUFh",
+        "address": "NZMHRJMPbyJJwtXpvS2mYAWcWp4qmZZFx8",
+        "encrypted_key": "6PYL44vbS5e6ubYtV3JqDM7J92gCEYXWewVyFdyki6JLcQ7QaYzsW6YjTs",
         "password": "neo",
         "private_key": "4c5182d9041f416bee1a6adac6a03f3e0319a83e75e78e6ff739304095791f19",
-        "script_hash": "6c70044e25ca0fcbe1d43f85e3cf8099ed044f40",
+        "script_hash": "0df27baba6baeeb6834bea0d6c2a78183b416393",
     },
     {
-        "address": "NUQnpUFs4Vw2nKyDtCK4tZNrdBUSYecXae",
-        "encrypted_key": "6PYKMoTLa16CkxX2q5RTfyJ17tVCY2QDYyfbeWoh7SFfzD7ReL1MChhijn",
+        "address": "NWxsLx9BFA558pVLZmFNuYsRKuXMMi2QSQ",
+        "encrypted_key": "6PYQ5gTPAv4p5nfrb2ywPumSdtiXCjimuwDAbv93FPancd1dU9D9ajkPqd",
         "password": "neo-mamba",
         "private_key": "1c43f87ce2ce3ea676bdfec4928705f3e9fedbdb3acf1fed6b3cc0c3d87c4cad",
-        "script_hash": "9f1992832dd88e3f8698e65058f645074d6a345d",
+        "script_hash": "3b951421e8dc81552df3af1478ef72b05bc13579",
     }
 ]
 
