@@ -71,7 +71,6 @@ class NativeContract(convenience._Singleton):
         self._neo = contracts.NeoToken()
         self._gas = contracts.GasToken()
         self._policy = contracts.PolicyContract()
-        self._nameservice = contracts.NameService()
         self._oracle = contracts.OracleContract()
         self._ledger = contracts.LedgerContract()
         self._role = contracts.DesignationContract()
