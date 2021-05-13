@@ -2,6 +2,8 @@ from __future__ import annotations
 import hashlib
 import abc
 import struct
+import base58  # type: ignore
+import base64
 from enum import Enum
 from typing import List, Optional, Type, TypeVar
 from neo3.core import Size as s, serialization, utils, types, IInteroperable, IJson
@@ -13,6 +15,19 @@ from neo3 import settings, vm, storage, contracts
 class TransactionAttributeType(Enum):
     HIGH_PRIORITY = 0x1
     ORACLE_RESPONSE = 0x11
+
+    def to_csharp_name(self):
+        if self == self.HIGH_PRIORITY:
+            return "HighPriority"
+        else:
+            return "OracleResponse"
+
+    @classmethod
+    def from_csharp_name(cls, name: str):
+        if name == "HighPriority":
+            return cls.HIGH_PRIORITY
+        else:
+            return cls.ORACLE_RESPONSE
 
 
 TransactionAttribute_T = TypeVar('TransactionAttribute_T', bound='TransactionAttribute')
@@ -83,7 +98,7 @@ class TransactionAttribute(serialization.ISerializable, IJson):
         return True
 
     def to_json(self) -> dict:
-        return {"type": self.type_}
+        return {"type": self.type_.to_csharp_name()}
 
     @classmethod
     def from_json(cls, json: dict):
@@ -110,7 +125,7 @@ class HighPriorityAttribute(TransactionAttribute):
         pass
 
 
-class Transaction(payloads.IInventory, IInteroperable):
+class Transaction(payloads.IInventory, IInteroperable, IJson):
     """
     Data to be executed by the NEO virtual machine.
     """
@@ -315,6 +330,58 @@ class Transaction(payloads.IInventory, IInteroperable):
         script = vm.ByteStringStackItem(self.script)
         array.append([tx_hash, version, nonce, sender, system_fee, network_fee, valid_until, script])
         return array
+
+    def to_json(self) -> dict:
+        version = b'\x35'
+        # replace with to_address once the feature-wallet branch is merged
+        x = version + self.sender.to_array()
+        sender = base58.b58encode_check(x).decode()
+        return {
+            "hash": "0x" + str(self.hash()),
+            "size": len(self),
+            "version": self.version,
+            "nonce": self.nonce,
+            "sender": sender,
+            "sysfee": str(self.system_fee),
+            "netfee": str(self.network_fee),
+            "validuntilblock": self.valid_until_block,
+            "signers": list(map(lambda s: s.to_json(), self.signers)),
+            "attributes": list(map(lambda a: a.to_json(), self.attributes)),
+            "script": base64.b64encode(self.script).decode(),
+            "witnesses": list(map(lambda w: w.to_json(), self.witnesses))
+        }
+
+    @classmethod
+    def from_json(cls, json: dict, procotol_magic=None):
+        version = json['version']
+        nonce = json['nonce']
+        system_fee = int(json['sysfee'])
+        network_fee = int(json['netfee'])
+        valid_until_block = json['validuntilblock']
+        attributes: List[TransactionAttribute] = []
+        # ugh :-(
+        for attribute in json['attributes']:
+            try:
+                type_ = payloads.TransactionAttributeType.from_csharp_name(attribute['type'])
+                if type_ == payloads.TransactionAttributeType.HIGH_PRIORITY:
+                    attributes.append(payloads.HighPriorityAttribute())
+                elif type_ == payloads.TransactionAttributeType.ORACLE_RESPONSE:
+                    attributes.append(payloads.OracleResponse.from_json(attribute))
+            except ValueError:
+                raise ValueError("Invalid transaction attribute")
+        signers = list(map(lambda s: payloads.Signer.from_json(s), json['signers']))
+        script = base64.b64decode(json['script'].encode())
+        witnesses = list(map(lambda w: payloads.Witness.from_json(w), json['witnesses']))
+        return cls(version,
+                   nonce,
+                   system_fee,
+                   network_fee,
+                   valid_until_block,
+                   attributes,
+                   signers,
+                   script,
+                   witnesses,
+                   procotol_magic)
 
     def get_script_hashes_for_verifying(self, _: storage.Snapshot) -> List[types.UInt160]:
         return list(map(lambda signer: signer.account, self.signers))

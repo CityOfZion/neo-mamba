@@ -3,7 +3,7 @@ import base64
 from typing import TYPE_CHECKING
 from enum import IntEnum
 from neo3.network import payloads
-from neo3.core import Size as s, utils, serialization
+from neo3.core import Size as s, utils, serialization, IJson
 from neo3 import vm, contracts
 
 if TYPE_CHECKING:
@@ -22,7 +22,7 @@ class OracleReponseCode(IntEnum):
     ERROR = 0xFF
 
 
-class OracleResponse(payloads.TransactionAttribute):
+class OracleResponse(payloads.TransactionAttribute, IJson):
     _MAX_RESULT_SIZE = 0xFFFF
     _FIXED_ORACLE_SCRIPT = None
 
@@ -61,6 +61,10 @@ class OracleResponse(payloads.TransactionAttribute):
                      "result": base64.b64encode(self.result)}
                     )
         return json
+
+    @classmethod
+    def from_json(cls, json: dict):
+        return cls(json['id'], json['code'], base64.b64decode(json['result']))
 
     def verify(self, snapshot: storage.Snapshot, tx: payloads.Transaction) -> bool:
         if any(map(lambda signer: signer.scope != payloads.WitnessScope.NONE, tx.signers)):
