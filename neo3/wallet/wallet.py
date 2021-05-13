@@ -189,6 +189,57 @@ class Wallet(IJson):
         """
         pass
 
+    def extra_add(self, extra_id: str, extra_value: Any) -> bool:
+        """
+        Includes an extra data in the wallet
+
+        Args:
+            extra_id: the extra data identifier
+            extra_value: the value to be included
+        """
+        if self.extra is None:
+            self.extra = {
+                extra_id: extra_value
+            }
+            return True
+        else:
+            if extra_id in self.extra:
+                return False
+
+            self.extra[extra_id] = extra_value
+            return True
+
+    def extra_update(self, extra_id: str, extra_value: Any) -> bool:
+        """
+        Updates an extra data in the wallet
+
+        Args:
+            extra_id: the extra data identifier
+            extra_value: the value to be included
+        """
+        if self.extra is None or extra_id not in self.extra:
+            return self.extra_add(extra_id, extra_value)
+
+        else:
+            self.extra[extra_id] = extra_value
+            return True
+
+    def extra_delete(self, extra_id: str) -> bool:
+        """
+        Removes an extra from the wallet
+
+        Args:
+            extra_id: the extra data identifier
+        """
+        if self.extra is None or extra_id not in self.extra:
+            return False
+
+        self.extra.pop(extra_id)
+        if not len(self.extra):
+            self.extra = None
+
+        return True
+
     def to_json(self) -> dict:
         """
         Convert object into JSON representation.

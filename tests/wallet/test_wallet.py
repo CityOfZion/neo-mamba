@@ -240,3 +240,69 @@ class WalletCreationTestCase(unittest.TestCase):
         self.assertTrue(success)
         self.assertNotEqual(account_1, test_wallet._default_account)
         self.assertEqual(account_3, test_wallet._default_account)
+
+    def test_wallet_add_extra(self):
+        extra_id = 'extra1'
+        extra_value = 1234
+
+        test_wallet = nep6.NEP6DiskWallet.default()
+        self.assertIsNone(test_wallet.extra)
+
+        success = test_wallet.extra_add(extra_id, extra_value)
+        self.assertTrue(success)
+        self.assertIsNotNone(test_wallet.extra)
+        self.assertIn(extra_id, test_wallet.extra)
+        self.assertEqual(extra_value, test_wallet.extra[extra_id])
+
+        # fails to add an extra with id already in use
+        success = test_wallet.extra_add(extra_id, extra_value)
+        self.assertFalse(success)
+
+    def test_wallet_update_extra(self):
+        extra_id = 'extra1'
+
+        test_wallet = nep6.NEP6DiskWallet.default()
+        self.assertIsNone(test_wallet.extra)
+
+        # update id that is not used has the same behavior as extra_add
+        success = test_wallet.extra_update(extra_id, 1234)
+        self.assertTrue(success)
+        self.assertIsNotNone(test_wallet.extra)
+        self.assertIn(extra_id, test_wallet.extra)
+        self.assertEqual(1234, test_wallet.extra[extra_id])
+
+        success = test_wallet.extra_update(extra_id, '1234')
+        self.assertTrue(success)
+        self.assertIsNotNone(test_wallet.extra)
+        self.assertIn(extra_id, test_wallet.extra)
+        self.assertEqual('1234', test_wallet.extra[extra_id])
+
+    def test_wallet_delete_extra(self):
+        extra_1 = 'extra1'
+        extra_2 = 'extra2'
+
+        test_wallet = nep6.NEP6DiskWallet.default()
+        self.assertIsNone(test_wallet.extra)
+
+        # delete when extra is empty should fail
+        success = test_wallet.extra_delete(extra_1)
+        self.assertFalse(success)
+
+        success = test_wallet.extra_add(extra_1, 1234)
+        self.assertTrue(success)
+        success = test_wallet.extra_add(extra_2, 4567)
+        self.assertTrue(success)
+
+        self.assertIsNotNone(test_wallet.extra)
+        self.assertIn(extra_1, test_wallet.extra)
+        self.assertIn(extra_2, test_wallet.extra)
+
+        # delete succeeds
+        success = test_wallet.extra_delete(extra_1)
+        self.assertTrue(success)
+        self.assertIsNotNone(test_wallet.extra)
+        self.assertNotIn(extra_1, test_wallet.extra)
+
+        # delete when id is not used should fail
+        success = test_wallet.extra_delete(extra_1)
+        self.assertFalse(success)
