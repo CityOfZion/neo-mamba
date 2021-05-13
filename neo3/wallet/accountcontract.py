@@ -3,7 +3,7 @@ from __future__ import annotations
 import base64
 from typing import List
 
-from jsonschema import validate
+from jsonschema import validate  # type: ignore
 
 from neo3 import contracts
 
@@ -19,7 +19,7 @@ class AccountContract(contracts.Contract):
         "required": ["name", "type"]
     }
     json_schema = {
-        "type": "object",
+        "type": ["object", "null"],
         "properties": {
             "script": {"type": "string"},
             "parameters": {

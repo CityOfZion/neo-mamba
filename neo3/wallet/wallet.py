@@ -203,14 +203,15 @@ class Wallet(IJson):
 
         accounts = []
         default_account = None
-        if len(json['accounts']) > 0 and password is None:
-            raise ValueError('Missing password')
-
-        for json_account in json['accounts']:
-            account_from_json = Account.from_json(json_account, password)
-            accounts.append(account_from_json)
-            if default_account is None and hasattr(json, 'isdefault') and json['isdefault']:
-                default_account = account_from_json
+        if len(json['accounts']) > 0:
+            if password is None:
+                raise ValueError('Missing password')
+            else:
+                for json_account in json['accounts']:
+                    account_from_json = Account.from_json(json_account, password)
+                    accounts.append(account_from_json)
+                    if default_account is None and hasattr(json, 'isdefault') and json['isdefault']:
+                        default_account = account_from_json
 
         return cls(name=json['name'],
                    version=json['version'],

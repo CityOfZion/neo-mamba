@@ -4,7 +4,7 @@ import hashlib
 import unicodedata
 from typing import Optional
 from Crypto.Cipher import AES
-from jsonschema import validate
+from jsonschema import validate  # type: ignore
 from neo3 import settings, contracts
 from neo3.core import types, to_script_hash
 from neo3.core.cryptography import ECPoint, KeyPair
@@ -94,7 +94,7 @@ class Account:
                 ]
                 contract = AccountContract(contract_script, default_parameters_list)
 
-        self.contract: AccountContract = contract
+        self.contract: Optional[AccountContract] = contract
         self.extra = extra if extra else {}
 
     @property
@@ -179,7 +179,7 @@ class Account:
             'label': self.label,
             'lock': self.lock,
             'key': self.encrypted_key.decode('utf-8') if self.encrypted_key is not None else None,
-            'contract': self.contract.to_json(),
+            'contract': self.contract.to_json() if self.contract is not None else None,
             'extra': self.extra if len(self.extra) > 0 else None
         }
 
@@ -198,7 +198,8 @@ class Account:
         validate(json, schema=cls.json_schema)
 
         return cls(password=password,
-                   private_key=cls.private_key_from_nep2(json['key'], password) if json['key'] is not None else json['key'],
+                   private_key=(cls.private_key_from_nep2(json['key'], password)
+                                if json['key'] is not None else json['key']),
                    address=json['address'],
                    label=json['label'],
                    lock=json['lock'],
