@@ -17,7 +17,7 @@ class NEP6DiskWallet(Wallet):
                  path: str,
                  name: Optional[str] = None,
                  version: str = Wallet._wallet_version,
-                 scrypt: ScryptParameters = ScryptParameters(),
+                 scrypt: Optional[ScryptParameters] = None,
                  accounts: List[Account] = None,
                  extra: Optional[dict] = None):
         """

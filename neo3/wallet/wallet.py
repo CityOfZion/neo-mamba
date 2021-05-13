@@ -59,7 +59,7 @@ class Wallet(IJson):
     def __init__(self,
                  name: Optional[str] = None,
                  version: str = _wallet_version,
-                 scrypt: ScryptParameters = ScryptParameters(),
+                 scrypt: Optional[ScryptParameters] = None,
                  accounts: List[Account] = None,
                  extra: Optional[Dict[Any, Any]] = None):
         """
@@ -74,7 +74,7 @@ class Wallet(IJson):
 
         self.name = name
         self.version = version
-        self.scrypt = scrypt
+        self.scrypt = scrypt if scrypt else ScryptParameters()
         self.accounts = accounts if accounts is not None else []
         self.extra = extra
 

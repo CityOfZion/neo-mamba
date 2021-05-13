@@ -163,14 +163,14 @@ class Account:
 
     @staticmethod
     def private_key_from_nep2(nep2_key: str, passphrase: str,
-                              scrypt_parameters: ScryptParameters = ScryptParameters()) -> bytes:
+                              scrypt_parameters: Optional[ScryptParameters] = None) -> bytes:
         """
         Decrypt a nep2 key into a private key.
 
         Args:
             nep2_key: the key that will be decrypt.
             passphrase: the password to decrypt the nep2 key.
-            scrypt_parameters: a ScryptParameters object that will be used when generating the Scrypt.
+            scrypt_parameters: a ScryptParameters object that will be passed to the key derivation function.
 
         Raises:
             ValueError: if the length of the nep2_key is not valid.
@@ -180,6 +180,9 @@ class Account:
         Returns:
             the private key.
         """
+        if scrypt_parameters is None:
+            scrypt_parameters = ScryptParameters()
+
         if len(nep2_key) != 58:
             raise ValueError(f"Please provide a nep2_key with a length of 58 bytes (LEN: {len(nep2_key)})")
 
@@ -223,18 +226,21 @@ class Account:
 
     @staticmethod
     def private_key_to_nep2(private_key: bytes, passphrase: str,
-                            scrypt_parameters: ScryptParameters = ScryptParameters()) -> bytes:
+                            scrypt_parameters: Optional[ScryptParameters] = None) -> bytes:
         """
         Encrypt a private key into a nep2 key.
 
         Args:
             private_key: the key that will be encrypt.
             passphrase: the password to encrypt the nep2 key.
-            scrypt_parameters: a ScryptParameters object that will be used when generating the Scrypt.
+            scrypt_parameters: a ScryptParameters object that will be passed to the key derivation function.
 
         Returns:
             the encrypted nep2 key.
         """
+        if scrypt_parameters is None:
+            scrypt_parameters = ScryptParameters()
+
         key_pair = KeyPair(private_key=private_key)
         script_hash = to_script_hash(contracts.Contract.create_signature_redeemscript(key_pair.public_key))
         address = Account.script_hash_to_address(script_hash)
