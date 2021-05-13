@@ -24,7 +24,8 @@ class Account:
     def __init__(self, password: str,
                  private_key: Optional[bytes] = None,
                  watch_only: bool = False,
-                 address: Optional[str] = None
+                 address: Optional[str] = None,
+                 label: Optional[str] = None
                  ):
         """
         Instantiate an account. This constructor should only be directly called when it's desired to create a new
@@ -54,6 +55,7 @@ class Account:
             address = self.script_hash_to_address(script_hash)
             public_key = key_pair.public_key
 
+        self.label: Optional[str] = label
         self.address: str = address
         self.public_key = public_key
         self.encrypted_key = encrypted_key
