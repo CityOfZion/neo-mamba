@@ -279,15 +279,15 @@ class NeoNodeTestCase(asynctest.TestCase):
     async def test_req_headers(self):
         n = node.NeoNode(object())
         n.send_message = asynctest.CoroutineMock()
-        hash_start = types.UInt256.from_string("65793a030c0dcd4fff4da8a6a6d5daa8b570750da4fdeea1bbc43bdf124aedc9")
+        index_start = 0
         count = 10
 
-        await n.request_headers(hash_start, count)
+        await n.request_headers(index_start, count)
         self.assertIsNotNone(n.send_message.call_args)
         m = n.send_message.call_args[0][0]  # type: message.Message
         self.assertEqual(message.MessageType.GETHEADERS, m.type)
-        self.assertIsInstance(m.payload, payloads.GetBlocksPayload)
-        self.assertEqual(hash_start, m.payload.hash_start)
+        self.assertIsInstance(m.payload, payloads.GetBlockByIndexPayload)
+        self.assertEqual(index_start, m.payload.index_start)
         self.assertEqual(count, m.payload.count)
 
     async def test_send_headers(self):
