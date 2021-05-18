@@ -89,7 +89,7 @@ class Wallet(IJson):
 
         self.accounts = accounts if accounts is not None else []
         self._default_account: Optional[Account] = default_account
-        self.extra = extra
+        self.extra = extra if extra else {}
 
     def account_new(self, password: str, label: str = None, is_default=False) -> Account:
         """
@@ -203,7 +203,7 @@ class Wallet(IJson):
                 'p': self.scrypt.p
             },
             'accounts': self.accounts,
-            'extra': self.extra
+            'extra': self.extra if len(self.extra) > 0 else None
         }
 
         return json

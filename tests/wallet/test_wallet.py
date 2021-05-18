@@ -29,7 +29,7 @@ class WalletCreationTestCase(unittest.TestCase):
         self.assertEqual(scrypt_parameters_default.r, test_wallet.scrypt.r)
         self.assertEqual(scrypt_parameters_default.p, test_wallet.scrypt.p)
         self.assertEqual([], test_wallet.accounts)
-        self.assertEqual(None, test_wallet.extra)
+        self.assertEqual({}, test_wallet.extra)
 
     def test_wallet_default_value(self):
         test_wallet = nep6.NEP6DiskWallet.default()
@@ -41,7 +41,7 @@ class WalletCreationTestCase(unittest.TestCase):
         self.assertEqual(scrypt_parameters_default.r, test_wallet.scrypt.r)
         self.assertEqual(scrypt_parameters_default.p, test_wallet.scrypt.p)
         self.assertEqual([], test_wallet.accounts)
-        self.assertEqual(None, test_wallet.extra)
+        self.assertEqual({}, test_wallet.extra)
 
     def test_wallet_save(self):
         wallet_path = 'wallet_save.json'
@@ -61,7 +61,8 @@ class WalletCreationTestCase(unittest.TestCase):
         self.assertEqual(data['scrypt']['r'], test_wallet.scrypt.r)
         self.assertEqual(data['scrypt']['p'], test_wallet.scrypt.p)
         self.assertEqual(data['accounts'], test_wallet.accounts)
-        self.assertEqual(data['extra'], test_wallet.extra)
+        self.assertEqual({}, test_wallet.extra)
+        self.assertEqual(None, data['extra'])
 
         default_path = nep6.NEP6DiskWallet._default_path
         # remove the file if it exists for proper testing
@@ -99,7 +100,7 @@ class WalletCreationTestCase(unittest.TestCase):
             self.assertEqual(scrypt_parameters_default.r, test_wallet.scrypt.r)
             self.assertEqual(scrypt_parameters_default.p, test_wallet.scrypt.p)
             self.assertEqual([], test_wallet.accounts)
-            self.assertEqual(None, test_wallet.extra)
+            self.assertEqual({}, test_wallet.extra)
 
         # it shouldn't persist the wallet
         self.assertFalse(os.path.isfile(default_path))
