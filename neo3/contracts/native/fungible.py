@@ -603,9 +603,7 @@ class NeoToken(FungibleToken):
         self._distribute_gas(engine, account, account_state)
 
         # changing vote
-        old_vote_account = None
         if not account_state.vote_to.is_zero():
-            old_vote_account = account_state.vote_to
             sk_validator = self.key_candidate + account_state.vote_to
             si_validator = engine.snapshot.storages.get(sk_validator, read_only=False)
             validator_state = si_validator.get(_CandidateState)
@@ -621,7 +619,6 @@ class NeoToken(FungibleToken):
         candidate_state.votes += account_state.balance
         self._candidates_dirty = True
 
-        msgrouter.vote(account, account_state.balance, vote_to, old_vote_account, engine.snapshot.persisting_block)
         return True
 
     @register("getCandidates", contracts.CallFlags.READ_STATES, cpu_price=1 << 22)
