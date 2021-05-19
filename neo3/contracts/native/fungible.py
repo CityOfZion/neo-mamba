@@ -581,6 +581,7 @@ class NeoToken(FungibleToken):
             return False
         account_state = storage_item.get(self._state)
 
+        candidate_state = None
         if vote_to is not None:
             storage_key_candidate = self.key_candidate + vote_to
             storage_item_candidate = engine.snapshot.storages.try_get(storage_key_candidate, read_only=False)
@@ -590,7 +591,7 @@ class NeoToken(FungibleToken):
             candidate_state = storage_item_candidate.get(_CandidateState)
             if not candidate_state.registered:
                 return False
-        # first time vote
+
         if account_state.vote_to.is_zero() ^ (vote_to is None):
             si_voters_count = engine.snapshot.storages.get(self.key_voters_count, read_only=False)
             old_value = vm.BigInteger(si_voters_count.value)
@@ -602,7 +603,6 @@ class NeoToken(FungibleToken):
 
         self._distribute_gas(engine, account, account_state)
 
-        # changing vote
         if not account_state.vote_to.is_zero():
             sk_validator = self.key_candidate + account_state.vote_to
             si_validator = engine.snapshot.storages.get(sk_validator, read_only=False)
@@ -615,8 +615,9 @@ class NeoToken(FungibleToken):
                     engine.snapshot.storages.delete(k)
                 engine.snapshot.storages.delete(sk_validator)
 
-        account_state.vote_to = vote_to
-        candidate_state.votes += account_state.balance
+        account_state.vote_to = vote_to if vote_to else cryptography.ECPoint.deserialize_from_bytes(b'\x00')
+        if candidate_state is not None:
+            candidate_state.votes += account_state.balance
         self._candidates_dirty = True
 
         return True
