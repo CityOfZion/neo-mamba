@@ -343,21 +343,34 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
 
     def _stackitem_to_native(self, stack_item: vm.StackItem, target_type: Type[object]):
         # checks for type annotations like `List[bytes]` (similar to byte[][] in C#)
-        if hasattr(target_type, '__origin__') and target_type.__origin__ == list:  # type: ignore
-            element_type = target_type.__args__[0]  # type: ignore
-            array = []
-            if isinstance(stack_item, vm.ArrayStackItem):
-                for e in stack_item:
-                    array.append(self._convert(e, element_type))
-            else:
-                count = stack_item.to_biginteger()
-                if count > self.MAX_STACK_SIZE:
-                    raise ValueError
+        if hasattr(target_type, '__origin__'):
+            if target_type.__origin__ == list:  # type: ignore
+                element_type = target_type.__args__[0]  # type: ignore
+                array = []
+                if isinstance(stack_item, vm.ArrayStackItem):
+                    for e in stack_item:
+                        array.append(self._convert(e, element_type))
+                else:
+                    count = stack_item.to_biginteger()
+                    if count > self.MAX_STACK_SIZE:
+                        raise ValueError
 
-                # mypy bug: https://github.com/python/mypy/issues/9755
-                for e in range(count):  # type: ignore
-                    array.append(self._convert(self.pop(), element_type))
-            return array
+                    # mypy bug: https://github.com/python/mypy/issues/9755
+                    for e in range(count):  # type: ignore
+                        array.append(self._convert(self.pop(), element_type))
+                return array
+            if target_type.__origin__ == Union:  # type: ignore
+                # handle typing.Optional[type], Optional is an alias for Union[x, None]
+                # only support specifying 1 type
+                if len(target_type.__args__) != 2:  # type: ignore
+                    raise ValueError(f"Don't know how to convert {target_type}")
+                if isinstance(stack_item, vm.NullStackItem):
+                    return None
+                else:
+                    for i in target_type.__args__:  # type: ignore
+                        if i is None:
+                            continue
+                        return self._convert(stack_item, i)
         else:
             try:
                 return self._convert(stack_item, target_type)
