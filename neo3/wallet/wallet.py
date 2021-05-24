@@ -9,7 +9,7 @@ from neo3.wallet.scrypt_parameters import ScryptParameters
 schema = {
     "type": "object",
     "properties": {
-        "name": {"type": "string"},
+        "name": {"type": ["string", "null"]},
         "scrypt": {"$ref": "#/$defs/scrypt_parameters"},
         "accounts": {
             "type": "array",
@@ -21,22 +21,33 @@ schema = {
                   "additionalProperties": True
                   },
     },
-    "required": ["path", "name", "scrypt", "accounts", "extra"],
+    "required": ["name", "scrypt", "accounts", "extra"],
     "$defs": {
         "account": {
             "type": "object",
             "properties": {
                 "address": {"type": "string"},
-                "label": {"type": "string"},
-                "is_default": {"type": "boolean"},
+                "label": {"type": ["string", "null"]},
+                "isDefault": {"type": "boolean"},
                 "lock": {"type": "boolean"},
                 "key": {"type": "string"},
-                "contract": {"type": ""},
+                "contract": {
+                    "type": "object",
+                    "properties": {
+                        "script": {"type": "string"},
+                        "parameters": {
+                            "type": "array",
+                            "items": {"$ref": "#/$defs/contract_parameters"},
+                            "minItems": 0,
+                        },
+                    },
+                    "required": ["script", "parameters"]
+                },
                 "extra": {"type": ["object", "null"],
                           "properties": {},
                           "additionalProperties": True}
             },
-            "required": ["address", "label", "is_default", "lock", "key", "contract", "extra"]
+            "required": ["address", "label", "isDefault", "lock", "key", "contract", "extra"]
 
         },
         "scrypt_parameters": {
@@ -47,14 +58,22 @@ schema = {
                 "p": {"type": "integer"}
             },
             "required": ["n", "r", "p"]
+        },
+        "contract_parameters": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+                "type": {"type": "string"}
+            },
+            "required": ["name", "type"]
         }
-    }
+    },
 }
 
 
 class Wallet(IJson):
 
-    _wallet_version = '3.0'
+    _wallet_version = '1.0'
 
     def __init__(self,
                  name: Optional[str] = None,
@@ -218,11 +237,11 @@ class Wallet(IJson):
 
         Raises:
             KeyError: if the data supplied does not contain the necessary keys.
-            ValueError: if the 'version' property is under 3.0 or is not a valid string.
+            ValueError: if the 'version' property is under 1.0 or is not a valid string.
         """
         validate(json, schema=schema)
         try:
-            if float(json['version']) < 3.0:
+            if float(json['version']) < 1.0:
                 raise ValueError("Format error - invalid 'version'")
         except ValueError:
             raise ValueError("Format error - invalid 'version'")
