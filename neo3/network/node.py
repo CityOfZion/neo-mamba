@@ -516,12 +516,22 @@ class NeoNode:
         m = message.Message(msg_type=message.MessageType.GETDATA, payload=payloads.InventoryPayload(type, hashes))
         await self.send_message(m)
 
-    async def send_inventory(self, inv_type: payloads.InventoryType, inv_hash: types.UInt256):
+    async def send_inventory(self, inv_type: payloads.InventoryType, inv_hash: types.UInt256) -> None:
+        """
+        Send an inventory to the network
+
+        Args:
+            inv_type:
+            inv_hash:
+        """
         inv = payloads.InventoryPayload(type=inv_type, hashes=[inv_hash])
         m = message.Message(msg_type=message.MessageType.INV, payload=inv)
         await self.send_message(m)
 
-    async def send_ping(self):
+    async def send_ping(self) -> None:
+        """
+        Send a Ping message and expecting a Pong response
+        """
         if settings.database:
             height = max(0, blockchain.Blockchain().height)
         else:
