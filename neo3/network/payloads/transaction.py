@@ -173,7 +173,7 @@ class Transaction(payloads.IInventory, IInteroperable, IJson):
         self.valid_until_block = valid_until_block
         """
         Optional attributes
-        
+
         See also:
             :class:`~neo3.network.payloads.transaction.HighPriorityAttribute`.
             :class:`~neo3.network.payloads.oracle.OracleResponse`.
