@@ -28,19 +28,34 @@ class StorageItem(serialization.ISerializable, IClonable):
         self._cache = None
 
     def serialize(self, writer: serialization.BinaryWriter) -> None:
+        """
+        Serialize the object into a binary stream.
+
+        Args:
+            writer: instance.
+        """
         writer.write_bytes(self.value)
 
     def deserialize(self, reader: serialization.BinaryReader) -> None:
+        """
+        Deserialize the object from a binary stream.
+
+        Args:
+            reader: instance.
+        """
         remaining_stream_size = len(reader) - reader._stream.tell()
         self.value = reader.read_bytes(remaining_stream_size)
 
     def clone(self) -> StorageItem:
+        """ Deep clone """
         return StorageItem(self.value)
 
     def from_replica(self, replica: StorageItem) -> None:
+        """ Copy instance variables from other instance """
         self.value = replica.value
 
     def get(self, type_: Type[serialization.ISerializable]):
+        """ Transform the data into `type` and cache the value """
         if self._cache and type(self._cache) == type_:
             return self._cache
 

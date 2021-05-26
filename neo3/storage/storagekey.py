@@ -31,10 +31,22 @@ class StorageKey(serialization.ISerializable):
             return NotImplemented
 
     def serialize(self, writer: serialization.BinaryWriter) -> None:
+        """
+        Serialize the object into a binary stream.
+
+        Args:
+            writer: instance.
+        """
         writer.write_int32(self.id)
         writer.write_bytes(self.key)
 
     def deserialize(self, reader: serialization.BinaryReader) -> None:
+        """
+        Deserialize the object from a binary stream.
+
+        Args:
+            reader: instance.
+        """
         self.id = reader.read_int32()
         remaining_stream_size = len(reader) - reader._stream.tell()
         self.key = reader.read_bytes(remaining_stream_size)
