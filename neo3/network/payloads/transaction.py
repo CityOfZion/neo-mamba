@@ -16,7 +16,10 @@ class TransactionAttributeType(Enum):
     HIGH_PRIORITY = 0x1
     ORACLE_RESPONSE = 0x11
 
-    def to_csharp_name(self):
+    def to_csharp_name(self) -> str:
+        """
+        Internal helper to match C# convention
+        """
         if self == self.HIGH_PRIORITY:
             return "HighPriority"
         else:
@@ -24,6 +27,9 @@ class TransactionAttributeType(Enum):
 
     @classmethod
     def from_csharp_name(cls, name: str):
+        """
+        Internal helper to parse from C# convention
+        """
         if name == "HighPriority":
             return cls.HIGH_PRIORITY
         else:
@@ -98,10 +104,12 @@ class TransactionAttribute(serialization.ISerializable, IJson):
         return True
 
     def to_json(self) -> dict:
+        """ Convert object into json """
         return {"type": self.type_.to_csharp_name()}
 
     @classmethod
     def from_json(cls, json: dict):
+        """ Create object from JSON """
         c = cls()
         c.type_ = TransactionAttributeType(json["type"])
 
@@ -112,6 +120,12 @@ class HighPriorityAttribute(TransactionAttribute):
         self.type_ = TransactionAttributeType.HIGH_PRIORITY
 
     def verify(self, snapshot: storage.Snapshot, tx: Transaction) -> bool:
+        """
+        Verifies the attribute with the transaction
+
+        Returns:
+            True if verification passes. False otherwise.
+        """
         committee = contracts.NeoToken().get_committee_address(snapshot)
         for signer in tx.signers:
             if signer.account == committee:
@@ -147,20 +161,35 @@ class Transaction(payloads.IInventory, IInteroperable, IJson):
                  script: bytes = None,
                  witnesses: List[payloads.Witness] = None,
                  protocol_magic: int = None):
+        #: Transaction data structure version - for internal use
         self.version = version
+        #: Random number
         self.nonce = nonce
+        #: The cost of executing the `script`.
         self.system_fee = system_fee
+        #: The cost of validation and inclusion in a block by the consensus node.
         self.network_fee = network_fee
+        #: The maximum chain height this transaction is valid.
         self.valid_until_block = valid_until_block
+        """
+        Optional attributes
+        
+        See also:
+            :class:`~neo3.network.payloads.transaction.HighPriorityAttribute`.
+            :class:`~neo3.network.payloads.oracle.OracleResponse`.
+        """
         self.attributes = attributes if attributes else []
         #: A list of authorities used by the :func:`ChecKWitness` smart contract system call.
         self.signers = signers if signers else []
+        #: The array of instructions to be executed on the chain by the virtual machine.
         self.script = script if script else b''
         #: A list of signing authorities used to validate the transaction.
         self.witnesses = witnesses if witnesses else []
 
         # unofficial attributes
+        #: The virtual machine result of executing the `script`.
         self.vm_state = VMState.NONE
+        #: The block height in which the transaction is included.
         self.block_height = 0
         #: The network protocol magic number to use in the Transaction hash function. Defaults to 0x4F454E
         #: Warning: changing this will change the TX hash which can result in dangling transactions in the database as
@@ -214,6 +243,9 @@ class Transaction(payloads.IInventory, IInteroperable, IJson):
 
     @property
     def sender(self) -> types.UInt160:
+        """
+        The hash of the account who has send the transaction to the network
+        """
         return self.signers[0].account if len(self.signers) > 0 else types.UInt160.zero()
 
     @property
@@ -234,6 +266,12 @@ class Transaction(payloads.IInventory, IInteroperable, IJson):
         writer.write_serializable_list(self.witnesses)
 
     def serialize_unsigned(self, writer: serialization.BinaryWriter) -> None:
+        """
+        Serialize the unsigned part of the object into a binary stream.
+
+        Args:
+            writer: instance.
+        """
         writer.write_uint8(self.version)
         writer.write_uint32(self.nonce)
         writer.write_int64(self.system_fee)
@@ -244,6 +282,7 @@ class Transaction(payloads.IInventory, IInteroperable, IJson):
         writer.write_var_bytes(self.script)
 
     def serialize_special(self, writer: serialization.BinaryWriter) -> None:
+        """ Internal use only - serialize the TX includes its unofficial fields """
         self.serialize(writer)
         writer.write_uint8(int(self.vm_state))
         writer.write_uint32(self.block_height)
@@ -261,6 +300,17 @@ class Transaction(payloads.IInventory, IInteroperable, IJson):
             raise ValueError("Deserialization error - witness length does not match signers length")
 
     def deserialize_unsigned(self, reader: serialization.BinaryReader) -> None:
+        """
+        Deserialize the unsigned data part of the object from a binary stream.
+
+        Args:
+            reader: instance.
+
+        Raises:
+            ValueError: The version is not zero.
+            ValueError: If the system of network fee is negative.
+            ValueError: If there is no script
+        """
         (self.version,
          self.nonce,
          self.system_fee,
@@ -281,6 +331,7 @@ class Transaction(payloads.IInventory, IInteroperable, IJson):
             raise ValueError("Deserialization error - invalid script length 0")
 
     def deserialize_special(self, reader: serialization.BinaryReader) -> None:
+        """ Internal use only - deserialize the data from the stream into a TX that includes the unofficial fields """
         self.deserialize(reader)
         self.vm_state = VMState(reader.read_uint8())
         self.block_height = reader.read_uint32()
@@ -332,6 +383,7 @@ class Transaction(payloads.IInventory, IInteroperable, IJson):
         return array
 
     def to_json(self) -> dict:
+        """ Convert object into json """
         version = b'\x35'
         # replace with to_address once the feature-wallet branch is merged
         x = version + self.sender.to_array()
@@ -353,6 +405,7 @@ class Transaction(payloads.IInventory, IInteroperable, IJson):
 
     @classmethod
     def from_json(cls, json: dict, procotol_magic=None):
+        """ Create object from JSON """
         version = json['version']
         nonce = json['nonce']
         system_fee = int(json['sysfee'])
@@ -384,10 +437,22 @@ class Transaction(payloads.IInventory, IInteroperable, IJson):
                    procotol_magic)
 
     def get_script_hashes_for_verifying(self, _: storage.Snapshot) -> List[types.UInt160]:
+        """
+        Helper method to get the data used in verifying the object.
+        """
         return list(map(lambda signer: signer.account, self.signers))
 
     def try_get_attribute(self, needle: Type[TransactionAttribute_T]) -> \
             Optional[TransactionAttribute_T]:
+        """
+        Helper method for finding an attribute of a specific type.
+
+        Args:
+            needle: the type to search for
+
+        Returns:
+            The attribute matching the type if found. None otherwise.
+        """
         for attr in self.attributes:
             if isinstance(attr, needle):
                 return attr

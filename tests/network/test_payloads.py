@@ -581,7 +581,7 @@ class HeadersPayloadTestCase(unittest.TestCase):
 
         h1 = payloads.Header(version, previous_hash, timestamp, index, primary_index, next_consensus, witness, merkleroot)
         h2 = payloads.Header(version, previous_hash, timestamp, index, primary_index, next_consensus, witness, merkleroot)
-        cls.payload = payloads.HeadersPayload.create([h1, h2])
+        cls.payload = payloads.HeadersPayload([h1, h2])
 
     def test_len(self):
         # captured from C#, see setUpClass() for the capture code

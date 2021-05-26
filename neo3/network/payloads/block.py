@@ -90,6 +90,15 @@ class Header(IVerifiable):
         self.witness = witnesses[0]
 
     def deserialize_unsigned(self, reader: serialization.BinaryReader) -> None:
+        """
+        Deserialize the unsigned data part of the object from a binary stream.
+
+        Args:
+            reader: instance.
+
+        Raises:
+            ValueError: if the primary_index field is greater than the configured consensus validator count.
+        """
         (self.version,
          prev_hash,
          merkleroot,
@@ -105,6 +114,9 @@ class Header(IVerifiable):
         self.next_consensus = types.UInt160(consensus)
 
     def get_script_hashes_for_verifying(self, snapshot: storage.Snapshot) -> List[types.UInt160]:
+        """
+        Helper method to get the data used in verifying the object.
+        """
         if self.prev_hash == types.UInt256.zero():
             return [self.witness.script_hash()]
         prev_block = snapshot.blocks.try_get(self.prev_hash, read_only=True)
@@ -155,40 +167,52 @@ class Block(payloads.IInventory):
 
     @property
     def version(self) -> int:
+        """ Block data structure version - for internal use """
         return self.header.version
 
     @property
     def prev_hash(self) -> types.UInt256:
+        """ The hash of the previous block """
         return self.header.prev_hash
 
     @property
     def merkle_root(self) -> types.UInt256:
+        """ The merkle root of the transactions in the block """
         return self.header.merkle_root
 
     @property
     def timestamp(self) -> int:
+        """ UTC timestamp in miliseconds """
         return self.header.timestamp
 
     @property
     def index(self) -> int:
+        """ The height of the block """
         return self.header.index
 
     @property
     def primary_index(self) -> int:
+        """ The index into the consensus node list that was used to generate this block """
         return self.header.primary_index
 
     @property
     def next_consensus(self) -> types.UInt160:
+        """ The hash of the consensus node that will generate the next block """
         return self.header.next_consensus
 
     @property
     def witness(self) -> payloads.Witness:
+        """ The witness of this block """
         return self.header.witness
 
     def hash(self) -> types.UInt256:
+        """ A unique identifier based on the unsigned data portion of the object """
         return self.header.hash()
 
     def get_script_hashes_for_verifying(self, snapshot: storage.Snapshot) -> List[types.UInt160]:
+        """
+        Helper method to get the data used in verifying the object.
+        """
         return self.header.get_script_hashes_for_verifying(snapshot)
 
     @property
@@ -211,6 +235,12 @@ class Block(payloads.IInventory):
             writer.write_serializable(tx)
 
     def serialize_unsigned(self, writer: serialization.BinaryWriter) -> None:
+        """
+        Serialize the unsigned part of the object into a binary stream.
+
+        Args:
+            writer: instance.
+        """
         self.header.serialize_unsigned(writer)
 
     def deserialize(self, reader: serialization.BinaryReader) -> None:
@@ -235,6 +265,7 @@ class Block(payloads.IInventory):
             raise ValueError("Deserialization error - merkle root mismatch")
 
     def deserialize_unsigned(self, reader: serialization.BinaryReader) -> None:
+        """ Not supported """
         raise NotImplementedError
 
     def rebuild_merkle_root(self) -> None:
@@ -281,17 +312,31 @@ class TrimmedBlock(serialization.ISerializable):
         return self.__class__.deserialize_from_bytes(self.to_array())
 
     def hash(self):
+        """ A unique identifier based on the unsigned data portion of the object """
         return self.header.hash()
 
     @property
     def index(self):
+        """ The height of the block """
         return self.header.index
 
     def serialize(self, writer: serialization.BinaryWriter) -> None:
+        """
+        Serialize the object into a binary stream.
+
+        Args:
+            writer: instance.
+        """
         writer.write_serializable(self.header)
         writer.write_serializable_list(self.hashes)
 
     def deserialize(self, reader: serialization.BinaryReader) -> None:
+        """
+        Deserialize the object from a binary stream.
+
+        Args:
+            reader: instance.
+        """
         self.header = reader.read_serializable(Header)
         self.hashes = reader.read_serializable_list(types.UInt256, max=0xFFFF)
 
@@ -372,16 +417,6 @@ class HeadersPayload(serialization.ISerializable):
             reader: instance.
         """
         self.headers = reader.read_serializable_list(Header)
-
-    @classmethod
-    def create(cls, headers: List[Header]) -> HeadersPayload:
-        """
-        Create payload.
-
-        Args:
-            headers: Header objects to include.
-        """
-        return cls(headers)
 
 
 class GetBlocksPayload(serialization.ISerializable):

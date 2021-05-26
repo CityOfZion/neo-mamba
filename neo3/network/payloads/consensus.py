@@ -1,10 +1,7 @@
 from __future__ import annotations
-import hashlib
 from enum import IntEnum
-from neo3.core import Size as s, serialization, utils, types, to_script_hash
-from neo3.network import payloads
-from neo3 import contracts, storage, settings
-from typing import TypeVar, List
+from neo3.core import Size as s, serialization
+from typing import TypeVar
 
 ConsensusMessage_t = TypeVar('ConsensusMessage_t', bound='ConsensusMessage')
 

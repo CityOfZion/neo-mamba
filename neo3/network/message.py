@@ -40,7 +40,9 @@ class MessageType(IntEnum):
 
 
 class MessageConfig(IntFlag):
+    #: Indicates that the payload data is not compressed
     NONE = 0
+    #: Indicates that the payload data is compressed using LZ4
     COMPRESSED = 1 << 0
 
 

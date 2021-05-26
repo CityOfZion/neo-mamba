@@ -7,8 +7,11 @@ from neo3.core import serialization
 
 class PingPayload(serialization.ISerializable):
     def __init__(self, height: int = 0) -> None:
+        #: The current local chain height
         self.current_height = height
+        #: The local time in UTC as a timestamp
         self.timestamp = int(datetime.utcnow().timestamp())
+        #: Random number
         self.nonce = randint(100, 10000)
 
     def __len__(self) -> int:

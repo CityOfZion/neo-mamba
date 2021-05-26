@@ -89,6 +89,7 @@ class Signer(serialization.ISerializable, IJson):
                                                                 max=self.MAX_SUB_ITEMS)
 
     def to_json(self) -> dict:
+        """ Convert object into json """
         json: Dict[str, Any] = {
             "account": "0x" + str(self.account),
             "scopes": self.scope.to_csharp_name(),
@@ -103,6 +104,7 @@ class Signer(serialization.ISerializable, IJson):
 
     @classmethod
     def from_json(cls, json: dict):
+        """ Create object from JSON """
         account = types.UInt160.from_string(json['account'][2:])
         scopes = payloads.WitnessScope.from_chsarp_name(json['scopes'])
 
@@ -168,6 +170,7 @@ class Witness(serialization.ISerializable, IJson):
         return types.UInt160(data=data)
 
     def to_json(self) -> dict:
+        """ Convert object into json """
         return {
             "invocation": base64.b64encode(self.invocation_script).decode(),
             "verification": base64.b64encode(self.verification_script).decode()
@@ -175,6 +178,7 @@ class Witness(serialization.ISerializable, IJson):
 
     @classmethod
     def from_json(cls, json: dict):
+        """ Create object from JSON """
         return cls(base64.b64decode(json['invocation']), base64.b64decode(json['verification']))
 
     @classmethod
@@ -203,6 +207,9 @@ class WitnessScope(IntFlag):
 
     @no_type_check
     def to_csharp_name(self) -> str:
+        """
+        Internal helper to match C# convention
+        """
         if self == 0:
             return "None"
         flags = []
@@ -218,6 +225,9 @@ class WitnessScope(IntFlag):
 
     @classmethod
     def from_chsarp_name(cls, csharp_name):
+        """
+        Internal helper to parse from C# convention
+        """
         c = cls(cls.NONE)
         if "CalledByEntry" in csharp_name:
             c |= c.CALLED_BY_ENTRY
@@ -245,7 +255,9 @@ class IVerifiable(serialization.ISerializable):
 
     @abc.abstractmethod
     def get_script_hashes_for_verifying(self, snapshot: storage.Snapshot) -> List[types.UInt160]:
-        """ """
+        """
+        Helper method to get the data used in verifying the object.
+        """
 
     def get_hash_data(self, protocol_magic: int) -> bytes:
         """ Get the unsigned data
