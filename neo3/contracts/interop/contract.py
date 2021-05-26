@@ -1,8 +1,6 @@
 from __future__ import annotations
-import json
-from typing import List, Any
-from neo3 import vm, contracts, storage, settings, blockchain
-from neo3.network import payloads
+from typing import List
+from neo3 import vm, contracts
 from neo3.core import cryptography, types, to_script_hash
 from neo3.contracts.interop import register
 

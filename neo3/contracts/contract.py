@@ -8,6 +8,7 @@ from neo3 import vm
 
 class Contract:
     def __init__(self, script: bytes, parameter_list: List[contracts.ContractParameterType]):
+        #: The contract instructions (OpCodes)
         self.script = script
         self.parameter_list = parameter_list
         self._script_hash = to_script_hash(self.script)

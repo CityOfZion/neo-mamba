@@ -1,8 +1,7 @@
 from __future__ import annotations
 import hashlib
-import inspect
 from neo3 import contracts
-from typing import Dict, Callable, Optional, List, get_type_hints
+from typing import Dict, Callable, Optional, get_type_hints
 
 
 class InteropDescriptor:
