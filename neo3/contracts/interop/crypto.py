@@ -1,5 +1,5 @@
 from __future__ import annotations
-from neo3 import vm, contracts, settings
+from neo3 import contracts, settings
 from neo3.core import cryptography
 from neo3.contracts.interop import register
 from typing import List

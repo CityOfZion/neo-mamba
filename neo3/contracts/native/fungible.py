@@ -624,6 +624,9 @@ class NeoToken(FungibleToken):
 
     @register("getCandidates", contracts.CallFlags.READ_STATES, cpu_price=1 << 22)
     def get_candidates(self, engine: contracts.ApplicationEngine) -> None:
+        """
+        Fetch all registered candidates, convert them to a StackItem and push them onto the evaluation stack.
+        """
         array = vm.ArrayStackItem(engine.reference_counter)
         for k, v in self._get_candidates(engine.snapshot):
             struct = vm.StructStackItem(engine.reference_counter)
@@ -634,6 +637,9 @@ class NeoToken(FungibleToken):
 
     @register("getNextBlockValidators", contracts.CallFlags.READ_STATES, cpu_price=1 << 16)
     def get_next_block_validators(self, snapshot: storage.Snapshot) -> List[cryptography.ECPoint]:
+        """
+        Get the public keys of the consensus nodes that will validate the next block.
+        """
         keys = self.get_committee_from_cache(snapshot)[:settings.network.validators_count]
         keys.sort()
         return keys
@@ -655,6 +661,15 @@ class NeoToken(FungibleToken):
 
     @register("getGasPerBlock", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
     def get_gas_per_block(self, snapshot: storage.Snapshot) -> vm.BigInteger:
+        """
+        Get the amount of gas generated in each block.
+
+        Args:
+            snapshot: the snapshot to read the data from
+
+        Returns:
+            The amount of gas generated.
+        """
         index = snapshot.best_block_height + 1
         gas_bonus_state = GasBonusState.from_snapshot(snapshot, read_only=True)
         for record in reversed(gas_bonus_state):  # type: _GasRecord
@@ -674,6 +689,9 @@ class NeoToken(FungibleToken):
 
     @register("getRegisterPrice", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
     def get_register_price(self, snapshot: storage.Snapshot) -> int:
+        """
+        Get the price for registering as a candidate
+        """
         return int(vm.BigInteger(snapshot.storages.get(self.key_register_price, read_only=True).value))
 
     def _distribute_gas(self,
@@ -690,6 +708,9 @@ class NeoToken(FungibleToken):
 
     @register("getCommittee", contracts.CallFlags.READ_STATES, cpu_price=1 << 16)
     def get_committee(self, snapshot: storage.Snapshot) -> List[cryptography.ECPoint]:
+        """
+        Get the public keys of the current validators.
+        """
         return sorted(self.get_committee_from_cache(snapshot))
 
     def total_supply(self, snapshot: storage.Snapshot) -> vm.BigInteger:
@@ -768,6 +789,7 @@ class NeoToken(FungibleToken):
         return self._committee_state.validators
 
     def get_committee_address(self, snapshot: storage.Snapshot) -> types.UInt160:
+        """ Get the script hash of the current committee """
         comittees = self.get_committee(snapshot)
         return to_script_hash(
             contracts.Contract.create_multisig_redeemscript(

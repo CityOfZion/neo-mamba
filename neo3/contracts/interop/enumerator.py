@@ -1,6 +1,6 @@
 from __future__ import annotations
 import abc
-from typing import Union, Iterator, cast
+from typing import cast
 from neo3 import vm, contracts
 from neo3.contracts.interop import register
 
