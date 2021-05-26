@@ -1,14 +1,15 @@
 from __future__ import annotations
 import hashlib
 import abc
+import base64
 from enum import IntFlag
-from neo3.core import serialization, utils, types, cryptography, Size as s
+from neo3.core import serialization, utils, types, cryptography, Size as s, IJson
 from neo3.network import payloads
 from neo3 import storage
-from typing import List
+from typing import List, Dict, Any, no_type_check
 
 
-class Signer(serialization.ISerializable):
+class Signer(serialization.ISerializable, IJson):
     """
     A class that specifies who can pass CheckWitness() verifications in a smart contract.
     """
@@ -87,12 +88,42 @@ class Signer(serialization.ISerializable):
             self.allowed_groups = reader.read_serializable_list(cryptography.ECPoint,  # type: ignore
                                                                 max=self.MAX_SUB_ITEMS)
 
+    def to_json(self) -> dict:
+        json: Dict[str, Any] = {
+            "account": "0x" + str(self.account),
+            "scopes": self.scope.to_csharp_name(),
+        }
+
+        if payloads.WitnessScope.CUSTOM_CONTRACTS in self.scope:
+            json.update({"allowedcontracts": list(map(lambda a: "0x" + str(a), self.allowed_contracts))})
+        if payloads.WitnessScope.CUSTOM_GROUPS in self.scope:
+            json.update({"allowedgroups": list(map(lambda g: str(g), self.allowed_groups))})
+
+        return json
+
+    @classmethod
+    def from_json(cls, json: dict):
+        account = types.UInt160.from_string(json['account'][2:])
+        scopes = payloads.WitnessScope.from_chsarp_name(json['scopes'])
+
+        allowed_contracts = []
+        if "allowedcontracts" in json:
+            for contract in json['allowedcontracts']:
+                allowed_contracts.append(types.UInt160.from_string(contract[2:]))
+
+        allowed_groups = []
+        if "allowedgroups" in json:
+            for group in json['allowedgroups']:
+                allowed_groups.append(cryptography.ECPoint.deserialize_from_bytes(bytes.fromhex(group)))
+
+        return cls(account, scopes, allowed_contracts, allowed_groups)
+
     @classmethod
     def _serializable_init(cls):
         return cls(types.UInt160.zero())
 
 
-class Witness(serialization.ISerializable):
+class Witness(serialization.ISerializable, IJson):
     """
     An executable verification script that validates a verifiable object like a transaction.
     """
@@ -136,6 +167,16 @@ class Witness(serialization.ISerializable):
         data = hashlib.new('ripemd160', intermediate_data).digest()
         return types.UInt160(data=data)
 
+    def to_json(self) -> dict:
+        return {
+            "invocation": base64.b64encode(self.invocation_script).decode(),
+            "verification": base64.b64encode(self.verification_script).decode()
+        }
+
+    @classmethod
+    def from_json(cls, json: dict):
+        return cls(base64.b64decode(json['invocation']), base64.b64decode(json['verification']))
+
     @classmethod
     def _serializable_init(cls):
         return cls(b'', b'')
@@ -159,6 +200,34 @@ class WitnessScope(IntFlag):
     CUSTOM_GROUPS = 0x20
     #: Allow the witness in all context. Equal to NEO 2.x's default behaviour.
     GLOBAL = 0x80
+
+    @no_type_check
+    def to_csharp_name(self) -> str:
+        if self == 0:
+            return "None"
+        flags = []
+        if self.CALLED_BY_ENTRY in self:
+            flags.append("CalledByEntry")
+        if self.CUSTOM_CONTRACTS in self:
+            flags.append("CustomContracts")
+        if self.CUSTOM_GROUPS in self:
+            flags.append("CustomGroups")
+        if self.GLOBAL in self:
+            flags.append("Global")
+        return ", ".join(flags)
+
+    @classmethod
+    def from_chsarp_name(cls, csharp_name):
+        c = cls(cls.NONE)
+        if "CalledByEntry" in csharp_name:
+            c |= c.CALLED_BY_ENTRY
+        if "CustomContracts" in csharp_name:
+            c |= c.CUSTOM_CONTRACTS
+        if "CustomGroups" in csharp_name:
+            c |= c.CUSTOM_GROUPS
+        if "Global" in csharp_name:
+            c |= c.GLOBAL
+        return c
 
 
 class IVerifiable(serialization.ISerializable):
