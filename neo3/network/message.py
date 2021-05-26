@@ -139,6 +139,8 @@ class Message(serialization.ISerializable):
                 return br.read_serializable(payloads.AddrPayload)
             elif msg_type == MessageType.TRANSACTION:
                 return br.read_serializable(payloads.Transaction)
+            elif msg_type == MessageType.EXTENSIBLE:
+                return br.read_serializable(payloads.ExtensiblePayload)
             else:
                 logger.debug(f"Unsupported payload {msg_type.name}")
 

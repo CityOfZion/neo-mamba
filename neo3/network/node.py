@@ -53,7 +53,8 @@ class NeoNode:
             message.MessageType.MERKLEBLOCK: self.handler_merkleblock,
             message.MessageType.PING: self.handler_ping,
             message.MessageType.PONG: self.handler_pong,
-            message.MessageType.TRANSACTION: self.handler_transaction
+            message.MessageType.TRANSACTION: self.handler_transaction,
+            message.MessageType.EXTENSIBLE: self.handler_extensible
         }
 
     # connection setup and control functions
@@ -383,6 +384,15 @@ class NeoNode:
     def handler_transaction(self, msg: message.Message) -> None:
         """
         Handler for a message with the TRANSACTION type.
+
+        Args:
+            msg:
+        """
+        pass
+
+    def handler_extensible(self, msg: message.Message) -> None:
+        """
+        Handler for a message with the EXTENSIBLE type.
 
         Args:
             msg:
