@@ -71,3 +71,7 @@ class ExtensiblePayload(payloads.IInventory):
 
     def get_script_hashes_for_verifying(self, snapshot: storage.Snapshot) -> List[types.UInt160]:
         return [self.sender]
+
+    @classmethod
+    def _serializable_init(cls):
+        return cls('', 0, 0, types.UInt160.zero(), b'', payloads.Witness(b'', b''))
