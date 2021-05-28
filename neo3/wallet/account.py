@@ -74,7 +74,7 @@ class Account:
             encrypted_key = self.private_key_to_nep2(private_key, password)
             contract_script = contracts.Contract.create_signature_redeemscript(key_pair.public_key)
             script_hash = to_script_hash(contract_script)
-            address = self.script_hash_to_address(script_hash)
+            address = address if address else self.script_hash_to_address(script_hash)
             public_key = key_pair.public_key
 
         self.label: Optional[str] = label

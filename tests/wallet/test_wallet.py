@@ -231,3 +231,12 @@ class WalletCreationTestCase(unittest.TestCase):
         self.assertTrue(success)
         self.assertNotEqual(account_1, test_wallet._default_account)
         self.assertEqual(account_3, test_wallet._default_account)
+
+    def test_from_json_with_multisig_account(self):
+        with open('./rc2-wallet.json') as f:
+            data = json.load(f)
+
+        w = wallet.Wallet.from_json(data, '123')
+        self.assertEqual(2, len(w.accounts))
+        self.assertEqual("NY9qiu8YScTM9oAc3nnaeNjaX5fnraaRTA", w.accounts[0].address)
+        self.assertEqual("NcmoFiYqThZJFiEYVF1BjYEk6YwF5vtkFA", w.accounts[1].address)
