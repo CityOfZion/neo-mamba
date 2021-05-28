@@ -82,6 +82,13 @@ class Wallet(IJson):
         self.account_add(account, is_default)
         return account
 
+    @property
+    def account_default(self) -> Optional[Account]:
+        """
+        Returns the default account if at least one account is present
+        """
+        return self._default_account
+
     def account_add(self, account: Account, is_default=False) -> bool:
         """
         Includes an account in the wallet

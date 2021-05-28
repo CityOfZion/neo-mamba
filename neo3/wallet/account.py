@@ -6,9 +6,9 @@ import unicodedata
 from typing import Optional, Dict, Any, List
 from Crypto.Cipher import AES
 from jsonschema import validate  # type: ignore
-from neo3 import settings, contracts
-from neo3.core import types, to_script_hash
-from neo3.core.cryptography import ECPoint, KeyPair
+from neo3 import settings, contracts, vm
+from neo3.network import payloads
+from neo3.core import types, to_script_hash, cryptography, syscall_name_to_int
 from neo3.wallet.scrypt_parameters import ScryptParameters
 
 # both constants below are used to encrypt/decrypt a private key to/from a nep2 key
@@ -121,7 +121,7 @@ class Account:
         account using just a password and a randomly generated private key, otherwise use the alternative constructors
         """
 
-        public_key: Optional[ECPoint] = None
+        public_key: Optional[cryptography.ECPoint] = None
         encrypted_key: Optional[bytes] = None
         contract_script: Optional[bytes] = None
 
@@ -132,13 +132,13 @@ class Account:
                 self.validate_address(address)
 
         else:
-            key_pair: KeyPair
+            key_pair: cryptography.KeyPair
 
             if private_key is None:
-                key_pair = KeyPair.generate()
+                key_pair = cryptography.KeyPair.generate()
                 private_key = key_pair.private_key
             else:
-                key_pair = KeyPair(private_key)
+                key_pair = cryptography.KeyPair(private_key)
             encrypted_key = self.private_key_to_nep2(private_key, password)
             contract_script = contracts.Contract.create_signature_redeemscript(key_pair.public_key)
             script_hash = to_script_hash(contract_script)
@@ -164,9 +164,81 @@ class Account:
         self.contract: Optional[AccountContract] = contract
         self.extra = extra if extra else {}
 
+    def __eq__(self, other) -> bool:
+        return isinstance(other, Account) and self.address == other.address
+
     @property
     def script_hash(self) -> types.UInt160:
         return self.address_to_script_hash(self.address)
+
+    @property
+    def is_watchonly(self) -> bool:
+        if self.encrypted_key is None:
+            return True
+        else:
+            return False
+
+    def sign_tx(self, tx: payloads.Transaction, password: str, magic: Optional[int] = None):
+        """
+        Helper function that signs the TX, adds the Witness and Sender
+
+        Args:
+            tx: transaction to sign
+            password: the password to decrypt the private key for signing
+            magic: the network magic
+
+        Raises:
+            ValueError: if transaction validation fails
+        """
+        if magic is None:
+            magic = settings.network.magic
+        if tx.network_fee == 0 or tx.system_fee == 0:
+            raise ValueError("Transaction validation failure - "
+                             "a transaction without network and system fees will always fail to validate on chain")
+
+        if len(tx.signers) == 0:
+            raise ValueError("Transaction validation failure - Missing sender")
+
+        if len(tx.script) == 0:
+            raise ValueError("Transaction validation failure - script field can't be empty")
+
+        if self.is_watchonly:
+            raise ValueError("Cannot sign transaction using a watch only account")
+
+        import binascii
+        message = magic.to_bytes(4, byteorder="little", signed=False) + tx.hash().to_array()
+        signature = self.sign(message, password)
+
+        invocation_script = vm.ScriptBuilder().emit_push(signature).to_array()
+        # mypy can't infer that the is_watchonly check ensures public_key has a value
+        verification_script = contracts.Contract.create_signature_redeemscript(self.public_key)  # type: ignore
+        tx.witnesses.append(payloads.Witness(invocation_script, verification_script))
+
+    def add_as_sender(self, tx: payloads.Transaction):
+        """
+        Add the account as sender of the transaction.
+
+        Args:
+            tx: the transaction to modify
+        """
+        tx.signers.insert(0, payloads.Signer(self.script_hash, payloads.WitnessScope.GLOBAL))
+
+    def sign(self, data: bytes, password: str) -> bytes:
+        """
+        Sign arbitrary data using the SECP256R1 curve.
+
+        Args:
+            data: data to be signed
+            password: the password to decrypt the private key
+
+        Returns:
+            signature of the signed data
+        """
+        if self.is_watchonly:
+            raise ValueError("Cannot sign transaction using a watch only account")
+        # mypy can't infer that the is_watchonly check ensures encrypted_key has a value
+        private_key = self.private_key_from_nep2(self.encrypted_key.decode("utf-8"), password)  # type: ignore
+        return cryptography.sign(data, private_key)
 
     @classmethod
     def create_new(cls, password: str) -> Account:
@@ -274,9 +346,6 @@ class Account:
                    extra=json['extra']
                    )
 
-    def __eq__(self, other) -> bool:
-        return isinstance(other, Account) and self.address == other.address
-
     @staticmethod
     def script_hash_to_address(script_hash: types.UInt160) -> str:
         """
@@ -359,7 +428,7 @@ class Account:
         private_key = Account._xor_bytes(decrypted, derived1)
 
         # Now check that the address hashes match. If they don't, the password was wrong.
-        key_pair = KeyPair(private_key=private_key)
+        key_pair = cryptography.KeyPair(private_key=private_key)
         script_hash = to_script_hash(contracts.Contract.create_signature_redeemscript(key_pair.public_key))
         address = Account.script_hash_to_address(script_hash)
         first_hash = hashlib.sha256(address.encode("utf-8")).digest()
@@ -388,7 +457,7 @@ class Account:
         if scrypt_parameters is None:
             scrypt_parameters = ScryptParameters()
 
-        key_pair = KeyPair(private_key=private_key)
+        key_pair = cryptography.KeyPair(private_key=private_key)
         script_hash = to_script_hash(contracts.Contract.create_signature_redeemscript(key_pair.public_key))
         address = Account.script_hash_to_address(script_hash)
         # NEP2 checksum: hash the address twice and get the first 4 bytes
@@ -451,22 +520,6 @@ class Account:
         return private_key
 
     @staticmethod
-    def _xor_bytes(a: bytes, b: bytes) -> bytes:
-        """
-        XOR on two bytes objects
-        Args:
-            a (bytes): object 1
-            b (bytes): object 2
-        Returns:
-            bytes: The XOR result
-        """
-        assert len(a) == len(b)
-        res = bytearray()
-        for i in range(len(a)):
-            res.append(a[i] ^ b[i])
-        return bytes(res)
-
-    @staticmethod
     def is_valid_address(address: str) -> bool:
         """
         Test if the provided address is a valid address.
@@ -498,3 +551,19 @@ class Account:
                              f"{len(types.UInt160.zero()) + 1}")
         elif data[0] != settings.network.account_version:
             raise ValueError(f"The account version is not {settings.network.account_version}")
+
+    @staticmethod
+    def _xor_bytes(a: bytes, b: bytes) -> bytes:
+        """
+        XOR on two bytes objects
+        Args:
+            a (bytes): object 1
+            b (bytes): object 2
+        Returns:
+            bytes: The XOR result
+        """
+        assert len(a) == len(b)
+        res = bytearray()
+        for i in range(len(a)):
+            res.append(a[i] ^ b[i])
+        return bytes(res)
