@@ -8,7 +8,7 @@ from neo3.wallet.scrypt_parameters import ScryptParameters
 
 class Wallet(IJson):
 
-    _wallet_version = '3.0'
+    _wallet_version = '1.0'
 
     # Wallet JSON validation schema
     json_schema = {
@@ -19,7 +19,7 @@ class Wallet(IJson):
             "scrypt": ScryptParameters.json_schema,
             "accounts": {
                 "type": "array",
-                "items": Account.json_schema,
+                "items": Account._json_schema,
                 "minItems": 0,
             },
             "extra": {"type": ["object", "null"],
@@ -178,7 +178,7 @@ class Wallet(IJson):
     def _account_to_json(self, account: Account) -> dict:
         is_default = self._default_account is not None and self._default_account.address == account.address
         json_account = account.to_json()
-        json_account['isdefault'] = is_default
+        json_account['isDefault'] = is_default
         return json_account
 
     @classmethod
@@ -192,11 +192,11 @@ class Wallet(IJson):
 
         Raises:
             KeyError: if the data supplied does not contain the necessary keys.
-            ValueError: if the 'version' property is under 3.0 or is not a valid string.
+            ValueError: if the 'version' property is under 1.0 or is not a valid string.
         """
         validate(json, schema=cls.json_schema)
         try:
-            if float(json['version']) < 3.0:
+            if float(json['version']) < 1.0:
                 raise ValueError("Format error - invalid 'version'")
         except ValueError:
             raise ValueError("Format error - invalid 'version'")
@@ -205,12 +205,12 @@ class Wallet(IJson):
         default_account = None
         if len(json['accounts']) > 0:
             if password is None:
-                raise ValueError('Missing password')
+                raise ValueError('Missing wallet password to decrypt account data')
             else:
                 for json_account in json['accounts']:
                     account_from_json = Account.from_json(json_account, password)
                     accounts.append(account_from_json)
-                    if default_account is None and hasattr(json, 'isdefault') and json['isdefault']:
+                    if default_account is None and hasattr(json, 'isDefault') and json['isDefault']:
                         default_account = account_from_json
 
         return cls(name=json['name'],

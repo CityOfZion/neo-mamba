@@ -2,7 +2,7 @@ from __future__ import annotations
 import base58  # type: ignore
 import hashlib
 import unicodedata
-from typing import Optional
+from typing import Optional, Dict, Any
 from Crypto.Cipher import AES
 from jsonschema import validate  # type: ignore
 from neo3 import settings, contracts
@@ -22,21 +22,21 @@ PRIVATE_KEY_LENGTH = 32
 
 class Account:
 
-    json_schema = {
+    _json_schema = {
         "type": "object",
         "properties": {
             "address": {"type": "string"},
             "label": {"type": ["string", "null"]},
-            "isdefault": {"type": "boolean"},
+            "isDefault": {"type": "boolean"},
             "lock": {"type": "boolean"},
             "key": {"type": ["string", "null"]},
-            "contract": AccountContract.json_schema,
+            "contract": AccountContract._json_schema,
             "extra": {"type": ["object", "null"],
                       "properties": {},
                       "additionalProperties": True
                       }
         },
-        "required": ["address", "label", "lock", "key", "extra"]
+        "required": ["address", "label", "isDefault", "lock", "key", "extra"]
     }
 
     def __init__(self, password: str,
@@ -46,12 +46,11 @@ class Account:
                  label: Optional[str] = None,
                  lock: bool = False,
                  contract: Optional[contracts.Contract] = None,
-                 extra: Optional[dict] = None
+                 extra: Optional[Dict[str, Any]] = None
                  ):
         """
         Instantiate an account. This constructor should only be directly called when it's desired to create a new
-        account using just a password and a randomly generated private key, otherwise, they should call another
-        function.
+        account using just a password and a randomly generated private key, otherwise use the alternative constructors
         """
 
         public_key: Optional[ECPoint] = None
@@ -195,7 +194,7 @@ class Account:
         Raises:
             KeyError: if the data supplied does not contain the necessary key.
         """
-        validate(json, schema=cls.json_schema)
+        validate(json, schema=cls._json_schema)
 
         return cls(password=password,
                    private_key=(cls.private_key_from_nep2(json['key'], password)
