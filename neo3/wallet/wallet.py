@@ -5,56 +5,30 @@ from neo3.core import IJson
 from neo3.wallet.account import Account
 from neo3.wallet.scrypt_parameters import ScryptParameters
 
-# Wallet JSON validation schema
-schema = {
-    "type": "object",
-    "properties": {
-        "name": {"type": "string"},
-        "scrypt": {"$ref": "#/$defs/scrypt_parameters"},
-        "accounts": {
-            "type": "array",
-            "items": {"$ref": "#/$defs/account"},
-            "minItems": 0,
-        },
-        "extra": {"type": ["object", "null"],
-                  "properties": {},
-                  "additionalProperties": True
-                  },
-    },
-    "required": ["path", "name", "scrypt", "accounts", "extra"],
-    "$defs": {
-        "account": {
-            "type": "object",
-            "properties": {
-                "address": {"type": "string"},
-                "label": {"type": "string"},
-                "is_default": {"type": "boolean"},
-                "lock": {"type": "boolean"},
-                "key": {"type": "string"},
-                "contract": {"type": ""},
-                "extra": {"type": ["object", "null"],
-                          "properties": {},
-                          "additionalProperties": True}
-            },
-            "required": ["address", "label", "is_default", "lock", "key", "contract", "extra"]
-
-        },
-        "scrypt_parameters": {
-            "type": "object",
-            "properties": {
-                "n": {"type": "integer"},
-                "r": {"type": "integer"},
-                "p": {"type": "integer"}
-            },
-            "required": ["n", "r", "p"]
-        }
-    }
-}
-
 
 class Wallet(IJson):
 
     _wallet_version = '3.0'
+
+    # Wallet JSON validation schema
+    json_schema = {
+        "type": "object",
+        "properties": {
+            "name": {"type": ["string", "null"]},
+            "version": {"type": "string"},
+            "scrypt": ScryptParameters.json_schema,
+            "accounts": {
+                "type": "array",
+                "items": Account.json_schema,
+                "minItems": 0,
+            },
+            "extra": {"type": ["object", "null"],
+                      "properties": {},
+                      "additionalProperties": True
+                      },
+        },
+        "required": ["name", "version", "scrypt", "accounts", "extra"]
+    }
 
     def __init__(self,
                  name: Optional[str] = None,
@@ -193,46 +167,57 @@ class Wallet(IJson):
         """
         Convert object into JSON representation.
         """
-        # it's a placeholder, it'll be refined on #70
-        json = {
+        return {
             'name': self.name,
             'version': self.version,
-            'scrypt': {
-                'n': self.scrypt.n,
-                'r': self.scrypt.r,
-                'p': self.scrypt.p
-            },
-            'accounts': self.accounts,
+            'scrypt': self.scrypt.to_json(),
+            'accounts': [self._account_to_json(account) for account in self.accounts],
             'extra': self.extra if len(self.extra) > 0 else None
         }
 
-        return json
+    def _account_to_json(self, account: Account) -> dict:
+        is_default = self._default_account is not None and self._default_account.address == account.address
+        json_account = account.to_json()
+        json_account['isdefault'] = is_default
+        return json_account
 
     @classmethod
-    def from_json(cls, json: dict) -> Wallet:
+    def from_json(cls, json: dict, password: str = None) -> Wallet:
         """
         Parse object out of JSON data.
 
         Args:
             json: a dictionary.
+            password: the password to decrypt the json data.
 
         Raises:
             KeyError: if the data supplied does not contain the necessary keys.
             ValueError: if the 'version' property is under 3.0 or is not a valid string.
         """
-        validate(json, schema=schema)
+        validate(json, schema=cls.json_schema)
         try:
             if float(json['version']) < 3.0:
                 raise ValueError("Format error - invalid 'version'")
         except ValueError:
             raise ValueError("Format error - invalid 'version'")
 
+        accounts = []
+        default_account = None
+        if len(json['accounts']) > 0:
+            if password is None:
+                raise ValueError('Missing password')
+            else:
+                for json_account in json['accounts']:
+                    account_from_json = Account.from_json(json_account, password)
+                    accounts.append(account_from_json)
+                    if default_account is None and hasattr(json, 'isdefault') and json['isdefault']:
+                        default_account = account_from_json
+
         return cls(name=json['name'],
                    version=json['version'],
-                   scrypt=ScryptParameters(json['scrypt']['n'],
-                                           json['scrypt']['r'],
-                                           json['scrypt']['p']),
-                   accounts=json['accounts'],
+                   scrypt=ScryptParameters.from_json(json['scrypt']),
+                   accounts=accounts,
+                   default_account=default_account,
                    extra=json['extra'])
 
     def __enter__(self) -> Wallet:

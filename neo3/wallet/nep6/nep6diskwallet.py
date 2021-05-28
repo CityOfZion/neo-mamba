@@ -19,6 +19,7 @@ class NEP6DiskWallet(Wallet):
                  version: str = Wallet._wallet_version,
                  scrypt: Optional[ScryptParameters] = None,
                  accounts: List[Account] = None,
+                 default_account: Optional[Account] = None,
                  extra: Optional[dict] = None):
         """
 
@@ -47,6 +48,7 @@ class NEP6DiskWallet(Wallet):
                          version=version,
                          scrypt=scrypt,
                          accounts=accounts,
+                         default_account=default_account,
                          extra=extra)
 
     def save(self) -> None:
