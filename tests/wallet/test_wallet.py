@@ -233,7 +233,8 @@ class WalletCreationTestCase(unittest.TestCase):
         self.assertEqual(account_3, test_wallet._default_account)
 
     def test_from_json_with_multisig_account(self):
-        with open('./rc2-wallet.json') as f:
+        p = os.path.join(os.path.dirname(__file__), 'rc2-wallet.json')
+        with open(p) as f:
             data = json.load(f)
 
         w = wallet.Wallet.from_json(data, '123')
