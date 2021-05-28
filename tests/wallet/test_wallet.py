@@ -13,8 +13,8 @@ class WalletCreationTestCase(unittest.TestCase):
         return None
 
     def test_wallet_new_wallet(self):
-        wallet_file_name = 'new_wallet'
-        wallet_file_path = '{0}.json'.format(wallet_file_name)
+        wallet_file_name = 'unittest-wallet'
+        wallet_file_path = f"{wallet_file_name}.json"
 
         # remove the file if it exists for proper testing
         if os.path.isfile(wallet_file_path):
@@ -44,7 +44,7 @@ class WalletCreationTestCase(unittest.TestCase):
         self.assertEqual({}, test_wallet.extra)
 
     def test_wallet_save(self):
-        wallet_path = 'wallet_save.json'
+        wallet_path = 'unittest-wallet-save.json'
         # remove the file if it exists for proper testing
         if os.path.isfile(wallet_path):
             os.remove(wallet_path)
@@ -53,7 +53,7 @@ class WalletCreationTestCase(unittest.TestCase):
         test_wallet.save()
         self.assertTrue(os.path.isfile(wallet_path))
 
-        with open('wallet_save.json') as json_file:
+        with open(wallet_path) as json_file:
             data = json.load(json_file)
 
         self.assertEqual(data['name'], test_wallet.name)
@@ -65,16 +65,6 @@ class WalletCreationTestCase(unittest.TestCase):
         self.assertEqual({}, test_wallet.extra)
         self.assertEqual(None, data['extra'])
 
-        default_path = nep6.NEP6DiskWallet._default_path
-        # remove the file if it exists for proper testing
-        if os.path.isfile(default_path):
-            os.remove(default_path)
-
-        # if the wallet class doesn't override `save` method, it shouldn't persist
-        test_wallet = Wallet(name='Test Save Wallet')
-        test_wallet.save()
-        self.assertFalse(os.path.isfile(default_path))
-
         # remove the file if it exists for proper testing
         if os.path.isfile(wallet_path):
             os.remove(wallet_path)
@@ -84,27 +74,9 @@ class WalletCreationTestCase(unittest.TestCase):
             pass
         self.assertTrue(os.path.isfile(wallet_path))
 
-    def test_wallet_create_without_persisting(self):
-        default_path = nep6.NEP6DiskWallet._default_path
-
-        # remove the file if it exists for proper testing
-        if os.path.isfile(default_path):
-            os.remove(default_path)
-
-        wallet_name = 'Wallet without persisting'
-        scrypt_parameters_default = wallet.ScryptParameters()
-
-        with Wallet(name=wallet_name) as test_wallet:
-            self.assertEqual(wallet_name, test_wallet.name)
-            self.assertEqual('1.0', test_wallet.version)
-            self.assertEqual(scrypt_parameters_default.n, test_wallet.scrypt.n)
-            self.assertEqual(scrypt_parameters_default.r, test_wallet.scrypt.r)
-            self.assertEqual(scrypt_parameters_default.p, test_wallet.scrypt.p)
-            self.assertEqual([], test_wallet.accounts)
-            self.assertEqual({}, test_wallet.extra)
-
-        # it shouldn't persist the wallet
-        self.assertFalse(os.path.isfile(default_path))
+        # clean up after test
+        if os.path.isfile(wallet_path):
+            os.remove(wallet_path)
 
     def test_wallet_from_json(self):
         password = '123'
