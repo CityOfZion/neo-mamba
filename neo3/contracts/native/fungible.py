@@ -306,6 +306,24 @@ class _NeoTokenStorageState(FungibleTokenStorageState):
         self.vote_to = reader.read_serializable(cryptography.ECPoint)  # type: ignore
         self.balance_height = reader.read_uint32()
 
+    def to_stack_item(self, reference_counter: vm.ReferenceCounter) -> vm.StackItem:
+        struct_ = super(_NeoTokenStorageState, self).to_stack_item(reference_counter)
+        struct_ = cast(vm.StructStackItem, struct_)
+        struct_.append(vm.IntegerStackItem(self.balance_height))
+        if self.vote_to.is_zero():
+            struct_.append(vm.NullStackItem())
+        else:
+            struct_.append(vm.ByteStringStackItem(self.vote_to.to_array()))
+        return struct_
+
+    @classmethod
+    def from_stack_item(cls, stack_item: vm.StackItem):
+        c = super(_NeoTokenStorageState, cls).from_stack_item(stack_item)  # type: _NeoTokenStorageState
+        si = cast(vm.StructStackItem, stack_item)
+        c.balance_height = int(si[1].to_biginteger())
+        c.vote_to = cryptography.ECPoint.deserialize_from_bytes(si[2].to_array())
+        return c
+
 
 class _CandidateState(serialization.ISerializable):
     """
@@ -712,6 +730,14 @@ class NeoToken(FungibleToken):
         Get the public keys of the current validators.
         """
         return sorted(self.get_committee_from_cache(snapshot))
+
+    @register("getAccountState", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
+    def get_account_state(self, snapshot: storage.Snapshot, account: types.UInt160) -> Optional[_NeoTokenStorageState]:
+        storage_key_account = self.key_account + account
+        storage_item = snapshot.storages.try_get(storage_key_account, read_only=False)
+        if storage_item is None:
+            return None
+        return storage_item.get(self._state)
 
     def total_supply(self, snapshot: storage.Snapshot) -> vm.BigInteger:
         """ Get the total deployed tokens. """
