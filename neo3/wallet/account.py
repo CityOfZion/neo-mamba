@@ -6,10 +6,10 @@ import unicodedata
 from typing import Optional, Dict, Any, List
 from Crypto.Cipher import AES
 from jsonschema import validate  # type: ignore
-from neo3 import settings, contracts, vm
+from neo3 import settings, contracts, vm, wallet
 from neo3.network import payloads
 from neo3.core import types, to_script_hash, cryptography, syscall_name_to_int
-from neo3.wallet.scrypt_parameters import ScryptParameters
+
 
 # both constants below are used to encrypt/decrypt a private key to/from a nep2 key
 NEP_HEADER = bytes([0x01, 0x42])
@@ -120,7 +120,6 @@ class Account:
         Instantiate an account. This constructor should only be directly called when it's desired to create a new
         account using just a password and a randomly generated private key, otherwise use the alternative constructors
         """
-
         public_key: Optional[cryptography.ECPoint] = None
         encrypted_key: Optional[bytes] = None
         contract_script: Optional[bytes] = None
@@ -178,7 +177,28 @@ class Account:
         else:
             return False
 
-    def sign_tx(self, tx: payloads.Transaction, password: str, magic: Optional[int] = None):
+    @property
+    def is_multisig(self) -> bool:
+        if self.contract is None:
+            return False
+        return contracts.Contract.is_multisig_contract(self.contract.script)
+
+    @property
+    def is_single_sig(self) -> bool:
+        if self.contract is None:
+            return False
+        return contracts.Contract.is_signature_contract(self.contract.script)
+
+    def add_as_sender(self, tx: payloads.Transaction):
+        """
+        Add the account as sender of the transaction.
+
+        Args:
+            tx: the transaction to modify
+        """
+        tx.signers.insert(0, payloads.Signer(self.script_hash, payloads.WitnessScope.GLOBAL))
+
+    def sign_tx(self, tx: payloads.Transaction, password: str, magic: Optional[int] = None) -> None:
         """
         Helper function that signs the TX, adds the Witness and Sender
 
@@ -192,36 +212,72 @@ class Account:
         """
         if magic is None:
             magic = settings.network.magic
-        if tx.network_fee == 0 or tx.system_fee == 0:
-            raise ValueError("Transaction validation failure - "
-                             "a transaction without network and system fees will always fail to validate on chain")
 
-        if len(tx.signers) == 0:
-            raise ValueError("Transaction validation failure - Missing sender")
+        self._validate_tx(tx)
 
-        if len(tx.script) == 0:
-            raise ValueError("Transaction validation failure - script field can't be empty")
-
-        if self.is_watchonly:
-            raise ValueError("Cannot sign transaction using a watch only account")
-
-        import binascii
         message = magic.to_bytes(4, byteorder="little", signed=False) + tx.hash().to_array()
         signature = self.sign(message, password)
 
         invocation_script = vm.ScriptBuilder().emit_push(signature).to_array()
         # mypy can't infer that the is_watchonly check ensures public_key has a value
         verification_script = contracts.Contract.create_signature_redeemscript(self.public_key)  # type: ignore
-        tx.witnesses.append(payloads.Witness(invocation_script, verification_script))
+        tx.witnesses.insert(0, payloads.Witness(invocation_script, verification_script))
 
-    def add_as_sender(self, tx: payloads.Transaction):
-        """
-        Add the account as sender of the transaction.
+    def sign_multisig_tx(self,
+                         tx: payloads.Transaction,
+                         password: str,
+                         context: wallet.MultiSigContext,
+                         magic: Optional[int] = None) -> None:
+        if magic is None:
+            magic = settings.network.magic
 
-        Args:
-            tx: the transaction to modify
-        """
-        tx.signers.insert(0, payloads.Signer(self.script_hash, payloads.WitnessScope.GLOBAL))
+        if not self.contract:
+            raise ValueError("Account is not a valid multi-signature account")
+
+        # When importing a multi-sig account it searches for an associated regular account to copy key material from.
+        # However, it is possible to add a multi-sig account before having a regular account with one of the required
+        # public keys for the multi-sig account. Therefore, we should check if we actually have key material to continue
+        if self.is_watchonly:
+            _, _, public_keys = contracts.Contract.parse_as_multisig_contract(self.contract.script)
+            raise ValueError(f"Cannot sign with watch only account. Try adding a regular account to your wallet "
+                             f"matching one of the following public keys, or update the key material for this account "
+                             f"directly."
+                             f" {list(map(lambda pk: str(pk), public_keys))}")
+
+        self._validate_tx(tx)
+
+        if not self.is_multisig:
+            raise ValueError("Account is not a valid multi-signature account")
+
+        if not context.initialised:
+            context.process_contract(self.contract.script)
+
+        if self.public_key not in context.expected_public_keys:
+            raise ValueError("Account is not in the required key list for this signing context")
+
+        message = magic.to_bytes(4, byteorder="little", signed=False) + tx.hash().to_array()
+        signature = self.sign(message, password)
+
+        context.signature_pairs.update({self.public_key: signature})
+
+        if context.is_complete:
+            # build and insert multisig witness
+            sb = vm.ScriptBuilder()
+
+            pairs = list(context.signature_pairs.items())
+            # sort by public key
+            pairs.sort(key=lambda p: p[0])
+
+            for i, (key, sig) in enumerate(pairs):
+                if i == context.signing_threshold:
+                    break
+                sb.emit_push(sig)
+
+            invocation_script = sb.to_array()
+            verification_script = contracts.Contract.create_multisig_redeemscript(context.signing_threshold,
+                                                                                  context.expected_public_keys)
+
+            tx.witnesses.insert(0, payloads.Witness(invocation_script, verification_script))
 
     def sign(self, data: bytes, password: str) -> bytes:
         """
@@ -379,7 +435,7 @@ class Account:
 
     @staticmethod
     def private_key_from_nep2(nep2_key: str, passphrase: str,
-                              scrypt_parameters: Optional[ScryptParameters] = None) -> bytes:
+                              scrypt_parameters: Optional[wallet.ScryptParameters] = None) -> bytes:
         """
         Decrypt a nep2 key into a private key.
 
@@ -397,7 +453,7 @@ class Account:
             the private key.
         """
         if scrypt_parameters is None:
-            scrypt_parameters = ScryptParameters()
+            scrypt_parameters = wallet.ScryptParameters()
 
         if len(nep2_key) != 58:
             raise ValueError(f"Please provide a nep2_key with a length of 58 bytes (LEN: {len(nep2_key)})")
@@ -442,7 +498,7 @@ class Account:
 
     @staticmethod
     def private_key_to_nep2(private_key: bytes, passphrase: str,
-                            scrypt_parameters: Optional[ScryptParameters] = None) -> bytes:
+                            scrypt_parameters: Optional[wallet.ScryptParameters] = None) -> bytes:
         """
         Encrypt a private key into a nep2 key.
 
@@ -455,7 +511,7 @@ class Account:
             the encrypted nep2 key.
         """
         if scrypt_parameters is None:
-            scrypt_parameters = ScryptParameters()
+            scrypt_parameters = wallet.ScryptParameters()
 
         key_pair = cryptography.KeyPair(private_key=private_key)
         script_hash = to_script_hash(contracts.Contract.create_signature_redeemscript(key_pair.public_key))
@@ -567,3 +623,20 @@ class Account:
         for i in range(len(a)):
             res.append(a[i] ^ b[i])
         return bytes(res)
+
+    def _validate_tx(self, tx: payloads.Transaction) -> None:
+        """
+        Helper to validate properties before signing
+        """
+        if tx.network_fee == 0 or tx.system_fee == 0:
+            raise ValueError("Transaction validation failure - "
+                             "a transaction without network and system fees will always fail to validate on chain")
+
+        if len(tx.signers) == 0:
+            raise ValueError("Transaction validation failure - Missing sender")
+
+        if len(tx.script) == 0:
+            raise ValueError("Transaction validation failure - script field can't be empty")
+
+        if self.is_watchonly:
+            raise ValueError("Cannot sign transaction using a watch only account")

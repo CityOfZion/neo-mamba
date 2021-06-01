@@ -1,13 +1,39 @@
 from __future__ import annotations
 from typing import Any, Dict, List, Optional
 from jsonschema import validate  # type: ignore
-from neo3.core import IJson
-from neo3.wallet.account import Account
+from neo3.core import IJson, cryptography
+from neo3.wallet.account import Account, AccountContract
+from neo3 import contracts
 from neo3.wallet.scrypt_parameters import ScryptParameters
 
 
-class Wallet(IJson):
+class MultiSigContext:
+    def __init__(self):
+        self.initialised = False
+        self.signing_threshold = 999
+        #: List of valid public keys for signing
+        self.expected_public_keys: List[cryptography.ECPoint] = []
+        #: Completed pairs
+        self.signature_pairs: Dict[cryptography.ECPoint, bytes] = {}
 
+    @property
+    def is_complete(self):
+        return len(self.signature_pairs) >= self.signing_threshold
+
+    def signing_status(self) -> Dict[cryptography.ECPoint, bool]:
+        # shows which keys have been completed
+        pass
+
+    def process_contract(self, script: bytes) -> None:
+        valid, threshold, public_keys = contracts.Contract.parse_as_multisig_contract(script)
+        if not valid:
+            raise ValueError("Invalid script")
+        self.expected_public_keys = public_keys
+        self.signing_threshold = threshold
+        self.initialised = True
+
+
+class Wallet(IJson):
     _wallet_version = '1.0'
 
     # Wallet JSON validation schema
@@ -89,6 +115,59 @@ class Wallet(IJson):
         """
         return self._default_account
 
+    def import_multisig_address(self,
+                                signing_threshold: int,
+                                public_keys: List[cryptography.ECPoint]
+                                ) -> Account:
+        if signing_threshold < 1 or signing_threshold > 1024:
+            raise ValueError("Invalid signing threshold")
+
+        if signing_threshold > len(public_keys):
+            raise ValueError(f"Minimum signing threshold is {signing_threshold}, "
+                             f"received only {len(public_keys)} public keys")
+
+        multisig_contract = contracts.Contract.create_multisig_contract(signing_threshold, public_keys)
+        # we start with a watchonly as base
+        account = Account.watch_only(multisig_contract.script_hash)
+        account.contract = AccountContract.from_contract(multisig_contract)
+
+        # if the wallet contains an account matching one required in the multisig, then copy key material
+        self._augment_multisig_with_key_material(account)
+        self.account_add(account)
+        return account
+
+    def _augment_multisig_with_key_material(self, account: Account):
+        """
+        Tries to augment multisig accounts with key material such that they can be used for signing
+
+        There are 2 scenario's
+        1. A multisig account is added while there already exists a regular account with key material for one of the
+        keys required by the multisig
+        2. A regular account is added while there already exists a multisig account missing key material that the
+        regular now adds.
+        """
+        if account.contract is None:
+            return
+
+        is_multisig, _, public_keys = contracts.Contract.parse_as_multisig_contract(account.contract.script)
+        if is_multisig:
+            # scenario 1
+            for acc in self.accounts:
+                if not acc.is_watchonly and acc.public_key in public_keys:
+                    # copy key information of the first matching account
+                    account.encrypted_key = acc.encrypted_key
+                    account.public_key = acc.public_key
+                    break
+        else:
+            # scenario 2
+            for acc in self.accounts:
+                if acc.is_watchonly and acc.is_multisig and acc.contract:  # testing acc.contract to silence mypy
+                    _, _, public_keys = contracts.Contract.parse_as_multisig_contract(acc.contract.script)
+                    if account.public_key in public_keys:
+                        acc.encrypted_key = account.encrypted_key
+                        acc.public_key = account.public_key
+                        break
+
     def account_add(self, account: Account, is_default=False) -> bool:
         """
         Includes an account in the wallet
@@ -111,6 +190,7 @@ class Wallet(IJson):
         if is_default or len(self.accounts) == 0:
             self._default_account = account
 
+        self._augment_multisig_with_key_material(account)
         self.accounts.append(account)
         return True
 

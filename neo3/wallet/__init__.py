@@ -1,3 +1,3 @@
 from .account import Account
 from .scrypt_parameters import ScryptParameters
-from .wallet import Wallet
+from .wallet import Wallet, MultiSigContext
