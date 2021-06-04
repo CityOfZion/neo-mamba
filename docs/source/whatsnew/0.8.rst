@@ -1,0 +1,25 @@
+.. _whatsnew-v08:
+
+*****************************
+  What's New in neo-mamba 0.8
+*****************************
+
+:Author: Erik van den Brink
+
+RC3 compatability, wallet support and end of Python 3.7 support
+===============================================================
+
+This release catches up with all RC3 changes done in the C# core project. It also adds basic wallet support allowing
+you to sign and relay transactions to the network. We decided to drop Python 3.7 support at the last bug fix release
+happened at the beginning of the year. Part of mamba (specifically the network) relies heavily on the ``asyncio`` module
+which has had its fair share of bugs and memory leaks discovered. We don't expect that the last one was found so we want
+to stay up to date. Expet a move to Python 3.9 in the near future.
+
+Further more doc strings have been polished, some new features have
+been added and a couple of bugs have been fixed. See the changelog for more details.
+
+There is a significant resource difference between neo-mamba and the core C# project. As such the mamba project had to
+choose a strategy that allowed faster catching up at the cost of lower code coverage and less documentation. The less
+core critical changes are made, the more time can be spend on updating documentation. For now compatibility is
+prioritized over the user experience.
+
