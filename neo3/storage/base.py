@@ -11,6 +11,7 @@ if TYPE_CHECKING:
 
 class IDBImplementation(abc.ABC):
     def get_rawview(self):
+        """ Get a view of the database without caching. """
         return RawView(self)
 
     @abc.abstractmethod

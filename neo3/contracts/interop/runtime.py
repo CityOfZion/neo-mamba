@@ -1,9 +1,7 @@
 from __future__ import annotations
-from collections import deque
 from neo3 import vm, contracts
 from neo3.core import cryptography, IInteroperable, types, msgrouter, to_script_hash
 from neo3.contracts.interop import register
-from typing import cast, List, Deque
 
 
 @register("System.Runtime.Platform", 1 << 3, contracts.CallFlags.NONE)

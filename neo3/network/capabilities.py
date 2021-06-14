@@ -5,8 +5,11 @@ from neo3.core import serialization, Size as s
 
 
 class NodeCapabilityType(IntEnum):
+    #: Server has TCP listening capabilities
     TCPSERVER = 0x01
+    #: Server has WebSocket listening capabilities
     WSSERVER = 0x02
+    #: Server has full chain data
     FULLNODE = 0x10
 
 

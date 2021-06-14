@@ -40,7 +40,9 @@ class MessageType(IntEnum):
 
 
 class MessageConfig(IntFlag):
+    #: Indicates that the payload data is not compressed
     NONE = 0
+    #: Indicates that the payload data is compressed using LZ4
     COMPRESSED = 1 << 0
 
 
@@ -139,6 +141,8 @@ class Message(serialization.ISerializable):
                 return br.read_serializable(payloads.AddrPayload)
             elif msg_type == MessageType.TRANSACTION:
                 return br.read_serializable(payloads.Transaction)
+            elif msg_type == MessageType.EXTENSIBLE:
+                return br.read_serializable(payloads.ExtensiblePayload)
             else:
                 logger.debug(f"Unsupported payload {msg_type.name}")
 

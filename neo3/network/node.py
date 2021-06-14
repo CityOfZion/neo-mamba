@@ -53,7 +53,8 @@ class NeoNode:
             message.MessageType.MERKLEBLOCK: self.handler_merkleblock,
             message.MessageType.PING: self.handler_ping,
             message.MessageType.PONG: self.handler_pong,
-            message.MessageType.TRANSACTION: self.handler_transaction
+            message.MessageType.TRANSACTION: self.handler_transaction,
+            message.MessageType.EXTENSIBLE: self.handler_extensible
         }
 
     # connection setup and control functions
@@ -389,6 +390,15 @@ class NeoNode:
         """
         pass
 
+    def handler_extensible(self, msg: message.Message) -> None:
+        """
+        Handler for a message with the EXTENSIBLE type.
+
+        Args:
+            msg:
+        """
+        pass
+
     async def _process_incoming_data(self) -> None:
         """
         Main loop
@@ -425,18 +435,18 @@ class NeoNode:
                             payload=payloads.AddrPayload(addresses=network_addresses))
         await self.send_message(m)
 
-    async def request_headers(self, hash_start: types.UInt256, count: int = None) -> None:
+    async def request_headers(self, index_start: int, count: int = payloads.HeadersPayload.MAX_HEADERS_COUNT) -> None:
         """
-        Send a request for headers from `hash_start` to `hash_start`+`count`.
+        Send a request for headers from `index_start` to `index_start`+`count`.
 
         Not specifying a `count` results in requesting at most 2000 headers.
 
         Args:
-            hash_start:
+            index_start:
             count:
         """
         m = message.Message(msg_type=message.MessageType.GETHEADERS,
-                            payload=payloads.GetBlocksPayload(hash_start, count))
+                            payload=payloads.GetBlockByIndexPayload(index_start, count))
         await self.send_message(m)
 
     async def send_headers(self, headers: List[payloads.Header]) -> None:
@@ -506,12 +516,22 @@ class NeoNode:
         m = message.Message(msg_type=message.MessageType.GETDATA, payload=payloads.InventoryPayload(type, hashes))
         await self.send_message(m)
 
-    async def send_inventory(self, inv_type: payloads.InventoryType, inv_hash: types.UInt256):
+    async def send_inventory(self, inv_type: payloads.InventoryType, inv_hash: types.UInt256) -> None:
+        """
+        Send an inventory to the network
+
+        Args:
+            inv_type:
+            inv_hash:
+        """
         inv = payloads.InventoryPayload(type=inv_type, hashes=[inv_hash])
         m = message.Message(msg_type=message.MessageType.INV, payload=inv)
         await self.send_message(m)
 
-    async def send_ping(self):
+    async def send_ping(self) -> None:
+        """
+        Send a Ping message and expecting a Pong response
+        """
         if settings.database:
             height = max(0, blockchain.Blockchain().height)
         else:
@@ -528,6 +548,7 @@ class NeoNode:
         Args:
             inventory: should be of type Block, Transaction or Consensus. See: :class:`~neo3.network.payloads.inventory.InventoryType`. # noqa
         """
+        relaycache.RelayCache().add(inventory)
         await self.send_inventory(inventory.inventory_type, inventory.hash())
         return True
 

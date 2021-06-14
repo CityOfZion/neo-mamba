@@ -262,6 +262,7 @@ class SignerTestCase(unittest.TestCase):
 
         Console.WriteLine($"{co.Size}");
         Console.WriteLine($"{BitConverter.ToString(co.ToArray()).Replace("-","")}");
+        Console.Write(co.ToJson());
         """
         cls.signer = payloads.Signer(types.UInt160.from_string("d7678dd97c000be3f33e9362e673101bac4ca654"))
         cls.signer.scope = payloads.WitnessScope.CUSTOM_CONTRACTS | payloads.WitnessScope.CUSTOM_GROUPS
@@ -303,6 +304,19 @@ class SignerTestCase(unittest.TestCase):
         with self.assertRaises(ValueError) as context:
             payloads.Signer.deserialize_from_bytes(data)
         self.assertEqual("Deserialization error - invalid scope. GLOBAL scope not allowed with other scope types", str(context.exception))
+
+    def test_to_json(self):
+        # captured from C#, see setUpClass() for the capture code
+        expected = {"account":"0xd7678dd97c000be3f33e9362e673101bac4ca654","scopes":"CustomContracts, CustomGroups","allowedcontracts":["0x5b7074e873973a6ed3708862f219a6fbf4d1c411"],"allowedgroups":["026241e7e26b38bb7154b8ad49458b97fb1c4797443dc921c5ca5774f511a2bbfc"]}
+        self.assertEqual(expected, self.signer.to_json())
+
+    def test_from_json(self):
+        captured = {"account": "0xd7678dd97c000be3f33e9362e673101bac4ca654", "scopes": "CustomContracts, CustomGroups",
+                    "allowedcontracts": ["0x5b7074e873973a6ed3708862f219a6fbf4d1c411"],
+                    "allowedgroups": ["026241e7e26b38bb7154b8ad49458b97fb1c4797443dc921c5ca5774f511a2bbfc"]}
+        signer = payloads.Signer.from_json(captured)
+        # relies on test_to_json() to pass
+        self.assertEqual(captured, signer.to_json())
 
 
 class FilterAddTestCase(unittest.TestCase):
@@ -567,7 +581,7 @@ class HeadersPayloadTestCase(unittest.TestCase):
 
         h1 = payloads.Header(version, previous_hash, timestamp, index, primary_index, next_consensus, witness, merkleroot)
         h2 = payloads.Header(version, previous_hash, timestamp, index, primary_index, next_consensus, witness, merkleroot)
-        cls.payload = payloads.HeadersPayload.create([h1, h2])
+        cls.payload = payloads.HeadersPayload([h1, h2])
 
     def test_len(self):
         # captured from C#, see setUpClass() for the capture code
@@ -1030,6 +1044,17 @@ class TransactionTestCase(unittest.TestCase):
         hashes = tx.get_script_hashes_for_verifying(None)
         self.assertEqual([account1, account2], hashes)
 
+    def test_to_json(self):
+        tx = deepcopy(self.tx)
+        tx.attributes = [payloads.HighPriorityAttribute()]
+
+        expected = {"hash":"0x61a72c37793ea32b9181105931e7a935eb57c915e9dbeb84dc37068c21df2b20","size":56,"version":0,"nonce":123,"sender":"NTdZAZXWiMSDUTkEFU3nHpT7FEEwwtjwfC","sysfee":"456","netfee":"789","validuntilblock":1,"signers":[{"account":"0xd7678dd97c000be3f33e9362e673101bac4ca654","scopes":"None"}],"attributes":[{"type":"HighPriority"}],"script":"AQI=","witnesses":[{"invocation":"","verification":"VQ=="}]}
+        self.assertEqual(expected, tx.to_json())
+
+    def test_from_json(self):
+        expected = expected = {"hash":"0x61a72c37793ea32b9181105931e7a935eb57c915e9dbeb84dc37068c21df2b20","size":56,"version":0,"nonce":123,"sender":"NTdZAZXWiMSDUTkEFU3nHpT7FEEwwtjwfC","sysfee":"456","netfee":"789","validuntilblock":1,"signers":[{"account":"0xd7678dd97c000be3f33e9362e673101bac4ca654","scopes":"None"}],"attributes":[{"type":"HighPriority"}],"script":"AQI=","witnesses":[{"invocation":"","verification":"VQ=="}]}
+        tx = payloads.Transaction.from_json(expected)
+        self.assertEqual(expected, tx.to_json())
 
 class VersionTestCase(unittest.TestCase):
     @classmethod
@@ -1087,6 +1112,7 @@ class WitnessTestCase(unittest.TestCase):
         witness.VerificationScript = new byte[] { 0x01, 0x02 };
         witness.InvocationScript = new byte[] { 0x03, 0x04 };
         Console.WriteLine($"b\'{BitConverter.ToString(witness.ToArray()).Replace("-","")}\'");
+        Console.Write(witness.ToJson());
         """
         cls.witness = payloads.Witness(verification_script=b'\x01\x02', invocation_script=b'\x03\x04')
 
@@ -1112,6 +1138,20 @@ class WitnessTestCase(unittest.TestCase):
         deserialized_witness = payloads.Witness.deserialize_from_bytes(self.witness.to_array())
         self.assertEqual(self.witness.verification_script, deserialized_witness.verification_script)
         self.assertEqual(self.witness.invocation_script, deserialized_witness.invocation_script)
+
+    def test_to_json(self):
+        # captured from C#, see setUpClass() for the capture code
+        expected = {"invocation":"AwQ=","verification":"AQI="}
+        self.assertEqual(expected, self.witness.to_json())
+
+        expected_empty = {"invocation":"","verification":""}
+        empty_witness = payloads.Witness(b'', b'')
+        self.assertEqual(expected_empty, empty_witness.to_json())
+
+    def test_from_json(self):
+        witness_json = {"invocation": "AwQ=", "verification": "AQI="}
+        witness = payloads.Witness.from_json(witness_json)
+        self.assertEqual(witness_json, witness.to_json())
 
 
 class EmptyPayloadTestCase(unittest.TestCase):

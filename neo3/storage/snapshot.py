@@ -44,9 +44,7 @@ class Snapshot:
 
     def commit(self):
         """
-
-        Returns:
-
+        Persist changes to the actual backend.
         """
         self._block_cache.commit()
         self._contract_cache.commit()
@@ -78,6 +76,9 @@ class CloneSnapshot(Snapshot):
         self.persisting_block = snapshot.persisting_block
 
     def commit(self):
+        """
+        Persist changes to the parent snapshot.
+        """
         super(CloneSnapshot, self).commit()
 
     def __enter__(self):

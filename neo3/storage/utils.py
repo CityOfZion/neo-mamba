@@ -1,6 +1,10 @@
 from typing import Tuple
 from neo3 import storage
 
+"""
+Internal helpers
+"""
+
 
 class NEOByteCompare:
     def __init__(self, direction="forward"):

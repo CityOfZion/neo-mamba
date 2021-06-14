@@ -127,7 +127,7 @@ class ContractTestCase(unittest.TestCase):
         # public key 1
         script += bytearray([int(vm.OpCode.PUSHDATA1)])
         script += bytearray([33])
-        script += b'\x00' * 33
+        script += bytes.fromhex("03a60c1deaf147b10691c344c76e5f3dac83b555fdd5a3f8d9e2f623b3d1af8df6")
         # public key 2, but the key data is too short
         script += bytearray([int(vm.OpCode.PUSHDATA1)])
         script += b'\xFF' * 10
@@ -140,12 +140,12 @@ class ContractTestCase(unittest.TestCase):
         # public key 1
         script += bytearray([int(vm.OpCode.PUSHDATA1)])
         script += bytearray([33])
-        script += b'\xDD' * 33
+        script += bytes.fromhex("03a60c1deaf147b10691c344c76e5f3dac83b555fdd5a3f8d9e2f623b3d1af8df6")
         # public key 2, but the key data is too short
         script += bytearray([int(vm.OpCode.PUSHDATA1)])
         # public key 2 length should be 33, but we make it 00
         script += b'\x00'
-        script += b'\xFF' * 33
+        script += bytes.fromhex("03a60c1deaf147b10691c344c76e5f3dac83b555fdd5a3f8d9e2f623b3d1af8df6")
 
         script += bytearray([int(vm.OpCode.PUSHINT8)])
         self.assertFalse(contracts.Contract.is_multisig_contract(script))
@@ -203,7 +203,7 @@ class ContractTestCase(unittest.TestCase):
         for _ in range(0, 2):
             script += bytearray([int(vm.OpCode.PUSHDATA1)])
             script += bytearray([33])
-            script += b'\xDD' * 33
+            script += bytes.fromhex("03a60c1deaf147b10691c344c76e5f3dac83b555fdd5a3f8d9e2f623b3d1af8df6")
 
         # and now mismatch the public key count value we say is present (0 here)
         script += bytearray([int(vm.OpCode.PUSHINT16), 0, 0])

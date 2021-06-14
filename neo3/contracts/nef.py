@@ -125,6 +125,12 @@ class MethodToken(serialization.ISerializable):
         return s.uint160 + utils.get_var_size(self.method) + s.uint16 + s.uint8 + s.uint8
 
     def serialize(self, writer: serialization.BinaryWriter) -> None:
+        """
+        Serialize the object into a binary stream.
+
+        Args:
+            writer: instance.
+        """
         writer.write_serializable(self.hash)
         writer.write_var_string(self.method)
         writer.write_uint16(self.parameters_count)
@@ -132,6 +138,12 @@ class MethodToken(serialization.ISerializable):
         writer.write_uint8(self.call_flags.value)
 
     def deserialize(self, reader: serialization.BinaryReader) -> None:
+        """
+        Deserialize the object from a binary stream.
+
+        Args:
+            reader: instance.
+        """
         self.hash = reader.read_serializable(types.UInt160)
         self.method = reader.read_var_string(32)
         self.parameters_count = reader.read_uint16()

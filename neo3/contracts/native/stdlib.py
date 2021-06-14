@@ -4,6 +4,7 @@ import base58  # type: ignore
 from . import NativeContract, register
 from neo3 import contracts, vm
 from typing import List
+import orjson as json  # type: ignore
 
 
 class StdLibContract(NativeContract):
@@ -29,7 +30,7 @@ class StdLibContract(NativeContract):
 
     @register("jsonDeserialize", contracts.CallFlags.NONE, cpu_price=1 << 14)
     def json_deserialize(self, engine: contracts.ApplicationEngine, data: bytes) -> vm.StackItem:
-        return contracts.JSONSerializer.deserialize(data.decode(), engine.reference_counter)
+        return contracts.JSONSerializer.deserialize(json.loads(data.decode()), engine.reference_counter)
 
     @register("itoa", contracts.CallFlags.NONE, cpu_price=1 << 12)
     def do_itoa_base10(self, value: vm.BigInteger) -> str:
@@ -80,6 +81,18 @@ class StdLibContract(NativeContract):
         if len(data) > self._MAX_INPUT_LENGTH:
             raise ValueError(f"Value exceeds maximum length of {self._MAX_INPUT_LENGTH}")
         return base58.b58decode(data)
+
+    @register("base58CheckEncode", contracts.CallFlags.NONE, cpu_price=1 << 16)
+    def base58_check_encode(self, data: bytes) -> str:
+        if len(data) > self._MAX_INPUT_LENGTH:
+            raise ValueError(f"Value exceeds maximum length of {self._MAX_INPUT_LENGTH}")
+        return base58.b58encode_check(data).decode()
+
+    @register("base58CheckDecode", contracts.CallFlags.NONE, cpu_price=1 << 16)
+    def base58_check_decode(self, data: bytes) -> bytes:
+        if len(data) > self._MAX_INPUT_LENGTH:
+            raise ValueError(f"Value exceeds maximum length of {self._MAX_INPUT_LENGTH}")
+        return base58.b58decode_check(data)
 
     @register("memoryCompare", contracts.CallFlags.NONE, cpu_price=1 << 5)
     def memory_compare(self, str1: bytes, str2: bytes) -> int:
