@@ -51,7 +51,6 @@ Ensure you have PIP >= 19.3
    pip install --upgrade "pip>=19.3"
 
 
-Python 3.8 is required! Consider using `PyEnv <https://github.com/pyenv/pyenv>`_ for managing your Python versions.
 For full documentation including more elaborate install instructions go to `<https://docs.coz.io/neo3/mamba/index.html>`_.
 
 Roadmap
