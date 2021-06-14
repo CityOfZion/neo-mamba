@@ -6,8 +6,8 @@ coverage>=5.0.2
 Events==0.3
 lz4==2.2.1
 neo3crypto==0.2
-neo3vm>=0.8
-neo3vm-stubs>=0.8
+neo3vm>=0.8.1
+neo3vm-stubs>=0.8.1
 mmh3==2.5.1
 mypy>=0.782
 mypy-extensions==0.4.3
