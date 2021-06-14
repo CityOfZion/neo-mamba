@@ -101,7 +101,7 @@ class StdLibTestCase(unittest.TestCase):
 
     def test_json_deserialization(self):
         script = vm.ScriptBuilder()
-        script.emit_dynamic_call_with_args(contracts.StdLibContract().hash, "jsonDeserialize", [123])
+        script.emit_dynamic_call_with_args(contracts.StdLibContract().hash, "jsonDeserialize", ["{\"key\":\"value\"}"])
         script.emit_dynamic_call_with_args(contracts.StdLibContract().hash, "jsonDeserialize", ["null"])
 
         engine = test_engine(has_snapshot=True)
@@ -111,7 +111,11 @@ class StdLibTestCase(unittest.TestCase):
         self.assertEqual(vm.VMState.HALT, engine.state)
         self.assertEqual(2, len(engine.result_stack._items))
         self.assertIsInstance(engine.result_stack.pop(), vm.NullStackItem)
-        self.assertEqual(vm.BigInteger(123), engine.result_stack.pop().to_biginteger())
+        r = engine.result_stack.pop()
+        self.assertIsInstance(r, vm.MapStackItem)
+        self.assertEqual(1, len(r))
+        self.assertEqual(vm.ByteStringStackItem("key"), r.keys()[0])
+        self.assertEqual(vm.ByteStringStackItem("value"), r.values()[0])
 
     def test_atoi(self):
         engine = test_engine(has_snapshot=True)
