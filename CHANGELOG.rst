@@ -3,6 +3,18 @@ Changelog
 
 All notable changes to this project are documented in this file.
 
+[0.8] 2021-06-04
+----------------
+- RC3 code parity updates
+- Add basic wallet support
+- Restrict to Python 3.8
+- Update docstrings
+- Add ``ExtensiblePayload` handler to network
+- Add ``to_json/from_json`` support to ``Transaction`` class
+- Fix removing vote
+- Fix payload for requesting headers
+- Automatically add inventory to relay cache when relaying
+
 [0.7] 2021-05-12
 ----------------
 - RC2 updates

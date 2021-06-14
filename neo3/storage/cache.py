@@ -124,6 +124,7 @@ class CachedAccess:
         """ Deep copy. """
 
     def get_changeset(self):
+        """ Get the changes since creation or since last committing. """
         for key in self._changeset:
             yield self._dictionary[key]
 
@@ -497,6 +498,20 @@ class CachedStorageAccess(CachedAccess):
                    end: bytes,
                    direction: str = "forward"
                    ) -> Iterator[Tuple[storage.StorageKey, storage.StorageItem]]:
+        """
+        Find all data within a given range.
+
+        Args:
+            start: the data prefix to start from
+            end: the post fix to end the search results at
+            direction: determines the database search order. Can be "forward" or "reverse"
+
+        Returns:
+            An iterator with the results
+
+        See Also:
+            * :func:`~neo3.storage.cache.CachedStorageAccess.seek`
+        """
         comperator = storage.NEOByteCompare(direction)
         for key, value in self.seek(start, direction):
             if comperator.compare(key.to_array(), end) < 0:
@@ -506,6 +521,20 @@ class CachedStorageAccess(CachedAccess):
 
     def seek(self, key_prefix: bytes, direction="forward"
              ) -> Iterator[Tuple[storage.StorageKey, storage.StorageItem]]:
+        """
+        Find all data starting with a prefix.
+
+        Args:
+            key_prefix: the prefix the data must have
+            direction: determines the database search order. Can be "forward" or "reverse"
+
+        Returns:
+            An iterator with the results
+
+        See Also:
+            * :func:`~neo3.storage.cache.CachedStorageAccess.find_range`
+
+        """
         # always read only
         comperator = storage.NEOByteCompare(direction)
 

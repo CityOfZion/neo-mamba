@@ -51,7 +51,7 @@ The GetBlocksByIndexPayload is also used as for requesting headers via the :cons
 
 Responding
 ^^^^^^^^^^
-The :class:`~neo3.network.payloads.block.HeadersPayload` is used to reply to a :const:`~neo3.network.message.MessageType.GETHEADERS` type message and returns :class:`~neo3.network.payloads.block.Header` objects. 
+The :class:`~neo3.network.payloads.block.HeadersPayload` is used to reply to a :const:`~neo3.network.message.MessageType.HEADERS` type message and returns :class:`~neo3.network.payloads.block.Header` objects.
 
 The :class:`~neo3.network.payloads.block.MerkleBlockPayload` is used to reply to a :const:`~neo3.network.message.MessageType.GETDATA` or :const:`~neo3.network.message.MessageType.GETBLOCKDATA` type message under the specific condition that a bloomfilter has been loaded (TODO: add ref to filter). Responding to the aforementioned message types under the condition that `no` bloomfilter is present is respectively done via an :const:`~neo3.network.message.MessageType.INV` type message with an InventoryPayload or a :const:`~neo3.network.message.MessageType.BLOCK` type message where the Block object is the message payload.
 

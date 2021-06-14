@@ -26,7 +26,9 @@ class VersionPayload(serialization.ISerializable):
         #:
         #: Reference nodes will disconnect if the value doesn't match with their local settings.
         self.magic = settings.network.magic
+        #: Protocol version of the node
         self.version = 0
+        #: The UTC time when the node connected
         self.timestamp = int(datetime.datetime.utcnow().timestamp())
         #: A unique identifier for the node.
         self.nonce = nonce

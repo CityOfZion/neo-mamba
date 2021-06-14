@@ -4,7 +4,7 @@ from .version import VersionPayload
 from .address import NetworkAddress, AddrPayload, AddressState, DisconnectReason
 from .ping import PingPayload
 from .verification import Witness, WitnessScope, Signer, IVerifiable
-from .transaction import Transaction, TransactionAttribute, TransactionAttributeType
+from .transaction import Transaction, TransactionAttribute, TransactionAttributeType, HighPriorityAttribute
 from .block import (Header,
                     Block,
                     MerkleBlockPayload,
@@ -21,4 +21,4 @@ __all__ = ['EmptyPayload', 'InventoryPayload', 'InventoryType', 'VersionPayload'
            'HeadersPayload', 'Transaction', 'TransactionAttribute',
            'TransactionAttributeType', 'Signer', 'GetBlocksPayload', 'GetBlockByIndexPayload', 'FilterAddPayload',
            'FilterLoadPayload', 'TrimmedBlock', 'IVerifiable', 'OracleReponseCode', 'OracleReponseCode',
-           'ExtensiblePayload']
+           'ExtensiblePayload', 'HighPriorityAttribute']

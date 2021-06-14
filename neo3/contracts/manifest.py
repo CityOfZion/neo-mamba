@@ -1,9 +1,9 @@
 from __future__ import annotations
 import base64
 import binascii
-import orjson as json
+import orjson as json  # type: ignore
 from typing import List, Callable, Optional, Dict, Any
-from neo3 import contracts, storage, vm
+from neo3 import contracts, vm
 from neo3.core import serialization, types, IJson, cryptography, utils
 from neo3.core.serialization import BinaryReader, BinaryWriter
 
@@ -305,7 +305,9 @@ class ContractManifest(serialization.ISerializable, IJson):
         # Update trusts/safe_methods with outcome of https://github.com/neo-project/neo/issues/1664
         # Unfortunately we have to add this nonsense logic or we get deviating VM results.
         self.trusts = WildcardContainer()  # for UInt160 types
-        self.extra = None
+
+        #: Optional user defined data
+        self.extra: Optional[Dict] = None
 
     def __len__(self):
         return utils.get_var_size(str(self.to_json()).replace(' ', ''))

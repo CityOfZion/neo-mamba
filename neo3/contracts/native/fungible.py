@@ -4,7 +4,7 @@ from .nativecontract import NativeContract
 from .decorator import register
 from neo3 import storage, contracts, vm, settings
 from neo3.core import types, msgrouter, cryptography, serialization, to_script_hash, Size as s, IInteroperable
-from typing import Tuple, List, Dict, Sequence, cast
+from typing import Tuple, List, Dict, Sequence, cast, Optional
 
 
 class FungibleTokenStorageState(IInteroperable, serialization.ISerializable):
@@ -306,6 +306,24 @@ class _NeoTokenStorageState(FungibleTokenStorageState):
         self.vote_to = reader.read_serializable(cryptography.ECPoint)  # type: ignore
         self.balance_height = reader.read_uint32()
 
+    def to_stack_item(self, reference_counter: vm.ReferenceCounter) -> vm.StackItem:
+        struct_ = super(_NeoTokenStorageState, self).to_stack_item(reference_counter)
+        struct_ = cast(vm.StructStackItem, struct_)
+        struct_.append(vm.IntegerStackItem(self.balance_height))
+        if self.vote_to.is_zero():
+            struct_.append(vm.NullStackItem())
+        else:
+            struct_.append(vm.ByteStringStackItem(self.vote_to.to_array()))
+        return struct_
+
+    @classmethod
+    def from_stack_item(cls, stack_item: vm.StackItem):
+        c = super(_NeoTokenStorageState, cls).from_stack_item(stack_item)  # type: _NeoTokenStorageState
+        si = cast(vm.StructStackItem, stack_item)
+        c.balance_height = int(si[1].to_biginteger())
+        c.vote_to = cryptography.ECPoint.deserialize_from_bytes(si[2].to_array())
+        return c
+
 
 class _CandidateState(serialization.ISerializable):
     """
@@ -561,7 +579,7 @@ class NeoToken(FungibleToken):
     def vote(self,
              engine: contracts.ApplicationEngine,
              account: types.UInt160,
-             vote_to: cryptography.ECPoint) -> bool:
+             vote_to: Optional[cryptography.ECPoint]) -> bool:
         """
         Vote on a consensus candidate
         Args:
@@ -581,20 +599,24 @@ class NeoToken(FungibleToken):
             return False
         account_state = storage_item.get(self._state)
 
-        storage_key_candidate = self.key_candidate + vote_to
-        storage_item_candidate = engine.snapshot.storages.try_get(storage_key_candidate, read_only=False)
-        if storage_item_candidate is None:
-            return False
+        candidate_state = None
+        if vote_to is not None:
+            storage_key_candidate = self.key_candidate + vote_to
+            storage_item_candidate = engine.snapshot.storages.try_get(storage_key_candidate, read_only=False)
+            if storage_item_candidate is None:
+                return False
 
-        candidate_state = storage_item_candidate.get(_CandidateState)
-        if not candidate_state.registered:
-            return False
+            candidate_state = storage_item_candidate.get(_CandidateState)
+            if not candidate_state.registered:
+                return False
 
-        if account_state.vote_to.is_zero():
+        if account_state.vote_to.is_zero() ^ (vote_to is None):
             si_voters_count = engine.snapshot.storages.get(self.key_voters_count, read_only=False)
-
             old_value = vm.BigInteger(si_voters_count.value)
-            new_value = old_value + account_state.balance
+            if account_state.vote_to.is_zero():
+                new_value = old_value + account_state.balance
+            else:
+                new_value = old_value - account_state.balance
             si_voters_count.value = new_value.to_array()
 
         self._distribute_gas(engine, account, account_state)
@@ -606,16 +628,23 @@ class NeoToken(FungibleToken):
             validator_state.votes -= account_state.balance
 
             if not validator_state.registered and validator_state.votes == 0:
+                reward_key = self.key_voter_reward_per_committee + account_state.vote_to.to_array()
+                for k, _ in engine.snapshot.storages.find(reward_key):
+                    engine.snapshot.storages.delete(k)
                 engine.snapshot.storages.delete(sk_validator)
 
-        account_state.vote_to = vote_to
-        candidate_state.votes += account_state.balance
+        account_state.vote_to = vote_to if vote_to else cryptography.ECPoint.deserialize_from_bytes(b'\x00')
+        if candidate_state is not None:
+            candidate_state.votes += account_state.balance
         self._candidates_dirty = True
 
         return True
 
     @register("getCandidates", contracts.CallFlags.READ_STATES, cpu_price=1 << 22)
     def get_candidates(self, engine: contracts.ApplicationEngine) -> None:
+        """
+        Fetch all registered candidates, convert them to a StackItem and push them onto the evaluation stack.
+        """
         array = vm.ArrayStackItem(engine.reference_counter)
         for k, v in self._get_candidates(engine.snapshot):
             struct = vm.StructStackItem(engine.reference_counter)
@@ -626,6 +655,9 @@ class NeoToken(FungibleToken):
 
     @register("getNextBlockValidators", contracts.CallFlags.READ_STATES, cpu_price=1 << 16)
     def get_next_block_validators(self, snapshot: storage.Snapshot) -> List[cryptography.ECPoint]:
+        """
+        Get the public keys of the consensus nodes that will validate the next block.
+        """
         keys = self.get_committee_from_cache(snapshot)[:settings.network.validators_count]
         keys.sort()
         return keys
@@ -647,6 +679,15 @@ class NeoToken(FungibleToken):
 
     @register("getGasPerBlock", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
     def get_gas_per_block(self, snapshot: storage.Snapshot) -> vm.BigInteger:
+        """
+        Get the amount of gas generated in each block.
+
+        Args:
+            snapshot: the snapshot to read the data from
+
+        Returns:
+            The amount of gas generated.
+        """
         index = snapshot.best_block_height + 1
         gas_bonus_state = GasBonusState.from_snapshot(snapshot, read_only=True)
         for record in reversed(gas_bonus_state):  # type: _GasRecord
@@ -666,6 +707,9 @@ class NeoToken(FungibleToken):
 
     @register("getRegisterPrice", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
     def get_register_price(self, snapshot: storage.Snapshot) -> int:
+        """
+        Get the price for registering as a candidate
+        """
         return int(vm.BigInteger(snapshot.storages.get(self.key_register_price, read_only=True).value))
 
     def _distribute_gas(self,
@@ -682,7 +726,18 @@ class NeoToken(FungibleToken):
 
     @register("getCommittee", contracts.CallFlags.READ_STATES, cpu_price=1 << 16)
     def get_committee(self, snapshot: storage.Snapshot) -> List[cryptography.ECPoint]:
+        """
+        Get the public keys of the current validators.
+        """
         return sorted(self.get_committee_from_cache(snapshot))
+
+    @register("getAccountState", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
+    def get_account_state(self, snapshot: storage.Snapshot, account: types.UInt160) -> Optional[_NeoTokenStorageState]:
+        storage_key_account = self.key_account + account
+        storage_item = snapshot.storages.try_get(storage_key_account, read_only=False)
+        if storage_item is None:
+            return None
+        return storage_item.get(self._state)
 
     def total_supply(self, snapshot: storage.Snapshot) -> vm.BigInteger:
         """ Get the total deployed tokens. """
@@ -760,6 +815,7 @@ class NeoToken(FungibleToken):
         return self._committee_state.validators
 
     def get_committee_address(self, snapshot: storage.Snapshot) -> types.UInt160:
+        """ Get the script hash of the current committee """
         comittees = self.get_committee(snapshot)
         return to_script_hash(
             contracts.Contract.create_multisig_redeemscript(

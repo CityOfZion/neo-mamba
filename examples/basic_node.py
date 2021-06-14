@@ -1,6 +1,6 @@
 """
-Neo-mamba v0.4 Basic node example
-NEO Preview 3 compatible
+Neo-mamba v0.7 Basic node example
+NEO-RC2 compatible
 """
 from __future__ import annotations
 import asyncio
@@ -21,9 +21,9 @@ def enable_network_logging():
 
 
 async def main():
-    # Configure network to Preview 3 TestNet
-    # Values are taken from https://github.com/neo-project/neo-node/blob/d2e4eb28f415b751267f23a0593e007a3292919e/neo-cli/protocol.testnet.json
-    settings.network.magic = 1951352142
+    # Configure network to RC2 TestNet
+    # Values are taken from config.json on the neo-cli github repo
+    settings.network.magic = 844378958
     settings.network.seedlist = ['seed1t.neo.org:20333']
     settings.network.standby_committee = [
       "023e9b32ea89b94d066e649b124fd50e396ee91369e8e2a6ae1b11c170d022256d",

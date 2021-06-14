@@ -17,3 +17,4 @@ This chapter describes the most important changes between the neo-mamba versions
    0.5.rst
    0.6.rst
    0.7.rst
+   0.8.rst

@@ -2,7 +2,6 @@ from __future__ import annotations
 from . import NativeContract, register
 from neo3.core import types
 from neo3 import storage, contracts, vm
-from neo3.network import message
 
 
 class PolicyContract(NativeContract):

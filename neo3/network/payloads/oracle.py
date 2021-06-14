@@ -3,7 +3,7 @@ import base64
 from typing import TYPE_CHECKING
 from enum import IntEnum
 from neo3.network import payloads
-from neo3.core import Size as s, utils, serialization
+from neo3.core import Size as s, utils, serialization, IJson
 from neo3 import vm, contracts
 
 if TYPE_CHECKING:
@@ -22,20 +22,23 @@ class OracleReponseCode(IntEnum):
     ERROR = 0xFF
 
 
-class OracleResponse(payloads.TransactionAttribute):
+class OracleResponse(payloads.TransactionAttribute, IJson):
     _MAX_RESULT_SIZE = 0xFFFF
     _FIXED_ORACLE_SCRIPT = None
 
     def __init__(self, id: int, code: OracleReponseCode, result: bytes):
         super(OracleResponse, self).__init__()
         self.type_ = payloads.TransactionAttributeType.ORACLE_RESPONSE
+        #: Only one OracleResponse attribute can be attached per transaction
         self.allow_multiple = False
+        #: The OracleRequest id to which this is a response
         self.id = id
+        #: The evaluation result code
         self.code = code
+        #: The actual result
         self.result = result
         if self._FIXED_ORACLE_SCRIPT is None:
             sb = vm.ScriptBuilder()
-
             sb.emit_dynamic_call(contracts.OracleContract().hash, "finish")  # type: ignore
             self._FIXED_ORACLE_SCRIPT = sb.to_array()
 
@@ -55,6 +58,7 @@ class OracleResponse(payloads.TransactionAttribute):
         writer.write_var_bytes(self.result)
 
     def to_json(self) -> dict:
+        """ Convert object into json """
         json = super(OracleResponse, self).to_json()
         json.update({"id": id,
                      "code": self.code,
@@ -62,7 +66,18 @@ class OracleResponse(payloads.TransactionAttribute):
                     )
         return json
 
+    @classmethod
+    def from_json(cls, json: dict):
+        """ Create object from JSON """
+        return cls(json['id'], json['code'], base64.b64decode(json['result']))
+
     def verify(self, snapshot: storage.Snapshot, tx: payloads.Transaction) -> bool:
+        """
+        Verifies the attribute with the transaction
+
+        Returns:
+            True if verification passes. False otherwise.
+        """
         if any(map(lambda signer: signer.scope != payloads.WitnessScope.NONE, tx.signers)):
             return False
 
