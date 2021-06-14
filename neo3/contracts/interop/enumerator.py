@@ -61,11 +61,7 @@ class StorageIterator(IIterator):
         if contracts.FindOptions.VALUES_ONLY in self.options:
             return vm.ByteStringStackItem(value)
 
-        return vm.StructStackItem(self.reference_counter,
-                                  [
-                                      vm.ByteStringStackItem(self._pair[0].key),
-                                      vm.ByteStringStackItem(self._pair[1].value)
-                                  ])
+        return vm.StructStackItem(self.reference_counter, [vm.ByteStringStackItem(key), item])
 
 
 @register("System.Iterator.Next", 1 << 15, contracts.CallFlags.NONE)

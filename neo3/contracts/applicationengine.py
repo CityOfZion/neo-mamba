@@ -2,9 +2,8 @@ from __future__ import annotations
 from neo3 import contracts, storage, vm
 from neo3.network import payloads
 from neo3.core import types, cryptography, IInteroperable, serialization, to_script_hash
-from typing import Any, Dict, cast, List, Tuple, Type, Optional, Callable, Union
+from typing import Any, Dict, cast, List, Tuple, Type, Optional, Union
 import enum
-from dataclasses import dataclass
 from contextlib import suppress
 
 

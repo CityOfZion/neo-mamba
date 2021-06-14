@@ -1,7 +1,7 @@
 from __future__ import annotations
 import base64
 import binascii
-import orjson as json
+import orjson as json  # type: ignore
 from typing import List, Callable, Optional, Dict, Any
 from neo3 import contracts, vm
 from neo3.core import serialization, types, IJson, cryptography, utils

@@ -4,6 +4,7 @@ import base58  # type: ignore
 from . import NativeContract, register
 from neo3 import contracts, vm
 from typing import List
+import orjson as json
 
 
 class StdLibContract(NativeContract):
@@ -29,7 +30,7 @@ class StdLibContract(NativeContract):
 
     @register("jsonDeserialize", contracts.CallFlags.NONE, cpu_price=1 << 14)
     def json_deserialize(self, engine: contracts.ApplicationEngine, data: bytes) -> vm.StackItem:
-        return contracts.JSONSerializer.deserialize(data.decode(), engine.reference_counter)
+        return contracts.JSONSerializer.deserialize(json.loads(data.decode()), engine.reference_counter)
 
     @register("itoa", contracts.CallFlags.NONE, cpu_price=1 << 12)
     def do_itoa_base10(self, value: vm.BigInteger) -> str:

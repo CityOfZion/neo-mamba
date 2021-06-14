@@ -54,7 +54,7 @@ class NodeManager(convenience._Singleton):
     # init() is used instead of __init__() due to the Singleton inheritance (read its class documentation)
     def init(self):
         #: A list of nodes that we're actively using to request data from
-        self.nodes = []  # type: List[node.NeoNode]
+        self.nodes: List[node.NeoNode] = []
         #: A list of host:port addresses that have a task pending to to connect to, but are not fully processed
         self.queued_addresses = []
 
