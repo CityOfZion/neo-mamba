@@ -548,6 +548,7 @@ class NeoNode:
         Args:
             inventory: should be of type Block, Transaction or Consensus. See: :class:`~neo3.network.payloads.inventory.InventoryType`. # noqa
         """
+        relaycache.RelayCache().add(inventory)
         await self.send_inventory(inventory.inventory_type, inventory.hash())
         return True
 

@@ -43,6 +43,7 @@ class TransactionAttribute(serialization.ISerializable, IJson):
     """
     Attributes that can be attached to a Transaction.
     """
+
     def __init__(self):
         self.type_: TransactionAttributeType = None
         self.allow_multiple = False
@@ -149,6 +150,12 @@ class Transaction(payloads.IInventory, IInteroperable, IJson):
     MAX_VALID_UNTIL_BLOCK_INCREMENT = 5760
     #: the maximum number of transaction attributes for a single transaction
     MAX_TRANSACTION_ATTRIBUTES = 16
+
+    HEADER_SIZE = (1  # Version
+                   + 4  # NONCE
+                   + 8  # SYSTEM_FEE
+                   + 8  # NETWORK_FEE
+                   + 4)  # VALID_UNTIL_BLOCK
 
     def __init__(self,
                  version: int,
