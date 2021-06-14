@@ -51,7 +51,6 @@ Ensure you have PIP >= 19.3
    pip install --upgrade "pip>=19.3"
 
 
-Python 3.8 is required! Consider using `PyEnv <https://github.com/pyenv/pyenv>`_ for managing your Python versions.
 For full documentation including more elaborate install instructions go to `<https://docs.coz.io/neo3/mamba/index.html>`_.
 
 Roadmap
@@ -68,13 +67,13 @@ separate repositories but be included here by default (e.g. virtual machine impl
 - Storage (v0.1)
 - Virtual Machine
 - Smart contracts (v0.4)
-
-Up next: Wallet support
+- Wallet support (v0.8)
 
 Performance
 -----------
-At the time of releasing v0.7 there is no RC2 test net available for performance measuring. Very few changes in RC2
-should affect performance, therefore the RC1 measurements below should still be pretty accurate.
+At the time of releasing v0.7 there was no RC2 test net available for performance measuring. Very few changes in RC2
+should affect performance, therefore the RC1 measurements below should still be pretty accurate. RC3 (v0.8) has even
+less changes. Performance measurements are on hold until other priorities have been processed.
 
 RC1 measurements
 ~~~~~~~~~~~~~~~~
