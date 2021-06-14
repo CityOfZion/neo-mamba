@@ -4,7 +4,7 @@ import base58  # type: ignore
 from . import NativeContract, register
 from neo3 import contracts, vm
 from typing import List
-import orjson as json
+import orjson as json  # type: ignore
 
 
 class StdLibContract(NativeContract):
