@@ -15,7 +15,7 @@ Have a look at the :ref:`What's new <whatsnew-index>` pages to get a feel what y
 Setup
 -----
 
-There is one system dependency, namely `Python 3.7 <https://www.python.org/downloads/release/python-374/>`_ or above. The other dependencies are covered by ``pip``.
+There is one system dependency, namely `Python 3.8 <https://www.python.org/downloads/release/python-3810/>`_. The other dependencies are covered by ``pip``.
 
 It is recommended to put all project dependencies into its own virtual environment, this way we don't pollute the global installation which could lead to version conflicts.
 
@@ -26,8 +26,8 @@ It is recommended to put all project dependencies into its own virtual environme
     git clone https://github.com/CityOfZion/neo-mamba.git
     cd neo-mamba
 
-    # create virtual environment using Python 3.7 and activate
-    python3.7 -m venv venv
+    # create virtual environment using Python 3.8 and activate
+    python3.8 -m venv venv
     source venv/bin/activate
 
     # install the package in an editable form
@@ -41,8 +41,8 @@ It is recommended to put all project dependencies into its own virtual environme
     mkdir myproject
     cd myproject
 
-    # create virtual environment using Python 3.7 and activate
-    python3.7 -m venv venv
+    # create virtual environment using Python 3.8 and activate
+    python3.8 -m venv venv
     source venv/bin/activate
 
     (venv) pip install wheel neo-mamba
@@ -110,7 +110,7 @@ Let's get to it!
 
     async def run_neo():
         # set network magic to NEO TestNet
-        settings.network.magic = 1951352142
+        settings.network.magic = 844378958
 
         # add a node to test against
         settings.network.seedlist = ['seed1t.neo.org:20333']
@@ -206,7 +206,7 @@ The :code:`run_neo()` function should be self-explanatory.
 
    async def run_neo():
       # set network magic to NEO TestNet
-      settings.network.magic = 1951352142
+      settings.network.magic = 844378958
 
       # add a node to test against
       settings.network.seedlist = ['seed1t.neo.org:20333']
