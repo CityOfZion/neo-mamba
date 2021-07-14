@@ -311,7 +311,7 @@ class Account:
             bool: True if token_hash was added in extra. False if it was already added.
         """
         added: bool = False
-        tokens: List = self.extra.get("tokens")
+        tokens: Optional[List] = self.extra.get("tokens")
 
         if not tokens:
             self.extra.update({"tokens": [token_hash]})
@@ -334,7 +334,7 @@ class Account:
             bool: True if token_hash was deleted. False if the token_hash wasn't in it.
         """
         deleted: bool = False
-        tokens: List = self.extra.get("tokens")
+        tokens: Optional[List] = self.extra.get("tokens")
 
         if tokens:
             if token_hash in tokens:
