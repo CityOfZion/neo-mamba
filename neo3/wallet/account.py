@@ -300,6 +300,51 @@ class Account:
     def create_new(cls, password: str) -> Account:
         return cls(password=password, watch_only=False)
 
+    def token_add(self, token_hash: types.UInt160) -> bool:
+        """
+        Add a script hash from a token in the extra property of this account.
+
+        Args:
+            token_hash: the script hash of a token.
+
+        Returns:
+            bool: True if token_hash was added in extra. False if it was already added.
+        """
+        added: bool = False
+        tokens: List = self.extra.get("tokens")
+
+        if not tokens:
+            self.extra.update({"tokens": [token_hash]})
+            added = True
+        else:
+            if token_hash not in tokens:
+                tokens.append(token_hash)
+                added = True
+
+        return added
+
+    def token_delete(self, token_hash: types.UInt160) -> bool:
+        """
+        Delete a script hash from a token in the extra property of this account.
+
+        Args:
+            token_hash: the script hash of a token.
+
+        Returns:
+            bool: True if token_hash was deleted. False if the token_hash wasn't in it.
+        """
+        deleted: bool = False
+        tokens: List = self.extra.get("tokens")
+
+        if tokens:
+            if token_hash in tokens:
+                tokens.remove(token_hash)
+                deleted = True
+                if len(tokens) == 0:
+                    del self.extra["tokens"]
+
+        return deleted
+
     @classmethod
     def from_encrypted_key(cls, nep2_key: str, password: str) -> Account:
         """

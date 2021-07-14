@@ -1,5 +1,6 @@
 import unittest
 
+from neo3.core.types import UInt160
 from neo3.wallet import Account
 
 account_list = [
@@ -99,3 +100,51 @@ class AccountCreationTestCase(unittest.TestCase):
                 continue
 
         self.assertEqual(True, wrong_password)
+
+    def test_add_delete_tokens(self):
+        account = Account("password")
+        self.assertIsNone(account.extra.get("tokens"))
+        token_hash1 = UInt160(bytes(range(20)))
+        token_hash2 = UInt160(bytes(20))
+
+        # Adding a token script hash will return True
+        result = account.token_add(token_hash1)
+        self.assertEqual(True, result)
+        self.assertEqual([token_hash1], account.extra.get("tokens"))
+
+        # Trying to add the same script hash will return False and won't change the extra property
+        result = account.token_add(token_hash1)
+        self.assertEqual(False, result)
+        self.assertEqual([token_hash1], account.extra.get("tokens"))
+
+        # Adding another script hash will return True and will be added at the end of the list
+        result = account.token_add(token_hash2)
+        self.assertEqual(True, result)
+        self.assertEqual([token_hash1, token_hash2], account.extra.get("tokens"))
+
+        # Making sure the tokens will be kept when transforming to json
+        json_dict = account.to_json()
+        self.assertEqual([token_hash1, token_hash2], json_dict["extra"]["tokens"])
+
+        # Trying to add an already existing script hash will return False and won't change the extra property
+        result = account.token_add(token_hash1)
+        self.assertEqual(False, result)
+        self.assertEqual([token_hash1, token_hash2], account.extra.get("tokens"))
+        result = account.token_add(token_hash2)
+        self.assertEqual(False, result)
+        self.assertEqual([token_hash1, token_hash2], account.extra.get("tokens"))
+
+        # Deleting a script hash will return True and remove it from the list
+        result = account.token_delete(token_hash1)
+        self.assertEqual(True, result)
+        self.assertEqual([token_hash2], account.extra.get("tokens"))
+
+        # Deleting a non existing script hash will return False and do nothing
+        result = account.token_delete(token_hash1)
+        self.assertEqual(False, result)
+        self.assertEqual([token_hash2], account.extra.get("tokens"))
+
+        # Deleting all script hashes will also remove the "tokens" key from extra
+        result = account.token_delete(token_hash2)
+        self.assertEqual(True, result)
+        self.assertIsNone(account.extra.get("tokens"))
