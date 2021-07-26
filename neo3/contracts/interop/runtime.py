@@ -10,7 +10,7 @@ def get_platform(engine: contracts.ApplicationEngine) -> str:
 
 
 @register("System.Runtime.GetNetwork", 1 << 3, contracts.CallFlags.NONE)
-def get_platform(engine: contracts.ApplicationEngine) -> str:
+def get_network(engine: contracts.ApplicationEngine) -> str:
     return settings.network.magic
 
 
