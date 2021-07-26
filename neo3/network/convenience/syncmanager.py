@@ -4,12 +4,12 @@ import traceback
 from datetime import datetime
 from neo3.network import payloads, convenience
 from neo3.core import msgrouter
-from neo3 import blockchain, network_logger as logger
+from neo3 import blockchain, network_logger as logger, _Singleton
 from typing import Dict, Optional
 from contextlib import suppress
 
 
-class SyncManager(convenience._Singleton):
+class SyncManager(_Singleton):
     #: Maximum number of Blocks to cache in memory. Block persisting empties the cache allowing new blocks to be
     #: requested.
     BLOCK_MAX_CACHE_SIZE = 500

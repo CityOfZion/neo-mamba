@@ -2,7 +2,7 @@ from __future__ import annotations
 import asyncio
 import aiodns  # type: ignore
 import ipaddress
-from neo3 import network_logger as logger, settings, blockchain
+from neo3 import network_logger as logger, settings, blockchain, _Singleton
 from neo3.network import node, payloads, convenience, message
 from neo3.core import msgrouter
 from typing import List, Optional
@@ -19,7 +19,7 @@ def is_ip_address(hostname: str) -> bool:
         return False
 
 
-class NodeManager(convenience._Singleton):
+class NodeManager(_Singleton):
     """
     This class is a convenience class that helps establish and maintain a pool of active connections to NEO nodes.
 
