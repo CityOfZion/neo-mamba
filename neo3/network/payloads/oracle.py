@@ -19,6 +19,7 @@ class OracleReponseCode(IntEnum):
     FORBIDDEN = 0x18
     RESPONSE_TOO_LARGE = 0x1a
     INSUFFICIENT_FUNDS = 0x1c
+    CONTENT_TYPE_NOT_SUPPORTED = 0x1f
     ERROR = 0xFF
 
 
