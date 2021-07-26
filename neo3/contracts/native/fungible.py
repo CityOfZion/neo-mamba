@@ -943,7 +943,7 @@ class GasToken(FungibleToken):
 
     def _initialize(self, engine: contracts.ApplicationEngine) -> None:
         account = contracts.Contract.get_consensus_address(settings.standby_validators)
-        self.mint(engine, account, vm.BigInteger(30_000_000) * self.factor, False)
+        self.mint(engine, account, vm.BigInteger(52_000_000) * self.factor, False)
 
     def on_persist(self, engine: contracts.ApplicationEngine) -> None:
         super(GasToken, self).on_persist(engine)
