@@ -1,5 +1,5 @@
 from __future__ import annotations
-from neo3 import vm, contracts
+from neo3 import vm, contracts, settings
 from neo3.core import cryptography, IInteroperable, types, msgrouter, to_script_hash
 from neo3.contracts.interop import register
 
@@ -7,6 +7,11 @@ from neo3.contracts.interop import register
 @register("System.Runtime.Platform", 1 << 3, contracts.CallFlags.NONE)
 def get_platform(engine: contracts.ApplicationEngine) -> str:
     return "NEO"
+
+
+@register("System.Runtime.GetNetwork", 1 << 3, contracts.CallFlags.NONE)
+def get_platform(engine: contracts.ApplicationEngine) -> str:
+    return settings.network.magic
 
 
 @register("System.Runtime.GetTrigger", 1 << 3, contracts.CallFlags.NONE)
