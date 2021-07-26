@@ -1,6 +1,7 @@
 import unittest
 import binascii
 import hashlib
+import mmh3
 from neo3.core import types
 from neo3.core import cryptography as crypto
 
@@ -98,3 +99,13 @@ class BloomFilterTestCase(unittest.TestCase):
         filter = crypto.BloomFilter(m=7, k=10, ntweak=123456, elements=elements)
         self.assertEqual(b'\x00', filter.get_bits())
 
+class Murmur128test(unittest.TestCase):
+    def shortDescription(self):
+        # disable docstring printing in test runner
+        return None
+
+    def test_neo_cases(self):
+        # https://github.com/Liaojinghui/neo/blob/30f33d075502acd792f804ffcf84cce689255306/tests/neo.UnitTests/Cryptography/UT_Murmur128.cs
+        self.assertEqual(bytes.fromhex("0bc59d0ad25fde2982ed65af61227a0e"), mmh3.hash_bytes("hello", 123))
+        self.assertEqual(bytes.fromhex("3d3810fed480472bd214a14023bb407f"), mmh3.hash_bytes("world", 123))
+        self.assertEqual(bytes.fromhex("e0a0632d4f51302c55e3b3e48d28795d"), mmh3.hash_bytes("hello world", 123))

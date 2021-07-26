@@ -1,12 +1,12 @@
 from __future__ import annotations
 from typing import Dict, Optional
-from neo3.network import convenience, payloads
+from neo3.network import payloads
 from neo3.core import types, msgrouter
-from neo3 import network_logger as logger
+from neo3 import network_logger as logger, _Singleton
 from contextlib import suppress
 
 
-class RelayCache(convenience._Singleton):
+class RelayCache(_Singleton):
     """
     A cache holding transactions broadcasted to the network to be included in a block.
 
