@@ -1,9 +1,8 @@
 from __future__ import annotations
 import inspect
 from typing import List, Callable, Dict, Any, Optional, get_type_hints
-from neo3 import contracts, vm, storage, settings
+from neo3 import contracts, vm, storage, settings, _Singleton
 from neo3.core import types, to_script_hash
-from neo3.network import convenience
 
 
 class _NativeMethodMeta:
@@ -49,7 +48,7 @@ class _NativeMethodMeta:
         )
 
 
-class NativeContract(convenience._Singleton):
+class NativeContract(_Singleton):
     #: unique contract identifier
     _id: int = -99999
 

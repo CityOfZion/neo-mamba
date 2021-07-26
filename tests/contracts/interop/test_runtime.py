@@ -2,7 +2,7 @@ import unittest
 import hashlib
 from typing import List
 
-from neo3 import vm, contracts, storage
+from neo3 import vm, contracts, storage, blockchain, settings
 from neo3.core.serialization import BinaryReader, BinaryWriter
 from neo3.network import payloads
 from neo3.contracts import syscall_name_to_int
@@ -503,3 +503,45 @@ class RuntimeInteropTestCase(unittest.TestCase):
         with self.assertRaises(ValueError) as context:
             engine.invoke_syscall_by_name("System.Runtime.Notify")
         self.assertEqual("Notify event name length (33) exceeds maximum allowed (32)", str(context.exception))
+
+    def test_get_random_same_block(self):
+        # tests taken from https://github.com/neo-project/neo/blob/2040537350c889562085505f104479a25a5ec5aa/tests/neo.UnitTests/SmartContract/UT_ApplicationEngine.Runtime.cs#L15
+        settings.reset_settings_to_default()
+        raw = bytes.fromhex("0000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000001000112010000")
+        tx = payloads.Transaction.deserialize_from_bytes(raw)
+
+        # this little hack basically nullifies the singleton behaviour and ensures we create
+        # a new instance every time we call it. This in turn gives us a clean backend/snapshot
+        blockchain.Blockchain.__it__ = None
+        snapshot = blockchain.Blockchain(store_genesis_block=True).currentSnapshot
+        engine1 = contracts.ApplicationEngine(contracts.TriggerType.APPLICATION, tx, snapshot, 0, test_mode=True)
+        engine1.load_script(vm.Script(b'\x01'))
+
+        blockchain.Blockchain.__it__ = None
+        snapshot = blockchain.Blockchain(store_genesis_block=True).currentSnapshot
+        engine2 = contracts.ApplicationEngine(contracts.TriggerType.APPLICATION, tx, snapshot, 0, test_mode=True)
+        engine2.load_script(vm.Script(b'\x01'))
+
+        rand1 = engine1.invoke_syscall_by_name("System.Runtime.GetRandom")
+        rand2 = engine1.invoke_syscall_by_name("System.Runtime.GetRandom")
+        rand3 = engine1.invoke_syscall_by_name("System.Runtime.GetRandom")
+        rand4 = engine1.invoke_syscall_by_name("System.Runtime.GetRandom")
+        rand5 = engine1.invoke_syscall_by_name("System.Runtime.GetRandom")
+
+        rand6 = engine2.invoke_syscall_by_name("System.Runtime.GetRandom")
+        rand7 = engine2.invoke_syscall_by_name("System.Runtime.GetRandom")
+        rand8 = engine2.invoke_syscall_by_name("System.Runtime.GetRandom")
+        rand9 = engine2.invoke_syscall_by_name("System.Runtime.GetRandom")
+        rand10 = engine2.invoke_syscall_by_name("System.Runtime.GetRandom")
+
+        self.assertEqual(225932872514876835587448704843370203748, rand1)
+        self.assertEqual(190129535548110356450238097068474508661, rand2)
+        self.assertEqual(48930406787011198493485648810190184269, rand3)
+        self.assertEqual(66199389469641263539889463157823839112, rand4)
+        self.assertEqual(217172703763162599519098299724476526911, rand5)
+
+        self.assertEqual(rand1, rand6)
+        self.assertEqual(rand2, rand7)
+        self.assertEqual(rand3, rand8)
+        self.assertEqual(rand4, rand9)
+        self.assertEqual(rand5, rand10)
