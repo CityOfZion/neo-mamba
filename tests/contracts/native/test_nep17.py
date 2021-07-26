@@ -36,7 +36,7 @@ class Nep5TestCase(unittest.TestCase):
         gas = contracts.GasToken()
         neo = contracts.NeoToken()
         # this is now the initial stored value + the result of the post_persist event (=committee reward added)
-        expected_total_gas_supply = vm.BigInteger(3000000050000000)
+        expected_total_gas_supply = vm.BigInteger(5200000050000000)
         self.assertEqual(expected_total_gas_supply, gas.total_supply(engine.snapshot))
         self.assertEqual(100_000_000, neo.total_supply(engine.snapshot))
 
@@ -52,14 +52,14 @@ class Nep5TestCase(unittest.TestCase):
             gas.burn(engine, self.validator_account, vm.BigInteger(-1))
         self.assertEqual("Can't burn a negative amount", str(context.exception))
 
-        default_gas = 30_000_000
+        default_gas = 52_000_000
         self.assertEqual(default_gas, gas.balance_of(engine.snapshot, self.validator_account) / gas.factor)
         gas.burn(engine, self.validator_account, vm.BigInteger(0))
         self.assertEqual(default_gas, gas.balance_of(engine.snapshot, self.validator_account) / gas.factor)
 
         with self.assertRaises(ValueError) as context:
             gas.burn(engine, self.validator_account, vm.BigInteger(default_gas + 1) * gas.factor)
-        self.assertEqual("Insufficient balance. Requesting to burn 3000000100000000, available 3000000000000000",
+        self.assertEqual("Insufficient balance. Requesting to burn 5200000100000000, available 5200000000000000",
                          str(context.exception))
 
         # burn a bit
@@ -80,7 +80,7 @@ class Nep5TestCase(unittest.TestCase):
         gas = contracts.GasToken()
         neo = contracts.NeoToken()
 
-        deploy_expected_gas = 30_000_000
+        deploy_expected_gas = 52_000_000
         deploy_expected_neo = 100_000_000
         self.assertEqual(deploy_expected_gas, gas.balance_of(engine.snapshot, self.validator_account) / gas.factor)
         self.assertEqual(deploy_expected_neo, neo.balance_of(engine.snapshot, self.validator_account))
@@ -154,7 +154,7 @@ class Nep5TestCase(unittest.TestCase):
         token_state = gas._state.deserialize_from_bytes(si_supply.value)
         total_fees = engine.snapshot.persisting_block.transactions[0].network_fee + \
                      engine.snapshot.persisting_block.transactions[0].system_fee
-        expected = (30_000_000 * gas.factor) - total_fees
+        expected = (52_000_000 * gas.factor) - total_fees
         self.assertEqual(expected, int(token_state.balance))
 
         # * total GAS supply was 30_000_000 + 0.5 for committee reward, should be reduced by the system_fee
@@ -162,7 +162,7 @@ class Nep5TestCase(unittest.TestCase):
         si_total_supply = engine.snapshot.storages.try_get(sk_total_supply)
         self.assertIsNotNone(si_total_supply)
         committee_reward = vm.BigInteger(50000000)
-        expected = ((30_000_000 * gas.factor) + committee_reward) - engine.snapshot.persisting_block.transactions[0].system_fee
+        expected = ((52_000_000 * gas.factor) + committee_reward) - engine.snapshot.persisting_block.transactions[0].system_fee
         self.assertEqual(expected, vm.BigInteger(si_total_supply.value))
 
         # * the persisting block contains exactly 1 transaction
