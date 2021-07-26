@@ -139,6 +139,7 @@ class BlockTestCase(unittest.TestCase):
                     Version = 0,
                     PrevHash = UInt256.Parse("0xf782c7fbb2eef6afe629b96c0d53fb525eda64ce5345057caf975ac3c2b9ae0a"),
                     Timestamp = 123,
+                    Nonce = 0,
                     Index = 1,
                     PrimaryIndex = 0,
                     NextConsensus = UInt160.Parse("0xd7678dd97c000be3f33e9362e673101bac4ca654"),
@@ -173,6 +174,7 @@ class BlockTestCase(unittest.TestCase):
         cls.header = payloads.Header(version=0,
                                      prev_hash=types.UInt256.from_string("f782c7fbb2eef6afe629b96c0d53fb525eda64ce5345057caf975ac3c2b9ae0a"),
                                      timestamp=123,
+                                     nonce=0,
                                      index=1,
                                      primary_index=0,
                                      next_consensus=types.UInt160.from_string("d7678dd97c000be3f33e9362e673101bac4ca654"),
@@ -183,7 +185,7 @@ class BlockTestCase(unittest.TestCase):
 
     def test_len(self):
         # captured from C#, see setUpClass() for the capture code
-        expected_len = 160
+        expected_len = 168
         self.assertEqual(expected_len, len(self.block))
 
     def test_equals(self):
@@ -198,7 +200,7 @@ class BlockTestCase(unittest.TestCase):
 
     def test_serialization(self):
         # captured from C#, see setUpClass() for the capture code
-        expected_data = binascii.unhexlify("000000000AAEB9C2C35A97AF7C054553CE64DA5E52FB530D6CB929E6AFF6EEB2FBC782F75618ADD6F91FAD691D6A4D430DB27CE5CA607296863E73A23FC3622A415CDD407B00000000000000010000000054A64CAC1B1073E662933EF3E30B007CD98D67D70100015501007B000000C80100000000000015030000000000000100000001F7B4D00143932F3B6243CFC06CB4A68F22C739E20000010101000155")
+        expected_data = binascii.unhexlify("000000000AAEB9C2C35A97AF7C054553CE64DA5E52FB530D6CB929E6AFF6EEB2FBC782F75618ADD6F91FAD691D6A4D430DB27CE5CA607296863E73A23FC3622A415CDD407B000000000000000000000000000000010000000054A64CAC1B1073E662933EF3E30B007CD98D67D70100015501007B000000C80100000000000015030000000000000100000001F7B4D00143932F3B6243CFC06CB4A68F22C739E20000010101000155")
         self.assertEqual(expected_data, self.block.to_array())
 
     def test_deserialization(self):
@@ -207,6 +209,7 @@ class BlockTestCase(unittest.TestCase):
         self.assertEqual(self.block.version, deserialized_block.version)
         self.assertEqual(self.block.prev_hash, deserialized_block.prev_hash)
         self.assertEqual(self.block.timestamp, deserialized_block.timestamp)
+        self.assertEqual(self.block.nonce, deserialized_block.nonce)
         self.assertEqual(self.block.index, deserialized_block.index)
         self.assertEqual(self.block.primary_index, deserialized_block.primary_index)
         self.assertEqual(self.block.next_consensus, deserialized_block.next_consensus)
@@ -236,10 +239,10 @@ class BlockTestCase(unittest.TestCase):
         trimmed_block = self.block.trim()
         self.assertIsInstance(trimmed_block, payloads.TrimmedBlock)
         # captured from C#, see setUpClass() for the capture code
-        expected_len = 138
+        expected_len = 146
         self.assertEqual(expected_len, len(trimmed_block))
 
-        expected_data = binascii.unhexlify('000000000AAEB9C2C35A97AF7C054553CE64DA5E52FB530D6CB929E6AFF6EEB2FBC782F75618ADD6F91FAD691D6A4D430DB27CE5CA607296863E73A23FC3622A415CDD407B00000000000000010000000054A64CAC1B1073E662933EF3E30B007CD98D67D701000155015618ADD6F91FAD691D6A4D430DB27CE5CA607296863E73A23FC3622A415CDD40')
+        expected_data = binascii.unhexlify('000000000AAEB9C2C35A97AF7C054553CE64DA5E52FB530D6CB929E6AFF6EEB2FBC782F75618ADD6F91FAD691D6A4D430DB27CE5CA607296863E73A23FC3622A415CDD407B000000000000000000000000000000010000000054A64CAC1B1073E662933EF3E30B007CD98D67D701000155015618ADD6F91FAD691D6A4D430DB27CE5CA607296863E73A23FC3622A415CDD40')
         self.assertEqual(expected_data, trimmed_block.to_array())
 
         deserialized_trimmed_block = payloads.TrimmedBlock.deserialize_from_bytes(trimmed_block.to_array())
@@ -469,6 +472,7 @@ class HeaderTestCase(unittest.TestCase):
             PrevHash = UInt256.Parse("a400ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff01"),
             MerkleRoot = UInt256.Parse("a400ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff02"),
             Timestamp = 0,
+            Nonce = 0,
             Index = 123,
             PrimaryIndex = 0,
             NextConsensus = UInt160.Parse("0xe239c7228fa6b46cc0cf43623b2f934301d0b4f7"),
@@ -486,23 +490,24 @@ class HeaderTestCase(unittest.TestCase):
         previous_hash = types.UInt256.from_string("a400ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff01")
         merkleroot = types.UInt256.from_string("a400ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff02")
         timestamp = 0
+        nonce = 0
         index = 123
         primary_index = 0
         next_consensus = types.UInt160.from_string("e239c7228fa6b46cc0cf43623b2f934301d0b4f7")
         witness = payloads.Witness(invocation_script=b'\x01\x02', verification_script=b'\x03\x04')
 
-        cls.header = payloads.Header(version, previous_hash, timestamp, index, primary_index, next_consensus, witness, merkleroot)
+        cls.header = payloads.Header(version, previous_hash, timestamp, nonce, index, primary_index, next_consensus, witness, merkleroot)
 
     def test_len_and_hash(self):
         # captured from C#, see setUpClass() for the capture code
-        expected_len = 108
-        expected_hash = types.UInt256.from_string('47a455f322441b6c3b4dffd039df34ca724fac222686e515043f01c494687868')
+        expected_len = 116
+        expected_hash = types.UInt256.from_string('f8e49a63506ed1273ec79ec6fc0134803aafc251c7e67ffaf355a443617672c5')
         self.assertEqual(expected_len, len(self.header))
         self.assertEqual(expected_hash, self.header.hash())
 
     def test_serialization(self):
         # captured from C#, see setUpClass() for the capture code
-        expected_data = binascii.unhexlify(b'0000000001FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A402FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A400000000000000007B00000000F7B4D00143932F3B6243CFC06CB4A68F22C739E201020102020304')
+        expected_data = binascii.unhexlify(b'0000000001FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A402FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A4000000000000000000000000000000007B00000000F7B4D00143932F3B6243CFC06CB4A68F22C739E201020102020304')
         self.assertEqual(expected_data, self.header.to_array())
 
     def test_deserialization(self):
@@ -513,6 +518,7 @@ class HeaderTestCase(unittest.TestCase):
         self.assertEqual(self.header.prev_hash, deserialized_header.prev_hash)
         self.assertEqual(self.header.merkle_root, deserialized_header.merkle_root)
         self.assertEqual(self.header.timestamp, deserialized_header.timestamp)
+        self.assertEqual(self.header.nonce, deserialized_header.nonce)
         self.assertEqual(self.header.index, deserialized_header.index)
         self.assertEqual(self.header.next_consensus, deserialized_header.next_consensus)
         self.assertEqual(self.header.witness.invocation_script, deserialized_header.witness.invocation_script)
@@ -521,7 +527,7 @@ class HeaderTestCase(unittest.TestCase):
     def test_deserialization_failure1(self):
         # there should be a 1 byte witness object count (fixed to value 1) before the actual witness object.
         # see https://github.com/neo-project/neo/issues/1128
-        raw_data = binascii.unhexlify(b'0000000001FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A402FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A400000000000000007B00000000F7B4D00143932F3B6243CFC06CB4A68F22C739E200020102020304')
+        raw_data = binascii.unhexlify(b'0000000001FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A402FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A4000000000000000000000000000000007B00000000F7B4D00143932F3B6243CFC06CB4A68F22C739E200020102020304')
         deserialized_header = payloads.Header._serializable_init()
 
         with self.assertRaises(ValueError) as context:
@@ -551,6 +557,7 @@ class HeadersPayloadTestCase(unittest.TestCase):
             PrevHash = UInt256.Parse("a400ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff01"),
             MerkleRoot = UInt256.Parse("a400ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff02"),
             Timestamp = 0,
+            Nonce = 0,
             Index = 123,
             PrimaryIndex = 0,
             NextConsensus = UInt160.Parse("8a2b438eaca8b4b2ab6b4524b5a69a45d920c351"),
@@ -574,23 +581,24 @@ class HeadersPayloadTestCase(unittest.TestCase):
         previous_hash = types.UInt256.from_string("a400ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff01")
         merkleroot = types.UInt256.from_string("a400ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff02")
         timestamp = 0
+        nonce = 0
         index = 123
         primary_index = 0
         next_consensus = types.UInt160.from_string("8a2b438eaca8b4b2ab6b4524b5a69a45d920c351")
         witness = payloads.Witness(invocation_script=b'\x01\x02', verification_script=b'\x03\x04')
 
-        h1 = payloads.Header(version, previous_hash, timestamp, index, primary_index, next_consensus, witness, merkleroot)
-        h2 = payloads.Header(version, previous_hash, timestamp, index, primary_index, next_consensus, witness, merkleroot)
+        h1 = payloads.Header(version, previous_hash, timestamp, nonce, index, primary_index, next_consensus, witness, merkleroot)
+        h2 = payloads.Header(version, previous_hash, timestamp, nonce, index, primary_index, next_consensus, witness, merkleroot)
         cls.payload = payloads.HeadersPayload([h1, h2])
 
     def test_len(self):
         # captured from C#, see setUpClass() for the capture code
-        expected_len = 217
+        expected_len = 233
         self.assertEqual(expected_len, len(self.payload))
 
     def test_serialization(self):
         # captured from C#, see setUpClass() for the capture code
-        expected_data = binascii.unhexlify(b'020000000001FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A402FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A400000000000000007B0000000051C320D9459AA6B524456BABB2B4A8AC8E432B8A010201020203040000000001FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A402FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A400000000000000007B0000000051C320D9459AA6B524456BABB2B4A8AC8E432B8A01020102020304')
+        expected_data = binascii.unhexlify(b'020000000001FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A402FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A4000000000000000000000000000000007B0000000051C320D9459AA6B524456BABB2B4A8AC8E432B8A010201020203040000000001FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A402FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A4000000000000000000000000000000007B0000000051C320D9459AA6B524456BABB2B4A8AC8E432B8A01020102020304')
         self.assertEqual(expected_data, self.payload.to_array())
 
     def test_deserialization(self):
@@ -655,6 +663,7 @@ class MerkleBlockPayloadTestCase(unittest.TestCase):
                 Version = 0,
                 PrevHash = UInt256.Parse("0xf782c7fbb2eef6afe629b96c0d53fb525eda64ce5345057caf975ac3c2b9ae0a"),
                 Timestamp = 123,
+                Nonce = 0,
                 Index = 1,
                 PrimaryIndex = 0,
                 NextConsensus = UInt160.Parse("0xd7678dd97c000be3f33e9362e673101bac4ca654"),
@@ -684,6 +693,7 @@ class MerkleBlockPayloadTestCase(unittest.TestCase):
         cls.header = payloads.Header(version=0,
                                      prev_hash=types.UInt256.from_string("f782c7fbb2eef6afe629b96c0d53fb525eda64ce5345057caf975ac3c2b9ae0a"),
                                      timestamp=123,
+                                     nonce=0,
                                      index=1,
                                      primary_index=0,
                                      next_consensus=types.UInt160.from_string("d7678dd97c000be3f33e9362e673101bac4ca654"),
@@ -697,12 +707,12 @@ class MerkleBlockPayloadTestCase(unittest.TestCase):
 
     def test_len(self):
         # captured from C#, see setUpClass() for the capture code
-        expected_len = 144
+        expected_len = 152
         self.assertEqual(expected_len, len(self.merkle_payload))
 
     def test_serialization(self):
         # captured from C#, see setUpClass() for the capture code
-        expected_data = binascii.unhexlify(b'000000000AAEB9C2C35A97AF7C054553CE64DA5E52FB530D6CB929E6AFF6EEB2FBC782F75618ADD6F91FAD691D6A4D430DB27CE5CA607296863E73A23FC3622A415CDD407B00000000000000010000000054A64CAC1B1073E662933EF3E30B007CD98D67D70100015501015618ADD6F91FAD691D6A4D430DB27CE5CA607296863E73A23FC3622A415CDD400101')
+        expected_data = binascii.unhexlify(b'000000000AAEB9C2C35A97AF7C054553CE64DA5E52FB530D6CB929E6AFF6EEB2FBC782F75618ADD6F91FAD691D6A4D430DB27CE5CA607296863E73A23FC3622A415CDD407B000000000000000000000000000000010000000054A64CAC1B1073E662933EF3E30B007CD98D67D70100015501015618ADD6F91FAD691D6A4D430DB27CE5CA607296863E73A23FC3622A415CDD400101')
         self.assertEqual(expected_data, self.merkle_payload.to_array())
 
     def test_deserialization(self):

@@ -46,6 +46,7 @@ class AbstractBlockStorageTest(abc.ABC, unittest.TestCase):
         self.header = payloads.Header(version=0,
                                       prev_hash=types.UInt256.from_string("f782c7fbb2eef6afe629b96c0d53fb525eda64ce5345057caf975ac3c2b9ae0a"),
                                       timestamp=123,
+                                      nonce=0,
                                       index=1,
                                       primary_index=0,
                                       next_consensus=types.UInt160.from_string("d7678dd97c000be3f33e9362e673101bac4ca654"),
@@ -300,9 +301,9 @@ class AbstractBlockStorageTest(abc.ABC, unittest.TestCase):
         blocks = list(clone_view.blocks.all())
         self.assertEqual(3, len(blocks))
         self.assertEqual(2, len(list(snapshot_view.blocks.all())))
-        self.assertEqual(self.block1, blocks[1])
+        self.assertEqual(self.block1, blocks[0])
         self.assertEqual(self.block2, blocks[2])
-        self.assertEqual(block3, blocks[0])
+        self.assertEqual(block3, blocks[1])
 
     def test_snapshot_bestblockheight(self):
         snapshot_view = self.db.get_snapshotview()

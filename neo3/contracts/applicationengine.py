@@ -47,6 +47,15 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
             self.exec_fee_factor = contracts.PolicyContract().get_exec_fee_factor(snapshot)
             self.STORAGE_PRICE = contracts.PolicyContract().get_storage_price(snapshot)
 
+        if isinstance(self.script_container, payloads.Transaction):
+            self.nonce_data = self.script_container.hash().to_array()[:16]
+        else:
+            self.nonce_data = b'\x00' * 16
+        if self.snapshot and self.snapshot.persisting_block:
+            nonce = self.snapshot.persisting_block.nonce
+            nonce ^= int.from_bytes(self.nonce_data, "little", signed=False)
+            self.nonce_data = nonce.to_bytes(16, "little")
+
         from neo3.contracts import interop
         self.interop = interop
 

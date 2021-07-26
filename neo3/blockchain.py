@@ -1,12 +1,12 @@
 from __future__ import annotations
 from typing import List
 from datetime import datetime, timezone
-from neo3 import contracts, storage, settings, vm
+from neo3 import contracts, storage, settings, vm, _Singleton
 from neo3.core import cryptography, types, to_script_hash, msgrouter, syscall_name_to_int
 from neo3.network import payloads, convenience
 
 
-class Blockchain(convenience._Singleton):
+class Blockchain(_Singleton):
     genesis_block = None
 
     def init(self, backend: storage.IDBImplementation = None, store_genesis_block=True):  # type: ignore
@@ -40,6 +40,7 @@ class Blockchain(convenience._Singleton):
             version=0,
             prev_hash=types.UInt256.zero(),
             timestamp=int(datetime(2016, 7, 15, 15, 8, 21, 0, timezone.utc).timestamp() * 1000),
+            nonce=2083236893,
             index=0,
             primary_index=0,
             next_consensus=contracts.Contract.get_consensus_address(settings.standby_validators),

@@ -5,6 +5,7 @@ import binascii
 from typing import List
 from types import SimpleNamespace
 from neo3.core import cryptography
+from .singleton import _Singleton
 
 version = '0.8'
 

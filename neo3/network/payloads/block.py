@@ -19,21 +19,23 @@ class Header(IVerifiable):
     See also:
         :class:`~neo3.network.payloads.block.TrimmedBlock`
     """
-    def __init__(self, version: int, prev_hash: types.UInt256, timestamp: int, index: int, primary_index: int,
-                 next_consensus: types.UInt160, witness: payloads.Witness, merkle_root: types.UInt256 = None, *args,
-                 **kwargs):
+    def __init__(self, version: int, prev_hash: types.UInt256, timestamp: int, nonce: int, index: int,
+                 primary_index: int, next_consensus: types.UInt160, witness: payloads.Witness,
+                 merkle_root: types.UInt256 = None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.version = version
         self.prev_hash = prev_hash
         self.merkle_root = merkle_root if merkle_root else types.UInt256.zero()
         self.timestamp = timestamp
+        self.nonce = nonce
         self.index = index
         self.primary_index = primary_index
         self.next_consensus = next_consensus
         self.witness = witness
 
     def __len__(self):
-        return s.uint32 + s.uint256 + s.uint256 + s.uint64 + s.uint32 + s.uint8 + s.uint160 + 1 + len(self.witness)
+        return (s.uint32 + s.uint256 + s.uint256 + s.uint64 + s.uint64 + s.uint32 + s.uint8 + s.uint160 + 1
+                + len(self.witness))
 
     def __eq__(self, other):
         if other is None:
@@ -69,6 +71,7 @@ class Header(IVerifiable):
         writer.write_serializable(self.prev_hash)
         writer.write_serializable(self.merkle_root)
         writer.write_uint64(self.timestamp)
+        writer.write_uint64(self.nonce)
         writer.write_uint32(self.index)
         writer.write_uint8(self.primary_index)
         writer.write_serializable(self.next_consensus)
@@ -103,9 +106,10 @@ class Header(IVerifiable):
          prev_hash,
          merkleroot,
          self.timestamp,
+         self.nonce,
          self.index,
          self.primary_index,
-         consensus) = struct.unpack("<I32s32sQIB20s", reader._stream.read(101))
+         consensus) = struct.unpack("<I32s32sQQIB20s", reader._stream.read(109))
         if self.primary_index >= len(settings.standby_validators):
             raise ValueError(f"Deserialization error - primary index {self.primary_index} exceeds validator count "
                              f"{len(settings.standby_validators)}")
@@ -128,6 +132,7 @@ class Header(IVerifiable):
     def _serializable_init(cls):
         return cls(0,
                    types.UInt256.zero(),
+                   0,
                    0,
                    0,
                    0,
@@ -184,6 +189,11 @@ class Block(payloads.IInventory):
     def timestamp(self) -> int:
         """ UTC timestamp in miliseconds """
         return self.header.timestamp
+
+    @property
+    def nonce(self) -> int:
+        """ Random number """
+        return self.header.nonce
 
     @property
     def index(self) -> int:
