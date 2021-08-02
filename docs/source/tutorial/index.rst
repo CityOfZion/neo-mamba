@@ -110,7 +110,7 @@ Let's get to it!
 
     async def run_neo():
         # set network magic to NEO TestNet
-        settings.network.magic = 844378958
+        settings.network.magic = 877933390
 
         # add a node to test against
         settings.network.seedlist = ['seed1t.neo.org:20333']
