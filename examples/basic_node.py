@@ -25,7 +25,7 @@ async def main():
     # Values are taken from config.testnet.json on the neo-node github repo
     # https://github.com/neo-project/neo-node/tree/master/neo-cli
     settings.network.magic = 877933390
-    settings.network.seedlist = ['seed1t.neo.org:20333']
+    settings.network.seedlist = ['seed1.neo.org:20333']
     settings.network.standby_committee = [
       "023e9b32ea89b94d066e649b124fd50e396ee91369e8e2a6ae1b11c170d022256d",
       "03009b7540e10f2562e5fd8fac9eaec25166a58b26e412348ff5a86927bfac22a2",

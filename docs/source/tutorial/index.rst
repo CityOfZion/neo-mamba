@@ -113,7 +113,7 @@ Let's get to it!
         settings.network.magic = 877933390
 
         # add a node to test against
-        settings.network.seedlist = ['seed1t.neo.org:20333']
+        settings.network.seedlist = ['seed1.neo.org:20333']
 
         # listen to the connection events broad casted by the node manager
         msgrouter.on_client_connect_done += connection_done
@@ -209,7 +209,7 @@ The :code:`run_neo()` function should be self-explanatory.
       settings.network.magic = 844378958
 
       # add a node to test against
-      settings.network.seedlist = ['seed1t.neo.org:20333']
+      settings.network.seedlist = ['seed1.neo.org:20333']
 
 We start by configuring the network magic. This is a special number identifying the Main network, test network or even a privat network. It is shared and validated during the first connection to the network and will disconnect nodes if there is a mismatch. The seedlist is consulted by the node manager as the first entry point to connect to the network by the code.
 
