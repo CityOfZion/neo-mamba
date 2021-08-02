@@ -1,0 +1,13 @@
+.. _whatsnew-v09:
+
+*****************************
+  What's New in neo-mamba 0.9
+*****************************
+
+:Author: Erik van den Brink
+
+RC4 compatability
+=================
+
+This release catches up with all RC4 changes done in the C# core project.
+This version is compatible with formal TestNet (Neo v3.0.0)
