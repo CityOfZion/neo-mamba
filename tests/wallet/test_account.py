@@ -1,6 +1,8 @@
 import unittest
 
+from neo3 import contracts
 from neo3.core.types import UInt160
+from neo3.storage import Snapshot
 from neo3.wallet import Account
 
 account_list = [
@@ -102,23 +104,49 @@ class AccountCreationTestCase(unittest.TestCase):
         self.assertEqual(True, wrong_password)
 
     def test_add_delete_tokens(self):
-        account = Account("password")
-        self.assertIsNone(account.extra.get("tokens"))
+        from neo3.blockchain import Blockchain
+
+        # initialized a Blockchain to not attribute a CachedContractAccess directly into _contract_cache in the Snapshot
+        bl = Blockchain()
+        snapshot: Snapshot = bl.currentSnapshot
+
+        # creating fake contracts so that supported_standards could be tested
+        dummy_method = contracts.ContractMethodDescriptor("test1", 0, [], contracts.ContractParameterType.VOID, True)
+        nef1 = contracts.NEF(script=b'\x01\x02')
+        nef2 = contracts.NEF(script=b'\x03\x04')
+        nef3 = contracts.NEF(script=b'\x05\x06')
         token_hash1 = UInt160(bytes(range(20)))
         token_hash2 = UInt160(bytes(20))
+        token_hash3 = UInt160(bytes(reversed(range(20))))
+        contract1 = contracts.ContractState(1, nef1, contracts.ContractManifest(), 0, token_hash1)
+        contract1.manifest.abi.methods.append(dummy_method)
+        contract1.manifest.supported_standards.append("NEP-17")
+        contract2 = contracts.ContractState(2, nef2, contracts.ContractManifest(), 0, token_hash2)
+        contract2.manifest.abi.methods.append(dummy_method)
+        contract2.manifest.supported_standards.append("NEP-17")
+        contract3 = contracts.ContractState(3, nef3, contracts.ContractManifest(), 0, token_hash3)
+        contract3.manifest.abi.methods.append(dummy_method)
+        contract3.manifest.supported_standards.append("NEP-5")
+
+        snapshot.contracts.put(contract1)
+        snapshot.contracts.put(contract2)
+        snapshot.contracts.put(contract3)
+
+        account = Account("password")
+        self.assertIsNone(account.extra.get("tokens"))
 
         # Adding a token script hash will return True
-        result = account.token_add(token_hash1)
+        result = account.token_add(token_hash1, snapshot)
         self.assertEqual(True, result)
         self.assertEqual([token_hash1], account.extra.get("tokens"))
 
         # Trying to add the same script hash will return False and won't change the extra property
-        result = account.token_add(token_hash1)
+        result = account.token_add(token_hash1, snapshot)
         self.assertEqual(False, result)
         self.assertEqual([token_hash1], account.extra.get("tokens"))
 
         # Adding another script hash will return True and will be added at the end of the list
-        result = account.token_add(token_hash2)
+        result = account.token_add(token_hash2, snapshot)
         self.assertEqual(True, result)
         self.assertEqual([token_hash1, token_hash2], account.extra.get("tokens"))
 
@@ -127,10 +155,10 @@ class AccountCreationTestCase(unittest.TestCase):
         self.assertEqual([token_hash1, token_hash2], json_dict["extra"]["tokens"])
 
         # Trying to add an already existing script hash will return False and won't change the extra property
-        result = account.token_add(token_hash1)
+        result = account.token_add(token_hash1, snapshot)
         self.assertEqual(False, result)
         self.assertEqual([token_hash1, token_hash2], account.extra.get("tokens"))
-        result = account.token_add(token_hash2)
+        result = account.token_add(token_hash2, snapshot)
         self.assertEqual(False, result)
         self.assertEqual([token_hash1, token_hash2], account.extra.get("tokens"))
 
@@ -147,4 +175,9 @@ class AccountCreationTestCase(unittest.TestCase):
         # Deleting all script hashes will also remove the "tokens" key from extra
         result = account.token_delete(token_hash2)
         self.assertEqual(True, result)
+        self.assertIsNone(account.extra.get("tokens"))
+
+        # Trying to add a non NEP-17 contract will return False
+        result = account.token_add(token_hash3, snapshot)
+        self.assertEqual(False, result)
         self.assertIsNone(account.extra.get("tokens"))

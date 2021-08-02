@@ -12,6 +12,8 @@ from neo3.core import types, to_script_hash, cryptography, syscall_name_to_int
 
 
 # both constants below are used to encrypt/decrypt a private key to/from a nep2 key
+from neo3.storage import Snapshot
+
 NEP_HEADER = bytes([0x01, 0x42])
 NEP_FLAG = bytes([0xe0])
 # both constants are used when trying to decrypt a private key from a wif
@@ -300,38 +302,42 @@ class Account:
     def create_new(cls, password: str) -> Account:
         return cls(password=password, watch_only=False)
 
-    def token_add(self, token_hash: types.UInt160) -> bool:
+    def token_add(self, token_hash: types.UInt160, snapshot: Snapshot) -> bool:
         """
-        Add a script hash from a token in the extra property of this account.
+        Associate a NEP17 token to the account.
 
         Args:
             token_hash: the script hash of a token.
+            snapshot: used to verify if the token is following the NEP-17 standard.
 
         Returns:
-            bool: True if token_hash was added in extra. False if it was already added.
+            bool: True if token_hash was associate. False if it was already associated.
         """
         added: bool = False
         tokens: Optional[List] = self.extra.get("tokens")
 
-        if not tokens:
-            self.extra.update({"tokens": [token_hash]})
-            added = True
-        else:
-            if token_hash not in tokens:
-                tokens.append(token_hash)
+        standards: List[str] = snapshot.contracts.get(token_hash, read_only=True).manifest.supported_standards
+
+        if "NEP-17" in standards:
+            if not tokens:
+                self.extra.update({"tokens": [token_hash]})
                 added = True
+            else:
+                if token_hash not in tokens:
+                    tokens.append(token_hash)
+                    added = True
 
         return added
 
     def token_delete(self, token_hash: types.UInt160) -> bool:
         """
-        Delete a script hash from a token in the extra property of this account.
+        Disassociate a NEP17 token from the account.
 
         Args:
             token_hash: the script hash of a token.
 
         Returns:
-            bool: True if token_hash was deleted. False if the token_hash wasn't in it.
+            bool: True if token_hash was disassociated. False if the token_hash wasn't associated with the account.
         """
         deleted: bool = False
         tokens: Optional[List] = self.extra.get("tokens")
