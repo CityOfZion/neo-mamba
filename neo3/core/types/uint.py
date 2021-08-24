@@ -18,12 +18,10 @@ class _UIntBase(serialization.ISerializable):
 
         if data is None:
             self._data = bytes(num_bytes)
-
         else:
-            self._data = data
-
-            if len(self._data) != num_bytes:
-                raise ValueError(f"Invalid UInt: data length {len(self._data)} != specified num_bytes {num_bytes}")
+            if len(data) < num_bytes:
+                raise ValueError(f"Invalid UInt: data length {len(data)} != specified num_bytes {num_bytes}")
+            self._data = data[:num_bytes]
 
     def __len__(self) -> int:
         """ Count of data bytes. """

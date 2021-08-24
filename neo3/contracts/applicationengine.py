@@ -268,7 +268,7 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
 
         token = nef.tokens[token_id]
         if token.parameters_count > len(self.current_context.evaluation_stack):
-            raise ValueError("Token count exceeds available paremeters on evaluation stack")
+            raise ValueError("Token count exceeds available parameters on evaluation stack")
         args: List[vm.StackItem] = []
         for _ in range(token.parameters_count):
             args.append(self.pop())
@@ -432,7 +432,7 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
         Convert native type to VM type
 
         Note: order of checking matters.
-        e.g. a Transaction should be treated as IInteropable, while its also ISerializable
+        e.g. a Transaction should be treated as IInteroperable, while its also ISerializable
         """
         if isinstance(value, vm.StackItem):
             return value
@@ -466,5 +466,15 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
                 return self._native_to_stackitem(value, native_type)
             else:
                 raise ValueError  # shouldn't be possible, but silences mypy
+        elif native_type == list:
+            arr = vm.ArrayStackItem(self.reference_counter)
+            for item in value:
+                arr.append(self._native_to_stackitem(item, type(item)))
+            return arr
+        elif native_type == tuple:
+            _struct = vm.StructStackItem(self.reference_counter)
+            _struct.append(self._native_to_stackitem(value[0], type(value[0])))
+            _struct.append(self._native_to_stackitem(value[1], type(value[1])))
+            return _struct
         else:
             return vm.StackItem.from_interface(value)

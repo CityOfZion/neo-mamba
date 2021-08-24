@@ -228,9 +228,7 @@ class JSONSerializerTestCase(unittest.TestCase):
         m[key3] = v3
         m[key2] = v2
         s = contracts.JSONSerializer.serialize(m, 999)
-        # this is a known deviation. NEO preserved key order, we don't
-        # but shouldn't matter as it gets deserialized to a map stackitem
-        expected = r'{"test1":1,"test2":2,"test3":3}'
+        expected = r'{"test1":1,"test3":3,"test2":2}'
         self.assertEqual(expected, s)
 
     def test_serialization_array(self):

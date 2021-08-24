@@ -170,6 +170,7 @@ class CachedBlockAccess(CachedAccess):
         self._internal_get = self._db._internal_block_get
         self._internal_try_get = self._db._internal_block_try_get
         self._internal_all = self._db._internal_block_all
+        self._internal_get_by_height = self._db._internal_block_get_by_height
 
     def put(self, block: payloads.Block) -> None:
         """
@@ -213,7 +214,7 @@ class CachedBlockAccess(CachedAccess):
         """
         block_hash = self._height_hash_mapping.get(height, None)
         if block_hash is None:
-            raise KeyError
+            block_hash = self._internal_get_by_height(height).hash()  # raises KeyError if block is not found
         return self.get(block_hash, read_only)
 
     def try_get(self, hash: types.UInt256, read_only=False) -> Optional[payloads.Block]:
@@ -237,11 +238,12 @@ class CachedBlockAccess(CachedAccess):
             height: block index.
             read_only: set to True to safeguard against return value modifications being persisted when committing.
         """
-        block_hash = self._height_hash_mapping.get(height, None)
-        if block_hash is None:
+        try:
+            block = self.get_by_height(height, read_only)
+        except KeyError:
             return None
 
-        return self.try_get(block_hash, read_only)
+        return self.try_get(block.hash(), read_only)
 
     def delete(self, hash: types.UInt256) -> None:
         """
