@@ -51,7 +51,7 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
             self.nonce_data = self.script_container.hash().to_array()[:16]
         else:
             self.nonce_data = b'\x00' * 16
-        if self.snapshot and self.snapshot.persisting_block:
+        if self.snapshot is not None and self.snapshot.persisting_block is not None:
             nonce = self.snapshot.persisting_block.nonce
             nonce ^= int.from_bytes(self.nonce_data, "little", signed=False)
             self.nonce_data = nonce.to_bytes(16, "little")

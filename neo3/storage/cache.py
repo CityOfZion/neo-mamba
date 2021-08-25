@@ -282,8 +282,8 @@ _neo_token_contract_state = None
 
 
 class CachedContractAccess(CachedAccess):
-    _gas_token_script_hash = types.UInt160.from_string("f61eebf573ea36593fd43aa150c055ad7906ab83")
-    _neo_token_script_hash = types.UInt160.from_string("70e2301955bf1e74cbb31d18c2f96972abadb328")
+    _gas_token_script_hash = types.UInt160.from_string("d2a4cff31913016155e38e474a2c06d08be276cf")
+    _neo_token_script_hash = types.UInt160.from_string("ef4073a0f2b305a38ec4050e4d3d28bc40ea63f5")
 
     def __init__(self, db):
         super(CachedContractAccess, self).__init__(db)
