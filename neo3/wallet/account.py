@@ -4,7 +4,7 @@ import base64
 import hashlib
 import unicodedata
 from typing import Optional, Dict, Any, List
-from Crypto.Cipher import AES
+from Crypto.Cipher import AES  # type: ignore
 from jsonschema import validate  # type: ignore
 from neo3 import settings, contracts, vm, wallet, storage
 from neo3.network import payloads

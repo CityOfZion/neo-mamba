@@ -1,0 +1,14 @@
+.. _whatsnew-v091:
+
+*******************************
+  What's New in neo-mamba 0.9.1
+*******************************
+
+:Author: Erik van den Brink
+
+v3.0.2 compatibility
+===================
+
+This release fixes bugs after auditing neo-mamba vs neo-cli v3.0.2. The TestNet is audited up to block `189200`,
+whereas MainNet is audited up to block `127057`.
+

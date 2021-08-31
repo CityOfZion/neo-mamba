@@ -96,7 +96,7 @@ class FungibleToken(NativeContract):
 
         Note: The returned value is still in internal format. Divide the results by the contract's `decimals`
         """
-        storage_item = snapshot.storages.try_get(self.key_account + account)
+        storage_item = snapshot.storages.try_get(self.key_account + account, read_only=True)
         if storage_item is None:
             return vm.BigInteger.zero()
         else:
@@ -641,17 +641,11 @@ class NeoToken(FungibleToken):
         return True
 
     @register("getCandidates", contracts.CallFlags.READ_STATES, cpu_price=1 << 22)
-    def get_candidates(self, engine: contracts.ApplicationEngine) -> None:
+    def get_candidates(self, engine: contracts.ApplicationEngine) -> List[Tuple[cryptography.ECPoint, vm.BigInteger]]:
         """
         Fetch all registered candidates, convert them to a StackItem and push them onto the evaluation stack.
         """
-        array = vm.ArrayStackItem(engine.reference_counter)
-        for k, v in self._get_candidates(engine.snapshot):
-            struct = vm.StructStackItem(engine.reference_counter)
-            struct.append(vm.ByteStringStackItem(k.to_array()))
-            struct.append(vm.IntegerStackItem(v))
-            array.append(struct)
-        engine.push(array)
+        return self._get_candidates(engine.snapshot)
 
     @register("getNextBlockValidators", contracts.CallFlags.READ_STATES, cpu_price=1 << 16)
     def get_next_block_validators(self, snapshot: storage.Snapshot) -> List[cryptography.ECPoint]:
@@ -915,16 +909,14 @@ class NeoToken(FungibleToken):
     def _get_candidates(self,
                         snapshot: storage.Snapshot) -> \
             List[Tuple[cryptography.ECPoint, vm.BigInteger]]:
-        if self._candidates_dirty:
-            self._candidates = []
-            for k, v in snapshot.storages.find(self.key_candidate.to_array()):
-                candidate = _CandidateState.deserialize_from_bytes(v.value)
-                if candidate.registered:
-                    # take of the CANDIDATE prefix
-                    point = cryptography.ECPoint.deserialize_from_bytes(k.key[1:])
-                    self._candidates.append((point, candidate.votes))
-            self._candidates_dirty = False
-
+        self._candidates = []
+        for k, v in snapshot.storages.find(self.key_candidate.to_array()):
+            candidate = _CandidateState.deserialize_from_bytes(v.value)
+            if candidate.registered:
+                # take of the CANDIDATE prefix
+                point = cryptography.ECPoint.deserialize_from_bytes(k.key[1:])
+                self._candidates.append((point, candidate.votes))
+        self._candidates_dirty = False
         return self._candidates
 
     def _should_refresh_committee(self, height: int) -> bool:

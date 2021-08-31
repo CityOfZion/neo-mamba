@@ -302,7 +302,7 @@ class Block(payloads.IInventory):
         return cls(Header._serializable_init(), [])
 
 
-class TrimmedBlock(serialization.ISerializable):
+class TrimmedBlock(serialization.ISerializable, IInteroperable):
     """
     A size reduced Block instance.
 
@@ -349,6 +349,20 @@ class TrimmedBlock(serialization.ISerializable):
         """
         self.header = reader.read_serializable(Header)
         self.hashes = reader.read_serializable_list(types.UInt256, max=0xFFFF)
+
+    def to_stack_item(self, reference_counter: vm.ReferenceCounter) -> vm.StackItem:
+        array = vm.ArrayStackItem(reference_counter)
+        array.append(vm.ByteStringStackItem(self.header.hash().to_array()))
+        array.append(vm.IntegerStackItem(self.header.version))
+        array.append(vm.ByteStringStackItem(self.header.prev_hash.to_array()))
+        array.append(vm.ByteStringStackItem(self.header.merkle_root.to_array()))
+        array.append(vm.IntegerStackItem(self.header.timestamp))
+        array.append(vm.IntegerStackItem(self.header.nonce))
+        array.append(vm.IntegerStackItem(self.header.index))
+        array.append(vm.IntegerStackItem(self.header.primary_index))
+        array.append(vm.ByteStringStackItem(self.header.next_consensus.to_array()))
+        array.append(vm.IntegerStackItem(len(self.hashes)))
+        return array
 
     @classmethod
     def _serializable_init(cls):
