@@ -32,6 +32,9 @@ class ECPoint(_ECPointCpp, serialization.ISerializable, metaclass=SerializableEC
     def __hash__(self):
         return hash(self.x + self.y)
 
+    def __deepcopy__(self, memodict={}):
+        return ECPoint.deserialize_from_bytes(self.to_array(), self.curve, False)
+
     def is_zero(self):
         return self.x == 0 and self.y == 0
 

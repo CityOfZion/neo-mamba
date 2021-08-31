@@ -39,15 +39,15 @@ class LedgerContract(NativeContract):
             height = vm.BigInteger(index_or_hash)
             if height < 0 or height > 4294967295:  # uint.MaxValue
                 raise ValueError("Invalid height")
-            block = snapshot.blocks.try_get_by_height(height, read_only=True)
+            block = snapshot.blocks.try_get_by_height(int(height), read_only=True)
         elif len(index_or_hash) == types.UInt256._BYTE_LEN:
             block_hash = types.UInt256(index_or_hash)
             block = snapshot.blocks.try_get(block_hash, read_only=True)
         else:
             raise ValueError("Invalid data")
 
-        if block and not self._is_traceable_block(snapshot, block.index):
-            block = None
+        if block is None or not self._is_traceable_block(snapshot, block.index):
+            return None
         return block.trim()
 
     @register("getTransaction", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
