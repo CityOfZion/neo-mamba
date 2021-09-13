@@ -1163,6 +1163,18 @@ class AbstractStorageStorageTest(abc.ABC, unittest.TestCase):
         self.assertEqual(self.storagekey4, kv_pair[0])
         self.assertEqual(self.storageitem4, kv_pair[1])
 
+    def test_issue_2572(self):
+        snapshot = self.db.get_snapshotview()
+        s1 = snapshot.clone()
+        key2 = storage.StorageKey(0, b'\x01\x01')
+        s1.storages.put(storage.StorageKey(0, b'\x00\x01'), storage.StorageItem(b'\x00'))
+        s1.storages.put(key2, storage.StorageItem(b'\x05'))
+        s1.storages.commit()
+        item = s1.storages.get(key2, read_only=False)
+        item.value = b'\x06'
+        item2 = snapshot.storages.get(key2, read_only=True)
+        self.assertEqual(b'\x05', item2.value)
+
 
 class AbstractTransactionStorageTest(abc.ABC, unittest.TestCase):
     """

@@ -785,7 +785,7 @@ class CloneStorageCache(CachedStorageAccess):
         keys_to_delete: List[storage.StorageKey] = []
         for trackable in self.get_changeset():
             if trackable.state == TrackState.ADDED:
-                self.inner_cache.put(trackable.key, trackable.item)
+                self.inner_cache.put(trackable.key, trackable.item.clone())
                 trackable.state = storage.TrackState.NONE
             elif trackable.state == TrackState.CHANGED:
                 item = self.inner_cache.try_get(trackable.key, read_only=False)
