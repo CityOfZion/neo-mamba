@@ -138,7 +138,7 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
             if payloads.WitnessScope.CUSTOM_GROUPS in signer.scope:
                 self._validate_callflags(contracts.CallFlags.READ_STATES)
 
-                contract = contracts.ManagementContract().get_contract(self.snapshot, self.calling_scripthash)
+                contract = contracts.ManagementContract().get_contract(self.snapshot, self.current_scripthash)
                 if contract is None:
                     return False
                 group_keys = set(map(lambda g: g.public_key, contract.manifest.groups))
