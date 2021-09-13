@@ -312,6 +312,8 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
                                  flags: contracts.CallFlags,
                                  has_return_value: bool,
                                  args: List[vm.StackItem]):
+        if contracts.PolicyContract().is_blocked(self.snapshot, target_contract.hash):
+            raise ValueError(f"[System.Contract.Call] Can't call blocked contract")
         if method_descriptor.safe:
             flags &= ~(contracts.CallFlags.WRITE_STATES | contracts.CallFlags.ALLOW_NOTIFY)
         else:
