@@ -69,6 +69,8 @@ class PolicyContract(NativeContract):
         """
         if not self._check_committee(engine):
             return False
+        if self.is_native(account):
+            raise ValueError("Cannot block native contracts")
         storage_key = self.key_blocked_account + account.to_array()
         storage_item = engine.snapshot.storages.try_get(storage_key, read_only=False)
         if storage_item is None:
