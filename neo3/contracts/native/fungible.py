@@ -506,7 +506,7 @@ class NeoToken(FungibleToken):
             account: account to calculate bonus for
             end: ending block height to calculate bonus up to. You should use mostlikly use the current chain height.
         """
-        storage_item = snapshot.storages.try_get(self.key_account + account)
+        storage_item = snapshot.storages.try_get(self.key_account + account, read_only=True)
         if storage_item is None:
             return vm.BigInteger.zero()
         state = storage_item.get(self._state)
