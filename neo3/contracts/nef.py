@@ -9,7 +9,8 @@ class NEF(serialization.ISerializable):
     def __init__(self,
                  compiler_name: str = None,
                  script: bytes = None,
-                 tokens: List[MethodToken] = None):
+                 tokens: List[MethodToken] = None,
+                 source: str = None):
         """
         Create a Neo Executable Format file.
 
@@ -23,6 +24,7 @@ class NEF(serialization.ISerializable):
             self.compiler = 'unknown'
         else:
             self.compiler = compiler_name[:64] + bytearray(64 - len(compiler_name)).decode('utf-8')
+        self.source = source if source else ""
         self.script = script if script else b''
         self._checksum = 0
         self.tokens = [] if tokens is None else tokens
@@ -33,7 +35,8 @@ class NEF(serialization.ISerializable):
         return (
             s.uint32  # magic
             + 64  # compiler
-            + 2  # reserved
+            + utils.get_var_size(self.source)
+            + 1  # reserved
             + utils.get_var_size(self.tokens)
             + 2  # reserved
             + s.uint32  # checksum
@@ -44,6 +47,7 @@ class NEF(serialization.ISerializable):
             return False
         return (self.magic == other.magic
                 and self.compiler == other.compiler
+                and self.source == other.source
                 and self.script == other.script
                 and self.tokens == other.tokens
                 and self.checksum == other.checksum)
@@ -63,7 +67,8 @@ class NEF(serialization.ISerializable):
         """
         writer.write_uint32(self.magic)
         writer.write_bytes(self.compiler.encode('utf-8').ljust(64, b'\x00'))
-        writer.write_bytes(b'\x00\x00')
+        writer.write_var_string(self.source)
+        writer.write_bytes(b'\x00')
         writer.write_serializable_list(self.tokens)
         writer.write_bytes(b'\x00\x00')
         writer.write_var_bytes(self.script)
@@ -79,7 +84,8 @@ class NEF(serialization.ISerializable):
         if reader.read_uint32() != self.magic:
             raise ValueError("Deserialization error - Incorrect magic")
         self.compiler = reader.read_bytes(64).decode('utf-8')
-        if reader.read_uint16() != 0:
+        self.source = reader.read_var_string(256)
+        if reader.read_uint8() != 0:
             raise ValueError("Reserved bytes must be 0")
         self.tokens = reader.read_serializable_list(MethodToken)
         if reader.read_uint16() != 0:
