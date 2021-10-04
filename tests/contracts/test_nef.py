@@ -12,6 +12,7 @@ class NEFTestCase(unittest.TestCase):
         var nef = new NefFile
         {
             Compiler = "test-compiler 0.1",
+            Source = "source_link",
             Script = new byte[] {(byte) OpCode.RET},
             Tokens = new MethodToken[]
             {
@@ -29,12 +30,13 @@ class NEFTestCase(unittest.TestCase):
         Console.WriteLine(nef.ToArray().ToHexString());
         Console.WriteLine(nef.Size);
         """
-        cls.expected = binascii.unhexlify(b'4e454633746573742d636f6d70696c657220302e31000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000b746573745f6d6574686f64000001000000014010993d46')
-        cls.expected_length = 115
+        cls.expected = binascii.unhexlify(b'4e454633746573742d636f6d70696c657220302e3100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000b736f757263655f6c696e6b000100000000000000000000000000000000000000000b746573745f6d6574686f64000001000000014072adaf87')
+        cls.expected_length = 126
         compiler = "test-compiler 0.1"
+        source = "source_link"
         ret = b'\x40'  # vm.OpCode.RET
         tokens = [contracts.MethodToken(types.UInt160.zero(), "test_method", 0, True, contracts.CallFlags.NONE)]
-        cls.nef = contracts.NEF(compiler_name=compiler, script=ret, tokens=tokens)
+        cls.nef = contracts.NEF(compiler_name=compiler, script=ret, tokens=tokens, source=source)
 
     def test_serialization(self):
         self.assertEqual(self.expected, self.nef.to_array())
@@ -42,6 +44,7 @@ class NEFTestCase(unittest.TestCase):
     def test_deserialization(self):
         nef = contracts.NEF.deserialize_from_bytes(self.expected)
         self.assertEqual(self.nef.magic, nef.magic)
+        self.assertEqual(self.nef.source, nef.source)
         self.assertEqual(self.nef.compiler, nef.compiler)
         self.assertEqual(self.nef.script, nef.script)
         self.assertEqual(self.nef.checksum, nef.checksum)
