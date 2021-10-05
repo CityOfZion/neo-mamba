@@ -2,6 +2,8 @@ from __future__ import annotations
 import base64
 import binascii
 import orjson as json  # type: ignore
+import json as pystd_json
+import re
 from typing import List, Callable, Optional, Dict, Any
 from neo3 import contracts, vm
 from neo3.core import serialization, types, IJson, cryptography, utils
@@ -412,7 +414,12 @@ class ContractManifest(serialization.ISerializable, IJson):
         if self.extra is None:
             struct.append(vm.ByteStringStackItem("null"))
         else:
-            struct.append(vm.ByteStringStackItem(json.dumps(self.extra)))
+            # find \uxxxx sequences
+            p = re.compile(r'\\u[a-z0-9]{4}')
+            s = pystd_json.dumps(self.extra, separators=(',',':'))
+            # uppercase the values such that the byte array matches C#
+            fixed = p.sub(lambda match: f"\\u{match.group()[2:].upper()}", s)
+            struct.append(vm.ByteStringStackItem(fixed))
         return struct
 
     @classmethod
