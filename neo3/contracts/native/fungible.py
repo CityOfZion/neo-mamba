@@ -133,13 +133,15 @@ class FungibleToken(NativeContract):
         storage_key_from = self.key_account + account_from
         storage_item_from = engine.snapshot.storages.try_get(storage_key_from, read_only=False)
 
-        if storage_item_from is None:
-            return False
-
-        state_from = storage_item_from.get(self._state)
         if amount == vm.BigInteger.zero():
-            self.on_balance_changing(engine, account_from, state_from, amount)
+            if storage_item_from is not None:
+                state_from = storage_item_from.get(self._state)
+                self.on_balance_changing(engine, account_from, state_from, amount)
         else:
+            if storage_item_from is None:
+                return False
+
+            state_from = storage_item_from.get(self._state)
             if state_from.balance < amount:
                 return False
 
