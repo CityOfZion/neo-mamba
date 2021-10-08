@@ -416,7 +416,7 @@ class ContractManifest(serialization.ISerializable, IJson):
         else:
             # find \uxxxx sequences
             p = re.compile(r'\\u[a-z0-9]{4}')
-            s = pystd_json.dumps(self.extra, separators=(',',':'))
+            s = pystd_json.dumps(self.extra, separators=(',', ':'))
             # uppercase the values such that the byte array matches C#
             fixed = p.sub(lambda match: f"\\u{match.group()[2:].upper()}", s)
             struct.append(vm.ByteStringStackItem(fixed))
