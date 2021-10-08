@@ -120,45 +120,48 @@ class ManagementContract(NativeContract):
     @register("update", contracts.CallFlags.STATES | contracts.CallFlags.ALLOW_NOTIFY)
     def contract_update_with_data(self,
                                   engine: contracts.ApplicationEngine,
-                                  nef_file: bytes,
-                                  manifest: bytes,
+                                  nef_file: Optional[bytes],
+                                  manifest: Optional[bytes],
                                   data: vm.StackItem) -> None:
-        nef_len = len(nef_file)
-        manifest_len = len(manifest)
+        if nef_file is None and manifest is None:
+            raise ValueError("Cannot upgrade contract without a new NEF or a new manifest")
 
+        nef_len = 0 if nef_file is None else len(nef_file)
+        manifest_len = 0 if manifest is None else len(manifest)
         engine.add_gas(engine.STORAGE_PRICE * (nef_len + manifest_len))
 
         contract = engine.snapshot.contracts.try_get(engine.calling_scripthash, read_only=False)
         if contract is None:
             raise ValueError("Can't find contract to update")
 
-        if nef_len == 0:
-            raise ValueError(f"Invalid NEF length: {nef_len}")
+        if nef_file is not None:
+            if nef_len == 0:
+                raise ValueError(f"Invalid NEF length: {nef_len}")
 
-        # update contract
-        contract.nef = contracts.NEF.deserialize_from_bytes(nef_file)
+            # update contract
+            contract.nef = contracts.NEF.deserialize_from_bytes(nef_file)
 
-        if manifest_len == 0 or manifest_len > contracts.ContractManifest.MAX_LENGTH:
-            raise ValueError(f"Invalid manifest length: {manifest_len}")
+        if manifest is not None:
+            if manifest_len == 0 or manifest_len > contracts.ContractManifest.MAX_LENGTH:
+                raise ValueError(f"Invalid manifest length: {manifest_len}")
 
-        manifest_new = contracts.ContractManifest.from_json(json.loads(manifest.decode()))
-        if manifest_new.name != contract.manifest.name:
-            raise ValueError("Error: cannot change contract name")
-        if not contract.manifest.is_valid(contract.hash):
-            raise ValueError("Error: manifest does not match with script")
-        contract.manifest = manifest_new
+            manifest_new = contracts.ContractManifest.from_json(json.loads(manifest.decode()))
+            if manifest_new.name != contract.manifest.name:
+                raise ValueError("Error: cannot change contract name")
+            if not contract.manifest.is_valid(contract.hash):
+                raise ValueError("Error: manifest does not match with script")
+            contract.manifest = manifest_new
 
         self.validate(contract.nef.script, contract.manifest.abi)
 
         contract.update_counter += 1
 
-        if len(nef_file) != 0:
-            method_descriptor = contract.manifest.abi.get_method("_deploy", 2)
-            if method_descriptor is not None:
-                engine.call_from_native(self.hash,
-                                        contract.hash,
-                                        method_descriptor.name,
-                                        [data, vm.BooleanStackItem(True)])
+        method_descriptor = contract.manifest.abi.get_method("_deploy", 2)
+        if method_descriptor is not None:
+            engine.call_from_native(self.hash,
+                                    contract.hash,
+                                    method_descriptor.name,
+                                    [data, vm.BooleanStackItem(True)])
 
         msgrouter.interop_notify(self.hash,
                                  "Update",
