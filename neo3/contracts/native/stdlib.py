@@ -26,7 +26,9 @@ class StdLibContract(NativeContract):
 
     @register("jsonSerialize", contracts.CallFlags.NONE, cpu_price=1 << 12)
     def json_serialize(self, engine: contracts.ApplicationEngine, stack_item: vm.StackItem) -> bytes:
-        return bytes(contracts.JSONSerializer.serialize(stack_item, engine.MAX_ITEM_SIZE), 'utf-8')
+        v = bytes(contracts.JSONSerializer.serialize(stack_item, engine.MAX_ITEM_SIZE), 'utf-8')
+        v = v.replace(b'+', b'\x5c\x75\x30\x30\x32\x42')
+        return v
 
     @register("jsonDeserialize", contracts.CallFlags.NONE, cpu_price=1 << 14)
     def json_deserialize(self, engine: contracts.ApplicationEngine, data: bytes) -> vm.StackItem:
@@ -131,7 +133,8 @@ class StdLibContract(NativeContract):
     def string_split1(self, data: str, separator: str) -> List[str]:
         if len(data) > self._MAX_INPUT_LENGTH:
             raise ValueError(f"Input value exceeds maximum length of {self._MAX_INPUT_LENGTH}")
-
+        if len(separator) == 0 or separator is None:
+            raise ValueError(f"Invalid separator in std.stringSplit")
         return data.split(separator)
 
     @register("stringSplit", contracts.CallFlags.NONE, cpu_price=1 << 8)
@@ -139,6 +142,8 @@ class StdLibContract(NativeContract):
         if len(data) > self._MAX_INPUT_LENGTH:
             raise ValueError(f"Input value exceeds maximum length of {self._MAX_INPUT_LENGTH}")
 
+        if len(separator) == 0 or separator is None:
+            raise ValueError(f"Invalid separator in std.stringSplit")
         result = data.split(separator)
         if remove_empty_entries:
             result = [x for x in result if x != '']

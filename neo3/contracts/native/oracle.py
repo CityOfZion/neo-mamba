@@ -239,7 +239,10 @@ class OracleContract(NativeContract):
             if si_id_list is None:
                 si_id_list = storage.StorageItem(b'\x00')
 
-            id_list = si_id_list.get(_IdList)
+            try:
+                id_list = si_id_list.get(_IdList)
+            except Exception as e:
+                print(e)
             id_list.remove(response.id)
             if len(id_list) == 0:
                 engine.snapshot.storages.delete(sk_id_list)
@@ -283,6 +286,7 @@ class _IdList(list, serialization.ISerializable):
     Helper class to get an IdList from storage and deal with caching.
     """
     def serialize(self, writer: serialization.BinaryWriter) -> None:
+        writer.write_var_int(len(self))
         for item in self:
             writer.write_uint64(item)
 
