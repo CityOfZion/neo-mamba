@@ -1,5 +1,6 @@
 import json
 import binascii
+from io import BytesIO
 from neo3 import vm
 from typing import Union, Any, TypeVar, Iterable, cast
 
@@ -26,7 +27,7 @@ class _NEOVMEncoder(json.JSONEncoder):
                 a.append(self._encode(i))
             return a
         elif t == vm.ByteStringStackItem:
-            return binascii.unhexlify(str(item).encode()).decode()
+            return bytes.fromhex(str(item)).decode()
         elif t == vm.IntegerStackItem:
             i = item.to_biginteger()
             if i > JSONSerializer.MAX_SAFE_INTEGER or i < JSONSerializer.MIN_SAFE_INTEGER:

@@ -26,7 +26,9 @@ class StdLibContract(NativeContract):
 
     @register("jsonSerialize", contracts.CallFlags.NONE, cpu_price=1 << 12)
     def json_serialize(self, engine: contracts.ApplicationEngine, stack_item: vm.StackItem) -> bytes:
-        return bytes(contracts.JSONSerializer.serialize(stack_item, engine.MAX_ITEM_SIZE), 'utf-8')
+        v = bytes(contracts.JSONSerializer.serialize(stack_item, engine.MAX_ITEM_SIZE), 'utf-8')
+        v = v.replace(b'+', b'\x5c\x75\x30\x30\x32\x42')
+        return v
 
     @register("jsonDeserialize", contracts.CallFlags.NONE, cpu_price=1 << 14)
     def json_deserialize(self, engine: contracts.ApplicationEngine, data: bytes) -> vm.StackItem:
