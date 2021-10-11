@@ -113,8 +113,8 @@ class ManagementContract(NativeContract):
     @register("update", contracts.CallFlags.STATES | contracts.CallFlags.ALLOW_NOTIFY)
     def contract_update(self,
                         engine: contracts.ApplicationEngine,
-                        nef_file: bytes,
-                        manifest: bytes) -> None:
+                        nef_file: Optional[bytes],
+                        manifest: Optional[bytes]) -> None:
         self.contract_update_with_data(engine, nef_file, manifest, vm.NullStackItem())
 
     @register("update", contracts.CallFlags.STATES | contracts.CallFlags.ALLOW_NOTIFY)
