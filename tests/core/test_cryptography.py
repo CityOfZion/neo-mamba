@@ -85,7 +85,7 @@ class BloomFilterTestCase(unittest.TestCase):
         m=7
         k=10
         filter = crypto.BloomFilter(m=m, k=k, ntweak=123456, elements=elements)
-        self.assertEqual(m, filter.bits.length())
+        self.assertEqual(m, len(filter.bits))
         self.assertEqual(k, len(filter.seeds))
 
     def test_get_bits(self):
