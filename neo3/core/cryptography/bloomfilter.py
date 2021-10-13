@@ -38,7 +38,7 @@ class BloomFilter:
         """
         for s in self.seeds:
             h = mmh3.hash(element, s, signed=False)
-            self.bits[h % self.bits.length()] = True
+            self.bits[h % len(self.bits)] = True
 
     def check(self, element: bytes) -> bool:
         """
@@ -51,7 +51,7 @@ class BloomFilter:
         """
         for s in self.seeds:
             h = mmh3.hash(element, s, signed=False)
-            if self.bits[h % self.bits.length()] is False:
+            if not self.bits[h % len(self.bits)]:
                 return False
         return True
 

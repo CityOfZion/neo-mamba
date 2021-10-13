@@ -3,6 +3,11 @@ Changelog
 
 All notable changes to this project are documented in this file.
 
+[0.9.3] 2021-x-x
+----------------
+- Update 3rd party packages
+- Fix ``BloomFilter.check()``
+
 [0.9.2] 2021-10-11
 ------------------
 - NEO C# v3.03 code updates
