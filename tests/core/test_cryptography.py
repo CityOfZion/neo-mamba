@@ -78,7 +78,7 @@ class BloomFilterTestCase(unittest.TestCase):
         filter = crypto.BloomFilter(m=7, k=10, ntweak=123456)
         filter.add(elements)
         self.assertTrue(filter.check(elements))
-        self.assertFalse(filter.check(elements+b'\x05'))
+        self.assertFalse(filter.check(elements+b'\x05\x06\x07\x08\x09'))
 
     def test_init_with_elements(self):
         elements = b'\x00\x01\x02\x03\x04'
