@@ -328,14 +328,14 @@ class NeoRpcClient(RPCClient):
 
     async def get_best_block_hash(self) -> types.UInt256:
         """
-        Fetch the hash of the highest block in the chain
+        Fetch the hash of the highest block in the chain.
         """
         response = await self._post("getbestblockhash")
         return types.UInt256.from_string(response[2:])
 
     async def get_block(self, index_or_hash: Union[int, types.UInt256]) -> payloads.Block:
         """
-        Fetch the block by its index or block hash
+        Fetch the block by its index or block hash.
         """
         params: List[Union[int, str]] = []
         if isinstance(index_or_hash, types.UInt256):
@@ -347,20 +347,20 @@ class NeoRpcClient(RPCClient):
 
     async def get_block_count(self) -> int:
         """
-        Fetch the current height of the block chain
+        Fetch the current height of the block chain.
         """
         return await self._post("getblockcount")
 
     async def get_block_hash(self, index: int) -> types.UInt256:
         """
-        Fetch the block hash by the block's index
+        Fetch the block hash by the block's index.
         """
         response = await self._post("getblockhash", [index])
         return types.UInt256.from_string(response[2:])
 
     async def get_block_header(self, index_or_hash: Union[int, types.UInt256]) -> payloads.Header:
         """
-        Fetch the block header by its index or block hash
+        Fetch the block header by its index or block hash.
         """
         if isinstance(index_or_hash, types.UInt256):
             params = [f"0x{index_or_hash}"]
@@ -371,7 +371,7 @@ class NeoRpcClient(RPCClient):
 
     async def calculate_network_fee(self, transaction: Union[bytes, payloads.Transaction]) -> int:
         """
-        Obtain the cost of verifying the transaction and including it in a block (a.k.a network fee)
+        Obtain the cost of verifying the transaction and including it in a block (a.k.a network fee).
         """
         if isinstance(transaction, payloads.Transaction):
             transaction = transaction.to_array()
@@ -380,7 +380,7 @@ class NeoRpcClient(RPCClient):
 
     async def get_committee(self) -> List[cryptography.ECPoint]:
         """
-        Fetch the public keys of the current NEO committee
+        Fetch the public keys of the current NEO committee.
         """
         response = await self._post("getcommittee")
         keys = []
@@ -390,16 +390,16 @@ class NeoRpcClient(RPCClient):
 
     async def get_connection_count(self) -> int:
         """
-        Fetch the number of peers connected to the node
+        Fetch the number of peers connected to the node.
         """
         return await self._post("getconnectioncount")
 
     async def get_contract_state(self, contract_hash_or_name: Union[types.UInt160, str]) -> contracts.ContractState:
         """
-        Fetch smart contract state information
+        Fetch smart contract state information.
 
         Note:
-            Only native contracts can be queried by their name. Name is case-insensitive
+            Only native contracts can be queried by their name. Name is case-insensitive.
         """
         if isinstance(contract_hash_or_name, types.UInt160):
             params = [f"0x{contract_hash_or_name.to_array().hex()}"]
@@ -414,7 +414,7 @@ class NeoRpcClient(RPCClient):
 
     async def get_nep17_balances(self, address: str) -> Nep17BalancesResponse:
         """
-        Fetch the balance of all NEP17 assets for the specified address
+        Fetch the balance of all NEP17 assets for the specified address.
         """
         result = await self._post("getnep17balances", [address])
         return Nep17BalancesResponse.from_json(result)
@@ -425,7 +425,7 @@ class NeoRpcClient(RPCClient):
                                   end_time: Optional[datetime.datetime] = None,
                                   ) -> Nep17TransfersResponse:
         """
-        Obtain NEP17 transfers for a given address. Defaults to the last 7 days on the server side
+        Obtain NEP17 transfers for a given address. Defaults to the last 7 days on the server side.
 
         Args:
             address: account to get transfer for
@@ -460,7 +460,7 @@ class NeoRpcClient(RPCClient):
 
     async def get_raw_mempool(self) -> MempoolResponse:
         """
-        Return the transaction hashes currently in the memory pool waiting to be added to the next produced block
+        Return the transaction hashes currently in the memory pool waiting to be added to the next produced block.
         """
         result = await self._post("getrawmempool", [True])
         return MempoolResponse.from_json(result)
@@ -481,11 +481,11 @@ class NeoRpcClient(RPCClient):
 
     async def get_storage(self, script_hash: types.UInt160, key: bytes) -> bytes:
         """
-        Fetch a value from a smart contracts storage by its key
+        Fetch a value from a smart contracts storage by its key.
 
         Args:
             script_hash: contract script hash
-            key:
+            key: the storage key to fetch the data for
 
         Example:
             # fetch the fee per byte from the Policy native contract
@@ -522,7 +522,7 @@ class NeoRpcClient(RPCClient):
 
     async def get_unclaimed_gas(self, address: str) -> int:
         """
-        Fetch the amount of unclaimed gas for the given address
+        Fetch the amount of unclaimed gas for the given address.
 
         Args:
             address: a NEO address
@@ -579,7 +579,7 @@ class NeoRpcClient(RPCClient):
 
         Note:
             Calling smart contracts through this function does not alter the blockchain state.
-            To alter the blockchain state use `sendrawtransaction` instead.
+            To alter the blockchain state use the `send_transaction` method instead.
 
         Args:
             contract_hash: the hash of the smart contract to call
@@ -625,7 +625,7 @@ class NeoRpcClient(RPCClient):
             signers: additional signers (e.g. for checkwitness passing)
 
         Returns:
-            The results of executing the script in the VM.
+            The results of executing the script in the VM
         """
         signers = [] if signers is None else signers
         signers = list(map(lambda s: s.to_json(), signers))  # type: ignore
@@ -638,8 +638,11 @@ class NeoRpcClient(RPCClient):
         """
         Broadcast a transaction to the network.
 
+        Note:
+            uses the `sendrawtransaction` RPC method internally.
+
         Args:
-            tx: either a Transaction object or a serialized transaction.
+            tx: either a Transaction object or a serialized Transaction. Must be signed
 
         Returns:
             a transaction hash if successful.
@@ -654,7 +657,7 @@ class NeoRpcClient(RPCClient):
         Broadcast a transaction to the network.
 
         Args:
-            block: either a Block object or a serialized Block.
+            block: either a Block object or a serialized Block
 
         Returns:
             a block hash if successful.
@@ -666,7 +669,7 @@ class NeoRpcClient(RPCClient):
 
     async def validate_address(self, address: str) -> bool:
         """
-        Verify if the given address is for the network the node is running on
+        Verify if the given address is valid for the network the node is running on.
 
         Args:
             address: a NEO address
