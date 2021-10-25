@@ -1,16 +1,19 @@
 from __future__ import annotations
+
+import base64
 import hashlib
 from typing import List
-from neo3.core import serialization, types, Size as s, utils
+from neo3.core import serialization, types, Size as s, utils, IJson
 from neo3 import contracts
 
 
-class NEF(serialization.ISerializable):
+class NEF(serialization.ISerializable, IJson):
     def __init__(self,
                  compiler_name: str = None,
                  script: bytes = None,
                  tokens: List[MethodToken] = None,
-                 source: str = None):
+                 source: str = None,
+                 _magic: int = 0x3346454E):
         """
         Create a Neo Executable Format file.
 
@@ -19,11 +22,11 @@ class NEF(serialization.ISerializable):
             Automatically limited to 64 bytes
             script: a byte array of raw VM opcodes.
         """
-        self.magic = 0x3346454E
+        self.magic = _magic
         if compiler_name is None:
             self.compiler = 'unknown'
         else:
-            self.compiler = compiler_name[:64] + bytearray(64 - len(compiler_name)).decode('utf-8')
+            self.compiler = compiler_name[:64]
         self.source = source if source else ""
         self.script = script if script else b''
         self._checksum = 0
@@ -83,7 +86,7 @@ class NEF(serialization.ISerializable):
         """
         if reader.read_uint32() != self.magic:
             raise ValueError("Deserialization error - Incorrect magic")
-        self.compiler = reader.read_bytes(64).decode('utf-8')
+        self.compiler = reader.read_bytes(64).decode('utf-8').rstrip(b'\x00'.decode())
         self.source = reader.read_var_string(256)
         if reader.read_uint8() != 0:
             raise ValueError("Reserved bytes must be 0")
@@ -107,6 +110,17 @@ class NEF(serialization.ISerializable):
         """
         return int.from_bytes(hashlib.sha256(hashlib.sha256(self.to_array()[:-4]).digest()).digest()[:4], 'little')
 
+    def to_json(self) -> dict:
+        raise NotImplementedError
+
+    @classmethod
+    def from_json(cls, json: dict):
+        tokens = []
+        for t in json['tokens']:
+            tokens.append(MethodToken.from_json(t))
+        script = base64.b64decode(json['script'])
+        return cls(json['compiler'], script, tokens, _magic=json['magic'])
+
     @classmethod
     def _serializable_init(cls):
         c = cls()
@@ -114,7 +128,7 @@ class NEF(serialization.ISerializable):
         return c
 
 
-class MethodToken(serialization.ISerializable):
+class MethodToken(serialization.ISerializable, IJson):
     def __init__(self,
                  hash: types.UInt160,
                  method: str,
@@ -155,6 +169,18 @@ class MethodToken(serialization.ISerializable):
         self.parameters_count = reader.read_uint16()
         self.has_return_value = bool(reader.read_uint8())
         self.call_flags = contracts.CallFlags(reader.read_uint8())
+
+    def to_json(self) -> dict:
+        raise NotImplementedError
+
+    @classmethod
+    def from_json(cls, json: dict):
+        h = types.UInt160.from_string(json['hash'][2:])
+        m = json['method']
+        pc = json['parameterscount']
+        rv = json['hasreturnvalue']
+        cf = contracts.CallFlags.from_csharp_name(json['callflags'])
+        return cls(h, m, pc, rv, cf)
 
     @classmethod
     def _serializable_init(cls):
