@@ -177,7 +177,7 @@ class MethodToken(serialization.ISerializable, IJson):
     def from_json(cls, json: dict):
         h = types.UInt160.from_string(json['hash'][2:])
         m = json['method']
-        pc = json['parameterscount']
+        pc = json['paramcount']
         rv = json['hasreturnvalue']
         cf = contracts.CallFlags.from_csharp_name(json['callflags'])
         return cls(h, m, pc, rv, cf)
