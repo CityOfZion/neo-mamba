@@ -185,8 +185,7 @@ _Item = TypedDict("_Item", {"type": str, "value": Any})
 
 
 @dataclass
-class ExecutionResultResponse:
-    script: bytes
+class ExecutionResult:
     state: str
     gas_consumed: int
     exception: Optional[str]
@@ -196,7 +195,7 @@ class ExecutionResultResponse:
     def _parse_stack_item(item: _Item) -> StackItem:
         type_ = item['type']
         if type_ in ("Array", "Struct"):
-            list_ = list(map(lambda element: ExecutionResultResponse._parse_stack_item(element), item['value']))
+            list_ = list(map(lambda element: ExecutionResult._parse_stack_item(element), item['value']))
             return StackItem(type_, list_)
         elif type_ in ("Boolean", "Pointer"):
             return StackItem(**item)
@@ -208,8 +207,8 @@ class ExecutionResultResponse:
             map_ = []
             for stack_item in item['value']:
 
-                key = ExecutionResultResponse._parse_stack_item(stack_item['key'])
-                value = ExecutionResultResponse._parse_stack_item(stack_item['value'])
+                key = ExecutionResult._parse_stack_item(stack_item['key'])
+                value = ExecutionResult._parse_stack_item(stack_item['value'])
                 map_.append((key, value))
                 return StackItem(type_, map_)
         else:
@@ -218,10 +217,75 @@ class ExecutionResultResponse:
 
     @classmethod
     def from_json(cls, json: dict):
+        gc = int(json['gasconsumed'])
+        stack = list(map(lambda item: ExecutionResult._parse_stack_item(item), json['stack']))
+        return cls(json['state'], gc, json['exception'], stack)
+
+
+@dataclass
+class ExecutionResultResponse(ExecutionResult):
+    script: bytes
+
+    @classmethod
+    def from_json(cls, json: dict):
         script = base64.b64decode(json['script'])
         gc = int(json['gasconsumed'])
-        stack = list(map(lambda item: ExecutionResultResponse._parse_stack_item(item), json['stack']))
-        return cls(script, json['state'], gc, json['exception'], stack)
+        stack = list(map(lambda item: ExecutionResult._parse_stack_item(item), json['stack']))
+        return cls(json['state'], gc, json['exception'], stack, script)
+
+
+@dataclass
+class Notification:
+    contract: types.UInt160
+    event_name: str
+    state: StackItem
+
+    @classmethod
+    def from_json(cls, json: dict):
+        c = types.UInt160.from_string(json['contract'][2:])
+        e = json['eventname']
+        s = ExecutionResult._parse_stack_item(json['state'])
+        return cls(c, e, s)
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}(contract={str(self.contract)}, " \
+               f"event_name={self.event_name}, state={self.state})"
+
+
+@dataclass
+class ApplicationExecution(ExecutionResult):
+    trigger: str
+    notifications: List[Notification]
+
+    @classmethod
+    def from_json(cls, json: dict):
+        gc = int(json['gasconsumed'])
+        stack = list(map(lambda item: ExecutionResult._parse_stack_item(item), json['stack']))
+        state = json['vmstate']
+        ex = json['exception']
+        notifications = []
+        for n in json['notifications']:
+            notifications.append(Notification.from_json(n))
+
+        return cls(trigger=json['trigger'], notifications=notifications, state=state, gas_consumed=gc, exception=ex,
+                   stack=stack)
+
+
+@dataclass
+class AppliationLogResponse:
+    tx_id: types.UInt256
+    executions: List[ApplicationExecution]
+
+    @classmethod
+    def from_json(cls, json: dict):
+        tx_id = types.UInt256.from_string(json['txid'][2:])
+        executions = []
+        for execution in json['executions']:
+            executions.append(ApplicationExecution.from_json(execution))
+        return cls(tx_id, executions)
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}(tx_id={str(self.tx_id)}, executions={self.executions})"
 
 
 ContractParameter = Union[bool, int, str, bytes, bytearray, types.UInt160, types.UInt256, cryptography.ECPoint,
@@ -352,6 +416,29 @@ class NeoRpcClient(RPCClient):
             raise JsonRpcError(**response['error'])
         return response['result']
 
+    async def calculate_network_fee(self, transaction: Union[bytes, payloads.Transaction]) -> int:
+        """
+        Obtain the cost of verifying the transaction and including it in a block (a.k.a network fee).
+        """
+        if isinstance(transaction, payloads.Transaction):
+            transaction = transaction.to_array()
+        params = [base64.b64encode(transaction).decode()]
+        return await self._do_post("calculatenetworkfee", params)
+
+    async def get_application_log(self, tx_hash: Union[types.UInt256, str]) -> AppliationLogResponse:
+        """
+        Fetch the smart contract event logs for a given transaction.
+
+        Commonly used to verify that a transaction sent via `send_transaction()` was executed succesfully on chain.
+
+        Args:
+            tx_hash: the hash of the transaction to query for.
+        """
+        if isinstance(tx_hash, str):
+            tx_hash = types.UInt256.from_string(tx_hash)
+        result = await self._do_post("getapplicationlog", [f"0x{str(tx_hash)}"])
+        return AppliationLogResponse.from_json(result)
+
     async def get_best_block_hash(self) -> types.UInt256:
         """
         Fetch the hash of the highest block in the chain.
@@ -395,15 +482,6 @@ class NeoRpcClient(RPCClient):
         response = await self._do_post("getblockheader", params)
         return payloads.Header.deserialize_from_bytes(base64.b64decode(response))
 
-    async def calculate_network_fee(self, transaction: Union[bytes, payloads.Transaction]) -> int:
-        """
-        Obtain the cost of verifying the transaction and including it in a block (a.k.a network fee).
-        """
-        if isinstance(transaction, payloads.Transaction):
-            transaction = transaction.to_array()
-        params = [base64.b64encode(transaction).decode()]
-        return await self._do_post("calculatenetworkfee", params)
-
     async def get_committee(self) -> List[cryptography.ECPoint]:
         """
         Fetch the public keys of the current NEO committee.
@@ -428,7 +506,7 @@ class NeoRpcClient(RPCClient):
             Only native contracts can be queried by their name. Name is case-insensitive.
         """
         if isinstance(contract_hash_or_name, types.UInt160):
-            params = [f"0x{contract_hash_or_name.to_array().hex()}"]
+            params = [f"0x{str(contract_hash_or_name)}"]
         else:
             params = [contract_hash_or_name]
         result = await self._do_post("getcontractstate", params)
@@ -437,12 +515,6 @@ class NeoRpcClient(RPCClient):
         nef = contracts.NEF.from_json(result['nef'])
         manifest = contracts.ContractManifest.from_json(result['manifest'])
         return contracts.ContractState(result['id'], nef, manifest, result['updatecounter'], h)
-
-    async def get_application_log(self, tx_hash: Union[types.UInt256, str]):
-        if isinstance(tx_hash, str):
-            tx_hash = types.UInt256.from_string(tx_hash)
-        result = await self._do_post("getapplicationlog", [tx_hash])
-        return result
 
     async def get_nep17_balances(self, address: str) -> Nep17BalancesResponse:
         """
