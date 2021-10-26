@@ -211,6 +211,8 @@ class ExecutionResult:
                 value = ExecutionResult._parse_stack_item(stack_item['value'])
                 map_.append((key, value))
                 return StackItem(type_, map_)
+        elif type_ == "Any":
+            return StackItem(type_, None)
         else:
             raise ValueError(f"Unknown stack item type: {type_}")
         assert False, "unreachable"  # just to help mypy
@@ -405,8 +407,8 @@ class JsonRpcError(Exception):
 
 
 class NeoRpcClient(RPCClient):
-    def __init__(self, host: str):
-        super(NeoRpcClient, self).__init__(host)
+    def __init__(self, host: str, **kwargs):
+        super(NeoRpcClient, self).__init__(host, **kwargs)
 
     async def _do_post(self, method: str, params: List = None, id: int = 0, jsonrpc_version: str = "2.0"):
         params = params if params else []
@@ -780,3 +782,54 @@ class NeoRpcClient(RPCClient):
         """
         result = await self._do_post("validateaddress", [address])
         return result['isvalid']
+
+    async def print_contract_methods(self, contract_hash_or_name: Union[types.UInt160, str]) -> None:
+        """
+        Helper to fetch all public methods of a smart contract, print their signatures in Python syntax as
+        to help determine the right native argument types.
+
+        Note:
+            Only native contracts can be queried by their name. Name is case-insensitive.
+        """
+        state = await self.get_contract_state(contract_hash_or_name)
+
+        print(f"Contract: {state.manifest.name}")
+        print((10 + len(state.manifest.name)) * "-")
+        for method in state.manifest.abi.methods:
+            params = map(lambda p: f", {p.name}: {self._contract_param_to_native(p.type)}", method.parameters)
+            params = ''.join(params)  # type: ignore
+
+            # return types are not included because ABI types like ARRAY cannot be properly translated e.g. the
+            # following functions both have ARRAY as return type in the ABI but their actual response is very different
+            # 1. NeoToken.GetNextBlockValidators returns a list of serialized ECPoints
+            # 2. ManagementContract.getContract a serialized ContractState (not even a list)
+            print(f"def {method.name}(self{params})")
+        print(" ")
+        print("ContractParam = Union[bool, int, str, bytes, UInt160, UInt256, ECPoint, list[ContractParam], "
+              "Dict[ContractParam, ContractParam]")
+
+    def _contract_param_to_native(self, p):
+        if p == contracts.ContractParameterType.BOOLEAN:
+            return "bool"
+        elif p == contracts.ContractParameterType.INTEGER:
+            return "int"
+        elif p == contracts.ContractParameterType.STRING:
+            return "str"
+        elif p == contracts.ContractParameterType.BYTEARRAY:
+            return "bytes"
+        elif p == contracts.ContractParameterType.HASH160:
+            return "UInt160"
+        elif p == contracts.ContractParameterType.HASH256:
+            return "UInt256"
+        elif p == contracts.ContractParameterType.PUBLICKEY:
+            return "ECPoint"
+        elif p == contracts.ContractParameterType.ARRAY:
+            return "list"
+        elif p == contracts.ContractParameterType.MAP:
+            return "dict"
+        elif p == contracts.ContractParameterType.VOID:
+            return "None"
+        elif p == contracts.ContractParameterType.ANY:
+            return "ContractParam"
+        else:
+            return f"Unknown({str(p)}"
