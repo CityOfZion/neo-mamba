@@ -403,7 +403,10 @@ class JsonRpcError(Exception):
         self.data = "" if data is None else data
 
     def __str__(self):
-        return f"({self.code}) {self.message}"
+        if len(self.data) > 0:
+            return f"code={self.code}, message={self.message}, data={self.data}"
+        else:
+            return f"code={self.code}, message={self.message}"
 
 
 class NeoRpcClient(RPCClient):
@@ -425,7 +428,8 @@ class NeoRpcClient(RPCClient):
         if isinstance(transaction, payloads.Transaction):
             transaction = transaction.to_array()
         params = [base64.b64encode(transaction).decode()]
-        return await self._do_post("calculatenetworkfee", params)
+        result = await self._do_post("calculatenetworkfee", params)
+        return int(result['networkfee'])
 
     async def get_application_log(self, tx_hash: Union[types.UInt256, str]) -> AppliationLogResponse:
         """
@@ -436,9 +440,9 @@ class NeoRpcClient(RPCClient):
         Args:
             tx_hash: the hash of the transaction to query for.
         """
-        if isinstance(tx_hash, str):
-            tx_hash = types.UInt256.from_string(tx_hash)
-        result = await self._do_post("getapplicationlog", [f"0x{str(tx_hash)}"])
+        if isinstance(tx_hash, types.UInt256):
+            tx_hash = f"0x{str(tx_hash)}"
+        result = await self._do_post("getapplicationlog", [tx_hash])
         return AppliationLogResponse.from_json(result)
 
     async def get_best_block_hash(self) -> types.UInt256:
