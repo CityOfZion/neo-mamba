@@ -335,6 +335,60 @@ class TestNeoRpcClient(unittest.IsolatedAsyncioTestCase):
                 {
                     "type": "Boolean",
                     "value": True
+                },
+                {
+                    "type": "Map",
+                    "value": [
+                        {
+                            "key": {
+                                "type": "ByteString",
+                                "value": "bmFtZQ=="
+                            },
+                            "value": {
+                                "type": "ByteString",
+                                "value": "TyAjOTU3IEludGVyb3BlcmFiaWxpdHk="
+                            }
+                        },
+                        {
+                            "key": {
+                                "type": "ByteString",
+                                "value": "b3duZXI="
+                            },
+                            "value": {
+                                "type": "ByteString",
+                                "value": "/d5rikUuvYmC6NRzIP3I3ETAoOw="
+                            }
+                        },
+                        {
+                            "key": {
+                                "type": "ByteString",
+                                "value": "bnVtYmVy"
+                            },
+                            "value": {
+                                "type": "Integer",
+                                "value": "957"
+                            }
+                        },
+                        {
+                            "key": {
+                                "type": "ByteString",
+                                "value": "aW1hZ2U="
+                            },
+                            "value": {
+                                "type": "ByteString",
+                                "value": "aHR0cHM6Ly9uZW8ub3JnL0ludGVyb3BlcmFiaWxpdHkucG5n"
+                            }
+                        },
+                        {
+                            "key": {
+                                "type": "ByteString",
+                                "value": "dmlkZW8="
+                            },
+                            "value": {
+                                "type": "Any"
+                            }
+                        }
+                    ]
                 }
             ]
         }
@@ -343,8 +397,10 @@ class TestNeoRpcClient(unittest.IsolatedAsyncioTestCase):
 
         contract_hash = "92f5c79b88560584a900cfec15b0e00dc4d58b59"
         response = await self.client.invoke_function(contract_hash, "dummy_func")
-        self.assertEqual(1, len(response.stack))
+        self.assertEqual(2, len(response.stack))
         self.assertTrue(response.stack[0].value)
+        self.assertEqual("Map", response.stack[1].type)
+        self.assertEqual(5, len(response.stack[1].value))
 
     async def test_invoke_script(self):
         captured = {

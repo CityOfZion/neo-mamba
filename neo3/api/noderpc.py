@@ -210,7 +210,7 @@ class ExecutionResult:
                 key = ExecutionResult._parse_stack_item(stack_item['key'])
                 value = ExecutionResult._parse_stack_item(stack_item['value'])
                 map_.append((key, value))
-                return StackItem(type_, map_)
+            return StackItem(type_, map_)
         elif type_ == "Any":
             return StackItem(type_, None)
         else:
