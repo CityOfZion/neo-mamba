@@ -2,7 +2,7 @@ from __future__ import annotations
 import aiohttp
 import base64
 from dataclasses import dataclass
-from typing import List, Dict, Union, Optional, TypedDict, Any, Protocol, Iterator
+from typing import List, Dict, Union, Optional, TypedDict, Any, Protocol, Iterator, Tuple
 import datetime
 from neo3 import contracts
 from neo3.network import payloads
@@ -181,6 +181,31 @@ class StackItem:
     value: Any
 
 
+class MapStackItem(StackItem):
+    def items(self) -> Iterator:
+        for pair in self.value:  # type: Tuple[StackItem, StackItem]
+            yield pair[0].value, pair[1].value
+
+    def keys(self) -> Iterator:
+        for pair in self.value:  # type: Tuple[StackItem, StackItem]
+            yield pair[0].value
+
+    def values(self) -> Iterator:
+        for pair in self.value:  # type: Tuple[StackItem, StackItem]
+            yield pair[1].value
+
+    def __getitem__(self, item: str):
+        for pair in self.value:  # type: Tuple[StackItem, StackItem]
+            if pair[0].value == item:
+                return pair[1].value
+        else:
+            raise KeyError
+
+    def __iter__(self):
+        for pair in self.value:  # type: Tuple[StackItem, StackItem]
+            yield pair[0].value
+
+
 _Item = TypedDict("_Item", {"type": str, "value": Any})
 
 
@@ -208,9 +233,14 @@ class ExecutionResult:
             for stack_item in item['value']:
 
                 key = ExecutionResult._parse_stack_item(stack_item['key'])
+                key_type = stack_item['key']['type']
+                if key_type == "ByteString":
+                    key.value = key.value.decode()
+                else:
+                    key.value = str(key.value)
                 value = ExecutionResult._parse_stack_item(stack_item['value'])
                 map_.append((key, value))
-            return StackItem(type_, map_)
+            return MapStackItem(type_, map_)
         elif type_ == "Any":
             return StackItem(type_, None)
         else:
