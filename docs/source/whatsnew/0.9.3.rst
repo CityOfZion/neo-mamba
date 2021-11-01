@@ -1,0 +1,13 @@
+.. _whatsnew-v093:
+
+*******************************
+  What's New in neo-mamba 0.9.3
+*******************************
+
+:Author: Erik van den Brink
+
+Light wallet content
+====================
+
+This is a minor release adding a RPC client covering NEO's base node RPC functions.
+Furthermore it bumps all requirements and has a small BloomFilter fix.
