@@ -13,3 +13,24 @@ class CallFlags(IntFlag):
     STATES = READ_STATES | WRITE_STATES
     READ_ONLY = READ_STATES | ALLOW_CALL
     ALL = STATES | ALLOW_CALL | ALLOW_NOTIFY
+
+    @classmethod
+    def from_csharp_name(cls, input: str):
+        if input == "None":
+            return CallFlags.NONE
+        elif input == "ReadStates":
+            return CallFlags.READ_STATES
+        elif input == "WriteStates":
+            return CallFlags.WRITE_STATES
+        elif input == "AllowCall":
+            return CallFlags.ALLOW_CALL
+        elif input == "AllowNotify":
+            return CallFlags.ALLOW_NOTIFY
+        elif input == "States":
+            return CallFlags.STATES
+        elif input == "ReadOnly":
+            return CallFlags.READ_ONLY
+        elif input == "All":
+            return CallFlags.ALL
+        else:
+            raise ValueError(f"{input} is not a valid member of {cls.__name__}")
