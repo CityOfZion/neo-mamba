@@ -3,10 +3,11 @@ Changelog
 
 All notable changes to this project are documented in this file.
 
-[0.9.3] 2021-x-x
-----------------
+[0.9.3] 2021-11-01
+------------------
 - Update 3rd party packages
 - Fix ``BloomFilter.check()``
+- Add RPC client for Neo Node base methods
 
 [0.9.2] 2021-10-11
 ------------------
