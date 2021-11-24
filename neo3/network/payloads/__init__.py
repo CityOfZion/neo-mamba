@@ -3,7 +3,23 @@ from .inventory import InventoryPayload, InventoryType, IInventory
 from .version import VersionPayload
 from .address import NetworkAddress, AddrPayload, AddressState, DisconnectReason
 from .ping import PingPayload
-from .verification import Witness, WitnessScope, Signer, IVerifiable
+from .verification import (Witness,
+                           WitnessScope,
+                           Signer,
+                           IVerifiable,
+                           WitnessRuleAction,
+                           WitnessRule,
+                           ConditionAnd,
+                           ConditionBool,
+                           ConditionCalledByContract,
+                           ConditionCalledByEntry,
+                           ConditionCalledByGroup,
+                           ConditionGroup,
+                           ConditionNot,
+                           ConditionOr,
+                           ConditionScriptHash,
+                           WitnessConditionType)
+
 from .transaction import Transaction, TransactionAttribute, TransactionAttributeType, HighPriorityAttribute
 from .block import (Header,
                     Block,

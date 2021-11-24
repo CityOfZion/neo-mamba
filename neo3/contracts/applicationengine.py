@@ -124,26 +124,10 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
             else:
                 return False
 
-            if signer.scope == payloads.WitnessScope.GLOBAL:
-                return True
+            for rule in self.signer.get_all_rules():
+                if rule.condition.match(self):
+                    return rule.action == payloads.WitnessRuleAction.ALLOW
 
-            if payloads.WitnessScope.CALLED_BY_ENTRY in signer.scope:
-                if self.calling_scripthash == self.entry_scripthash:
-                    return True
-
-            if payloads.WitnessScope.CUSTOM_CONTRACTS in signer.scope:
-                if self.current_scripthash in signer.allowed_contracts:
-                    return True
-
-            if payloads.WitnessScope.CUSTOM_GROUPS in signer.scope:
-                self._validate_callflags(contracts.CallFlags.READ_STATES)
-
-                contract = contracts.ManagementContract().get_contract(self.snapshot, self.current_scripthash)
-                if contract is None:
-                    return False
-                group_keys = set(map(lambda g: g.public_key, contract.manifest.groups))
-                if any(group_keys.intersection(signer.allowed_groups)):
-                    return True
             return False
 
         self._validate_callflags(contracts.CallFlags.READ_STATES)
