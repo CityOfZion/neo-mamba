@@ -53,6 +53,14 @@ Ensure you have PIP >= 19.3
 
 For full documentation including more elaborate install instructions go to `<https://docs.coz.io/neo3/mamba/index.html>`_.
 
+Documentation
+-------------
+Install the requirements and build them
+::
+
+   pip install -e .[docs]
+   make docs
+
 Roadmap
 -------
 Over time the following components are expected to be implemented starting with the items in "SDK Core". As we
