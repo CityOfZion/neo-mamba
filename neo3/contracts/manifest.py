@@ -460,6 +460,12 @@ class ContractManifest(serialization.ISerializable, IJson):
         results = list(map(lambda p: p.is_allowed(target_contract, target_method), self.permissions))
         return any(results)
 
+    def contains_group(self, public_key: cryptography.ECPoint) -> bool:
+        for g in self.groups:
+            if public_key == g.public_key:
+                return True
+        return False
+
     @classmethod
     def _serializable_init(cls):
         return cls()
