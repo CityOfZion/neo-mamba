@@ -124,7 +124,7 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
             else:
                 return False
 
-            for rule in self.signer.get_all_rules():
+            for rule in signer.get_all_rules():
                 if rule.condition.match(self):
                     return rule.action == payloads.WitnessRuleAction.ALLOW
 

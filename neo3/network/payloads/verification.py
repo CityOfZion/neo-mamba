@@ -6,7 +6,7 @@ from enum import IntFlag, IntEnum
 from neo3.core import serialization, utils, types, cryptography, Size as s, IJson
 from neo3.network import payloads
 from neo3 import storage, contracts
-from typing import List, Dict, Any, no_type_check, TYPE_CHECKING
+from typing import List, Dict, Any, no_type_check, Iterator
 
 
 class Signer(serialization.ISerializable, IJson):
@@ -77,7 +77,7 @@ class Signer(serialization.ISerializable, IJson):
             writer.write_serializable_list(self.allowed_groups)
 
         if payloads.WitnessScope.WITNESS_RULES in self.scope:
-            writer.write_serializable(self.rules)
+            writer.write_serializable_list(self.rules)
 
     def deserialize(self, reader: serialization.BinaryReader) -> None:
         """
@@ -93,7 +93,7 @@ class Signer(serialization.ISerializable, IJson):
             raise ValueError("Deserialization error - invalid scope. GLOBAL scope not allowed with other scope types")
 
         if payloads.WitnessScope.CUSTOM_CONTRACTS in self.scope:
-            self.allowed_contracts = reader.read_serializable_list(types.UInt160, max =self.MAX_SUB_ITEMS)
+            self.allowed_contracts = reader.read_serializable_list(types.UInt160, max=self.MAX_SUB_ITEMS)
 
         if payloads.WitnessScope.CUSTOM_GROUPS in self.scope:
             self.allowed_groups = reader.read_serializable_list(cryptography.ECPoint,  # type: ignore
@@ -572,7 +572,7 @@ class ConditionCalledByGroup(WitnessCondition):
         writer.write_serializable(self.group)
 
     def _deserialize_without_type(self, reader: serialization.BinaryReader, max_nesting_depth: int) -> None:
-        self.group = reader.read_serializable(cryptography.ECPoint)
+        self.group = reader.read_serializable(cryptography.ECPoint)  # type: ignore
 
     def match(self, engine: contracts.ApplicationEngine) -> bool:
         engine._validate_callflags(contracts.CallFlags.READ_STATES)
