@@ -64,6 +64,8 @@ with open('README.rst') as readme_file:
 
 leveldb_requirements = ["plyvel==1.3.0" if sys.platform in ["darwin", "linux"] else "plyvel-win32"]
 
+docs_requirements = ["Sphinx==3.5.2", "sphinx-autodoc-typehints==1.11.1"]
+
 # get the requirements from requirements.txt
 install_reqs = parse_requirements('requirements.txt', session=PipSession())
 reqs = []
@@ -75,7 +77,7 @@ for ir in install_reqs:
 setup(
     name='neo-mamba',
     python_requires='>=3.8.*,<3.10',
-    version='0.9.3',
+    version='0.9.4',
     description="Python SDK for the NEO 3 blockchain",
     long_description=readme,
     long_description_content_type="text/x-rst",
@@ -87,7 +89,7 @@ setup(
     packages=find_packages(include=['neo3']),
     include_package_data=True,
     install_requires=reqs,
-    extras_require={"leveldb": leveldb_requirements},
+    extras_require={"leveldb": leveldb_requirements, "docs": docs_requirements},
     license="MIT license",
     zip_safe=False,
     keywords='neo3, python, SDK',

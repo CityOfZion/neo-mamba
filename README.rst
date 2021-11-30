@@ -53,6 +53,14 @@ Ensure you have PIP >= 19.3
 
 For full documentation including more elaborate install instructions go to `<https://docs.coz.io/neo3/mamba/index.html>`_.
 
+Documentation
+-------------
+Install the requirements and build them
+::
+
+   pip install -e .[docs]
+   make docs
+
 Roadmap
 -------
 Over time the following components are expected to be implemented starting with the items in "SDK Core". As we
@@ -69,22 +77,14 @@ separate repositories but be included here by default (e.g. virtual machine impl
 - Smart contracts (v0.4)
 - Wallet support (v0.8)
 
-Performance
------------
-At the time of releasing v0.7 there was no RC2 test net available for performance measuring. Very few changes in RC2
-should affect performance, therefore the RC1 measurements below should still be pretty accurate. RC3 (v0.8) has even
-less changes. Performance measurements are on hold until other priorities have been processed.
+OSX Big Sur issues
+------------------
+Parts of Mamba currently do not work as intended on OSX Big Sur. More specific: Mamba makes use of ``PYBIND11`` to wrap
+performance critical code written in C++ (i.e. the Virtual Machine). Big Sur requires Python 3.9.1 at `minimum <https://www.python.org/downloads/release/python-391/>`_, which in
+turn requires a newer version of ``PYBIND11``. That newer ``PYBIND11`` version ultimately leads to segmentation faults
+in the VM. We opted to return to our known working version of ``PYBIND11`` until resolved such that at least Catalina
+users can continue to use all features.
 
-RC1 measurements
-~~~~~~~~~~~~~~~~
-RC1 is the first release, out of 5, where `neo-mamba` syncs the blockchain slower than the official client `neo-cli <https://github.com/neo-project/neo-node>`_.
-Specifically, 30% slower. New bottlenecks as a result of the RC1 updates have been identified and will be improved on after
-the required RC2 updates.
-
-Performance was measured by letting each client sync the RC1 TestNet from an offline file up to block height 146253
-as available at that time. Syncing was done without verifying the block witnesses (``--noverify`` flag in ``neo-cli``).
-Each client used LevelDB as storage backend, with no other additional plugins running. Each client was synced separately
-with no additional resource usage on the system. The test was performed on OSX 10.15.7 on a i7-9750H with 16 GB ram.
 
 FAQ
 ---
