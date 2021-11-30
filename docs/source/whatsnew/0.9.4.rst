@@ -1,0 +1,15 @@
+.. _whatsnew-v094:
+
+*******************************
+  What's New in neo-mamba 0.9.4
+*******************************
+
+:Author: Erik van den Brink
+
+Audit fixes
+===========
+
+This is a minor release fixing 2 bug discovered while auditing the TestNet up to block `670559` and MainNet up to
+block `657576`. In the first bug mamba was processing a unicode escape sequence (for the '&' symbol), where as C# kept it as an escape
+sequence. The second is bug was partly in the VM not creating a shared reference to the calling script hash of an
+execution context. This would lead to the new `WitnessRule.CALLED_BY_ENTRY` to fail when it shouldn't.
