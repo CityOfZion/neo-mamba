@@ -208,10 +208,11 @@ class ConditionsTestCase(unittest.TestCase):
         self.assertEqual(expected_data, c.to_array())
         self.assertEqual(expected_json, c.to_json())
 
-        engine = mock.Mock()
-        # the actual value doens't have to be a UInt160 it's about the comparison
+        engine = mock.MagicMock()
+        # the actual value doesn't have to be a UInt160 it's about the comparison
         type(engine).calling_scripthash = mock.PropertyMock(spec=types.UInt160, return_value=True)
         type(engine).entry_scripthash = mock.PropertyMock(spec=types.UInt160, return_value=True)
+        engine.current_context.calling_scripthash_bytes.__len__.return_value = 1
 
         self.assertTrue(c.match(engine))
         type(engine).entry_scripthash = mock.PropertyMock(spec=types.UInt160, return_value=False)
