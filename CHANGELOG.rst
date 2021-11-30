@@ -3,6 +3,10 @@ Changelog
 
 All notable changes to this project are documented in this file.
 
+[0.9.4] 2021-11-30
+------------------
+- Fixes as a result of Auditing the latest blocks on the network.
+
 [0.9.3] 2021-11-01
 ------------------
 - Update 3rd party packages
