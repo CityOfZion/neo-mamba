@@ -550,7 +550,8 @@ class ConditionCalledByEntry(WitnessCondition):
         pass
 
     def match(self, engine: contracts.ApplicationEngine) -> bool:
-        return engine.calling_scripthash == engine.entry_scripthash
+        return len(engine.current_context.calling_scripthash_bytes) == 0 or \
+               engine.calling_scripthash == engine.entry_scripthash
 
 
 class ConditionCalledByGroup(WitnessCondition):
