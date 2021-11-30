@@ -414,9 +414,14 @@ class ContractManifest(serialization.ISerializable, IJson):
         if self.extra is None:
             struct.append(vm.ByteStringStackItem("null"))
         else:
+            # Fix for Testnet block 579597 parity
+            # The manifest is parsed after a json.loads() of the data. json.loads() automatically converts \\u0026 to
+            # '&' and this cannot be disabled. This hack works around that behaviour
+            s = pystd_json.dumps(self.extra, separators=(',', ':'))
+            s = s.replace('&', r'\u0026')
+
             # find \uxxxx sequences
             p = re.compile(r'\\u[a-z0-9]{4}')
-            s = pystd_json.dumps(self.extra, separators=(',', ':'))
             # uppercase the values such that the byte array matches C#
             fixed = p.sub(lambda match: f"\\u{match.group()[2:].upper()}", s)
             struct.append(vm.ByteStringStackItem(fixed))

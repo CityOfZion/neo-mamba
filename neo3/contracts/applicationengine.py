@@ -142,8 +142,9 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
                          method: str,
                          args: List[vm.StackItem]) -> None:
         ctx = self.current_context
-        self._contract_call_internal(hash_, method, contracts.CallFlags.ALL, False, args)
-        self.current_context.calling_scripthash_bytes = calling_scripthash.to_array()
+        ctx_new = self._contract_call_internal(hash_, method, contracts.CallFlags.ALL, False, args)
+        ctx_new.calling_scripthash_bytes = calling_scripthash.to_array()
+
         while self.current_context != ctx:
             self.step_out()
 
