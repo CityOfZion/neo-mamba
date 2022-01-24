@@ -18,5 +18,5 @@ orjson>=3.4.6
 jsonschema>=3.2.0
 pycryptodome==3.11.0
 pycodestyle==2.5.0
-pybiginteger==1.2.5
-pybiginteger-stubs>=1.2.5
+pybiginteger==1.2.6
+pybiginteger-stubs>=1.2.6
