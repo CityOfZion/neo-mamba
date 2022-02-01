@@ -419,6 +419,9 @@ class ContractManifest(serialization.ISerializable, IJson):
             # '&' and this cannot be disabled. This hack works around that behaviour
             s = pystd_json.dumps(self.extra, separators=(',', ':'))
             s = s.replace('&', r'\u0026')
+            # Same as above but for TestNet block 948209 parity
+            s = s.replace("'", r'\u0027')
+
 
             # find \uxxxx sequences
             p = re.compile(r'\\u[a-z0-9]{4}')
