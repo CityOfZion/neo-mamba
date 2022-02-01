@@ -1,0 +1,13 @@
+.. _whatsnew-v095:
+
+*******************************
+  What's New in neo-mamba 0.9.5
+*******************************
+
+:Author: Erik van den Brink
+
+Audit fixes
+===========
+
+This is a minor release fixing a couple of bugs discovered while auditing the TestNet up to block `1082917` and MainNet up to
+block `1003120`.
