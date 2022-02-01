@@ -17,7 +17,7 @@ def calculate_system_fee(tx: payloads.Transaction, snapshot: storage.Snapshot) -
     engine = contracts.ApplicationEngine(contracts.TriggerType.APPLICATION, tx, snapshot, 0, test_mode=True)
     engine.load_script(vm.Script(tx.script))
     if engine.execute() == vm.VMState.FAULT:
-        raise ValueError("Transaction script execution failed")
+        raise ValueError(f"Transaction script execution failed: {engine.exception_message}")
     else:
         return engine.gas_consumed
 
