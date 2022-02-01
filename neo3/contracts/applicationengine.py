@@ -218,8 +218,9 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
         if len(context.scripthash_bytes) == 0:
             context.scripthash_bytes = to_script_hash(context.script._value).to_array()
         contract_hash = types.UInt160(data=context.scripthash_bytes)
-        counter = self._invocation_counter.get(contract_hash, 0)
-        self._invocation_counter.update({contract_hash: counter + 1})
+        counter = self._invocation_counter.get(contract_hash, None)
+        if counter is None:
+            self._invocation_counter.update({contract_hash: 1})
 
         super(ApplicationEngine, self).load_context(context)
 
@@ -232,7 +233,8 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
         context = self.load_script_with_callflags(vm.Script(contract.script),
                                                   flags,
                                                   method_descriptor.offset,
-                                                  rvcount)
+                                                  rvcount,
+                                                  contract.hash)
         # configure state
         context.call_flags = int(flags)
         context.scripthash_bytes = contract.hash.to_array()
@@ -263,8 +265,17 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
                                    script: vm.Script,
                                    call_flags: contracts.CallFlags,
                                    initial_position: int = 0,
-                                   rvcount: int = -1):
-        context = super(ApplicationEngine, self).load_script(script, rvcount, initial_position)
+                                   rvcount: int = -1,
+                                   override_hash: types.UInt160 = None):
+        if override_hash is None:
+            context = super(ApplicationEngine, self).load_script(script, rvcount, initial_position)
+        else:
+            context = super(ApplicationEngine, self).load_script_override(script,
+                                                                          override_hash.to_array(),
+                                                                          rvcount,
+                                                                          initial_position
+                                                                          )
+
         context.call_flags = int(call_flags)
         return context
 
