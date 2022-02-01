@@ -422,7 +422,6 @@ class ContractManifest(serialization.ISerializable, IJson):
             # Same as above but for TestNet block 948209 parity
             s = s.replace("'", r'\u0027')
 
-
             # find \uxxxx sequences
             p = re.compile(r'\\u[a-z0-9]{4}')
             # uppercase the values such that the byte array matches C#
