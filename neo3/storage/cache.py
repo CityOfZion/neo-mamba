@@ -546,7 +546,7 @@ class CachedStorageAccess(CachedAccess):
             if value.state != TrackState.DELETED and (
                     len(key_prefix) == 0 or comperator.compare(key.to_array(), key_prefix) >= 0):
                 cached.append((key, value.item))
-                cached_keys.append(key)
+        cached_keys = list(self._dictionary.keys())
 
         if direction == "forward":
             cached_sorted = sorted(cached, key=lambda pair: pair[0].to_array())
