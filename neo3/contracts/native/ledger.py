@@ -58,7 +58,14 @@ class LedgerContract(NativeContract):
             return None
         return tx
 
-    @register("getTransactionheight", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
+    @register("getTransactionVMState", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
+    def get_tx_vmstate(self, snapshot: storage.Snapshot, hash_: types.UInt256) -> vm.VMState:
+        tx = snapshot.transactions.try_get(hash_, read_only=True)
+        if tx is None or not self._is_traceable_block(snapshot, tx.block_height):
+            return vm.VMState.NONE
+        return tx.vm_state
+
+    @register("getTransactionHeight", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
     def get_tx_height(self, snapshot: storage.Snapshot, hash_: types.UInt256) -> int:
         """
         Get the height of the block that the transaction is included in.
