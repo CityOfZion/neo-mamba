@@ -72,8 +72,8 @@ class Blockchain(_Singleton):
                                                      cloned_snapshot,
                                                      tx.system_fee)
                 engine.load_script(vm.Script(tx.script))
-                state = engine.execute()
-                if state == vm.VMState.HALT:
+                tx.vm_state = engine.execute()
+                if tx.vm_state == vm.VMState.HALT:
                     cloned_snapshot.commit()
                 else:
                     cloned_snapshot = snapshot.clone()
