@@ -107,14 +107,16 @@ class JsonPath:
         self.json = json_
         self.max_depth = -1
         self.depth = -1
+        self.max_obj = -1
 
     def next_token(self):
         return next(self.tokens)
 
-    def parse(self, expression: str, max_depth=6):
+    def parse(self, expression: str, max_depth=6, max_obj=1024):
         if len(expression) == 0:
             return self.json
         self.max_depth = self.depth = max_depth
+        self.max_obj = max_obj
         self.tokens = JsonPathToken.parse(expression)
         first = self.next_token()
         if first.type != JsonPathType.ROOT:
@@ -149,6 +151,9 @@ class JsonPath:
                 keys = sorted(obj.keys(), reverse=True)
                 for k in keys:
                     values.append(obj[k])
+
+        if len(values) > self.max_obj:
+            raise ValueError("Maximum objects limit exceeded")
         return values
 
     def descent_recursive(self, objects):
@@ -160,6 +165,8 @@ class JsonPath:
         while len(objects) > 0:
             values.extend(self.descent_identifier(objects, [token.content], check_depth=False))
             objects = self.descent(objects)
+            if len(values) > self.max_obj:
+                raise ValueError("Maximum objects limit exceeded")
         return values
 
     def descent_identifier(self, objects, names: List[str], check_depth=True):
@@ -172,6 +179,9 @@ class JsonPath:
             for name in names:
                 if name in obj:
                     values.append(obj[name])
+
+        if len(values) > self.max_obj:
+            raise ValueError("Maximum objects limit exceeded")
         return values
 
     def process_left_bracket(self, objects):
@@ -250,6 +260,9 @@ class JsonPath:
                     idx += len(obj)
                 if 0 <= idx < len(obj):
                     values.append(obj[idx])
+
+        if len(values) > self.max_obj:
+            raise ValueError("Maximum objects limit exceeded")
         return values
 
     def descent_range(self, objects, start: int, end: int):
@@ -274,6 +287,8 @@ class JsonPath:
 
             values.extend(obj[sub_start:sub_end])
 
+        if len(values) > self.max_obj:
+            raise ValueError("Maximum objects limit exceeded")
         return values
 
     def _check_depth(self):
