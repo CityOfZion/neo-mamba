@@ -453,6 +453,15 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
             return vm.BooleanStackItem(value)
         elif issubclass(native_type, (enum.IntFlag, enum.IntEnum)):
             return self._native_to_stackitem(value.value, int)
+        elif native_type == vm.VMState:
+            v = 0  # VMState.NONE
+            if value == vm.VMState.HALT:
+                v = 1
+            elif value == vm.VMState.FAULT:
+                v = 2
+            elif value == vm.VMState.BREAK:
+                v = 4
+            return vm.IntegerStackItem(v)
         elif hasattr(native_type, '__origin__') and native_type.__origin__ == Union:  # type: ignore
             # handle typing.Optional[type], Optional is an alias for Union[x, None]
             # only support specifying 1 type
