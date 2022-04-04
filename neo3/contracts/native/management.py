@@ -49,14 +49,14 @@ class ManagementContract(NativeContract):
     def get_contract(self, snapshot: storage.Snapshot, hash_: types.UInt160) -> Optional[contracts.ContractState]:
         return snapshot.contracts.try_get(hash_, read_only=True)
 
-    @register("deploy", contracts.CallFlags.STATES | contracts.CallFlags.ALLOW_NOTIFY)
+    @register("deploy", contracts.CallFlags.ALL)
     def contract_create(self,
                         engine: contracts.ApplicationEngine,
                         nef_file: bytes,
                         manifest: bytes) -> contracts.ContractState:
         return self.contract_create_with_data(engine, nef_file, manifest, vm.NullStackItem())
 
-    @register("deploy", contracts.CallFlags.STATES | contracts.CallFlags.ALLOW_NOTIFY)
+    @register("deploy", contracts.CallFlags.ALL)
     def contract_create_with_data(self,
                                   engine: contracts.ApplicationEngine,
                                   nef_file: bytes,
@@ -110,14 +110,14 @@ class ManagementContract(NativeContract):
                                  )
         return contract
 
-    @register("update", contracts.CallFlags.STATES | contracts.CallFlags.ALLOW_NOTIFY)
+    @register("update", contracts.CallFlags.ALL)
     def contract_update(self,
                         engine: contracts.ApplicationEngine,
                         nef_file: Optional[bytes],
                         manifest: Optional[bytes]) -> None:
         self.contract_update_with_data(engine, nef_file, manifest, vm.NullStackItem())
 
-    @register("update", contracts.CallFlags.STATES | contracts.CallFlags.ALLOW_NOTIFY)
+    @register("update", contracts.CallFlags.ALL)
     def contract_update_with_data(self,
                                   engine: contracts.ApplicationEngine,
                                   nef_file: Optional[bytes],
