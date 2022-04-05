@@ -1,6 +1,7 @@
 from __future__ import annotations
 import hashlib
 import enum
+import mmh3  # type: ignore
 from . import NativeContract, register
 from neo3 import contracts
 from neo3.core import cryptography
@@ -35,3 +36,8 @@ class CryptoContract(NativeContract):
     @register("verifyWithECDsa", contracts.CallFlags.NONE, cpu_price=1 << 15)
     def verify_with_ecdsa(self, message: bytes, public_key: bytes, signature: bytes, curve: NamedCurve) -> bool:
         return cryptography.verify_signature(message, signature, public_key, self.curves.get(curve))
+
+    @register("murmur32", contracts.CallFlags.NONE, cpu_price=1 << 13)
+    def murmur32(self, data: bytes, seed: int) -> bytes:
+        x: int = mmh3.hash(data, seed, signed=False)
+        return x.to_bytes(4, 'little', signed=False)
