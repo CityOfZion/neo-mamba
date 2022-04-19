@@ -58,6 +58,14 @@ class LedgerContract(NativeContract):
             return None
         return tx
 
+    @register("getTransactionSigners", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
+    def get_tx_signers(self, snapshot: storage.Snapshot, hash_: types.UInt256) -> Optional[payloads.Signer]:
+        tx = snapshot.transactions.try_get(hash_)
+        if tx is None:
+            return None
+        else:
+            return tx.signers
+
     @register("getTransactionVMState", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
     def get_tx_vmstate(self, snapshot: storage.Snapshot, hash_: types.UInt256) -> vm.VMState:
         tx = snapshot.transactions.try_get(hash_, read_only=True)

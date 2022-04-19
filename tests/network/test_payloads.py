@@ -262,6 +262,7 @@ class SignerTestCase(unittest.TestCase):
 
         ECPoint p = ECPoint.Parse("026241e7e26b38bb7154b8ad49458b97fb1c4797443dc921c5ca5774f511a2bbfc", ECCurve.Secp256r1);
         co.AllowedGroups = new ECPoint[] { p };
+        co.Rules = new WitnessRule[0];
 
         Console.WriteLine($"{co.Size}");
         Console.WriteLine($"{BitConverter.ToString(co.ToArray()).Replace("-","")}");
