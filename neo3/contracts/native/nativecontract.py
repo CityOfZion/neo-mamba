@@ -201,9 +201,9 @@ class NativeContract(_Singleton):
             raise ValueError(f"Method requires call flag: {method.required_flags} received: {flags}")
 
         engine.add_gas(method.cpu_price
-                       * contracts.PolicyContract().get_exec_fee_factor(engine.snapshot)
+                       * engine.exec_fee_factor
                        + method.storage_price
-                       * contracts.PolicyContract().get_storage_price(engine.snapshot))
+                       * engine.storage_price)
 
         params: List[Any] = []
         if method.add_engine:

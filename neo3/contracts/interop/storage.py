@@ -91,7 +91,7 @@ def storage_put(engine: contracts.ApplicationEngine, context: storage.StorageCon
         else:
             new_data_len = (len(item.value) - 1) // 4 + 1 + len(value) - len(item.value)
 
-    engine.add_gas(new_data_len * engine.STORAGE_PRICE)
+    engine.add_gas(new_data_len * engine.storage_price)
     item.value = value
 
 

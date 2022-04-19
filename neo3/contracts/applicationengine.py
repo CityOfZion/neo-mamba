@@ -42,10 +42,10 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
         self.notifications: List[Tuple[payloads.IVerifiable, types.UInt160, bytes, vm.ArrayStackItem]] = []
         if self.snapshot is None or self.snapshot.persisting_block is None or self.snapshot.persisting_block.index == 0:
             self.exec_fee_factor = contracts.PolicyContract().DEFAULT_EXEC_FEE_FACTOR
-            self.STORAGE_PRICE = contracts.PolicyContract().DEFAULT_STORAGE_PRICE
+            self.storage_price = contracts.PolicyContract().DEFAULT_STORAGE_PRICE
         else:
             self.exec_fee_factor = contracts.PolicyContract().get_exec_fee_factor(snapshot)
-            self.STORAGE_PRICE = contracts.PolicyContract().get_storage_price(snapshot)
+            self.storage_price = contracts.PolicyContract().get_storage_price(snapshot)
 
         if isinstance(self.script_container, payloads.Transaction):
             self.nonce_data = self.script_container.hash().to_array()[:16]
