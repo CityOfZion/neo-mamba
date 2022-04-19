@@ -74,7 +74,7 @@ class ManagementContract(NativeContract):
             raise ValueError("Invalid NEF or manifest length")
 
         engine.add_gas(
-            max(engine.STORAGE_PRICE * (nef_len + manifest_len), self.get_minimum_deployment_fee(engine.snapshot))
+            max(engine.storage_price * (nef_len + manifest_len), self.get_minimum_deployment_fee(engine.snapshot))
         )
 
         nef = contracts.NEF.deserialize_from_bytes(nef_file)
@@ -128,7 +128,7 @@ class ManagementContract(NativeContract):
 
         nef_len = 0 if nef_file is None else len(nef_file)
         manifest_len = 0 if manifest is None else len(manifest)
-        engine.add_gas(engine.STORAGE_PRICE * (nef_len + manifest_len))
+        engine.add_gas(engine.storage_price * (nef_len + manifest_len))
 
         contract = engine.snapshot.contracts.try_get(engine.calling_scripthash, read_only=False)
         if contract is None:
