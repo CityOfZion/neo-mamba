@@ -10,6 +10,11 @@ def get_platform(engine: contracts.ApplicationEngine) -> str:
     return "NEO"
 
 
+@register("System.Runtime.GetAddressVersion", 1 << 3, contracts.CallFlags.NONE)
+def get_addressversion(engine: contracts.ApplicationEngine) -> int:
+    return settings.network.account_version
+
+
 @register("System.Runtime.GetNetwork", 1 << 3, contracts.CallFlags.NONE)
 def get_network(engine: contracts.ApplicationEngine) -> str:
     return settings.network.magic
