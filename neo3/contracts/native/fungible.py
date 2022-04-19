@@ -899,7 +899,18 @@ class NeoToken(FungibleToken):
                 else:
                     results.update({key: vm.BigInteger.zero()})
             return results
-        # first sort by votes descending, then by ECPoint ascending
+
+        # first remove blocked candidates
+        to_remove = []
+        policy = contracts.PolicyContract()
+        for c in candidates:
+            if policy.is_blocked(snapshot, to_script_hash(contracts.Contract.create_signature_redeemscript(c[0]))):
+                to_remove.append(c)
+
+        for c in to_remove:
+            candidates.remove(c)
+
+        # now sort by votes descending, then by ECPoint ascending
         # we negate the value of the votes (c[1]) such that they get sorted in descending order
         candidates.sort(key=lambda c: (-c[1], c[0]))
         trimmed_candidates = candidates[:len(settings.standby_committee)]
