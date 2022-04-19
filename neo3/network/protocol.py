@@ -28,7 +28,7 @@ class NeoProtocol(StreamReaderProtocol):
 
     def connection_made(self, transport: asyncio.transports.BaseTransport) -> None:
         super().connection_made(transport)
-        self._stream_writer = StreamWriter(transport, self, self._stream_reader_orig, self._loop)
+        self._stream_writer = StreamWriter(transport, self, self._stream_reader_orig, self._loop)  # type: ignore
 
         if self.client:
             asyncio.create_task(self.client.connection_made(transport))

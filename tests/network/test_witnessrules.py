@@ -3,6 +3,7 @@ from unittest import mock
 from neo3.network import payloads
 from neo3.core import types, cryptography
 
+
 class WitnessRuleTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -222,6 +223,15 @@ class ConditionsTestCase(unittest.TestCase):
         self.assertEqual(c, deserialized_c)
 
     def test_called_by_group(self):
+        """
+        var c = new CalledByGroupCondition()
+        {
+            Group = ECPoint.Parse("02158c4a4810fa2a6a12f7d33d835680429e1a68ae61161c5b3fbc98c7f1f17765", ECCurve.Secp256r1)
+        };
+        Console.WriteLine(((ISerializable)c).Size);
+        Console.WriteLine(c.ToArray().ToHexString());
+        Console.WriteLine(c.ToJson());
+        """
         expected_len = 34
         expected_data = bytes.fromhex("2902158c4a4810fa2a6a12f7d33d835680429e1a68ae61161c5b3fbc98c7f1f17765")
         expected_json = {"type":"CalledByGroup","group":"02158c4a4810fa2a6a12f7d33d835680429e1a68ae61161c5b3fbc98c7f1f17765"}
