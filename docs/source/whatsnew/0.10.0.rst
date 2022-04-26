@@ -9,10 +9,11 @@
 Audit fixes
 ===========
 
-This releases fixes two issues discovered while auditing the MainNet up to block `1449548`.
+This releases fixes two issues discovered while auditing the Testnet.
 1. The ``verifyWithECDsa`` method of the Crypto native contract now gracefully handles incorrect input.
 2. The ``atoi`` method of the StdLib native contract now correctly handles values with base 16.
 
+Mainnet has been audited up to block `1449548` with no state differences.
 
 v3.2.1 compatability
 ====================
