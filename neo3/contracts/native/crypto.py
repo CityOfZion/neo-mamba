@@ -35,7 +35,10 @@ class CryptoContract(NativeContract):
 
     @register("verifyWithECDsa", contracts.CallFlags.NONE, cpu_price=1 << 15)
     def verify_with_ecdsa(self, message: bytes, public_key: bytes, signature: bytes, curve: NamedCurve) -> bool:
-        return cryptography.verify_signature(message, signature, public_key, self.curves.get(curve))
+        try:
+            return cryptography.verify_signature(message, signature, public_key, self.curves.get(curve))
+        except cryptography.ECCException:
+            return False
 
     @register("murmur32", contracts.CallFlags.NONE, cpu_price=1 << 13)
     def murmur32(self, data: bytes, seed: int) -> bytes:
