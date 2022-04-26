@@ -64,7 +64,7 @@ with open('README.rst') as readme_file:
 
 leveldb_requirements = ["plyvel==1.3.0" if sys.platform in ["darwin", "linux"] else "plyvel-win32"]
 
-docs_requirements = ["Sphinx==3.5.2", "sphinx-autodoc-typehints==1.11.1"]
+docs_requirements = ["jinja2<3.1", "Sphinx==3.5.2", "sphinx-autodoc-typehints==1.11.1"]
 
 # get the requirements from requirements.txt
 install_reqs = parse_requirements('requirements.txt', session=PipSession())
