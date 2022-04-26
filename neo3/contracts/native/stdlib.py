@@ -58,7 +58,16 @@ class StdLibContract(NativeContract):
         if base != 10 and base != 16:
             raise ValueError("Invalid base specified")
         else:
-            return int(value, base)
+            if base == 10:
+                return int(value, base)
+            else:
+                if padded := (len(value) % 2 != 0):
+                    value = '0' + value
+                b = bytearray.fromhex(value)
+                if padded and b[0] & 0x8 != 0:
+                    b[0] |= 0xF0
+                b.reverse()
+                return int(vm.BigInteger(b))
 
     @register("base64Encode", contracts.CallFlags.NONE, cpu_price=1 << 5)
     def base64_encode(self, data: bytes) -> str:
