@@ -10,10 +10,10 @@ RC3 compatability, wallet support and end of Python 3.7 support
 ===============================================================
 
 This release catches up with all RC3 changes done in the C# core project. It also adds basic wallet support allowing
-you to sign and relay transactions to the network. We decided to drop Python 3.7 support at the last bug fix release
+you to sign and relay transactions to the network. We decided to drop Python 3.7 support as the last bug fix release
 happened at the beginning of the year. Part of mamba (specifically the network) relies heavily on the ``asyncio`` module
 which has had its fair share of bugs and memory leaks discovered. We don't expect that the last one was found so we want
-to stay up to date. Expet a move to Python 3.9 in the near future.
+to stay up to date. Expect a move to Python 3.9 in the near future.
 
 Further more doc strings have been polished, some new features have
 been added and a couple of bugs have been fixed. See the changelog for more details.

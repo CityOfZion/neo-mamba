@@ -1,0 +1,20 @@
+.. _whatsnew-v0100:
+
+********************************
+  What's New in neo-mamba 0.10.0
+********************************
+
+:Author: Erik van den Brink
+
+Audit fixes
+===========
+
+This releases fixes two issues discovered while auditing the MainNet up to block `1449548`.
+1. The ``verifyWithECDsa`` method of the Crypto native contract now gracefully handles incorrect input.
+2. The ``atoi`` method of the StdLib native contract now correctly handles values with base 16.
+
+
+v3.2.1 compatability
+====================
+
+This release catches up with all v3.2.0 and v3.2.1 changes done in the C# core project.

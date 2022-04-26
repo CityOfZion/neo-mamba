@@ -24,3 +24,4 @@ This chapter describes the most important changes between the neo-mamba versions
    0.9.3.rst
    0.9.4.rst
    0.9.5.rst
+   0.10.0.rst
