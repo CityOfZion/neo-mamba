@@ -156,27 +156,23 @@ class JSONSerializer:
     MIN_SAFE_INTEGER = -MAX_SAFE_INTEGER
 
     @staticmethod
-    def deserialize(json_data: JObject, reference_counter: vm.ReferenceCounter = None) -> vm.StackItem:
+    def deserialize(json_data: JObject) -> vm.StackItem:
         """
         Deserialize JSON into a virtual machine stack item
         """
         t = type(json_data)
         if t == dict:
             json_data = cast(dict, json_data)
-            if reference_counter is None:
-                raise ValueError("Can't deserialize JSON object without reference counter")
-            map_item = vm.MapStackItem(reference_counter)
+            map_item = vm.MapStackItem()
             for k, v in json_data.items():
                 key = vm.ByteStringStackItem(k)
-                value = JSONSerializer.deserialize(v, reference_counter)
+                value = JSONSerializer.deserialize(v)
                 map_item[key] = value
             return map_item
         elif t == list:
-            if reference_counter is None:
-                raise ValueError("Can't deserialize JSON array without reference counter")
-            array_item = vm.ArrayStackItem(reference_counter)
+            array_item = vm.ArrayStackItem()
             json_data = cast(list, json_data)
-            elements = [JSONSerializer.deserialize(e, reference_counter) for e in json_data]
+            elements = [JSONSerializer.deserialize(e) for e in json_data]
             array_item.append(elements)
             return array_item
         elif json_data is None:

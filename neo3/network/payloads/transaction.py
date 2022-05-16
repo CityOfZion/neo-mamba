@@ -370,14 +370,11 @@ class Transaction(payloads.IInventory, IInteroperable, IJson):
         self.block_height = replica.block_height
         self.vm_state = replica.vm_state
 
-    def to_stack_item(self, reference_counter: vm.ReferenceCounter) -> vm.StackItem:
+    def to_stack_item(self) -> vm.StackItem:
         """
         Convert self to a VM stack item.
-
-        Args:
-            reference_counter: ExecutionEngine reference counter
         """
-        array = vm.ArrayStackItem(reference_counter)
+        array = vm.ArrayStackItem()
         tx_hash = vm.ByteStringStackItem(self.hash().to_array())
         version = vm.IntegerStackItem(self.version)
         nonce = vm.IntegerStackItem(self.nonce)

@@ -350,8 +350,8 @@ class TrimmedBlock(serialization.ISerializable, IInteroperable):
         self.header = reader.read_serializable(Header)
         self.hashes = reader.read_serializable_list(types.UInt256, max=0xFFFF)
 
-    def to_stack_item(self, reference_counter: vm.ReferenceCounter) -> vm.StackItem:
-        array = vm.ArrayStackItem(reference_counter)
+    def to_stack_item(self) -> vm.StackItem:
+        array = vm.ArrayStackItem()
         array.append(vm.ByteStringStackItem(self.header.hash().to_array()))
         array.append(vm.IntegerStackItem(self.header.version))
         array.append(vm.ByteStringStackItem(self.header.prev_hash.to_array()))

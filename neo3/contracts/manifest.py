@@ -68,8 +68,8 @@ class ContractGroup(IJson):
             raise ValueError("Format error - invalid signature length")
         return c
 
-    def to_stack_item(self, reference_counter: vm.ReferenceCounter) -> vm.StackItem:
-        struct = vm.StructStackItem(reference_counter)
+    def to_stack_item(self) -> vm.StackItem:
+        struct = vm.StructStackItem()
         struct.append(vm.ByteStringStackItem(self.public_key.to_array()))
         struct.append(vm.ByteStringStackItem(self.signature))
         return struct
@@ -149,8 +149,8 @@ class ContractPermission(IJson):
                 raise ValueError("Format error - methods cannot have length 0")
         return cls(cpd, methods)
 
-    def to_stack_item(self, reference_counter: vm.ReferenceCounter) -> vm.StackItem:
-        struct = vm.StructStackItem(reference_counter)
+    def to_stack_item(self) -> vm.StackItem:
+        struct = vm.StructStackItem()
         if self.contract.is_wildcard:
             struct.append(vm.NullStackItem())
         elif self.contract.is_hash:
@@ -162,7 +162,7 @@ class ContractPermission(IJson):
             struct.append(vm.NullStackItem())
         else:
             struct.append(
-                vm.ArrayStackItem(reference_counter,
+                vm.ArrayStackItem(
                                   list(map(lambda m: vm.ByteStringStackItem(m), self.methods)))  # type: ignore
             )
         return struct
@@ -389,27 +389,19 @@ class ContractManifest(serialization.ISerializable, IJson):
         }
         return json
 
-    def to_stack_item(self, reference_counter: vm.ReferenceCounter) -> vm.StackItem:
-        struct = vm.StructStackItem(reference_counter)
+    def to_stack_item(self) -> vm.StackItem:
+        struct = vm.StructStackItem()
         struct.append(vm.ByteStringStackItem(self.name))
-        struct.append(vm.ArrayStackItem(reference_counter,
-                                        list(map(lambda g: g.to_stack_item(reference_counter), self.groups)))
-                      )
-        struct.append(vm.MapStackItem(reference_counter))
-        struct.append(vm.ArrayStackItem(reference_counter,
-                                        list(map(lambda s: vm.ByteStringStackItem(s), self.supported_standards)))
-                      )
-        struct.append(self.abi.to_stack_item(reference_counter))
-        struct.append(vm.ArrayStackItem(reference_counter,
-                                        list(map(lambda p: p.to_stack_item(reference_counter), self.permissions)))
-                      )
+        struct.append(vm.ArrayStackItem(list(map(lambda g: g.to_stack_item(), self.groups))))
+        struct.append(vm.MapStackItem())
+        struct.append(vm.ArrayStackItem(list(map(lambda s: vm.ByteStringStackItem(s), self.supported_standards))))
+        struct.append(self.abi.to_stack_item())
+        struct.append(vm.ArrayStackItem(list(map(lambda p: p.to_stack_item(), self.permissions))))
         if self.trusts.is_wildcard:
             struct.append(vm.NullStackItem())
         else:
             struct.append(
-                vm.ArrayStackItem(reference_counter,
-                                  list(map(lambda t: vm.ByteStringStackItem(t.to_array()),
-                                           self.trusts)))  # type: ignore
+                vm.ArrayStackItem(list(map(lambda t: vm.ByteStringStackItem(t.to_array()),self.trusts)))  # type: ignore
             )
         if self.extra is None:
             struct.append(vm.ByteStringStackItem("null"))

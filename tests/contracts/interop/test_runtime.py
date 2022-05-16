@@ -441,7 +441,7 @@ class RuntimeInteropTestCase(unittest.TestCase):
         engine = test_engine()
 
         target_hash = types.UInt160.zero()
-        state = vm.ArrayStackItem(engine.reference_counter)
+        state = vm.ArrayStackItem()
         notif1 = (object(), target_hash, b'notif1', state)
         notif2 = (object(), types.UInt160(b'\x01' * 20), b'notif2', state)
         notif3 = (object(), target_hash, b'notif3', state)
@@ -462,7 +462,7 @@ class RuntimeInteropTestCase(unittest.TestCase):
     def test_runtime_getnotifications_limit_exceeded(self):
         engine = test_engine()
         target_hash = types.UInt160.zero()
-        state = vm.ArrayStackItem(engine.reference_counter)
+        state = vm.ArrayStackItem()
 
         # we can't adjust the limit, so we need to exceed it
         for i in range(0, engine.MAX_STACK_SIZE + 1):
@@ -484,7 +484,7 @@ class RuntimeInteropTestCase(unittest.TestCase):
         msgrouter.interop_notify += runtime_notify
 
         engine = test_engine()
-        engine.push(vm.ArrayStackItem(engine.reference_counter))  # state
+        engine.push(vm.ArrayStackItem())  # state
         expected_message = 'my_notification_message'
         engine.push(vm.ByteStringStackItem(expected_message.encode()))  # event message
         engine.invoke_syscall_by_name("System.Runtime.Notify")
@@ -498,7 +498,7 @@ class RuntimeInteropTestCase(unittest.TestCase):
 
     def test_runtime_notify_exceed_size(self):
         engine = test_engine()
-        engine.push(vm.ArrayStackItem(engine.reference_counter))  # state
+        engine.push(vm.ArrayStackItem())  # state
         engine.push(vm.ByteStringStackItem(b'\x01' * (engine.MAX_EVENT_SIZE + 1)))  # event messasge
         with self.assertRaises(ValueError) as context:
             engine.invoke_syscall_by_name("System.Runtime.Notify")

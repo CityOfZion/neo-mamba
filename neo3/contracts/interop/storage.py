@@ -61,7 +61,7 @@ def storage_find(engine: contracts.ApplicationEngine,
         raise ValueError("Can't use PICK_FIELD option without DESERIALIZE_VALUES")
 
     prefix_key = context.id.to_bytes(4, 'little', signed=True) + key
-    it = StorageIterator(engine.snapshot.storages.find(prefix_key), len(key), options, engine.reference_counter)
+    it = StorageIterator(engine.snapshot.storages.find(prefix_key), len(key), options)
     return it
 
 

@@ -196,7 +196,7 @@ class RuntimeInteropTestCase(unittest.TestCase):
         target_contract = contracts.ContractState(1, contract3_nef, contract3_manifest, 0, fake_hash2)
         engine.snapshot.contracts.put(target_contract)
         engine.load_script(vm.Script(contract.script))
-        array = vm.ArrayStackItem(engine.reference_counter)
+        array = vm.ArrayStackItem()
         array.append(vm.IntegerStackItem(3))
         engine.push(array)  # args
         engine.push(vm.IntegerStackItem(15))  # callflags
@@ -217,7 +217,7 @@ class RuntimeInteropTestCase(unittest.TestCase):
 
         # can't find contract
         with self.assertRaises(ValueError) as context:
-            engine._contract_call_internal(types.UInt160.zero(), "valid_method", contracts.CallFlags.ALL, False, vm.ArrayStackItem(engine.reference_counter))
+            engine._contract_call_internal(types.UInt160.zero(), "valid_method", contracts.CallFlags.ALL, False, vm.ArrayStackItem())
         self.assertEqual("[System.Contract.Call] Can't find target contract", str(context.exception))
 
         fake_contract_hash = types.UInt160(b'\x01' * 20)
@@ -234,7 +234,7 @@ class RuntimeInteropTestCase(unittest.TestCase):
         new_current_contract = contracts.ContractState(1, hello_world_nef, new_current_manifest, 0, fake_contract_hash2)
         engine.snapshot.contracts.put(new_current_contract)
         with self.assertRaises(ValueError) as context:
-            engine._contract_call_internal(target_contract.hash, "invalid_method", contracts.CallFlags.ALL, False, vm.ArrayStackItem(engine.reference_counter))
+            engine._contract_call_internal(target_contract.hash, "invalid_method", contracts.CallFlags.ALL, False, vm.ArrayStackItem())
         self.assertEqual("[System.Contract.Call] Method 'invalid_method' with 0 arguments does not exist on target contract", str(context.exception))
 
         # restore current contract to its original form and try to call a non-existing contract
@@ -243,11 +243,11 @@ class RuntimeInteropTestCase(unittest.TestCase):
         engine.snapshot.contracts.put(current_contract)
 
         with self.assertRaises(ValueError) as context:
-            engine._contract_call_internal(target_contract.hash, "invalid_method", contracts.CallFlags.ALL, False, vm.ArrayStackItem(engine.reference_counter))
+            engine._contract_call_internal(target_contract.hash, "invalid_method", contracts.CallFlags.ALL, False, vm.ArrayStackItem())
         self.assertEqual("[System.Contract.Call] Method 'invalid_method' with 0 arguments does not exist on target contract", str(context.exception))
 
         # call the target method with invalid number of arguments
-        array = vm.ArrayStackItem(engine.reference_counter)
+        array = vm.ArrayStackItem()
         array.append([vm.NullStackItem(), vm.NullStackItem()])
         with self.assertRaises(ValueError) as context:
             engine._contract_call_internal(target_contract.hash, "test_func", contracts.CallFlags.ALL, False, array)

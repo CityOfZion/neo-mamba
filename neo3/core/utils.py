@@ -1,7 +1,7 @@
 # type: ignore
 
 from enum import Enum
-from collections import Iterable
+from collections.abc import Iterable
 from neo3.core import serialization
 from neo3.core import Size
 

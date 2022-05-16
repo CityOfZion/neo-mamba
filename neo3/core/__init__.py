@@ -52,7 +52,7 @@ T = TypeVar('T', bound='IInteroperable')
 
 class IInteroperable(abc.ABC):
     @abc.abstractmethod
-    def to_stack_item(self, reference_counter: vm.ReferenceCounter) -> vm.StackItem:
+    def to_stack_item(self) -> vm.StackItem:
         """ Convert object to a virtual machine stack item"""
 
     @classmethod

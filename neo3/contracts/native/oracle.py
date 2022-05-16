@@ -114,7 +114,6 @@ class OracleContract(NativeContract):
             raise ValueError("Oracle request not found")
 
         state = vm.ArrayStackItem(
-            engine.reference_counter,
             [vm.IntegerStackItem(response.id),
              vm.ByteStringStackItem(request.original_tx_id.to_array())
              ]
@@ -123,8 +122,7 @@ class OracleContract(NativeContract):
         msgrouter.interop_notify(self.hash, "OracleResponse", state)
 
         user_data = contracts.BinarySerializer.deserialize(request.user_data,
-                                                           engine.MAX_STACK_SIZE,
-                                                           engine.reference_counter)
+                                                           engine.MAX_STACK_SIZE)
         args: List[vm.StackItem] = [vm.ByteStringStackItem(request.url.encode()),
                                     user_data,
                                     vm.IntegerStackItem(int(response.code)),
@@ -192,7 +190,6 @@ class OracleContract(NativeContract):
         engine.snapshot.storages.update(sk_id_list, si_id_list)
 
         state = vm.ArrayStackItem(
-            engine.reference_counter,
             [vm.IntegerStackItem(item_id),
              vm.ByteStringStackItem(engine.calling_scripthash.to_array()),
              vm.ByteStringStackItem(url.encode()),
