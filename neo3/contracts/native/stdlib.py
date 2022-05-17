@@ -22,7 +22,7 @@ class StdLibContract(NativeContract):
 
     @register("deserialize", contracts.CallFlags.NONE, cpu_price=1 << 14)
     def binary_deserialize(self, engine: contracts.ApplicationEngine, data: bytes) -> vm.StackItem:
-        return contracts.BinarySerializer.deserialize(data, engine.MAX_ITEM_SIZE, engine.reference_counter)
+        return contracts.BinarySerializer.deserialize(data, engine.MAX_ITEM_SIZE)
 
     @register("jsonSerialize", contracts.CallFlags.NONE, cpu_price=1 << 12)
     def json_serialize(self, engine: contracts.ApplicationEngine, stack_item: vm.StackItem) -> bytes:
@@ -32,7 +32,7 @@ class StdLibContract(NativeContract):
 
     @register("jsonDeserialize", contracts.CallFlags.NONE, cpu_price=1 << 14)
     def json_deserialize(self, engine: contracts.ApplicationEngine, data: bytes) -> vm.StackItem:
-        return contracts.JSONSerializer.deserialize(json.loads(data.decode()), engine.reference_counter)
+        return contracts.JSONSerializer.deserialize(json.loads(data.decode()))
 
     @register("itoa", contracts.CallFlags.NONE, cpu_price=1 << 12)
     def do_itoa_base10(self, value: vm.BigInteger) -> str:

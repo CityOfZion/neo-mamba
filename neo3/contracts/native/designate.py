@@ -77,7 +77,7 @@ class DesignationContract(NativeContract):
             storage_item = storage.StorageItem(writer.to_array())
         engine.snapshot.storages.update(storage_key, storage_item)
 
-        state = vm.ArrayStackItem(engine.reference_counter)
+        state = vm.ArrayStackItem()
         state.append(vm.IntegerStackItem(role.value))
         state.append(vm.IntegerStackItem(engine.snapshot.persisting_block.index))
         msgrouter.interop_notify(self.hash, "Designation", state)

@@ -440,7 +440,7 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
             return vm.IntegerStackItem(value)
         elif issubclass(native_type, IInteroperable):
             value_ = cast(IInteroperable, value)
-            return value_.to_stack_item(self.reference_counter)
+            return value_.to_stack_item()
         elif issubclass(native_type, serialization.ISerializable):
             serializable_value = cast(serialization.ISerializable, value)
             return vm.ByteStringStackItem(serializable_value.to_array())
@@ -474,12 +474,12 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
             else:
                 raise ValueError  # shouldn't be possible, but silences mypy
         elif native_type == list:
-            arr = vm.ArrayStackItem(self.reference_counter)
+            arr = vm.ArrayStackItem()
             for item in value:
                 arr.append(self._native_to_stackitem(item, type(item)))
             return arr
         elif native_type == tuple:
-            _struct = vm.StructStackItem(self.reference_counter)
+            _struct = vm.StructStackItem()
             _struct.append(self._native_to_stackitem(value[0], type(value[0])))
             _struct.append(self._native_to_stackitem(value[1], type(value[1])))
             return _struct
