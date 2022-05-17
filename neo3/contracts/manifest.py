@@ -161,10 +161,8 @@ class ContractPermission(IJson):
         if self.methods.is_wildcard:
             struct.append(vm.NullStackItem())
         else:
-            struct.append(
-                vm.ArrayStackItem(
-                                  list(map(lambda m: vm.ByteStringStackItem(m), self.methods)))  # type: ignore
-            )
+            struct.append(vm.ArrayStackItem(list(map(lambda m: vm.ByteStringStackItem(m),
+                                                     self.methods))))  # type: ignore
         return struct
 
 
@@ -400,9 +398,8 @@ class ContractManifest(serialization.ISerializable, IJson):
         if self.trusts.is_wildcard:
             struct.append(vm.NullStackItem())
         else:
-            struct.append(
-                vm.ArrayStackItem(list(map(lambda t: vm.ByteStringStackItem(t.to_array()),self.trusts)))  # type: ignore
-            )
+            struct.append(vm.ArrayStackItem(list(map(lambda t: vm.ByteStringStackItem(t.to_array()),
+                                                     self.trusts))))  # type: ignore
         if self.extra is None:
             struct.append(vm.ByteStringStackItem("null"))
         else:

@@ -77,15 +77,6 @@ separate repositories but be included here by default (e.g. virtual machine impl
 - Smart contracts (v0.4)
 - Wallet support (v0.8)
 
-OSX Big Sur issues
-------------------
-Parts of Mamba currently do not work as intended on OSX Big Sur. More specific: Mamba makes use of ``PYBIND11`` to wrap
-performance critical code written in C++ (i.e. the Virtual Machine). Big Sur requires Python 3.9.1 at `minimum <https://www.python.org/downloads/release/python-391/>`_, which in
-turn requires a newer version of ``PYBIND11``. That newer ``PYBIND11`` version ultimately leads to segmentation faults
-in the VM. We opted to return to our known working version of ``PYBIND11`` until resolved such that at least Catalina
-users can continue to use all features.
-
-
 FAQ
 ---
 1. ``make docs`` fails with ``no theme named 'neo3' found (missing theme.conf?)``. -> ``python setup.py install``.
