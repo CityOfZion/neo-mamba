@@ -126,9 +126,7 @@ class ContractParameterDefinition(IJson):
         return c
 
     def to_stack_item(self) -> vm.StackItem:
-        return vm.StructStackItem(
-                                  [vm.ByteStringStackItem(self.name), vm.IntegerStackItem(self.type.value)]
-                                  )
+        return vm.StructStackItem([vm.ByteStringStackItem(self.name), vm.IntegerStackItem(self.type.value)])
 
 
 class ContractEventDescriptor(IJson):
