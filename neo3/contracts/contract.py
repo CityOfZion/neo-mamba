@@ -294,13 +294,13 @@ class ContractState(serialization.ISerializable, IClonable, IInteroperable):
         manifest = contracts.ContractManifest.deserialize_from_bytes(array[4].to_array())
         return cls(id, nef, manifest, update_counter, hash_)
 
-    def to_stack_item(self, reference_counter: vm.ReferenceCounter) -> vm.StackItem:
-        array = vm.ArrayStackItem(reference_counter)
+    def to_stack_item(self) -> vm.StackItem:
+        array = vm.ArrayStackItem()
         id_ = vm.IntegerStackItem(self.id)
         nef = vm.ByteStringStackItem(self.nef.to_array())
         update_counter = vm.IntegerStackItem(self.update_counter)
         hash_ = vm.ByteStringStackItem(self.hash.to_array())
-        array.append([id_, update_counter, hash_, nef, self.manifest.to_stack_item(reference_counter)])
+        array.append([id_, update_counter, hash_, nef, self.manifest.to_stack_item()])
         return array
 
     def can_call(self, target_contract: ContractState, target_method: str) -> bool:

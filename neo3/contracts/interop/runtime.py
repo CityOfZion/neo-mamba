@@ -40,7 +40,7 @@ def get_time(engine: contracts.ApplicationEngine) -> int:
 def get_scriptcontainer(engine: contracts.ApplicationEngine) -> vm.StackItem:
     if not isinstance(engine.script_container, IInteroperable):
         raise ValueError("script container is not a valid IInteroperable type")
-    return engine.script_container.to_stack_item(engine.reference_counter)
+    return engine.script_container.to_stack_item()
 
 
 @register("System.Runtime.GetExecutingScriptHash", 1 << 4, contracts.CallFlags.NONE)
@@ -106,10 +106,10 @@ def do_notify(engine: contracts.ApplicationEngine, event_name: bytes, state: vm.
 
 @register("System.Runtime.GetNotifications", 1 << 8, contracts.CallFlags.NONE)
 def get_notifications(engine: contracts.ApplicationEngine, for_hash: types.UInt160) -> vm.ArrayStackItem:
-    array = vm.ArrayStackItem(engine.reference_counter)
+    array = vm.ArrayStackItem()
     for notification in engine.notifications:
         if notification[1] == for_hash:
-            notification_stackitem = vm.ArrayStackItem(engine.reference_counter)
+            notification_stackitem = vm.ArrayStackItem()
             notification_stackitem.append([
                 vm.ByteStringStackItem(notification[1].to_array()),  # script_hash
                 vm.ByteStringStackItem(notification[2]),  # message

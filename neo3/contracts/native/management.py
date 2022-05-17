@@ -104,9 +104,7 @@ class ManagementContract(NativeContract):
 
         msgrouter.interop_notify(self.hash,
                                  "Deploy",
-                                 vm.ArrayStackItem(engine.reference_counter,
-                                                   vm.ByteStringStackItem(contract.hash.to_array())
-                                                   )
+                                 vm.ArrayStackItem(vm.ByteStringStackItem(contract.hash.to_array()))
                                  )
         return contract
 
@@ -165,9 +163,7 @@ class ManagementContract(NativeContract):
 
         msgrouter.interop_notify(self.hash,
                                  "Update",
-                                 vm.ArrayStackItem(engine.reference_counter,
-                                                   vm.ByteStringStackItem(contract.hash.to_array())
-                                                   )
+                                 vm.ArrayStackItem(vm.ByteStringStackItem(contract.hash.to_array()))
                                  )
 
     @register("destroy", contracts.CallFlags.STATES | contracts.CallFlags.ALLOW_NOTIFY, cpu_price=1 << 15)
@@ -185,9 +181,7 @@ class ManagementContract(NativeContract):
 
         msgrouter.interop_notify(self.hash,
                                  "Destroy",
-                                 vm.ArrayStackItem(engine.reference_counter,
-                                                   vm.ByteStringStackItem(contract.hash.to_array())
-                                                   )
+                                 vm.ArrayStackItem(vm.ByteStringStackItem(contract.hash.to_array()))
                                  )
 
     @register("getMinimumDeploymentFee", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)

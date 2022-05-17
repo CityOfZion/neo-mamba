@@ -19,12 +19,10 @@ class StorageIterator(IIterator):
     def __init__(self,
                  generator,
                  prefix_length: int,
-                 options: contracts.FindOptions,
-                 reference_counter: vm.ReferenceCounter):
+                 options: contracts.FindOptions):
         self.it = generator
         self.prefix_len = prefix_length
         self.options = options
-        self.reference_counter = reference_counter
         self._pair = None
 
     def next(self) -> bool:
@@ -44,7 +42,7 @@ class StorageIterator(IIterator):
             key = key[self.prefix_len:]
 
         if contracts.FindOptions.DESERIALIZE_VALUES in self.options:
-            item: vm.StackItem = contracts.BinarySerializer.deserialize(value, 1024, self.reference_counter)
+            item: vm.StackItem = contracts.BinarySerializer.deserialize(value, 1024)
         else:
             item = vm.ByteStringStackItem(value)
 
@@ -61,7 +59,7 @@ class StorageIterator(IIterator):
         if contracts.FindOptions.VALUES_ONLY in self.options:
             return item
 
-        return vm.StructStackItem(self.reference_counter, [vm.ByteStringStackItem(key), item])
+        return vm.StructStackItem([vm.ByteStringStackItem(key), item])
 
 
 @register("System.Iterator.Next", 1 << 15, contracts.CallFlags.NONE)

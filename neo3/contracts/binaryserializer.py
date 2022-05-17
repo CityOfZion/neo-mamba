@@ -63,16 +63,13 @@ class BinarySerializer:
             return writer.to_array()
 
     @staticmethod
-    def deserialize(data: bytes,
-                    max_size: int,
-                    reference_counter: vm.ReferenceCounter) -> vm.StackItem:
+    def deserialize(data: bytes, max_size: int) -> vm.StackItem:
         """
         Deserialize data into a stack item.
 
         Args:
             data: byte array of a serialized stack item.
             max_size: data reading limit for Array, Struct and Map types.
-            reference_counter: a valid reference counter instance. Get's passed into reference stack items.
         """
         if len(data) == 0:
             raise ValueError("Nothing to deserialize")
@@ -114,17 +111,17 @@ class BinarySerializer:
             if type(item) == PlaceHolder:
                 item = cast(PlaceHolder, item)
                 if item.type == vm.StackItemType.ARRAY:
-                    array = vm.ArrayStackItem(reference_counter)
+                    array = vm.ArrayStackItem()
                     for _ in range(0, item.count):
                         array.append(temp.pop())
                     temp.append(array)
                 elif item.type == vm.StackItemType.STRUCT:
-                    struct = vm.StructStackItem(reference_counter)
+                    struct = vm.StructStackItem()
                     for _ in range(0, item.count):
                         struct.append(temp.pop())
                     temp.append(struct)
                 elif item.type == vm.StackItemType.MAP:
-                    m = vm.MapStackItem(reference_counter)
+                    m = vm.MapStackItem()
                     for _ in range(0, item.count):
                         k = temp.pop()
                         k = cast(vm.PrimitiveType, k)

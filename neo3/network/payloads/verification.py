@@ -137,25 +137,22 @@ class Signer(serialization.ISerializable, IJson, IInteroperable):
 
         return json
 
-    def to_stack_item(self, reference_counter: vm.ReferenceCounter) -> vm.StackItem:
+    def to_stack_item(self) -> vm.StackItem:
         items: List[vm.StackItem] = []
         items.append(vm.ByteStringStackItem(self.to_array()))
         items.append(vm.ByteStringStackItem(self.account.to_array()))
         items.append(vm.IntegerStackItem(self.scope.value))
 
-        contracts_ = vm.ArrayStackItem(reference_counter,
-                                       list(map(lambda c: vm.ByteStringStackItem(c.to_array()), self.allowed_contracts))
-                                       )
+        contracts_ = vm.ArrayStackItem(list(map(lambda c: vm.ByteStringStackItem(c.to_array()),
+                                                self.allowed_contracts)))
         items.append(contracts_)
 
-        groups_ = vm.ArrayStackItem(reference_counter,
-                                    list(map(lambda g: vm.ByteStringStackItem(g.to_array()), self.allowed_groups)))
+        groups_ = vm.ArrayStackItem(list(map(lambda g: vm.ByteStringStackItem(g.to_array()), self.allowed_groups)))
         items.append(groups_)
 
-        rules_ = vm.ArrayStackItem(reference_counter,
-                                   list(map(lambda r: r.to_stack_item(reference_counter), self.rules)))
+        rules_ = vm.ArrayStackItem(list(map(lambda r: r.to_stack_item(), self.rules)))
         items.append(rules_)
-        return vm.ArrayStackItem(reference_counter, items)
+        return vm.ArrayStackItem(items)
 
     @classmethod
     def from_json(cls, json: dict):
@@ -384,8 +381,8 @@ class WitnessCondition(serialization.ISerializable, IJson, IInteroperable):
     def from_json(cls, json: dict):
         raise NotImplementedError()
 
-    def to_stack_item(self, reference_counter: vm.ReferenceCounter) -> vm.StackItem:
-        arr = vm.ArrayStackItem(reference_counter)
+    def to_stack_item(self) -> vm.StackItem:
+        arr = vm.ArrayStackItem()
         arr.append(vm.IntegerStackItem(self.type.value))
         return arr
 
@@ -422,10 +419,10 @@ class ConditionAnd(WitnessCondition):
         json['expressions'] = list(map(lambda exp: exp.to_json(), self.expressions))
         return json
 
-    def to_stack_item(self, reference_counter: vm.ReferenceCounter) -> vm.StackItem:
-        base = super(ConditionAnd, self).to_stack_item(reference_counter)
-        expressions = list(map(lambda exp: exp.to_stack_item(reference_counter), self.expressions))
-        array = vm.ArrayStackItem(reference_counter, expressions)
+    def to_stack_item(self) -> vm.StackItem:
+        base = super(ConditionAnd, self).to_stack_item()
+        expressions = list(map(lambda exp: exp.to_stack_item(), self.expressions))
+        array = vm.ArrayStackItem(expressions)
         base = cast(vm.ArrayStackItem, base)
         base.append(array)
         return base
@@ -463,8 +460,8 @@ class ConditionBool(WitnessCondition):
         json['expression'] = self.value
         return json
 
-    def to_stack_item(self, reference_counter: vm.ReferenceCounter) -> vm.StackItem:
-        base = super(ConditionBool, self).to_stack_item(reference_counter)
+    def to_stack_item(self) -> vm.StackItem:
+        base = super(ConditionBool, self).to_stack_item()
         base = cast(vm.ArrayStackItem, base)
         base.append(vm.BooleanStackItem(self.value))
         return base
@@ -504,10 +501,10 @@ class ConditionNot(WitnessCondition):
         json["expression"] = self.expression.to_json()
         return json
 
-    def to_stack_item(self, reference_counter: vm.ReferenceCounter) -> vm.StackItem:
-        base = super(ConditionNot, self).to_stack_item(reference_counter)
+    def to_stack_item(self) -> vm.StackItem:
+        base = super(ConditionNot, self).to_stack_item()
         base = cast(vm.ArrayStackItem, base)
-        base.append(self.expression.to_stack_item(reference_counter))
+        base.append(self.expression.to_stack_item())
         return base
 
     @classmethod
@@ -547,10 +544,10 @@ class ConditionOr(WitnessCondition):
         json['expressions'] = list(map(lambda exp: exp.to_json(), self.expressions))
         return json
 
-    def to_stack_item(self, reference_counter: vm.ReferenceCounter) -> vm.StackItem:
-        base = super(ConditionOr, self).to_stack_item(reference_counter)
-        expressions = list(map(lambda exp: exp.to_stack_item(reference_counter), self.expressions))
-        array = vm.ArrayStackItem(reference_counter, expressions)
+    def to_stack_item(self) -> vm.StackItem:
+        base = super(ConditionOr, self).to_stack_item()
+        expressions = list(map(lambda exp: exp.to_stack_item(), self.expressions))
+        array = vm.ArrayStackItem(expressions)
         base = cast(vm.ArrayStackItem, base)
         base.append(array)
         return base
@@ -583,8 +580,8 @@ class ConditionCalledByContract(WitnessCondition):
         json["hash"] = f"0x{self.hash_}"
         return json
 
-    def to_stack_item(self, reference_counter: vm.ReferenceCounter) -> vm.StackItem:
-        base = super(ConditionCalledByContract, self).to_stack_item(reference_counter)
+    def to_stack_item(self) -> vm.StackItem:
+        base = super(ConditionCalledByContract, self).to_stack_item()
         base = cast(vm.ArrayStackItem, base)
         base.append(vm.ByteStringStackItem(self.hash_.to_array()))
         return base
@@ -644,8 +641,8 @@ class ConditionCalledByGroup(WitnessCondition):
         json["group"] = str(self.group)
         return json
 
-    def to_stack_item(self, reference_counter: vm.ReferenceCounter) -> vm.StackItem:
-        base = super(ConditionCalledByGroup, self).to_stack_item(reference_counter)
+    def to_stack_item(self) -> vm.StackItem:
+        base = super(ConditionCalledByGroup, self).to_stack_item()
         base = cast(vm.ArrayStackItem, base)
         base.append(vm.ByteStringStackItem(self.group.to_array()))
         return base
@@ -693,9 +690,8 @@ class WitnessRule(serialization.ISerializable, IJson, IInteroperable):
             'condition': self.condition.to_json()
         }
 
-    def to_stack_item(self, reference_counter: vm.ReferenceCounter) -> vm.StackItem:
-        return vm.ArrayStackItem(reference_counter, [vm.IntegerStackItem(self.action.value),
-                                                     self.condition.to_stack_item(reference_counter)])
+    def to_stack_item(self) -> vm.StackItem:
+        return vm.ArrayStackItem([vm.IntegerStackItem(self.action.value), self.condition.to_stack_item()])
 
     @classmethod
     def from_json(cls, json: dict):

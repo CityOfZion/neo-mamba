@@ -25,8 +25,8 @@ class FungibleTokenStorageState(IInteroperable, serialization.ISerializable):
     def deserialize(self, reader: serialization.BinaryReader) -> None:
         self.balance = vm.BigInteger(reader.read_var_bytes())
 
-    def to_stack_item(self, reference_counter: vm.ReferenceCounter) -> vm.StackItem:
-        struct_ = vm.StructStackItem(reference_counter)
+    def to_stack_item(self) -> vm.StackItem:
+        struct_ = vm.StructStackItem()
         struct_.append(vm.IntegerStackItem(self.balance))
         return struct_
 
@@ -259,7 +259,7 @@ class FungibleToken(NativeContract):
                        amount: vm.BigInteger,
                        data: vm.StackItem,
                        call_on_payment: bool) -> None:
-        state = vm.ArrayStackItem(vm.ReferenceCounter())
+        state = vm.ArrayStackItem()
         if account_from == types.UInt160.zero():
             state.append(vm.NullStackItem())
         else:
@@ -308,8 +308,8 @@ class _NeoTokenStorageState(FungibleTokenStorageState):
         self.vote_to = reader.read_serializable(cryptography.ECPoint)  # type: ignore
         self.balance_height = reader.read_uint32()
 
-    def to_stack_item(self, reference_counter: vm.ReferenceCounter) -> vm.StackItem:
-        struct_ = super(_NeoTokenStorageState, self).to_stack_item(reference_counter)
+    def to_stack_item(self) -> vm.StackItem:
+        struct_ = super(_NeoTokenStorageState, self).to_stack_item()
         struct_ = cast(vm.StructStackItem, struct_)
         struct_.append(vm.IntegerStackItem(self.balance_height))
         if self.vote_to.is_zero():
