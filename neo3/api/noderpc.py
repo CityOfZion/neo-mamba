@@ -243,6 +243,12 @@ class ExecutionResult:
             return MapStackItem(type_, map_)
         elif type_ == "Any":
             return StackItem(type_, None)
+        elif type_ == "InteropInterface":
+            if "iterator" not in item.keys():
+                raise ValueError(f"Interop stack item only supports iterators, could not find 'iterator' key")
+            values = list(map(lambda element: ExecutionResult._parse_stack_item(element),
+                              item['iterator']))  # type: ignore
+            return StackItem(type_, values)
         else:
             raise ValueError(f"Unknown stack item type: {type_}")
         assert False, "unreachable"  # just to help mypy
