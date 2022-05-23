@@ -1,0 +1,20 @@
+.. _whatsnew-v0110:
+
+********************************
+  What's New in neo-mamba 0.11.0
+********************************
+
+:Author: Erik van den Brink
+
+VM interface matching
+=====================
+The latest virtual machine release (``neo3vm==0.9.0``) has had an internal update that changes the implementation of a
+security feature. This change affects how ``StackItem`` s can be created therefore requiring an update on the mamba side.
+On the upside OSX Big Sur is functional again as well.
+
+RPC client enhancement and examples
+===================================
+
+Support has been added to the ``RpcClient`` for ``Iterator`` s that are returned in execution results. Secondly, two CLI
+examples have been added that show how to deploy a contract and send NEP-17 tokens in light wallet fashion (build on
+top of the ``RpcClient``).
