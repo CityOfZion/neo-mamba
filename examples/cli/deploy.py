@@ -2,7 +2,7 @@
 A basic CLI script to deploy a smart contract
 
 Example usage:
-    python deploy -w wallet.json -pw 123 -c mycontract.nef -m mycontract.manifest.json -s https://mainnet1.neo.coz.io:443
+    python deploy.py -w wallet.json -pw 123 -c mycontract.nef -m mycontract.manifest.json -s https://mainnet1.neo.coz.io:443
 """
 
 import sys
