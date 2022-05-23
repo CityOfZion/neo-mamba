@@ -254,7 +254,7 @@ class WitnessScope(IntFlag):
     #: :attr:`~neo3.network.payloads.verification.Signer.allowed_groups` attribute is whitelisted in the contracts
     #: manifest.groups array.
     CUSTOM_GROUPS = 0x20
-    #: Allow the witness if the specified #: :attr:`~neo3.network.payloads.verification.Signer.rules are satisfied
+    #: Allow the witness if the specified :attr:`~neo3.network.payloads.verification.Signer.rules` are satisfied
     WITNESS_RULES = 0x40
     #: Allow the witness in all context. Equal to NEO 2.x's default behaviour.
     GLOBAL = 0x80
