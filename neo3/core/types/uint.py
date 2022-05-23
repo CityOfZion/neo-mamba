@@ -140,6 +140,8 @@ class UInt160(_UIntBase):
         Raises:
             ValueError: if the length of the supplied string does not match.
         """
+        if value.startswith("0x"):
+            value = value[2:]
         if len(value) != cls._BYTE_LEN * 2:
             raise ValueError(f"Invalid {cls.__name__} Format: {len(value)} chars != {cls._BYTE_LEN * 2} chars")
         reversed_data = bytearray.fromhex(value)
@@ -215,6 +217,8 @@ class UInt256(_UIntBase):
         Raises:
             ValueError: if the length of the supplied string does not match.
         """
+        if value.startswith("0x"):
+            value = value[2:]
         if len(value) != cls._BYTE_LEN * 2:
             raise ValueError(f"Invalid {cls.__name__} Format: {len(value)} chars != {cls._BYTE_LEN * 2} chars")
         reversed_data = bytearray.fromhex(value)
