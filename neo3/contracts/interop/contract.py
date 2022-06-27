@@ -1,8 +1,9 @@
 from __future__ import annotations
 from typing import List
-from neo3 import vm, contracts
+from neo3 import vm, contracts, HardFork
 from neo3.core import cryptography, types, to_script_hash
 from neo3.contracts.interop import register
+from neo3.contracts.interop.crypto import CHECKSIG_PRICE
 
 
 @register("System.Contract.Call", 1 << 15, contracts.CallFlags.READ_STATES | contracts.CallFlags.ALLOW_CALL)
@@ -34,16 +35,24 @@ def get_callflags(engine: contracts.ApplicationEngine) -> contracts.CallFlags:
     return contracts.CallFlags(engine.current_context.call_flags)
 
 
-@register("System.Contract.CreateStandardAccount", 1 << 8, contracts.CallFlags.NONE)
+@register("System.Contract.CreateStandardAccount", 0, contracts.CallFlags.NONE)
 def contract_create_standard_account(engine: contracts.ApplicationEngine,
                                      public_key: cryptography.ECPoint) -> types.UInt160:
+    fee = 1 << 8
+    if engine._is_hardfork_enabled(HardFork.HF_2712_FIX_SYSCALL_FEES):
+        fee = CHECKSIG_PRICE
+    engine.add_gas(fee * engine.exec_fee_factor)
     return to_script_hash(contracts.Contract.create_signature_redeemscript(public_key))
 
 
-@register("System.Contract.CreateMultisigAccount", 1 << 8, contracts.CallFlags.NONE)
+@register("System.Contract.CreateMultisigAccount", 0, contracts.CallFlags.NONE)
 def contract_create_multisigaccount(engine: contracts.ApplicationEngine,
                                     m: int,
                                     public_keys: List[cryptography.ECPoint]) -> types.UInt160:
+    fee = 1 << 8
+    if engine._is_hardfork_enabled(HardFork.HF_2712_FIX_SYSCALL_FEES):
+        fee = CHECKSIG_PRICE * len(public_keys)
+    engine.add_gas(fee * engine.exec_fee_factor)
     return to_script_hash(contracts.Contract.create_multisig_redeemscript(m, public_keys))
 
 

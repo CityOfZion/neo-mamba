@@ -1,5 +1,5 @@
 from __future__ import annotations
-from neo3 import contracts, storage, vm
+from neo3 import contracts, storage, vm, HardFork, settings
 from neo3.network import payloads
 from neo3.core import types, cryptography, IInteroperable, serialization, to_script_hash
 from typing import Any, Dict, cast, List, Tuple, Type, Optional, Union
@@ -485,3 +485,10 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
             return _struct
         else:
             return vm.StackItem.from_interface(value)
+
+    def _is_hardfork_enabled(self, hf: HardFork) -> bool:
+        if self.snapshot and self.snapshot.persisting_block is None:
+            return True
+        if hf.name not in settings.network.hardforks:
+            return True
+        return self.snapshot.persisting_block.index >= settings.network.hardforks[hf.name]
