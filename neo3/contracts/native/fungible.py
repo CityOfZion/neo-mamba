@@ -5,6 +5,7 @@ from .decorator import register
 from neo3 import storage, contracts, vm, settings
 from neo3.core import types, msgrouter, cryptography, serialization, to_script_hash, Size as s, IInteroperable
 from typing import Tuple, List, Dict, Sequence, cast, Optional
+from neo3.contracts.interop import IIterator, StorageIterator
 
 
 class FungibleTokenStorageState(IInteroperable, serialization.ISerializable):
@@ -645,9 +646,28 @@ class NeoToken(FungibleToken):
     @register("getCandidates", contracts.CallFlags.READ_STATES, cpu_price=1 << 22)
     def get_candidates(self, engine: contracts.ApplicationEngine) -> List[Tuple[cryptography.ECPoint, vm.BigInteger]]:
         """
-        Fetch all registered candidates, convert them to a StackItem and push them onto the evaluation stack.
+        Fetch the first 256 registered candidates, convert them to a StackItem and push them onto the evaluation stack.
+        First meaning the first found, not first registrered.
         """
-        return self._get_candidates(engine.snapshot)
+        return self._get_candidates(engine.snapshot, max_count=256)
+
+    @register("getAllCandidates", contracts.CallFlags.READ_STATES, cpu_price=1 << 22)
+    def get_all_candidates(self, snapshot: storage.Snapshot) -> IIterator:
+        options = (contracts.FindOptions.REMOVE_PREFIX
+                   | contracts.FindOptions.DESERIALIZE_VALUES
+                   | contracts.FindOptions.PICK_FIELD1)
+        it = StorageIterator(snapshot.storages.find(self.key_candidate.to_array()), 1, options)
+        return it
+
+    def get_candidate_vote(self, snapshot: storage.Snapshot, public_key: cryptography.ECPoint) -> vm.BigInteger:
+        si_candidate = snapshot.storages.try_get(self.key_candidate + public_key, read_only=False)
+        if si_candidate is None:
+            return vm.BigInteger(-1)
+        candidate_state = si_candidate.get(_CandidateState)
+        if candidate_state.registered:
+            return candidate_state.votes
+        else:
+            return vm.BigInteger(-1)
 
     @register("getNextBlockValidators", contracts.CallFlags.READ_STATES, cpu_price=1 << 16)
     def get_next_block_validators(self, snapshot: storage.Snapshot) -> List[cryptography.ECPoint]:
@@ -910,8 +930,10 @@ class NeoToken(FungibleToken):
         return results
 
     def _get_candidates(self,
-                        snapshot: storage.Snapshot) -> \
+                        snapshot: storage.Snapshot,
+                        max_count=-1) -> \
             List[Tuple[cryptography.ECPoint, vm.BigInteger]]:
+        ctr = 0
         self._candidates = []
         policy = contracts.PolicyContract()
         for k, v in snapshot.storages.find(self.key_candidate.to_array()):
@@ -922,6 +944,10 @@ class NeoToken(FungibleToken):
                 # take of the CANDIDATE prefix
                 point = cryptography.ECPoint.deserialize_from_bytes(k.key[1:])
                 self._candidates.append((point, candidate.votes))
+                if max_count > 0:
+                    ctr += 1
+                    if ctr == max_count:
+                        break
         self._candidates_dirty = False
         return self._candidates
 
