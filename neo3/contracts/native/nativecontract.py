@@ -212,13 +212,17 @@ class NativeContract(_Singleton):
         if method.add_snapshot:
             params.append(engine.snapshot)
 
-        for t in method.parameter_types:
-            params.append(engine._stackitem_to_native(context.evaluation_stack.pop(), t))
+        for i, t in enumerate(method.parameter_types):
+            params.append(engine._stackitem_to_native(context.evaluation_stack.peek(i), t))
 
         if len(params) > 0:
             return_value = method.handler(*params)
         else:
             return_value = method.handler()
+
+        for _ in range(len(method.parameter_types)):
+            context.evaluation_stack.pop()
+
         if method.return_type is not None:
             context.evaluation_stack.push(engine._native_to_stackitem(return_value, type(return_value)))
 
