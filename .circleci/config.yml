@@ -113,8 +113,7 @@ workflows:
           type: approval
           filters:
             branches:
-              only:
-                - master
+              ignore: /.*/
             tags:
               only: /^v\d+\.\d+\.\d+$/
       - setup-environment:
