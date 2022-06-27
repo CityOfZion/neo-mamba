@@ -900,17 +900,7 @@ class NeoToken(FungibleToken):
                     results.update({key: vm.BigInteger.zero()})
             return results
 
-        # first remove blocked candidates
-        to_remove = []
-        policy = contracts.PolicyContract()
-        for c in candidates:
-            if policy.is_blocked(snapshot, to_script_hash(contracts.Contract.create_signature_redeemscript(c[0]))):
-                to_remove.append(c)
-
-        for c in to_remove:
-            candidates.remove(c)
-
-        # now sort by votes descending, then by ECPoint ascending
+        # sort by votes descending, then by ECPoint ascending
         # we negate the value of the votes (c[1]) such that they get sorted in descending order
         candidates.sort(key=lambda c: (-c[1], c[0]))
         trimmed_candidates = candidates[:len(settings.standby_committee)]
@@ -923,9 +913,12 @@ class NeoToken(FungibleToken):
                         snapshot: storage.Snapshot) -> \
             List[Tuple[cryptography.ECPoint, vm.BigInteger]]:
         self._candidates = []
+        policy = contracts.PolicyContract()
         for k, v in snapshot.storages.find(self.key_candidate.to_array()):
             candidate = _CandidateState.deserialize_from_bytes(v.value)
-            if candidate.registered:
+            pubkey = cryptography.ECPoint.deserialize_from_bytes(k.value[1:])
+            candidate_hash = to_script_hash(contracts.Contract.create_signature_redeemscript(pubkey))
+            if candidate.registered and not policy.is_blocked(snapshot, candidate_hash):
                 # take of the CANDIDATE prefix
                 point = cryptography.ECPoint.deserialize_from_bytes(k.key[1:])
                 self._candidates.append((point, candidate.votes))
