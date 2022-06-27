@@ -2,6 +2,7 @@ import logging
 import json
 import importlib
 import binascii
+from enum import Enum, auto
 from typing import List
 from types import SimpleNamespace
 from neo3.core import cryptography
@@ -46,11 +47,22 @@ class IndexableNamespace(SimpleNamespace):
     def __getitem__(self, key):
         return self.__dict__[key]
 
+    def __contains__(self, key):
+        try:
+            self.__dict__[key]
+            return True
+        except KeyError:
+            return False
+
     def get(self, key, default=None):
         try:
             return self.__dict__[key]
         except KeyError:
             return default
+
+
+class HardFork(Enum):
+    HF_2712_FIX_SYSCALL_FEES = auto()
 
 
 class Settings(IndexableNamespace):
@@ -62,7 +74,10 @@ class Settings(IndexableNamespace):
             'account_version': 53,
             'seedlist': [],
             'validators_count': 1,
-            'standby_committee': ['02158c4a4810fa2a6a12f7d33d835680429e1a68ae61161c5b3fbc98c7f1f17765']
+            'standby_committee': ['02158c4a4810fa2a6a12f7d33d835680429e1a68ae61161c5b3fbc98c7f1f17765'],
+            'hardforks': {
+                HardFork.HF_2712_FIX_SYSCALL_FEES.name: 2000000
+            }
         },
         'storage': {
             'use_default': True,

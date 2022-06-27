@@ -261,7 +261,7 @@ class RuntimeInteropTestCase(unittest.TestCase):
 
     def test_contract_create_standard_account(self):
         keypair = cryptography.KeyPair(b'\x01' * 32)
-        engine = test_engine()
+        engine = test_engine(has_snapshot=True)
         engine.push(vm.ByteStringStackItem(keypair.public_key.to_array()))
         engine.invoke_syscall_by_name("System.Contract.CreateStandardAccount")
         engine.execute()
