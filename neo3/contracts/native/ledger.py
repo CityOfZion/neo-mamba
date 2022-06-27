@@ -61,7 +61,7 @@ class LedgerContract(NativeContract):
     @register("getTransactionSigners", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
     def get_tx_signers(self, snapshot: storage.Snapshot, hash_: types.UInt256) -> Optional[payloads.Signer]:
         tx = snapshot.transactions.try_get(hash_)
-        if tx is None:
+        if tx is None or not self._is_traceable_block(snapshot, tx.block_height):
             return None
         else:
             return tx.signers
