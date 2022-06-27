@@ -115,6 +115,8 @@ workflows:
             branches:
               only:
                 - master
+            tags:
+              only: /^v\d+\.\d+\.\d+$/
       - setup-environment:
           requires:
             - approve-update
