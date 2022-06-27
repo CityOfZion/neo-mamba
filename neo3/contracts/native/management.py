@@ -89,6 +89,9 @@ class ManagementContract(NativeContract):
         sb.emit_push(parsed_manifest.name)
         hash_ = to_script_hash(sb.to_array())
 
+        if contracts.PolicyContract().is_blocked(engine.snapshot, hash_):
+            raise ValueError(f"Contract {hash_} is blocked by the policy contract")
+
         existing_contract = engine.snapshot.contracts.try_get(hash_)
         if existing_contract is not None:
             raise ValueError("Contract already exists")
@@ -131,6 +134,9 @@ class ManagementContract(NativeContract):
         contract = engine.snapshot.contracts.try_get(engine.calling_scripthash, read_only=False)
         if contract is None:
             raise ValueError("Can't find contract to update")
+
+        if contract.update_counter == 0xFFFF:
+            raise ValueError("Maximum contract updates reached")
 
         if nef_file is not None:
             if nef_len == 0:
@@ -178,6 +184,8 @@ class ManagementContract(NativeContract):
 
         for key, _ in engine.snapshot.storages.find(contract.id.to_bytes(4, 'little', signed=True)):
             engine.snapshot.storages.delete(key)
+
+        contracts.PolicyContract()._block_account_internal(engine.snapshot, hash_)
 
         msgrouter.interop_notify(self.hash,
                                  "Destroy",
