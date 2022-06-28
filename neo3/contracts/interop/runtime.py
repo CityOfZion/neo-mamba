@@ -113,7 +113,7 @@ def get_notifications(engine: contracts.ApplicationEngine, for_hash: types.UInt1
             notification_stackitem.append([
                 vm.ByteStringStackItem(notification[1].to_array()),  # script_hash
                 vm.ByteStringStackItem(notification[2]),  # message
-                notification[3].deep_copy()  # state
+                notification[3].deep_copy(False)  # state
             ])
             array.append(notification_stackitem)
     if len(array) > engine.MAX_STACK_SIZE:
