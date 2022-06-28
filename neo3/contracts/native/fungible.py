@@ -622,7 +622,7 @@ class NeoToken(FungibleToken):
                 new_value = old_value - account_state.balance
             si_voters_count.value = new_value.to_array()
 
-        self._distribute_gas(engine, account, account_state)
+        pair = self._calculate_gas_to_distribute(engine, account, account_state)
 
         if not account_state.vote_to.is_zero():
             sk_validator = self.key_candidate + account_state.vote_to
@@ -641,6 +641,8 @@ class NeoToken(FungibleToken):
             candidate_state.votes += account_state.balance
         self._candidates_dirty = True
 
+        if pair is not None:
+            GasToken().mint(engine, pair[0], pair[1], True)
         return True
 
     @register("getCandidates", contracts.CallFlags.READ_STATES, cpu_price=1 << 22)
@@ -728,17 +730,19 @@ class NeoToken(FungibleToken):
         """
         return int(vm.BigInteger(snapshot.storages.get(self.key_register_price, read_only=True).value))
 
-    def _distribute_gas(self,
-                        engine: contracts.ApplicationEngine,
-                        account: types.UInt160,
-                        state: _NeoTokenStorageState) -> None:
+    def _calculate_gas_to_distribute(self,
+                                     engine: contracts.ApplicationEngine,
+                                     account: types.UInt160,
+                                     state: _NeoTokenStorageState) -> Optional[Tuple[types.UInt160, vm.BigInteger]]:
         if engine.snapshot.persisting_block is None:
-            return
+            return None
 
         gas = self._calculate_bonus(engine.snapshot, state.vote_to, state.balance, state.balance_height,
                                     engine.snapshot.persisting_block.index)
         state.balance_height = engine.snapshot.persisting_block.index
-        GasToken().mint(engine, account, gas, True)
+        if gas == vm.BigInteger.zero():
+            return None
+        return account, gas
 
     @register("getCommittee", contracts.CallFlags.READ_STATES, cpu_price=1 << 16)
     def get_committee(self, snapshot: storage.Snapshot) -> List[cryptography.ECPoint]:
@@ -763,7 +767,15 @@ class NeoToken(FungibleToken):
                             account: types.UInt160,
                             state,
                             amount: vm.BigInteger) -> None:
-        self._distribute_gas(engine, account, state)
+        pair = self._calculate_gas_to_distribute(engine, account, state)
+        if pair is not None:
+            if engine.current_context.extra_data is None:
+                engine.current_context.extra_data = [pair]
+            elif isinstance(engine.current_context.extra_data, list):
+                engine.current_context.extra_data.append(pair)
+            else:
+                raise ValueError(f"Unexpected 'extra_data field' type: {type(engine.current_context.extra_data)} "
+                                 f"expected: list")
 
         if amount == vm.BigInteger.zero():
             return
@@ -956,6 +968,22 @@ class NeoToken(FungibleToken):
 
     def _to_uint32(self, value: int) -> bytes:
         return struct.pack(">I", value)
+
+    def _post_transfer(self,
+                       engine: contracts.ApplicationEngine,
+                       account_from: types.UInt160,
+                       account_to: types.UInt160,
+                       amount: vm.BigInteger,
+                       data: vm.StackItem,
+                       call_on_payment: bool) -> None:
+        super(NeoToken, self)._post_transfer(engine, account_from, account_to, amount, data, call_on_payment)
+        gas_distribution_pairs = engine.current_context.extra_data
+
+        # basic check that we're at least dealing with a list. Shouldn't be necessary
+        if isinstance(gas_distribution_pairs, list):
+            GAS = GasToken()
+            for pair in gas_distribution_pairs:
+                GAS.mint(engine, pair[0], pair[1], call_on_payment)
 
 
 class GasToken(FungibleToken):
