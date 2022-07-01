@@ -39,7 +39,7 @@ def get_callflags(engine: contracts.ApplicationEngine) -> contracts.CallFlags:
 def contract_create_standard_account(engine: contracts.ApplicationEngine,
                                      public_key: cryptography.ECPoint) -> types.UInt160:
     fee = 1 << 8
-    if engine._is_hardfork_enabled(HardFork.HF_2712_FIX_SYSCALL_FEES):
+    if engine._is_hardfork_enabled(HardFork.HF_ASPIDOCHELONE):
         fee = CHECKSIG_PRICE
     engine.add_gas(fee * engine.exec_fee_factor)
     return to_script_hash(contracts.Contract.create_signature_redeemscript(public_key))
@@ -50,7 +50,7 @@ def contract_create_multisigaccount(engine: contracts.ApplicationEngine,
                                     m: int,
                                     public_keys: List[cryptography.ECPoint]) -> types.UInt160:
     fee = 1 << 8
-    if engine._is_hardfork_enabled(HardFork.HF_2712_FIX_SYSCALL_FEES):
+    if engine._is_hardfork_enabled(HardFork.HF_ASPIDOCHELONE):
         fee = CHECKSIG_PRICE * len(public_keys)
     engine.add_gas(fee * engine.exec_fee_factor)
     return to_script_hash(contracts.Contract.create_multisig_redeemscript(m, public_keys))

@@ -56,6 +56,9 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
             nonce ^= int.from_bytes(self.nonce_data, "little", signed=False)
             self.nonce_data = nonce.to_bytes(16, "little")
 
+        # counter for seeding System.Runtime.GetRandom
+        self._random_times = 0
+
         from neo3.contracts import interop
         self.interop = interop
 
