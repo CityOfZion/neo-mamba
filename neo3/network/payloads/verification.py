@@ -139,7 +139,6 @@ class Signer(serialization.ISerializable, IJson, IInteroperable):
 
     def to_stack_item(self) -> vm.StackItem:
         items: List[vm.StackItem] = []
-        items.append(vm.ByteStringStackItem(self.to_array()))
         items.append(vm.ByteStringStackItem(self.account.to_array()))
         items.append(vm.IntegerStackItem(self.scope.value))
 
