@@ -62,7 +62,7 @@ class IndexableNamespace(SimpleNamespace):
 
 
 class HardFork(Enum):
-    HF_2712_FIX_SYSCALL_FEES = auto()
+    HF_ASPIDOCHELONE = auto()
 
 
 class Settings(IndexableNamespace):
@@ -76,7 +76,7 @@ class Settings(IndexableNamespace):
             'validators_count': 1,
             'standby_committee': ['02158c4a4810fa2a6a12f7d33d835680429e1a68ae61161c5b3fbc98c7f1f17765'],
             'hardforks': {
-                HardFork.HF_2712_FIX_SYSCALL_FEES.name: 2000000
+                HardFork.HF_ASPIDOCHELONE.name: 2000000
             }
         },
         'storage': {

@@ -1,6 +1,6 @@
 from __future__ import annotations
 import mmh3  # type: ignore
-from neo3 import vm, contracts, settings
+from neo3 import vm, contracts, settings, HardFork
 from neo3.core import cryptography, IInteroperable, types, msgrouter, to_script_hash
 from neo3.contracts.interop import register
 
@@ -20,10 +20,19 @@ def get_network(engine: contracts.ApplicationEngine) -> str:
     return settings.network.magic
 
 
-@register("System.Runtime.GetRandom", 1 << 4, contracts.CallFlags.NONE)
+@register("System.Runtime.GetRandom", 0, contracts.CallFlags.NONE)
 def get_random(engine: contracts.ApplicationEngine) -> int:
-    engine.nonce_data = mmh3.hash_bytes(engine.nonce_data, settings.network.magic)
-    return int.from_bytes(engine.nonce_data, "little", signed=False)
+    if engine._is_hardfork_enabled(HardFork.HF_ASPIDOCHELONE):
+        buffer = mmh3.hash_bytes(engine.nonce_data, settings.network.magic + engine._random_times)
+        engine._random_times += 1
+        price = 1 << 13
+    else:
+        buffer = mmh3.hash_bytes(engine.nonce_data, settings.network.magic + engine._random_times)
+        engine.nonce_data = buffer
+        price = 1 << 4
+
+    engine.add_gas(price * engine.exec_fee_factor)
+    return int.from_bytes(buffer, "little", signed=False)
 
 
 @register("System.Runtime.GetTrigger", 1 << 3, contracts.CallFlags.NONE)

@@ -2,7 +2,7 @@ import unittest
 import hashlib
 from typing import List
 
-from neo3 import vm, contracts, storage, blockchain, settings
+from neo3 import vm, contracts, storage, blockchain, settings, HardFork
 from neo3.core.serialization import BinaryReader, BinaryWriter
 from neo3.network import payloads
 from neo3.contracts import syscall_name_to_int
@@ -35,6 +35,10 @@ class TestIVerifiable(payloads.IVerifiable):
 
 
 class RuntimeInteropTestCase(unittest.TestCase):
+    @classmethod
+    def tearDownClass(cls) -> None:
+        settings.reset_settings_to_default()
+
     def shortDescription(self):
         # disable docstring printing in test runner
         return None
@@ -505,8 +509,9 @@ class RuntimeInteropTestCase(unittest.TestCase):
         self.assertEqual("Notify event name length (33) exceeds maximum allowed (32)", str(context.exception))
 
     def test_get_random_same_block(self):
-        # tests taken from https://github.com/neo-project/neo/blob/2040537350c889562085505f104479a25a5ec5aa/tests/neo.UnitTests/SmartContract/UT_ApplicationEngine.Runtime.cs#L15
+        # tests taken from https://github.com/neo-project/neo/blob/2f1b4df52e05b55fc58dfe00eede08ad2aca6960/tests/neo.UnitTests/SmartContract/UT_ApplicationEngine.Runtime.cs#L59
         settings.reset_settings_to_default()
+        settings.network.magic = 860833102
         raw = bytes.fromhex("0000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000001000112010000")
         tx = payloads.Transaction.deserialize_from_bytes(raw)
 
@@ -516,11 +521,13 @@ class RuntimeInteropTestCase(unittest.TestCase):
         snapshot = blockchain.Blockchain(store_genesis_block=True).currentSnapshot
         engine1 = contracts.ApplicationEngine(contracts.TriggerType.APPLICATION, tx, snapshot, 0, test_mode=True)
         engine1.load_script(vm.Script(b'\x01'))
+        engine1.snapshot.persisting_block.header.index = settings.network.hardforks[HardFork.HF_ASPIDOCHELONE.name]
 
         blockchain.Blockchain.__it__ = None
         snapshot = blockchain.Blockchain(store_genesis_block=True).currentSnapshot
         engine2 = contracts.ApplicationEngine(contracts.TriggerType.APPLICATION, tx, snapshot, 0, test_mode=True)
         engine2.load_script(vm.Script(b'\x01'))
+        engine2.snapshot.persisting_block.header.index = settings.network.hardforks[HardFork.HF_ASPIDOCHELONE.name]
 
         rand1 = engine1.invoke_syscall_by_name("System.Runtime.GetRandom")
         rand2 = engine1.invoke_syscall_by_name("System.Runtime.GetRandom")
@@ -534,11 +541,11 @@ class RuntimeInteropTestCase(unittest.TestCase):
         rand9 = engine2.invoke_syscall_by_name("System.Runtime.GetRandom")
         rand10 = engine2.invoke_syscall_by_name("System.Runtime.GetRandom")
 
-        self.assertEqual(225932872514876835587448704843370203748, rand1)
-        self.assertEqual(190129535548110356450238097068474508661, rand2)
-        self.assertEqual(48930406787011198493485648810190184269, rand3)
-        self.assertEqual(66199389469641263539889463157823839112, rand4)
-        self.assertEqual(217172703763162599519098299724476526911, rand5)
+        self.assertEqual(271339657438512451304577787170704246350, rand1)
+        self.assertEqual(98548189559099075644778613728143131367, rand2)
+        self.assertEqual(247654688993873392544380234598471205121, rand3)
+        self.assertEqual(291082758879475329976578097236212073607, rand4)
+        self.assertEqual(247152297361212656635216876565962360375, rand5)
 
         self.assertEqual(rand1, rand6)
         self.assertEqual(rand2, rand7)
