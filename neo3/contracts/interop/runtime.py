@@ -104,7 +104,7 @@ def do_notify(engine: contracts.ApplicationEngine, event_name: bytes, state: vm.
     msgrouter.interop_notify(engine.current_scripthash, event_name.decode('utf-8'), state)
 
 
-@register("System.Runtime.GetNotifications", 1 << 8, contracts.CallFlags.NONE)
+@register("System.Runtime.GetNotifications", 1 << 12, contracts.CallFlags.NONE)
 def get_notifications(engine: contracts.ApplicationEngine, for_hash: types.UInt160) -> vm.ArrayStackItem:
     array = vm.ArrayStackItem()
     for notification in engine.notifications:
