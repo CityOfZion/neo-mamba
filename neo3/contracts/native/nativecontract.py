@@ -82,7 +82,7 @@ class NativeContract(_Singleton):
         for pair in inspect.getmembers(self, lambda m: hasattr(m, "native_call")):
             methods_meta.append(_NativeMethodMeta(pair[1]))
 
-        methods_meta.sort(key=lambda x: (x.descriptor.name, len(x.descriptor.parameters)))
+        methods_meta.sort(key=lambda x: (x.descriptor.name.lower(), len(x.descriptor.parameters)))
 
         sb = vm.ScriptBuilder()
         for meta in methods_meta:
