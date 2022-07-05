@@ -275,16 +275,7 @@ class CachedBlockAccess(CachedAccess):
         return None
 
 
-# It is currently unclear why these do not persist when they're class attributes to CachedContractAccess
-# Keeping them here for the time being
-_gas_token_contract_state = None
-_neo_token_contract_state = None
-
-
 class CachedContractAccess(CachedAccess):
-    _gas_token_script_hash = types.UInt160.from_string("d2a4cff31913016155e38e474a2c06d08be276cf")
-    _neo_token_script_hash = types.UInt160.from_string("ef4073a0f2b305a38ec4050e4d3d28bc40ea63f5")
-
     def __init__(self, db):
         super(CachedContractAccess, self).__init__(db)
         self._internal_get = self._db._internal_contract_get
@@ -310,15 +301,6 @@ class CachedContractAccess(CachedAccess):
         Raises:
             KeyError: if the item is not found.
         """
-        global _gas_token_contract_state, _neo_token_contract_state
-        if hash == self._gas_token_script_hash:
-            if _gas_token_contract_state is None:
-                _gas_token_contract_state = super(CachedContractAccess, self)._get(hash, read_only)
-            return _gas_token_contract_state
-        elif hash == self._neo_token_script_hash:
-            if _neo_token_contract_state is None:
-                _neo_token_contract_state = super(CachedContractAccess, self)._get(hash, read_only)
-            return _neo_token_contract_state
         return super(CachedContractAccess, self)._get(hash, read_only)
 
     def try_get(self, hash: types.UInt160, read_only=False) -> Optional[contracts.ContractState]:
@@ -710,6 +692,9 @@ class CloneBlockCache(CachedBlockAccess):
                 self._dictionary.pop(key)
         self._changeset.clear()
 
+    def create_snapshot(self):
+        return CloneBlockCache(self._db, self)
+
 
 class CloneContractCache(CachedContractAccess):
     def __init__(self, db, inner_cache: CachedContractAccess):
@@ -752,6 +737,9 @@ class CloneContractCache(CachedContractAccess):
             with suppress(KeyError):
                 self._dictionary.pop(key)
         self._changeset.clear()
+
+    def create_snapshot(self):
+        return CloneContractCache(self._db, self)
 
 
 class CloneStorageCache(CachedStorageAccess):
@@ -799,6 +787,9 @@ class CloneStorageCache(CachedStorageAccess):
             with suppress(KeyError):
                 self._dictionary.pop(key)
         self._changeset.clear()
+
+    def create_snapshot(self):
+        return CloneStorageCache(self._db, self)
 
 
 class CloneTXCache(CachedTXAccess):
@@ -850,6 +841,9 @@ class CloneTXCache(CachedTXAccess):
                 self._dictionary.pop(key)
         self._changeset.clear()
 
+    def create_snapshot(self):
+        return CloneTXCache(self._db, self)
+
 
 class CloneAttributeCache(AttributeCache):
     def __init__(self, inner_cache: AttributeCache):
@@ -861,3 +855,6 @@ class CloneAttributeCache(AttributeCache):
 
     def _update_internal(self, value):
         self._inner_cache.put(value)
+
+    def create_snapshot(self) -> CloneAttributeCache:
+        return CloneAttributeCache(self)
