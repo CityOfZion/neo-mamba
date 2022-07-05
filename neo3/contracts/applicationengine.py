@@ -314,6 +314,8 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
                     s.commit()
                     if self.current_context is not None:
                         self.current_context.notification_count += ctx.notification_count
+                        if ctx.push_on_return:
+                            self.push(vm.NullStackItem())
             else:
                 if ctx.notification_count > 0:
                     self.notifications = self.notifications[:-ctx.notification_count]
