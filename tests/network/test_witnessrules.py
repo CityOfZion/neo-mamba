@@ -47,6 +47,10 @@ class WitnessRuleTestCase(unittest.TestCase):
 
 
 class ConditionsTestCase(unittest.TestCase):
+    def shortDescription(self):
+        # disable docstring printing in test runner
+        return None
+
     def test_and(self):
         """
         var c = new AndCondition

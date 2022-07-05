@@ -693,7 +693,7 @@ class CloneBlockCache(CachedBlockAccess):
         self._changeset.clear()
 
     def create_snapshot(self):
-        return CloneBlockCache(self._db, self.inner_cache)
+        return CloneBlockCache(self._db, self)
 
 
 class CloneContractCache(CachedContractAccess):
@@ -739,7 +739,7 @@ class CloneContractCache(CachedContractAccess):
         self._changeset.clear()
 
     def create_snapshot(self):
-        return CloneContractCache(self._db, self.inner_cache)
+        return CloneContractCache(self._db, self)
 
 
 class CloneStorageCache(CachedStorageAccess):
@@ -789,7 +789,8 @@ class CloneStorageCache(CachedStorageAccess):
         self._changeset.clear()
 
     def create_snapshot(self):
-        return CloneStorageCache(self._db, self.inner_cache)
+        return CloneStorageCache(self._db, self)
+
 
 class CloneTXCache(CachedTXAccess):
     def __init__(self, db, inner_cache: CachedTXAccess):
@@ -841,7 +842,7 @@ class CloneTXCache(CachedTXAccess):
         self._changeset.clear()
 
     def create_snapshot(self):
-        return CloneTXCache(self._db, self.inner_cache)
+        return CloneTXCache(self._db, self)
 
 
 class CloneAttributeCache(AttributeCache):
@@ -856,4 +857,4 @@ class CloneAttributeCache(AttributeCache):
         self._inner_cache.put(value)
 
     def create_snapshot(self) -> CloneAttributeCache:
-        return CloneAttributeCache(self._inner_cache)
+        return CloneAttributeCache(self)

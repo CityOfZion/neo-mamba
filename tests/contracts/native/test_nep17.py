@@ -352,7 +352,7 @@ class Nep5TestCase(unittest.TestCase):
         manifest = contracts.ContractManifest("contract_name_to")
         manifest.abi.methods.append(contracts.ContractMethodDescriptor("fake_method", 0, [], contracts.ContractParameterType.VOID, True))
         nef = contracts.NEF(script=b'\x40')
-        state_to = contracts.ContractState(1, nef, manifest, 0, contract_hash(types.UInt160.zero(), nef.checksum, manifest.name))
+        state_to = contracts.ContractState(2, nef, manifest, 0, contract_hash(types.UInt160.zero(), nef.checksum, manifest.name))
         account_to = state_to.hash
 
         account_from = types.UInt160(b'\x01' * 20)
