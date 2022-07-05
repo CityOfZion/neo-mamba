@@ -520,6 +520,34 @@ class AbstractContractStorageTest(abc.ABC, unittest.TestCase):
         # the following test fails
         self.assertEqual(self.contract1_hash, contract_again.hash)
 
+    def test_snapshot_clone_of_clone_put(self):
+        raw_view = self.db.get_rawview()
+        snapshot_view = self.db.get_snapshotview()
+        snapshot_view.contracts.put(self.contract1)
+
+        clone_view = snapshot_view.clone()
+        clone_of_clone_view = clone_view.clone()
+        self.assertEqual(self.contract1, clone_view.contracts.try_get(self.contract1_hash))
+        self.assertEqual(self.contract1, clone_of_clone_view.contracts.try_get(self.contract1_hash))
+
+        clone_of_clone_view.contracts.put(self.contract2)
+        self.assertIsNone(raw_view.contracts.try_get(self.contract2_hash))
+        self.assertIsNone(snapshot_view.contracts.try_get(self.contract2_hash))
+        self.assertIsNone(clone_view.contracts.try_get(self.contract2_hash))
+        self.assertEqual(self.contract2, clone_of_clone_view.contracts.try_get(self.contract2_hash))
+
+        clone_of_clone_view.commit()
+        self.assertIsNone(raw_view.contracts.try_get(self.contract2_hash))
+        self.assertIsNone(snapshot_view.contracts.try_get(self.contract2_hash))
+        self.assertEqual(self.contract2, clone_view.contracts.try_get(self.contract2_hash))
+
+        clone_view.commit()
+        self.assertIsNone(raw_view.contracts.try_get(self.contract2_hash))
+        self.assertEqual(self.contract2, snapshot_view.contracts.try_get(self.contract2_hash))
+
+        snapshot_view.commit()
+        self.assertEqual(self.contract2, raw_view.contracts.try_get(self.contract2_hash))
+
     def test_snapshot_clone_put(self):
         raw_view = self.db.get_rawview()
         snapshot_view = self.db.get_snapshotview()

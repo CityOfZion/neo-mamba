@@ -1,7 +1,7 @@
 from __future__ import annotations
 from neo3 import contracts, storage, vm, HardFork, settings
 from neo3.network import payloads
-from neo3.core import types, cryptography, IInteroperable, serialization, to_script_hash
+from neo3.core import types, cryptography, IInteroperable, serialization, to_script_hash, msgrouter
 from typing import Any, Dict, cast, List, Tuple, Type, Optional, Union
 import enum
 from contextlib import suppress
@@ -28,7 +28,7 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
         # https://pybind11.readthedocs.io/en/master/advanced/classes.html#overriding-virtual-functions-in-python
         vm.ApplicationEngineCpp.__init__(self, test_mode)
         #: A ledger snapshot to use for syscalls such as "System.Blockchain.GetHeight".
-        self.snapshot = snapshot
+        self.original_snapshot = snapshot
         #: The trigger to run the engine with.
         self.trigger = trigger
         #: A flag to toggle infinite gas
@@ -51,7 +51,7 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
             self.nonce_data = self.script_container.hash().to_array()[:16]
         else:
             self.nonce_data = b'\x00' * 16
-        if self.snapshot is not None and self.snapshot.persisting_block is not None:
+        if self.original_snapshot is not None and self.snapshot.persisting_block is not None:
             nonce = self.snapshot.persisting_block.nonce
             nonce ^= int.from_bytes(self.nonce_data, "little", signed=False)
             self.nonce_data = nonce.to_bytes(16, "little")
@@ -97,6 +97,14 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
         if len(self.entry_context.scripthash_bytes) == 0:
             return to_script_hash(self.entry_context.script._value)
         return types.UInt160(self.entry_context.scripthash_bytes)
+
+    @property
+    def snapshot(self) -> storage.Snapshot:
+        if self.current_context is None or self.current_context.snapshot is None:
+            return self.original_snapshot
+        else:
+            s = cast(storage.Snapshot, self.current_context.snapshot)
+            return s
 
     def checkwitness(self, hash_: types.UInt160) -> bool:
         """
@@ -264,6 +272,15 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
             args.append(self.pop())
         return self._contract_call_internal(token.hash, token.method, token.call_flags, token.has_return_value, args)
 
+    def load_script(self, script, rvcount=-1, initial_position=0):
+
+        current_snapshot = None
+        if self.snapshot is not None:
+            current_snapshot = self.snapshot.clone()
+        context = super(ApplicationEngine, self).load_script(script, rvcount, initial_position)
+        context.snapshot = current_snapshot
+        return context
+
     def load_script_with_callflags(self,
                                    script: vm.Script,
                                    call_flags: contracts.CallFlags,
@@ -273,12 +290,13 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
         if override_hash is None:
             context = super(ApplicationEngine, self).load_script(script, rvcount, initial_position)
         else:
+            current_snapshot = self.snapshot.clone()
             context = super(ApplicationEngine, self).load_script_override(script,
                                                                           override_hash.to_array(),
                                                                           rvcount,
                                                                           initial_position
                                                                           )
-
+            context.snapshot = current_snapshot
         context.call_flags = int(call_flags)
         return context
 
@@ -288,6 +306,26 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
             self._execute_next()
         if self.state == vm.VMState.FAULT:
             raise ValueError(f"Call from native contract failed: {self.exception_message}")
+
+    def context_unloaded(self, ctx: vm.ExecutionContext):
+        super(ApplicationEngine, self).context_unloaded(ctx)
+
+        if self.current_context is None or self.current_context.script != ctx.script:
+            if self.uncaught_exception is None:
+                if ctx.snapshot is not None:
+                    s = cast(storage.Snapshot, ctx.snapshot)
+                    s.commit()
+                    if self.current_context is not None:
+                        self.current_context.notification_count += ctx.notification_count
+                        if ctx.push_on_return:
+                            self.push(vm.NullStackItem())
+            else:
+                if ctx.notification_count > 0:
+                    self.notifications = self.notifications[:-ctx.notification_count]
+
+    def _send_notification(self, contract_hash: types.UInt160, event_name: str, state: vm.ArrayStackItem) -> None:
+        msgrouter.interop_notify(contract_hash, event_name, state)
+        self.current_context.notification_count += 1
 
     def _contract_call_internal(self,
                                 contract_hash: types.UInt160,

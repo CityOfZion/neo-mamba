@@ -24,10 +24,12 @@ def contract_call(engine: contracts.ApplicationEngine,
         raise ValueError(f"[System.Contract.Call] Method '{method}' does not exist on target contract")
 
     has_return_value = method_descriptor.return_type != contracts.ContractParameterType.VOID
-    if not has_return_value:
-        engine.current_context.evaluation_stack.push(vm.NullStackItem())
 
-    engine._contract_call_internal2(target_contract, method_descriptor, call_flags, has_return_value, list(args))
+    context = engine._contract_call_internal2(target_contract, method_descriptor, call_flags, has_return_value,
+                                              list(args))
+
+    if not has_return_value:
+        context.push_on_return = True
 
 
 @register("System.Contract.GetCallFlags", 1 << 10, contracts.CallFlags.NONE)

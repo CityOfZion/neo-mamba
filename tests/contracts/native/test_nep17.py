@@ -115,7 +115,7 @@ class Nep5TestCase(unittest.TestCase):
 
         """
             Drop the below in a test in UT_NativeContract.cs and change ProtocolSettings.cs to
-            * have a ValidatorsCount of 1 
+            * have a ValidatorsCount of 1
             * and the StandbyCommittee should be: 02158c4a4810fa2a6a12f7d33d835680429e1a68ae61161c5b3fbc98c7f1f17765
 
             var snapshot = Blockchain.Singleton.GetSnapshot();
@@ -203,6 +203,7 @@ class Nep5TestCase(unittest.TestCase):
 
         nef = contracts.NEF(script=sb.to_array())
         manifest = contracts.ContractManifest("test_contract")
+        manifest.abi.methods.append(contracts.ContractMethodDescriptor('test_func', 0, [], contracts.ContractParameterType.VOID, True))
         contract_state = contracts.ContractState(1, nef, manifest, 0, contract_hash(from_account, nef.checksum, manifest.name))
         engine.snapshot.contracts.put(contract_state)
         return engine
@@ -349,8 +350,9 @@ class Nep5TestCase(unittest.TestCase):
         gas = contracts.GasToken()
 
         manifest = contracts.ContractManifest("contract_name_to")
+        manifest.abi.methods.append(contracts.ContractMethodDescriptor("fake_method", 0, [], contracts.ContractParameterType.VOID, True))
         nef = contracts.NEF(script=b'\x40')
-        state_to = contracts.ContractState(1, nef, manifest, 0, contract_hash(types.UInt160.zero(), nef.checksum, manifest.name))
+        state_to = contracts.ContractState(2, nef, manifest, 0, contract_hash(types.UInt160.zero(), nef.checksum, manifest.name))
         account_to = state_to.hash
 
         account_from = types.UInt160(b'\x01' * 20)
