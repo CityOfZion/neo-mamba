@@ -334,7 +334,7 @@ class _CandidateState(serialization.ISerializable):
     """
 
     def __init__(self):
-        self.registered = True
+        self.registered = False
         self.votes = vm.BigInteger.zero()
 
     def __len__(self):
@@ -481,6 +481,26 @@ class NeoToken(FungibleToken):
         self.total_amount = self.factor * 100_000_000
         self._committee_state = None
 
+        self.manifest.abi.events = [
+            contracts.ContractEventDescriptor(
+                "CandidateStateChanged",
+                parameters=[
+                    contracts.ContractParameterDefinition("pubkey", contracts.ContractParameterType.PUBLICKEY),
+                    contracts.ContractParameterDefinition("registered", contracts.ContractParameterType.BOOLEAN),
+                    contracts.ContractParameterDefinition("votes", contracts.ContractParameterType.INTEGER),
+                ]
+            ),
+            contracts.ContractEventDescriptor(
+                "Vote",
+                parameters=[
+                    contracts.ContractParameterDefinition("account", contracts.ContractParameterType.HASH160),
+                    contracts.ContractParameterDefinition("from", contracts.ContractParameterType.PUBLICKEY),
+                    contracts.ContractParameterDefinition("to", contracts.ContractParameterType.PUBLICKEY),
+                    contracts.ContractParameterDefinition("votes", contracts.ContractParameterType.INTEGER),
+                ]
+            )
+        ]
+
     def _initialize(self, engine: contracts.ApplicationEngine) -> None:
         # NEO's native contract initialize. Is called upon contract deploy
 
@@ -527,7 +547,7 @@ class NeoToken(FungibleToken):
             public_key: the candidate's public key
 
         Returns:
-            True is succesfully registered. False otherwise.
+            True is successfully registered. False otherwise.
         """
         script_hash = to_script_hash(contracts.Contract.create_signature_redeemscript(public_key))
         if not engine.checkwitness(script_hash):
@@ -536,6 +556,7 @@ class NeoToken(FungibleToken):
         engine.add_gas(self.get_register_price(engine.snapshot))
         storage_key = self.key_candidate + public_key
         storage_item = engine.snapshot.storages.try_get(storage_key, read_only=False)
+        emit_event = True
         if storage_item is None:
             state = _CandidateState()
             state.registered = True
@@ -543,7 +564,17 @@ class NeoToken(FungibleToken):
             engine.snapshot.storages.put(storage_key, storage_item)
         else:
             state = storage_item.get(_CandidateState)
-            state.registered = True
+            if state.registered:
+                emit_event = False
+            else:
+                state.registered = True
+
+        if emit_event:
+            engine._send_notification(self.hash, "CandidateStateChanged", vm.ArrayStackItem([
+                vm.ByteStringStackItem(public_key.to_array()),
+                vm.BooleanStackItem(True),
+                state.votes
+            ]))
         self._candidates_dirty = True
         return True
 
@@ -558,7 +589,7 @@ class NeoToken(FungibleToken):
             public_key: the candidate's public key
 
         Returns:
-            True is succesfully removed. False otherwise.
+            True is successfully removed. False otherwise.
 
         """
         script_hash = to_script_hash(contracts.Contract.create_signature_redeemscript(public_key))
@@ -567,13 +598,23 @@ class NeoToken(FungibleToken):
 
         storage_key = self.key_candidate + public_key
         storage_item = engine.snapshot.storages.try_get(storage_key, read_only=False)
+        emit_event = True
         if storage_item is None:
             return True
         else:
             state = storage_item.get(_CandidateState)
+            if not state.registered:
+                emit_event = False
             state.registered = False
             if state.votes == 0:
                 engine.snapshot.storages.delete(storage_key)
+
+        if emit_event:
+            engine._send_notification(self.hash, "CandidateStateChanged", vm.ArrayStackItem([
+                vm.ByteStringStackItem(public_key.to_array()),
+                vm.BooleanStackItem(False),
+                state.votes
+            ]))
 
         self._candidates_dirty = True
         return True
@@ -591,7 +632,7 @@ class NeoToken(FungibleToken):
             vote_to: candidate public key
 
         Returns:
-            True is vote registered succesfully. False otherwise.
+            True is vote registered successfully. False otherwise.
         """
         if not engine.checkwitness(account):
             return False
@@ -601,6 +642,8 @@ class NeoToken(FungibleToken):
         if storage_item is None:
             return False
         account_state = storage_item.get(self._state)
+        if account_state.balance == vm.BigInteger.zero():
+            return False
 
         candidate_state = None
         if vote_to is not None:
@@ -636,11 +679,21 @@ class NeoToken(FungibleToken):
                     engine.snapshot.storages.delete(k)
                 engine.snapshot.storages.delete(sk_validator)
 
+        vote_from = account_state.vote_to
         account_state.vote_to = vote_to if vote_to else cryptography.ECPoint.deserialize_from_bytes(b'\x00')
         if candidate_state is not None:
             candidate_state.votes += account_state.balance
         self._candidates_dirty = True
 
+        from_vote = vm.ByteStringStackItem(vote_from.to_array()) if vote_from.is_zero() else vm.NullStackItem()
+        to_vote = vm.ByteStringStackItem(account_state.vote_to.to_array()) if account_state.vote_to.is_zero() else \
+            vm.NullStackItem()
+        engine._send_notification(self.hash, "Vote", vm.ArrayStackItem([
+            vm.ByteStringStackItem(account.to_array()),
+            from_vote,
+            to_vote,
+            account_state.balance
+        ]))
         if pair is not None:
             GasToken().mint(engine, pair[0], pair[1], True)
         return True
