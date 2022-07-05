@@ -345,11 +345,9 @@ class AbstractContractStorageTest(abc.ABC, unittest.TestCase):
     A helper class to easily test backend specific code
     """
 
-    # @abc.abstractmethod
+    @abc.abstractmethod
     def db_factory(self):
         """ Implement to return an instance of your DB """
-        from neo3.storage import implementations
-        return implementations.MemoryDB()
 
     def shortDescription(self):
         # disable docstring printing in test runner
@@ -528,26 +526,27 @@ class AbstractContractStorageTest(abc.ABC, unittest.TestCase):
         snapshot_view.contracts.put(self.contract1)
 
         clone_view = snapshot_view.clone()
-        clone_view.contracts.put(self.contract2)
         clone_of_clone_view = clone_view.clone()
+        self.assertEqual(self.contract1, clone_view.contracts.try_get(self.contract1_hash))
+        self.assertEqual(self.contract1, clone_of_clone_view.contracts.try_get(self.contract1_hash))
+
+        clone_of_clone_view.contracts.put(self.contract2)
+        self.assertIsNone(raw_view.contracts.try_get(self.contract2_hash))
+        self.assertIsNone(snapshot_view.contracts.try_get(self.contract2_hash))
+        self.assertIsNone(clone_view.contracts.try_get(self.contract2_hash))
+        self.assertEqual(self.contract2, clone_of_clone_view.contracts.try_get(self.contract2_hash))
 
         clone_of_clone_view.commit()
+        self.assertIsNone(raw_view.contracts.try_get(self.contract2_hash))
+        self.assertIsNone(snapshot_view.contracts.try_get(self.contract2_hash))
+        self.assertEqual(self.contract2, clone_view.contracts.try_get(self.contract2_hash))
+
         clone_view.commit()
-        # self.assertEqual(self.contract1, clone_view.contracts.try_get(self.contract1_hash))
-        # self.assertEqual(self.contract1, clone_of_clone_view.contracts.try_get(self.contract1_hash))
-        #
-        # clone_of_clone_view.contracts.put(self.contract2)
-        # self.assertIsNone(raw_view.contracts.try_get(self.contract2_hash))
-        # self.assertIsNone(snapshot_view.contracts.try_get(self.contract2_hash))
-        # self.assertIsNone(clone_view.contracts.try_get(self.contract2_hash))
-        # self.assertEqual(self.contract2, clone_of_clone_view.contracts.try_get(self.contract2_hash))
-        #
-        # clone_of_clone_view.commit()
-        # self.assertIsNone(raw_view.contracts.try_get(self.contract2_hash))
-        # self.assertEqual(self.contract2, clone_view.contracts.try_get(self.contract2_hash))
-        #
-        # clone_view.commit()
-        # self.assertEqual(self.contract2, snapshot_view.contracts.try_get(self.contract2_hash))
+        self.assertIsNone(raw_view.contracts.try_get(self.contract2_hash))
+        self.assertEqual(self.contract2, snapshot_view.contracts.try_get(self.contract2_hash))
+
+        snapshot_view.commit()
+        self.assertEqual(self.contract2, raw_view.contracts.try_get(self.contract2_hash))
 
     def test_snapshot_clone_put(self):
         raw_view = self.db.get_rawview()
