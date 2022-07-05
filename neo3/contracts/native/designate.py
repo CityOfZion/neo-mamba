@@ -80,7 +80,7 @@ class DesignationContract(NativeContract):
         state = vm.ArrayStackItem()
         state.append(vm.IntegerStackItem(role.value))
         state.append(vm.IntegerStackItem(engine.snapshot.persisting_block.index))
-        msgrouter.interop_notify(self.hash, "Designation", state)
+        engine._send_notification(self.hash, "Designation", state)
 
     def _to_uint32(self, value: int) -> bytes:
         return struct.pack(">I", value)
