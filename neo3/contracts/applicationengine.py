@@ -39,7 +39,7 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
         self.gas_amount = self.GAS_FREE + gas
         self._invocation_counter: Dict[types.UInt160, int] = {}
         #: Notifications (Notify SYSCALLs) that occured while executing the script.
-        self.notifications: List[Tuple[payloads.IVerifiable, types.UInt160, bytes, vm.ArrayStackItem]] = []
+        self.notifications: List[Tuple[payloads.IVerifiable, types.UInt160, str, vm.ArrayStackItem]] = []
         if self.snapshot is None or self.snapshot.persisting_block is None or self.snapshot.persisting_block.index == 0:
             self.exec_fee_factor = contracts.PolicyContract().DEFAULT_EXEC_FEE_FACTOR
             self.storage_price = contracts.PolicyContract().DEFAULT_STORAGE_PRICE
@@ -324,6 +324,8 @@ class ApplicationEngine(vm.ApplicationEngineCpp):
                     self.notifications = self.notifications[:-ctx.notification_count]
 
     def _send_notification(self, contract_hash: types.UInt160, event_name: str, state: vm.ArrayStackItem) -> None:
+        _state = cast(vm.ArrayStackItem, state.deep_copy(True))
+        self.notifications.append((self.script_container, contract_hash, event_name, _state))
         msgrouter.interop_notify(contract_hash, event_name, state)
         self.current_context.notification_count += 1
 

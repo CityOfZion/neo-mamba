@@ -105,10 +105,10 @@ class ManagementContract(NativeContract):
         if method_descriptor is not None:
             engine.call_from_native(self.hash, hash_, method_descriptor.name, [data, vm.BooleanStackItem(False)])
 
-        msgrouter.interop_notify(self.hash,
-                                 "Deploy",
-                                 vm.ArrayStackItem(vm.ByteStringStackItem(contract.hash.to_array()))
-                                 )
+        engine._send_notification(self.hash,
+                                  "Deploy",
+                                  vm.ArrayStackItem(vm.ByteStringStackItem(contract.hash.to_array()))
+                                  )
         return contract
 
     @register("update", contracts.CallFlags.ALL)
@@ -167,10 +167,10 @@ class ManagementContract(NativeContract):
                                     method_descriptor.name,
                                     [data, vm.BooleanStackItem(True)])
 
-        msgrouter.interop_notify(self.hash,
-                                 "Update",
-                                 vm.ArrayStackItem(vm.ByteStringStackItem(contract.hash.to_array()))
-                                 )
+        engine._send_notification(self.hash,
+                                  "Update",
+                                  vm.ArrayStackItem(vm.ByteStringStackItem(contract.hash.to_array()))
+                                  )
 
     @register("destroy", contracts.CallFlags.STATES | contracts.CallFlags.ALLOW_NOTIFY, cpu_price=1 << 15)
     def contract_destroy(self, engine: contracts.ApplicationEngine) -> None:
@@ -187,10 +187,10 @@ class ManagementContract(NativeContract):
 
         contracts.PolicyContract()._block_account_internal(engine.snapshot, hash_)
 
-        msgrouter.interop_notify(self.hash,
-                                 "Destroy",
-                                 vm.ArrayStackItem(vm.ByteStringStackItem(contract.hash.to_array()))
-                                 )
+        engine._send_notification(self.hash,
+                                  "Destroy",
+                                  vm.ArrayStackItem(vm.ByteStringStackItem(contract.hash.to_array()))
+                                  )
 
     @register("getMinimumDeploymentFee", contracts.CallFlags.READ_STATES, cpu_price=1 << 15)
     def get_minimum_deployment_fee(self, snapshot: storage.Snapshot) -> int:

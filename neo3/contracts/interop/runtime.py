@@ -109,8 +109,7 @@ def do_notify(engine: contracts.ApplicationEngine, event_name: bytes, state: vm.
             f"Notify event name length ({len(event_name)}) exceeds maximum allowed ({engine.MAX_EVENT_SIZE})")
     # will validate size + cyclic references
     contracts.BinarySerializer.serialize(state, engine.MAX_NOTIFICATION_SIZE)
-    engine.notifications.append((engine.script_container, engine.current_scripthash, event_name, state))
-    msgrouter.interop_notify(engine.current_scripthash, event_name.decode('utf-8'), state)
+    engine._send_notification(engine.current_scripthash, event_name.decode('utf-8'), state)
 
 
 @register("System.Runtime.GetNotifications", 1 << 12, contracts.CallFlags.NONE)
