@@ -119,7 +119,7 @@ class OracleContract(NativeContract):
              ]
         )
 
-        msgrouter.interop_notify(self.hash, "OracleResponse", state)
+        engine._send_notification(self.hash, "OracleResponse", state)
 
         user_data = contracts.BinarySerializer.deserialize(request.user_data,
                                                            engine.MAX_STACK_SIZE)
@@ -197,7 +197,7 @@ class OracleContract(NativeContract):
              ]
         )
 
-        msgrouter.interop_notify(self.hash, "OracleRequest", state)
+        engine._send_notification(self.hash, "OracleRequest", state)
 
     @register("verify", contracts.CallFlags.READ_ONLY, cpu_price=1 << 15)
     def _verify(self, engine: contracts.ApplicationEngine) -> bool:

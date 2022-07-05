@@ -498,7 +498,7 @@ class RuntimeInteropTestCase(unittest.TestCase):
         item = engine.notifications[0]
         self.assertIsNone(item[0])  # == engine.script_container
         self.assertEqual(engine.current_scripthash, item[1])
-        self.assertEqual(expected_message, item[2].decode())
+        self.assertEqual(expected_message, item[2])
 
     def test_runtime_notify_exceed_size(self):
         engine = test_engine()

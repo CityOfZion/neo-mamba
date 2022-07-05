@@ -271,7 +271,7 @@ class FungibleToken(NativeContract):
             state.append(vm.ByteStringStackItem(account_to.to_array()))
         state.append(vm.IntegerStackItem(amount))
 
-        msgrouter.interop_notify(self.hash, "Transfer", state)
+        engine._send_notification(self.hash, "Transfer", state)
 
         # wallet or smart contract
         if not call_on_payment \
