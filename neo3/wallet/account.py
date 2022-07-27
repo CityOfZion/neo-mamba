@@ -6,7 +6,7 @@ import unicodedata
 from typing import Optional, Dict, Any, List
 from Crypto.Cipher import AES  # type: ignore
 from jsonschema import validate  # type: ignore
-from neo3 import settings, contracts, vm, wallet, storage
+from neo3 import settings, contracts, vm, wallet
 from neo3.network import payloads
 from neo3.core import types, to_script_hash, cryptography, syscall_name_to_int
 

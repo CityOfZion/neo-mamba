@@ -1,7 +1,5 @@
 from __future__ import annotations
-
 from jsonschema import validate  # type: ignore
-
 from neo3.core import IJson
 
 

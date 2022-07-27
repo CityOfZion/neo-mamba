@@ -4,6 +4,7 @@ import hashlib
 from pybiginteger import BigInteger
 from neo3vm import ScriptBuilder as _ScriptBuilder
 from neo3vm import *
+from enum import IntEnum
 
 del globals()['ScriptBuilder']
 from neo3vm import ScriptBuilder as _ScriptBuilder
@@ -30,3 +31,10 @@ class ScriptBuilder(_ScriptBuilder):  # type: ignore
         self.emit_push(operation)
         self.emit_push(script_hash.to_array())
         self.emit_syscall(_syscall_name_to_int("System.Contract.Call"))
+
+
+class VMState(IntEnum):
+    NONE = 0
+    HALT = 1 << 0
+    FAULT = 1 << 1
+    BREAK = 1 << 2

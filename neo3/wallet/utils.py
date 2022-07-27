@@ -1,19 +1,19 @@
 from __future__ import annotations
 from neo3.network import payloads
 from neo3.core import utils as core_utils
-from neo3 import contracts, storage, vm, wallet
-from neo3.contracts.interop.crypto import CHECKSIG_PRICE
+from neo3 import contracts, vm, wallet
+CHECKSIG_PRICE = 1 << 15
 
 
-def add_system_fee(tx: payloads.Transaction, snapshot: storage.Snapshot) -> None:
+def add_system_fee(tx: payloads.Transaction, snapshot) -> None:
     tx.system_fee = calculate_system_fee(tx, snapshot)
 
 
-def add_network_fee(tx: payloads.Transaction, snapshot: storage.Snapshot, account: wallet.Account) -> None:
+def add_network_fee(tx: payloads.Transaction, snapshot, account: wallet.Account) -> None:
     tx.network_fee = calculate_network_fee(tx, snapshot, account)
 
 
-def calculate_system_fee(tx: payloads.Transaction, snapshot: storage.Snapshot) -> int:
+def calculate_system_fee(tx: payloads.Transaction, snapshot) -> int:
     engine = contracts.ApplicationEngine(contracts.TriggerType.APPLICATION, tx, snapshot, 0, test_mode=True)
     engine.load_script(vm.Script(tx.script))
     if engine.execute() == vm.VMState.FAULT:
@@ -22,7 +22,7 @@ def calculate_system_fee(tx: payloads.Transaction, snapshot: storage.Snapshot) -
         return engine.gas_consumed
 
 
-def calculate_network_fee(tx: payloads.Transaction, snapshot: storage.Snapshot, account: wallet.Account) -> int:
+def calculate_network_fee(tx: payloads.Transaction, snapshot, account: wallet.Account) -> int:
     if len(tx.signers) == 0:
         raise ValueError("Cannot calculate the network fee without a sender in the transaction.")
 

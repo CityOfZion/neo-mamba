@@ -68,12 +68,6 @@ class ContractGroup(IJson):
             raise ValueError("Format error - invalid signature length")
         return c
 
-    def to_stack_item(self) -> vm.StackItem:
-        struct = vm.StructStackItem()
-        struct.append(vm.ByteStringStackItem(self.public_key.to_array()))
-        struct.append(vm.ByteStringStackItem(self.signature))
-        return struct
-
 
 class ContractPermission(IJson):
     """
@@ -148,22 +142,6 @@ class ContractPermission(IJson):
             if len(m) == 0:
                 raise ValueError("Format error - methods cannot have length 0")
         return cls(cpd, methods)
-
-    def to_stack_item(self) -> vm.StackItem:
-        struct = vm.StructStackItem()
-        if self.contract.is_wildcard:
-            struct.append(vm.NullStackItem())
-        elif self.contract.is_hash:
-            struct.append(vm.ByteStringStackItem(self.contract.contract_hash.to_array()))  # type: ignore
-        else:
-            struct.append(vm.ByteStringStackItem(self.contract.group.to_array()))  # type: ignore
-
-        if self.methods.is_wildcard:
-            struct.append(vm.NullStackItem())
-        else:
-            struct.append(vm.ArrayStackItem(list(map(lambda m: vm.ByteStringStackItem(m),
-                                                     self.methods))))  # type: ignore
-        return struct
 
 
 class WildcardContainer(IJson):
@@ -386,37 +364,6 @@ class ContractManifest(serialization.ISerializable, IJson):
             "extra": self.extra
         }
         return json
-
-    def to_stack_item(self) -> vm.StackItem:
-        struct = vm.StructStackItem()
-        struct.append(vm.ByteStringStackItem(self.name))
-        struct.append(vm.ArrayStackItem(list(map(lambda g: g.to_stack_item(), self.groups))))
-        struct.append(vm.MapStackItem())
-        struct.append(vm.ArrayStackItem(list(map(lambda s: vm.ByteStringStackItem(s), self.supported_standards))))
-        struct.append(self.abi.to_stack_item())
-        struct.append(vm.ArrayStackItem(list(map(lambda p: p.to_stack_item(), self.permissions))))
-        if self.trusts.is_wildcard:
-            struct.append(vm.NullStackItem())
-        else:
-            struct.append(vm.ArrayStackItem(list(map(lambda t: vm.ByteStringStackItem(t.to_array()),
-                                                     self.trusts))))  # type: ignore
-        if self.extra is None:
-            struct.append(vm.ByteStringStackItem("null"))
-        else:
-            # Fix for Testnet block 579597 parity
-            # The manifest is parsed after a json.loads() of the data. json.loads() automatically converts \\u0026 to
-            # '&' and this cannot be disabled. This hack works around that behaviour
-            s = pystd_json.dumps(self.extra, separators=(',', ':'))
-            s = s.replace('&', r'\u0026')
-            # Same as above but for TestNet block 948209 parity
-            s = s.replace("'", r'\u0027')
-
-            # find \uxxxx sequences
-            p = re.compile(r'\\u[a-z0-9]{4}')
-            # uppercase the values such that the byte array matches C#
-            fixed = p.sub(lambda match: f"\\u{match.group()[2:].upper()}", s)
-            struct.append(vm.ByteStringStackItem(fixed))
-        return struct
 
     @classmethod
     def from_json(cls, json: dict):

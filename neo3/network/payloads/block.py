@@ -2,8 +2,8 @@ from __future__ import annotations
 import hashlib
 import struct
 from typing import List
-from neo3 import vm, storage, settings
-from neo3.core import Size as s, serialization, types, utils, cryptography as crypto, IClonable, IInteroperable
+from neo3 import vm, settings
+from neo3.core import Size as s, serialization, types, utils, cryptography as crypto, IClonable
 from neo3.network import payloads
 from bitarray import bitarray  # type: ignore
 from copy import deepcopy
@@ -117,7 +117,7 @@ class Header(IVerifiable):
         self.merkle_root = types.UInt256(merkleroot)
         self.next_consensus = types.UInt160(consensus)
 
-    def get_script_hashes_for_verifying(self, snapshot: storage.Snapshot) -> List[types.UInt160]:
+    def get_script_hashes_for_verifying(self, snapshot) -> List[types.UInt160]:
         """
         Helper method to get the data used in verifying the object.
         """
@@ -219,7 +219,7 @@ class Block(payloads.IInventory):
         """ A unique identifier based on the unsigned data portion of the object """
         return self.header.hash()
 
-    def get_script_hashes_for_verifying(self, snapshot: storage.Snapshot) -> List[types.UInt160]:
+    def get_script_hashes_for_verifying(self, snapshot) -> List[types.UInt160]:
         """
         Helper method to get the data used in verifying the object.
         """
@@ -302,7 +302,7 @@ class Block(payloads.IInventory):
         return cls(Header._serializable_init(), [])
 
 
-class TrimmedBlock(serialization.ISerializable, IInteroperable):
+class TrimmedBlock(serialization.ISerializable):
     """
     A size reduced Block instance.
 
@@ -349,20 +349,6 @@ class TrimmedBlock(serialization.ISerializable, IInteroperable):
         """
         self.header = reader.read_serializable(Header)
         self.hashes = reader.read_serializable_list(types.UInt256, max=0xFFFF)
-
-    def to_stack_item(self) -> vm.StackItem:
-        array = vm.ArrayStackItem()
-        array.append(vm.ByteStringStackItem(self.header.hash().to_array()))
-        array.append(vm.IntegerStackItem(self.header.version))
-        array.append(vm.ByteStringStackItem(self.header.prev_hash.to_array()))
-        array.append(vm.ByteStringStackItem(self.header.merkle_root.to_array()))
-        array.append(vm.IntegerStackItem(self.header.timestamp))
-        array.append(vm.IntegerStackItem(self.header.nonce))
-        array.append(vm.IntegerStackItem(self.header.index))
-        array.append(vm.IntegerStackItem(self.header.primary_index))
-        array.append(vm.ByteStringStackItem(self.header.next_consensus.to_array()))
-        array.append(vm.IntegerStackItem(len(self.hashes)))
-        return array
 
     @classmethod
     def _serializable_init(cls):
