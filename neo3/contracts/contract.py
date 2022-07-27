@@ -4,7 +4,7 @@ import binascii
 from typing import List, cast, Tuple
 from copy import deepcopy
 from neo3 import contracts, vm
-from neo3.core import cryptography, to_script_hash, types, serialization, IClonable, IInteroperable, Size as s
+from neo3.core import cryptography, to_script_hash, types, serialization, IClonable, Size as s
 
 
 class Contract:
@@ -219,7 +219,7 @@ class Contract:
         return to_script_hash(script)
 
 
-class ContractState(serialization.ISerializable, IClonable, IInteroperable):
+class ContractState(serialization.ISerializable, IClonable):
     def __init__(self,
                  id_: int,
                  nef: contracts.NEF,

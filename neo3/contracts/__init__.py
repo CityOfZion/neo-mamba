@@ -16,6 +16,16 @@ from .abi import (ContractParameterType,
 from .nef import (NEF, MethodToken)
 from .contract import (Contract, ContractState)
 from .findoptions import FindOptions
+from dataclasses import dataclass
+from neo3.core import types
+
+
+@dataclass
+class ContractHashes:
+    MANAGEMENT: types.UInt160 = types.UInt160.from_string("0xfffdc93764dbaddd97c48f252a53ea4643faa3fd")
+
+
+CONTRACT_HASHES = ContractHashes()
 
 
 def syscall_name_to_int(name: str) -> int:
