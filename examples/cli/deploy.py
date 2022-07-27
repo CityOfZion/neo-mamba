@@ -21,13 +21,17 @@ async def main(wallet_path, wallet_pw, nef_path, manifest_path, rpc_host):
 
     with open(nef_path, 'rb') as f:
         nef_bytes = f.read()
+        try:
+            contracts.NEF.deserialize_from_bytes(nef_bytes)
+        except ValueError as e:
+            raise ValueError(f"Failed NEF file validation with: {e}")
 
     with open(manifest_path, 'rb') as f:
         manifest_bytes = f.read()
 
-    # build a deploy transaction
+    # build a contract deploy transaction
     sb = vm.ScriptBuilder()
-    sb.emit_dynamic_call_with_args(contracts.ManagementContract().hash, "deploy", [nef_bytes, manifest_bytes])
+    sb.emit_dynamic_call_with_args(contracts.CONTRACT_HASHES.MANAGEMENT, "deploy", [nef_bytes, manifest_bytes])
 
     tx = payloads.Transaction(version=0,
                               nonce=123,
@@ -46,7 +50,7 @@ async def main(wallet_path, wallet_pw, nef_path, manifest_path, rpc_host):
 
             res = await client.invoke_script(tx.script, tx.signers)
             if res.state != "HALT":
-                print(f"Failed to get system fee: {res.exception}")
+                raise ValueError(f"Failed to get system fee: {res.exception}")
             tx.system_fee = res.gas_consumed
 
             # adding a witness so we can calculate the network fee
@@ -57,7 +61,8 @@ async def main(wallet_path, wallet_pw, nef_path, manifest_path, rpc_host):
 
             res = await client.get_version()
             account.sign_tx(tx, password=wallet_pw, magic=res.protocol.network)
-            print(await client.send_transaction(tx))
+            tx_id = await client.send_transaction(tx)
+            print(f"Transaction id: {tx_id}")
         except api.JsonRpcError as e:
             print(e)
             sys.exit(1)

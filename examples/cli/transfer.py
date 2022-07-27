@@ -1,5 +1,5 @@
 """
-A basic CLI script to transfer NEP-17 tokens
+A basic CLI script to transfer NEP-17 tokens from a single signature address
 
 The following example sends 2.5 GAS from address NSiVJYZej4XsxG5CUpdwn7VRQk8iiiDMPM to address NLzz1iKTc8bJrJB5gGxMgNpkCAWzMywVmo
 
@@ -20,10 +20,10 @@ def create_transfer_script(contract_hash: types.UInt160,
                            to_addr: str,
                            amount: float,
                            contract_decimals: int) -> bytes:
-    # Source account converted to byte array to match the ABI interface
-    from_account = wallet.Account.address_to_script_hash(from_addr).to_array()
-    # Destination account converted to byte array to match the ABI interface
-    to_account = wallet.Account.address_to_script_hash(to_addr).to_array()
+    # Source account
+    from_account = wallet.Account.address_to_script_hash(from_addr)
+    # Destination account
+    to_account = wallet.Account.address_to_script_hash(to_addr)
     # We multiply the amount with the contract decimals because the NEO internals only support integers
     amount = vm.BigInteger(int(amount * pow(10, contract_decimals)))
     # Arbitrary additional data to supply that will be printed in the "transfer" notify event.

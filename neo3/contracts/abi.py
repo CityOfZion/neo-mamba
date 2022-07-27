@@ -2,7 +2,7 @@ from __future__ import annotations
 import enum
 from typing import List, Optional, Type, Union, cast
 from enum import IntEnum
-from neo3.core import IJson, IInteroperable, serialization, cryptography
+from neo3.core import IJson, serialization, cryptography
 from neo3 import contracts, vm
 
 
