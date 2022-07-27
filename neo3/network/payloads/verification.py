@@ -3,13 +3,13 @@ import hashlib
 import abc
 import base64
 from enum import IntFlag, IntEnum
-from neo3.core import serialization, utils, types, cryptography, Size as s, IJson, IInteroperable
+from neo3.core import serialization, utils, types, cryptography, Size as s, IJson
 from neo3.network import payloads
-from neo3 import storage, contracts, vm
+from neo3 import contracts, vm
 from typing import List, Dict, Any, no_type_check, Iterator, cast
 
 
-class Signer(serialization.ISerializable, IJson, IInteroperable):
+class Signer(serialization.ISerializable, IJson):
     """
     A class that specifies who can pass CheckWitness() verifications in a smart contract.
     """
@@ -136,22 +136,6 @@ class Signer(serialization.ISerializable, IJson, IInteroperable):
             json.update({"rules": list(map(lambda r: r.to_json(), self.rules))})
 
         return json
-
-    def to_stack_item(self) -> vm.StackItem:
-        items: List[vm.StackItem] = []
-        items.append(vm.ByteStringStackItem(self.account.to_array()))
-        items.append(vm.IntegerStackItem(self.scope.value))
-
-        contracts_ = vm.ArrayStackItem(list(map(lambda c: vm.ByteStringStackItem(c.to_array()),
-                                                self.allowed_contracts)))
-        items.append(contracts_)
-
-        groups_ = vm.ArrayStackItem(list(map(lambda g: vm.ByteStringStackItem(g.to_array()), self.allowed_groups)))
-        items.append(groups_)
-
-        rules_ = vm.ArrayStackItem(list(map(lambda r: r.to_stack_item(), self.rules)))
-        items.append(rules_)
-        return vm.ArrayStackItem(items)
 
     @classmethod
     def from_json(cls, json: dict):
@@ -322,7 +306,7 @@ class WitnessConditionType(IntEnum):
             return self.name.title()
 
 
-class WitnessCondition(serialization.ISerializable, IJson, IInteroperable):
+class WitnessCondition(serialization.ISerializable, IJson):
     MAX_SUB_ITEMS = 16
     MAX_NESTING_DEPTH = 2
 
@@ -380,11 +364,6 @@ class WitnessCondition(serialization.ISerializable, IJson, IInteroperable):
     def from_json(cls, json: dict):
         raise NotImplementedError()
 
-    def to_stack_item(self) -> vm.StackItem:
-        arr = vm.ArrayStackItem()
-        arr.append(vm.IntegerStackItem(self.type.value))
-        return arr
-
 
 class ConditionAnd(WitnessCondition):
     _type = WitnessConditionType.AND
@@ -418,14 +397,6 @@ class ConditionAnd(WitnessCondition):
         json['expressions'] = list(map(lambda exp: exp.to_json(), self.expressions))
         return json
 
-    def to_stack_item(self) -> vm.StackItem:
-        base = super(ConditionAnd, self).to_stack_item()
-        expressions = list(map(lambda exp: exp.to_stack_item(), self.expressions))
-        array = vm.ArrayStackItem(expressions)
-        base = cast(vm.ArrayStackItem, base)
-        base.append(array)
-        return base
-
     @classmethod
     def _serializable_init(cls):
         return cls([])
@@ -458,12 +429,6 @@ class ConditionBool(WitnessCondition):
         json = super(ConditionBool, self).to_json()
         json['expression'] = self.value
         return json
-
-    def to_stack_item(self) -> vm.StackItem:
-        base = super(ConditionBool, self).to_stack_item()
-        base = cast(vm.ArrayStackItem, base)
-        base.append(vm.BooleanStackItem(self.value))
-        return base
 
     @classmethod
     def _serializable_init(cls):
@@ -499,12 +464,6 @@ class ConditionNot(WitnessCondition):
         json = super(ConditionNot, self).to_json()
         json["expression"] = self.expression.to_json()
         return json
-
-    def to_stack_item(self) -> vm.StackItem:
-        base = super(ConditionNot, self).to_stack_item()
-        base = cast(vm.ArrayStackItem, base)
-        base.append(self.expression.to_stack_item())
-        return base
 
     @classmethod
     def _serializable_init(cls):
@@ -543,14 +502,6 @@ class ConditionOr(WitnessCondition):
         json['expressions'] = list(map(lambda exp: exp.to_json(), self.expressions))
         return json
 
-    def to_stack_item(self) -> vm.StackItem:
-        base = super(ConditionOr, self).to_stack_item()
-        expressions = list(map(lambda exp: exp.to_stack_item(), self.expressions))
-        array = vm.ArrayStackItem(expressions)
-        base = cast(vm.ArrayStackItem, base)
-        base.append(array)
-        return base
-
     @classmethod
     def _serializable_init(cls):
         return cls([])
@@ -578,12 +529,6 @@ class ConditionCalledByContract(WitnessCondition):
         json = super(ConditionCalledByContract, self).to_json()
         json["hash"] = f"0x{self.hash_}"
         return json
-
-    def to_stack_item(self) -> vm.StackItem:
-        base = super(ConditionCalledByContract, self).to_stack_item()
-        base = cast(vm.ArrayStackItem, base)
-        base.append(vm.ByteStringStackItem(self.hash_.to_array()))
-        return base
 
     @classmethod
     def _serializable_init(cls):
@@ -640,12 +585,6 @@ class ConditionCalledByGroup(WitnessCondition):
         json["group"] = str(self.group)
         return json
 
-    def to_stack_item(self) -> vm.StackItem:
-        base = super(ConditionCalledByGroup, self).to_stack_item()
-        base = cast(vm.ArrayStackItem, base)
-        base.append(vm.ByteStringStackItem(self.group.to_array()))
-        return base
-
     @classmethod
     def _serializable_init(cls):
         return cls(cryptography.ECPoint.deserialize_from_bytes(b'\x00'))
@@ -667,7 +606,7 @@ class ConditionScriptHash(ConditionCalledByContract):
         return engine.current_scripthash == self.hash_
 
 
-class WitnessRule(serialization.ISerializable, IJson, IInteroperable):
+class WitnessRule(serialization.ISerializable, IJson):
     def __init__(self, action: WitnessRuleAction, condition: WitnessCondition):
         self.action = action
         self.condition = condition
@@ -688,9 +627,6 @@ class WitnessRule(serialization.ISerializable, IJson, IInteroperable):
             'action': self.action.name.title(),
             'condition': self.condition.to_json()
         }
-
-    def to_stack_item(self) -> vm.StackItem:
-        return vm.ArrayStackItem([vm.IntegerStackItem(self.action.value), self.condition.to_stack_item()])
 
     @classmethod
     def from_json(cls, json: dict):
@@ -715,7 +651,7 @@ class IVerifiable(serialization.ISerializable):
         """ """
 
     @abc.abstractmethod
-    def get_script_hashes_for_verifying(self, snapshot: storage.Snapshot) -> List[types.UInt160]:
+    def get_script_hashes_for_verifying(self, snapshot) -> List[types.UInt160]:
         """
         Helper method to get the data used in verifying the object.
         """

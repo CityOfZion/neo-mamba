@@ -125,9 +125,6 @@ class ContractParameterDefinition(IJson):
             raise ValueError("Format error - parameter type VOID is not allowed")
         return c
 
-    def to_stack_item(self) -> vm.StackItem:
-        return vm.StructStackItem([vm.ByteStringStackItem(self.name), vm.IntegerStackItem(self.type.value)])
-
 
 class ContractEventDescriptor(IJson):
     """
@@ -177,13 +174,6 @@ class ContractEventDescriptor(IJson):
         if c.name is None or len(c.name) == 0:
             raise ValueError("Format error - invalid 'name'")
         return c
-
-    def to_stack_item(self) -> vm.StackItem:
-        struct = vm.StructStackItem()
-        struct.append(vm.ByteStringStackItem(self.name))
-        array = vm.ArrayStackItem(list(map(lambda p: p.to_stack_item(), self.parameters)))
-        struct.append(array)
-        return struct
 
 
 class ContractMethodDescriptor(ContractEventDescriptor, IJson):
@@ -253,13 +243,6 @@ class ContractMethodDescriptor(ContractEventDescriptor, IJson):
         if c.offset < 0:
             raise ValueError("Format error - negative offset not allowed")
         return c
-
-    def to_stack_item(self) -> vm.StackItem:
-        struct = cast(vm.StructStackItem, super(ContractMethodDescriptor, self).to_stack_item())
-        struct.append(vm.IntegerStackItem(self.return_type.value))
-        struct.append(vm.IntegerStackItem(self.offset))
-        struct.append(vm.BooleanStackItem(self.safe))
-        return struct
 
     def __repr__(self):
         return f"<{self.__class__.__name__} at {hex(id(self))}> {self.name}"
@@ -341,9 +324,3 @@ class ContractABI(IJson):
         if len(c.methods) == 0:
             raise ValueError("Invalid contract - contract has no methods")
         return c
-
-    def to_stack_item(self, ) -> vm.StackItem:
-        struct = vm.StructStackItem()
-        struct.append(vm.ArrayStackItem(list(map(lambda m: m.to_stack_item(), self.methods))))
-        struct.append(vm.ArrayStackItem(list(map(lambda e: e.to_stack_item(), self.events))))
-        return struct

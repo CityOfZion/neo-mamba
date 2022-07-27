@@ -6,10 +6,9 @@ import base58  # type: ignore
 import base64
 from enum import Enum
 from typing import List, Optional, Type, TypeVar
-from neo3.core import Size as s, serialization, utils, types, IInteroperable, IJson
+from neo3.core import Size as s, serialization, utils, types, IJson
 from neo3.network import payloads
-from neo3.vm import VMState
-from neo3 import settings, vm, storage, contracts
+from neo3 import settings, vm, contracts
 
 
 class TransactionAttributeType(Enum):
@@ -101,7 +100,7 @@ class TransactionAttribute(serialization.ISerializable, IJson):
     def _deserialize_without_type(self, reader: serialization.BinaryReader) -> None:
         """ Deserialize the remaining attributes """
 
-    def verify(self, snapshot: storage.Snapshot, tx: Transaction) -> bool:
+    def verify(self, snapshot, tx: Transaction) -> bool:
         return True
 
     def to_json(self) -> dict:
@@ -120,7 +119,7 @@ class HighPriorityAttribute(TransactionAttribute):
         super(HighPriorityAttribute, self).__init__()
         self.type_ = TransactionAttributeType.HIGH_PRIORITY
 
-    def verify(self, snapshot: storage.Snapshot, tx: Transaction) -> bool:
+    def verify(self, snapshot, tx: Transaction) -> bool:
         """
         Verifies the attribute with the transaction
 
@@ -140,7 +139,7 @@ class HighPriorityAttribute(TransactionAttribute):
         pass
 
 
-class Transaction(payloads.IInventory, IInteroperable, IJson):
+class Transaction(payloads.IInventory, IJson):
     """
     Data to be executed by the NEO virtual machine.
     """
@@ -195,7 +194,7 @@ class Transaction(payloads.IInventory, IInteroperable, IJson):
 
         # unofficial attributes
         #: The virtual machine result of executing the `script`.
-        self.vm_state = VMState.NONE
+        self.vm_state = vm.VMState.NONE
         #: The block height in which the transaction is included.
         self.block_height = 0
         #: The network protocol magic number to use in the Transaction hash function. Defaults to 0x4F454E
@@ -340,7 +339,7 @@ class Transaction(payloads.IInventory, IInteroperable, IJson):
     def deserialize_special(self, reader: serialization.BinaryReader) -> None:
         """ Internal use only - deserialize the data from the stream into a TX that includes the unofficial fields """
         self.deserialize(reader)
-        self.vm_state = VMState(reader.read_uint8())
+        self.vm_state = vm.VMState(reader.read_uint8())
         self.block_height = reader.read_uint32()
 
     def fee_per_byte(self) -> int:
@@ -353,38 +352,6 @@ class Transaction(payloads.IInventory, IInteroperable, IJson):
             Should only be called once the transaction is completely build and will no longer be modified.
         """
         return self.network_fee // len(self)
-
-    def from_replica(self, replica) -> None:
-        """
-        Shallow copy attributes from a reference object.
-        """
-        self.version = replica.version
-        self.nonce = replica.nonce
-        self.system_fee = replica.system_fee
-        self.network_fee = replica.network_fee
-        self.valid_until_block = replica.valid_until_block
-        self.attributes = replica.attributes
-        self.signers = replica.signers
-        self.script = replica.script
-        self.witnesses = replica.witnesses
-        self.block_height = replica.block_height
-        self.vm_state = replica.vm_state
-
-    def to_stack_item(self) -> vm.StackItem:
-        """
-        Convert self to a VM stack item.
-        """
-        array = vm.ArrayStackItem()
-        tx_hash = vm.ByteStringStackItem(self.hash().to_array())
-        version = vm.IntegerStackItem(self.version)
-        nonce = vm.IntegerStackItem(self.nonce)
-        sender = vm.ByteStringStackItem(self.sender.to_array())
-        system_fee = vm.IntegerStackItem(self.system_fee)
-        network_fee = vm.IntegerStackItem(self.network_fee)
-        valid_until = vm.IntegerStackItem(self.valid_until_block)
-        script = vm.ByteStringStackItem(self.script)
-        array.append([tx_hash, version, nonce, sender, system_fee, network_fee, valid_until, script])
-        return array
 
     def to_json(self) -> dict:
         """ Convert object into json """
@@ -440,7 +407,7 @@ class Transaction(payloads.IInventory, IInteroperable, IJson):
                    witnesses,
                    procotol_magic)
 
-    def get_script_hashes_for_verifying(self, _: storage.Snapshot) -> List[types.UInt160]:
+    def get_script_hashes_for_verifying(self, _) -> List[types.UInt160]:
         """
         Helper method to get the data used in verifying the object.
         """

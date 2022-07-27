@@ -1,5 +1,4 @@
 from __future__ import annotations
-import binascii
 from neo3.core import serialization
 from typing import Type, Union
 

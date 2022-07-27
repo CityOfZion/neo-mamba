@@ -284,25 +284,6 @@ class ContractState(serialization.ISerializable, IClonable, IInteroperable):
     def clone(self):
         return ContractState(self.id, deepcopy(self.nef), deepcopy(self.manifest), self.update_counter, self.hash)
 
-    @classmethod
-    def from_stack_item(cls, stack_item: vm.StackItem):
-        array = cast(vm.ArrayStackItem, stack_item)
-        id = int(array[0].to_biginteger())
-        update_counter = int(array[1].to_biginteger())
-        hash_ = types.UInt160(array[2].to_array())
-        nef = contracts.NEF.deserialize_from_bytes(array[3].to_array())
-        manifest = contracts.ContractManifest.deserialize_from_bytes(array[4].to_array())
-        return cls(id, nef, manifest, update_counter, hash_)
-
-    def to_stack_item(self) -> vm.StackItem:
-        array = vm.ArrayStackItem()
-        id_ = vm.IntegerStackItem(self.id)
-        nef = vm.ByteStringStackItem(self.nef.to_array())
-        update_counter = vm.IntegerStackItem(self.update_counter)
-        hash_ = vm.ByteStringStackItem(self.hash.to_array())
-        array.append([id_, update_counter, hash_, nef, self.manifest.to_stack_item()])
-        return array
-
     def can_call(self, target_contract: ContractState, target_method: str) -> bool:
         results = list(map(lambda p: p.is_allowed(target_contract, target_method), self.manifest.permissions))
         return any(results)
