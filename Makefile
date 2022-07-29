@@ -1,4 +1,4 @@
-.PHONY: build clean clean-test clean-pyc clean-build docs help test lint coverage
+.PHONY: build clean clean-test clean-pyc clean-build docs help test lint coverage version-major version-minor version-patch
 .DEFAULT_GOAL := help
 define BROWSER_PYSCRIPT
 import os, webbrowser, sys
@@ -46,7 +46,7 @@ clean-test: ## remove test and coverage artifacts
 	rm -f .coverage
 	rm -rf htmlcov/
 
-lint: ## check style with flake8
+lint: ## check style with pycodestyle
 	pycodestyle --max-line-length=120 neo3 
 
 test: ## run tests quickly with the default Python
@@ -58,7 +58,7 @@ coverage: ## check code coverage quickly with the default Python
 	coverage html
 	$(BROWSER) htmlcov/index.html
 
-clean-docs:
+clean-docs: ## clean the /docs/
 	cd docs && $(MAKE) clean
 
 docs: ## generate Sphinx HTML documentation, including API docs
@@ -69,5 +69,14 @@ docs: ## generate Sphinx HTML documentation, including API docs
 type: ## perform static type checking using mypy
 	mypy neo3/
 
-build:
+build: ## create source distribution and wheel
 	python -m build
+
+version-major: ## bump the major version prior to release, auto commits and tag
+	bumpversion major
+
+version-minor: ## bump the minor version prior to release, auto commits and tag
+	bumpversion minor
+
+version-patch: ## bump the patch version prior to release, auto commits and tag
+	bumpversion patch

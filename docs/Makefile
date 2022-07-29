@@ -24,6 +24,6 @@ docs: ## generate Sphinx HTML documentation, including API docs
 	rm -rf build/
 	sphinx-build -b html source/ build/
 
-publish-docs:
+publish-docs: ## push docs to S3
 	$(MAKE) docs
 	aws s3 sync ./build  s3://docs-coz/neo3/mamba --acl public-read

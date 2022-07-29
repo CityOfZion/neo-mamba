@@ -23,7 +23,7 @@ from neo3 import __version__ as version
 # -- Project information -----------------------------------------------------
 
 project = 'neo-mamba'
-copyright = '2019-2021, COZ - Erik van den Brink'
+copyright = '2019-2022, COZ - Erik van den Brink'
 author = 'Erik van den Brink'
 
 
