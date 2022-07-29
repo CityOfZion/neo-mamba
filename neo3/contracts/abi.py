@@ -1,9 +1,8 @@
 from __future__ import annotations
-import enum
-from typing import List, Optional, Type, Union, cast
+from typing import List, Optional
 from enum import IntEnum
-from neo3.core import IJson, serialization, cryptography
-from neo3 import contracts, vm
+from neo3.core import IJson
+from neo3 import contracts
 
 
 class ContractParameterType(IntEnum):
@@ -30,48 +29,6 @@ class ContractParameterType(IntEnum):
             return "PublicKey"
         else:
             return self.name.title()
-
-    @classmethod
-    def from_type(cls, class_type: Optional[Type[object]]) -> ContractParameterType:
-        if class_type is None or class_type == type(None):
-            return ContractParameterType.VOID
-        elif class_type in [bool, vm.BooleanStackItem]:
-            return ContractParameterType.BOOLEAN
-        elif class_type in [int, vm.BigInteger]:
-            return ContractParameterType.INTEGER
-        elif class_type in [bytes, bytearray, vm.BufferStackItem, vm.ByteStringStackItem]:
-            return ContractParameterType.BYTEARRAY
-        elif class_type == cryptography.ECPoint:
-            return ContractParameterType.PUBLICKEY
-        elif hasattr(class_type, '__origin__'):
-            if class_type.__origin__ == list:  # type: ignore
-                return ContractParameterType.ARRAY
-            if class_type.__origin__ == Union:  # type: ignore
-                # handle typing.Optional[type], Optional is an alias for Union[x, None]
-                # only support specifying 1 type
-                if len(class_type.__args__) != 2:  # type: ignore
-                    raise ValueError(f"Don't know how to convert {class_type}")
-                for i in class_type.__args__:  # type: ignore
-                    if i is None:
-                        continue
-                    return cls.from_type(i)
-            raise ValueError
-        elif issubclass(class_type, serialization.ISerializable):
-            return ContractParameterType.BYTEARRAY
-        elif class_type == str:
-            return ContractParameterType.STRING
-        elif class_type == vm.MapStackItem:
-            return ContractParameterType.MAP
-        elif class_type in [vm.ArrayStackItem, vm.StructStackItem, list]:
-            return ContractParameterType.ARRAY
-        elif issubclass(class_type, IInteroperable):
-            return ContractParameterType.ARRAY
-        elif class_type == vm.StackItem:
-            return ContractParameterType.ANY
-        elif issubclass(class_type, enum.Enum):
-            return ContractParameterType.INTEGER
-        else:
-            return ContractParameterType.INTEROPINTERFACE
 
 
 class ContractParameterDefinition(IJson):

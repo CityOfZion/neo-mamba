@@ -23,17 +23,6 @@ class Size(IntEnum):
     uint256 = 32
 
 
-class IClonable(abc.ABC):
-    @abc.abstractmethod
-    def clone(self):
-        """
-        Create a deep copy of self
-        """
-
-    def from_replica(self, replica):
-        """ shallow copy from a replica object """
-
-
 class IJson(abc.ABC):
     @abc.abstractmethod
     def to_json(self) -> dict:

@@ -4,8 +4,8 @@ import traceback
 from datetime import datetime
 from neo3.network import payloads, convenience
 from neo3.core import msgrouter
-from neo3 import blockchain, network_logger as logger, _Singleton
-from typing import Dict, Optional
+from neo3 import network_logger as logger, _Singleton
+from typing import Dict
 from contextlib import suppress
 
 
@@ -23,7 +23,9 @@ class SyncManager(_Singleton):
     # init() is used instead of __init__() due to the Singleton inheritance (read its class documentation)
     def init(self):
         self.nodemgr = convenience.NodeManager()  # singleton
-        self.ledger = blockchain.Blockchain()  # singleton
+        # TODO: need a mechanism to specify a ledger that has at least a `height` property returning an int
+        # which is usedin the syncing logic
+        self.ledger = None
         self.block_cache = []
         self.block_requests = dict()  # type: Dict[int, convenience.RequestInfo]
         self.shutting_down = False
@@ -207,8 +209,9 @@ class SyncManager(_Singleton):
                 except IndexError:
                     # cache empty
                     break
+                if self.ledger is not None:
+                    self.ledger.persist(block)
                 msgrouter.on_block_persist(block)
-                self.ledger.persist(block)
                 await asyncio.sleep(0)
         except Exception as e:
             logger.debug(f"Unexpected exception happened while processing the block cache: {traceback.format_exc()}")
@@ -266,7 +269,10 @@ class SyncManager(_Singleton):
         if len(self.block_cache) > 0:
             best_block_cache_height = self.block_cache[-1].index
 
-        ledger_height = self.ledger.height
+        if self.ledger is None:
+            ledger_height = 0
+        else:
+            ledger_height = self.ledger.height
 
         return max(ledger_height, best_block_cache_height)
 

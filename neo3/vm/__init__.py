@@ -1,4 +1,3 @@
-"""The actual classes come from C-extension modules"""
 from __future__ import annotations
 import hashlib
 from pybiginteger import BigInteger

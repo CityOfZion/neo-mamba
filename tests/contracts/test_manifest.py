@@ -1,9 +1,8 @@
 import unittest
 import json
 from copy import deepcopy
-from unittest import mock
-from neo3 import contracts, storage
-from neo3.core import cryptography, types, utils, serialization
+from neo3 import contracts
+from neo3.core import cryptography, types, serialization
 
 
 class ContractGroupTestCase(unittest.TestCase):

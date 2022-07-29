@@ -4,19 +4,11 @@ from neo3.core import types
 
 
 class ContractStateTestCase(unittest.TestCase):
-    def test_contractstate_clone(self):
-        manifest = contracts.ContractManifest()
-        nef = contracts.NEF()
-        state = contracts.ContractState(1, nef, manifest, 0, types.UInt160.zero())
-        clone = state.clone()
-        self.assertNotEqual(id(state), id(clone))
-        self.assertNotEqual(id(state.manifest), id(clone.manifest))
-
     def test_equals(self):
         manifest = contracts.ContractManifest()
         nef = contracts.NEF()
         state = contracts.ContractState(1, nef, manifest, 0, types.UInt160.zero())
-        clone = state.clone()
+        clone = contracts.ContractState(1, nef, manifest, 0, types.UInt160.zero())
         self.assertEqual(state, clone)
 
         nef2 = contracts.NEF()

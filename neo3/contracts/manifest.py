@@ -2,10 +2,8 @@ from __future__ import annotations
 import base64
 import binascii
 import orjson as json  # type: ignore
-import json as pystd_json
-import re
 from typing import List, Callable, Optional, Dict, Any
-from neo3 import contracts, vm
+from neo3 import contracts
 from neo3.core import serialization, types, IJson, cryptography, utils
 from neo3.core.serialization import BinaryReader, BinaryWriter
 
@@ -400,6 +398,9 @@ class ContractManifest(serialization.ISerializable, IJson):
         return all(result)
 
     def can_call(self, target_contract: contracts.ContractState, target_method: str) -> bool:
+        """
+        Check if this contract is allowed to call `target_method` on `target_contract`.
+        """
         results = list(map(lambda p: p.is_allowed(target_contract, target_method), self.permissions))
         return any(results)
 

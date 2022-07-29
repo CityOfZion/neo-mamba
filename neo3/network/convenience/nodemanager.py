@@ -2,7 +2,7 @@ from __future__ import annotations
 import asyncio
 import aiodns  # type: ignore
 import ipaddress
-from neo3 import network_logger as logger, settings, blockchain, _Singleton
+from neo3 import network_logger as logger, settings, _Singleton
 from neo3.network import node, payloads, convenience, message
 from neo3.core import msgrouter
 from typing import List, Optional
@@ -369,10 +369,7 @@ class NodeManager(_Singleton):
             else:
                 logger.debug(f"Asking node {node.nodeid_human} to send us a height update (PING)")
                 # Request latest height from node
-                if settings.database:
-                    height = max(0, blockchain.Blockchain().height)
-                else:
-                    height = 0
+                height = 0
                 m = message.Message(msg_type=message.MessageType.PING, payload=payloads.PingPayload(height=height))
                 task = asyncio.create_task(node.send_message(m))
                 self.tasks.append(task)

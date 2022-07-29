@@ -3,7 +3,7 @@ import hashlib
 import struct
 from typing import List
 from neo3 import vm, settings
-from neo3.core import Size as s, serialization, types, utils, cryptography as crypto, IClonable
+from neo3.core import Size as s, serialization, types, utils, cryptography as crypto
 from neo3.network import payloads
 from bitarray import bitarray  # type: ignore
 from copy import deepcopy
@@ -289,13 +289,6 @@ class Block(payloads.IInventory):
         Reduce a block in size by replacing the transaction objects with their identifying hashes.
         """
         return TrimmedBlock(self.header, [t.hash() for t in self.transactions])
-
-    def from_replica(self, replica: Block) -> None:
-        """
-        Shallow copy attributes from a reference object.
-        """
-        self.header = replica.header
-        self.transactions = replica.transactions
 
     @classmethod
     def _serializable_init(cls):

@@ -5,8 +5,7 @@ import base64
 from enum import IntFlag, IntEnum
 from neo3.core import serialization, utils, types, cryptography, Size as s, IJson
 from neo3.network import payloads
-from neo3 import contracts, vm
-from typing import List, Dict, Any, no_type_check, Iterator, cast
+from typing import List, Dict, Any, no_type_check, Iterator
 
 
 class Signer(serialization.ISerializable, IJson):
@@ -319,10 +318,6 @@ class WitnessCondition(serialization.ISerializable, IJson):
     def type(self) -> WitnessConditionType:
         return self._type
 
-    @abc.abstractmethod
-    def match(self, engine: contracts.ApplicationEngine) -> bool:
-        """ Check if the current execution context matches the condition"""
-
     def serialize(self, writer: serialization.BinaryWriter) -> None:
         writer.write_uint8(self.type.value)
         self._serialize_without_type(writer)
@@ -358,10 +353,12 @@ class WitnessCondition(serialization.ISerializable, IJson):
             raise ValueError(f"Deserialization error - unknown witness condition. Type: {condition_type}")
 
     def to_json(self) -> dict:
+        """ Convert object into json """
         return {'type': self.type.to_csharp_string()}
 
     @classmethod
     def from_json(cls, json: dict):
+        """ Create object from JSON """
         raise NotImplementedError()
 
 
@@ -389,10 +386,8 @@ class ConditionAnd(WitnessCondition):
         if len(self.expressions) == 0:
             raise ValueError("Cannot have 0 expressions")
 
-    def match(self, engine: contracts.ApplicationEngine) -> bool:
-        return all([condition.match(engine) for condition in self.expressions])
-
     def to_json(self) -> dict:
+        """ Convert object into json """
         json = super(ConditionAnd, self).to_json()
         json['expressions'] = list(map(lambda exp: exp.to_json(), self.expressions))
         return json
@@ -422,10 +417,8 @@ class ConditionBool(WitnessCondition):
     def _deserialize_without_type(self, reader: serialization.BinaryReader, max_nesting_depth: int) -> None:
         self.value = reader.read_bool()
 
-    def match(self, engine: contracts.ApplicationEngine) -> bool:
-        return self.value
-
     def to_json(self) -> dict:
+        """ Convert object into json """
         json = super(ConditionBool, self).to_json()
         json['expression'] = self.value
         return json
@@ -457,10 +450,8 @@ class ConditionNot(WitnessCondition):
             raise ValueError("Max nesting depth cannot be negative")
         self.expression = WitnessCondition._deserialize_from(reader, max_nesting_depth - 1)
 
-    def match(self, engine: contracts.ApplicationEngine) -> bool:
-        return not self.expression.match(engine)
-
     def to_json(self) -> dict:
+        """ Convert object into json """
         json = super(ConditionNot, self).to_json()
         json["expression"] = self.expression.to_json()
         return json
@@ -494,10 +485,8 @@ class ConditionOr(WitnessCondition):
         if len(self.expressions) == 0:
             raise ValueError("Cannot have 0 expressions")
 
-    def match(self, engine: contracts.ApplicationEngine) -> bool:
-        return any([condition.match(engine) for condition in self.expressions])
-
     def to_json(self) -> dict:
+        """ Convert object into json """
         json = super(ConditionOr, self).to_json()
         json['expressions'] = list(map(lambda exp: exp.to_json(), self.expressions))
         return json
@@ -522,10 +511,8 @@ class ConditionCalledByContract(WitnessCondition):
     def _deserialize_without_type(self, reader: serialization.BinaryReader, max_nesting_depth: int) -> None:
         self.hash_ = reader.read_serializable(types.UInt160)
 
-    def match(self, engine: contracts.ApplicationEngine) -> bool:
-        return engine.calling_scripthash == self.hash_
-
     def to_json(self) -> dict:
+        """ Convert object into json """
         json = super(ConditionCalledByContract, self).to_json()
         json["hash"] = f"0x{self.hash_}"
         return json
@@ -549,10 +536,6 @@ class ConditionCalledByEntry(WitnessCondition):
     def _deserialize_without_type(self, reader: serialization.BinaryReader, max_nesting_depth: int) -> None:
         pass
 
-    def match(self, engine: contracts.ApplicationEngine) -> bool:
-        return (len(engine.current_context.calling_scripthash_bytes) == 0
-                or engine.calling_scripthash == engine.entry_scripthash)
-
 
 class ConditionCalledByGroup(WitnessCondition):
     _type = WitnessConditionType.CALLED_BY_GROUP
@@ -575,12 +558,8 @@ class ConditionCalledByGroup(WitnessCondition):
     def _deserialize_without_type(self, reader: serialization.BinaryReader, max_nesting_depth: int) -> None:
         self.group = reader.read_serializable(cryptography.ECPoint)  # type: ignore
 
-    def match(self, engine: contracts.ApplicationEngine) -> bool:
-        engine._validate_callflags(contracts.CallFlags.READ_STATES)
-        contract = contracts.ManagementContract().get_contract(engine.snapshot, engine.calling_scripthash)
-        return contract is not None and contract.manifest.contains_group(self.group)
-
     def to_json(self) -> dict:
+        """ Convert object into json """
         json = super(ConditionCalledByGroup, self).to_json()
         json["group"] = str(self.group)
         return json
@@ -593,17 +572,9 @@ class ConditionCalledByGroup(WitnessCondition):
 class ConditionGroup(ConditionCalledByGroup):
     _type = WitnessConditionType.GROUP
 
-    def match(self, engine: contracts.ApplicationEngine) -> bool:
-        engine._validate_callflags(contracts.CallFlags.READ_STATES)
-        contract = contracts.ManagementContract().get_contract(engine.snapshot, engine.current_scripthash)
-        return contract is not None and contract.manifest.contains_group(self.group)
-
 
 class ConditionScriptHash(ConditionCalledByContract):
     _type = WitnessConditionType.SCRIPT_HASH
-
-    def match(self, engine: contracts.ApplicationEngine) -> bool:
-        return engine.current_scripthash == self.hash_
 
 
 class WitnessRule(serialization.ISerializable, IJson):
@@ -623,6 +594,7 @@ class WitnessRule(serialization.ISerializable, IJson):
         self.condition = WitnessCondition._deserialize_from(reader, WitnessCondition.MAX_NESTING_DEPTH)
 
     def to_json(self) -> dict:
+        """ Convert object into json """
         return {
             'action': self.action.name.title(),
             'condition': self.condition.to_json()
@@ -630,6 +602,7 @@ class WitnessRule(serialization.ISerializable, IJson):
 
     @classmethod
     def from_json(cls, json: dict):
+        """ Create object from JSON """
         raise NotImplementedError()
 
     @classmethod
@@ -660,7 +633,7 @@ class IVerifiable(serialization.ISerializable):
         """ Get the unsigned data
 
         Args:
-            protocol_magic: network protocol number (NEO MainNet = 5195086, Testnet = 1951352142, private net = ??)
+            protocol_magic: network protocol number (NEO MainNet = 860833102, Testnet (T5) = 894710606, private net = ?)
         """
         with serialization.BinaryWriter() as writer:
             writer.write_uint32(protocol_magic)
