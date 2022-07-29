@@ -23,6 +23,7 @@ from neo3.core import types
 @dataclass
 class ContractHashes:
     MANAGEMENT: types.UInt160 = types.UInt160.from_string("0xfffdc93764dbaddd97c48f252a53ea4643faa3fd")
+    ORACLE: types.UInt160 = types.UInt160.from_string("0xfe924b7cfe89ddd271abaf7210a80a7e11178758")
 
 
 CONTRACT_HASHES = ContractHashes()

@@ -2,6 +2,9 @@ from enum import IntFlag
 
 
 class FindOptions(IntFlag):
+    """
+    Possible search options when using the `System.Storage.Find` SYSCALL.
+    """
     NONE = 0
     KEYS_ONLY = 1 << 0
     REMOVE_PREFIX = 1 << 1

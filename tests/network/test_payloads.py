@@ -994,22 +994,6 @@ class TransactionTestCase(unittest.TestCase):
     def test_inventory_type(self):
         self.assertEqual(payloads.InventoryType.TX, self.tx.inventory_type)
 
-    def test_from_replica(self):
-        t = payloads.Transaction._serializable_init()
-        t.from_replica(self.tx)
-        self.assertEqual(self.tx.version, t.version)
-        self.assertEqual(self.tx.nonce, t.nonce)
-        self.assertEqual(self.tx.system_fee, t.system_fee)
-        self.assertEqual(self.tx.network_fee, t.network_fee)
-        self.assertEqual(self.tx.valid_until_block, t.valid_until_block)
-        self.assertEqual(len(self.tx.attributes), len(t.attributes))
-        self.assertEqual(len(self.tx.signers), len(t.signers))
-        self.assertEqual(self.tx.signers[0].account, t.signers[0].account)
-        self.assertEqual(self.tx.signers[0].scope, t.signers[0].scope)
-        self.assertEqual(self.tx.script, t.script)
-        self.assertEqual(len(self.tx.witnesses), len(t.witnesses))
-        self.assertEqual(self.tx.witnesses[0].invocation_script, t.witnesses[0].invocation_script)
-
     def test_special_serialization(self):
         tx_special = deepcopy(self.tx)
         tx_special.block_height = 1

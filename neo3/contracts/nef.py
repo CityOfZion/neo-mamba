@@ -18,9 +18,11 @@ class NEF(serialization.ISerializable, IJson):
         Create a Neo Executable Format file.
 
         Args:
-            compiler_name: human readable name of the compiler and version used to create the script data.
+            compiler_name: human-readable name of the compiler and version used to create the script data.
             Automatically limited to 64 bytes
             script: a byte array of raw VM opcodes.
+            tokens:
+            source: url where source files can be found
         """
         self.magic = _magic
         if compiler_name is None:
@@ -111,10 +113,12 @@ class NEF(serialization.ISerializable, IJson):
         return int.from_bytes(hashlib.sha256(hashlib.sha256(self.to_array()[:-4]).digest()).digest()[:4], 'little')
 
     def to_json(self) -> dict:
+        """ convert object into json """
         raise NotImplementedError
 
     @classmethod
     def from_json(cls, json: dict):
+        """ create object from JSON """
         tokens = []
         for t in json['tokens']:
             tokens.append(MethodToken.from_json(t))
@@ -171,10 +175,12 @@ class MethodToken(serialization.ISerializable, IJson):
         self.call_flags = contracts.CallFlags(reader.read_uint8())
 
     def to_json(self) -> dict:
+        """ convert object into json """
         raise NotImplementedError
 
     @classmethod
     def from_json(cls, json: dict):
+        """ create object from JSON """
         h = types.UInt160.from_string(json['hash'][2:])
         m = json['method']
         pc = json['paramcount']

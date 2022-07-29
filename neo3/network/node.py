@@ -5,7 +5,7 @@ from datetime import datetime
 from neo3.network import encode_base62, message, payloads, capabilities, protocol as protocol, relaycache
 from neo3.network.ipfilter import ipfilter
 from neo3.network.convenience import nodeweight
-from neo3 import network_logger as logger, settings, blockchain
+from neo3 import network_logger as logger, settings
 from neo3.core import types, msgrouter
 from contextlib import suppress
 from socket import AF_INET as IP4_FAMILY

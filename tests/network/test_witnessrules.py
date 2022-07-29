@@ -78,8 +78,6 @@ class ConditionsTestCase(unittest.TestCase):
         self.assertEqual(expected_data, c.to_array())
         self.assertEqual(expected_json, c.to_json())
 
-        self.assertFalse(c.match(None))
-
         deserialized_c = payloads.ConditionAnd.deserialize_from_bytes(c.to_array())
         self.assertEqual(c.expressions, deserialized_c.expressions)
 
@@ -103,10 +101,6 @@ class ConditionsTestCase(unittest.TestCase):
         self.assertEqual(expected_data, c.to_array())
         self.assertEqual(expected_json, c.to_json())
 
-        self.assertTrue(c.match(None))
-        c2 = payloads.ConditionBool(False)
-        self.assertFalse(c2.match(None))
-
         deserialized_c = payloads.ConditionBool.deserialize_from_bytes(c.to_array())
         self.assertEqual(c, deserialized_c)
 
@@ -125,8 +119,6 @@ class ConditionsTestCase(unittest.TestCase):
         self.assertEqual(expected_len, len(c))
         self.assertEqual(expected_data, c.to_array())
         self.assertEqual(expected_json, c.to_json())
-
-        self.assertFalse(c.match(None))
 
         deserialized_c = payloads.ConditionNot.deserialize_from_bytes(c.to_array())
         self.assertEqual(c, deserialized_c)
@@ -158,8 +150,6 @@ class ConditionsTestCase(unittest.TestCase):
         self.assertEqual(expected_data, c.to_array())
         self.assertEqual(expected_json, c.to_json())
 
-        self.assertTrue(c.match(None))
-
         deserialized_c = payloads.ConditionOr.deserialize_from_bytes(c.to_array())
         self.assertEqual(c.expressions, deserialized_c.expressions)
 
@@ -188,11 +178,6 @@ class ConditionsTestCase(unittest.TestCase):
         self.assertEqual(expected_data, c.to_array())
         self.assertEqual(expected_json, c.to_json())
 
-        engine = mock.Mock()
-        # for some weird reason we must set the property on the type
-        type(engine).calling_scripthash = mock.PropertyMock(spec=types.UInt160, return_value=types.UInt160.zero())
-        self.assertTrue(c.match(engine))
-
         deserialized_c = payloads.ConditionCalledByContract.deserialize_from_bytes(c.to_array())
         self.assertEqual(c.hash_, deserialized_c.hash_)
 
@@ -212,16 +197,6 @@ class ConditionsTestCase(unittest.TestCase):
         self.assertEqual(expected_len, len(c))
         self.assertEqual(expected_data, c.to_array())
         self.assertEqual(expected_json, c.to_json())
-
-        engine = mock.MagicMock()
-        # the actual value doesn't have to be a UInt160 it's about the comparison
-        type(engine).calling_scripthash = mock.PropertyMock(spec=types.UInt160, return_value=True)
-        type(engine).entry_scripthash = mock.PropertyMock(spec=types.UInt160, return_value=True)
-        engine.current_context.calling_scripthash_bytes.__len__.return_value = 1
-
-        self.assertTrue(c.match(engine))
-        type(engine).entry_scripthash = mock.PropertyMock(spec=types.UInt160, return_value=False)
-        self.assertFalse(c.match(engine))
 
         deserialized_c = payloads.ConditionCalledByEntry.deserialize_from_bytes(c.to_array())
         self.assertEqual(c, deserialized_c)

@@ -1,8 +1,7 @@
 import asynctest
 import asyncio
 from neo3.network import convenience, node
-from neo3 import network_logger, blockchain
-from neo3.core import msgrouter
+from neo3 import network_logger
 from datetime import datetime
 
 
@@ -197,10 +196,16 @@ class SyncManagerCheckTimeoutTestCase(asynctest.TestCase):
         self.assertTrue(datetime.utcnow().timestamp() - flight.start_time < 0.1)
 
 
+class DummyLedger:
+    def persist(self, block):
+        pass
+
+
 class SyncManagerVarious(asynctest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.syncmgr = convenience.SyncManager()
+        cls.syncmgr.ledger = DummyLedger()
         cls.nodemgr = convenience.NodeManager()
 
     def setUp(self) -> None:

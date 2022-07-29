@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-import binascii
-from typing import List, cast, Tuple
+from typing import List, Tuple
 from copy import deepcopy
 from neo3 import contracts, vm
-from neo3.core import cryptography, to_script_hash, types, serialization, IClonable, Size as s
+from neo3.core import cryptography, to_script_hash, types, serialization, Size as s
 
 
 class Contract:
@@ -219,7 +218,7 @@ class Contract:
         return to_script_hash(script)
 
 
-class ContractState(serialization.ISerializable, IClonable):
+class ContractState(serialization.ISerializable):
     def __init__(self,
                  id_: int,
                  nef: contracts.NEF,
@@ -272,17 +271,6 @@ class ContractState(serialization.ISerializable, IClonable):
         self.manifest = reader.read_serializable(contracts.ContractManifest)
         self.update_counter = reader.read_uint16()
         self.hash = reader.read_serializable(types.UInt160)
-
-    def from_replica(self, replica):
-        super().from_replica(replica)
-        self.id = replica.id
-        self.nef = replica.nef
-        self.manifest = replica.manifest
-        self.update_counter = replica.update_counter
-        self.hash = replica.hash
-
-    def clone(self):
-        return ContractState(self.id, deepcopy(self.nef), deepcopy(self.manifest), self.update_counter, self.hash)
 
     def can_call(self, target_contract: ContractState, target_method: str) -> bool:
         results = list(map(lambda p: p.is_allowed(target_contract, target_method), self.manifest.permissions))
