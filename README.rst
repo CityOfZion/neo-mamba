@@ -13,9 +13,13 @@ neo-mamba
 .. image:: http://www.mypy-lang.org/static/mypy_badge.svg
   :target: http://mypy-lang.org/
 
-This SDK intends to provide building blocks for Python developers to interact with the NEO blockchain as a means to lower the entry barrier.
+This SDK intends to provide building blocks for Python developers to interact with the NEO blockchain without requiring to run a full node.
+In order to interact with the chain and obtain information it relies heavily on RPC nodes. You can find a list of public RPC nodes `here <https://dora.coz.io/monitor>`_.
+::
 
-It is a work in progress and thus you can expect that not all parts of the blockchain are supported. What is present should be functioning correctly unless explicitely mentioned (e.g. because they depend on structures not yet available).
+  Note that up to v0.11.0 this project had a full node focus. Maintaining full node consistency was a major resource consumer and ended up not
+  leaving enough resources to develop the areas users are more interested in. As such the project direction pivoted since version 0.12.0 to
+  focus on being an SDK again.
 
 Please report any issues on `Github <https://github.com/CityOfZion/neo-mamba/issues>`_ or submit ideas how to improve the SDK.
 
@@ -25,7 +29,6 @@ Quick install
 -------------
 ::
 
-   pip install wheel
    pip install neo-mamba
 
 or
@@ -34,24 +37,17 @@ or
 
   git clone https://github.com/CityOfZion/neo-mamba.git
   cd neo-mamba
-  pip install wheel
-  pip install wheel -e .
+  pip install -e .
 
-This installs mamba with only the ``MemoryDB`` as possible backend. In order to install the requirements to use the
-LevelDB backend install the leveldb via extras
 
+For full documentation go to `<https://docs.coz.io/neo3/mamba/index.html>`_.
+
+Developing or contributing
+--------------------------
+Install the requirements, modify the code and PR :-)
 ::
 
-   pip install -e .[leveldb]
-
-Ensure you have PIP >= 19.3
-
-::
-
-   pip install --upgrade "pip>=19.3"
-
-
-For full documentation including more elaborate install instructions go to `<https://docs.coz.io/neo3/mamba/index.html>`_.
+   pip install -e .[dev]
 
 Documentation
 -------------
@@ -61,23 +57,7 @@ Install the requirements and build them
    pip install -e .[docs]
    make docs
 
-Roadmap
--------
-Over time the following components are expected to be implemented starting with the items in "SDK Core". As we
-release versions and receive feedback components may be added or restructured. Some components may end up living in
-separate repositories but be included here by default (e.g. virtual machine implementations).
-
-.. image:: https://raw.githubusercontent.com/CityOfZion/neo-mamba/master/docs/source/library/images/SDK_overview.png
-    :alt: SDK overview
-
-- Core (v0.1)
-- Network (v0.1)
-- Storage (v0.1)
-- Virtual Machine
-- Smart contracts (v0.4)
-- Wallet support (v0.8)
-
 FAQ
 ---
-1. ``make docs`` fails with ``no theme named 'neo3' found (missing theme.conf?)``. -> ``python setup.py install``.
+1. ``make docs`` fails with ``no theme named 'neo3' found (missing theme.conf?)``. -> ``pip install .``.
 Try again.
