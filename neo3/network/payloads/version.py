@@ -1,6 +1,5 @@
 from __future__ import annotations
 import datetime
-from typing import List
 from neo3.core import Size as s, serialization, utils
 from neo3.network import capabilities
 from neo3 import settings
@@ -12,7 +11,7 @@ class VersionPayload(serialization.ISerializable):
     """
     MAX_CAPABILITIES = 32
 
-    def __init__(self, nonce: int, user_agent: str, capabilities: List[capabilities.NodeCapability]):
+    def __init__(self, nonce: int, user_agent: str, capabilities: list[capabilities.NodeCapability]):
         """
         Create payload.
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 import base64
 import binascii
 import orjson as json  # type: ignore
-from typing import List, Callable, Optional, Dict, Any
+from typing import Callable, Optional, Any
 from neo3 import contracts
 from neo3.core import serialization, types, IJson, cryptography, utils
 from neo3.core.serialization import BinaryReader, BinaryWriter
@@ -263,10 +263,10 @@ class ContractManifest(serialization.ISerializable, IJson):
         self.name: str = name if name else ""
         #: A group represents a set of mutually trusted contracts. A contract will trust and allow any contract in the
         #: same group to invoke it.
-        self.groups: List[ContractGroup] = []
+        self.groups: list[ContractGroup] = []
 
         #: The list of NEP standards supported e.g. "NEP-3"
-        self.supported_standards: List[str] = []
+        self.supported_standards: list[str] = []
 
         #: For technical details of ABI, please refer to NEP-14: NeoContract ABI.
         #: https://github.com/neo-project/proposals/blob/d1f4e9e1a67d22a5755c45595121f80b0971ea64/nep-14.mediawiki
@@ -276,14 +276,14 @@ class ContractManifest(serialization.ISerializable, IJson):
         )
 
         #: Permissions describe what external contract(s) and what method(s) on these are allowed to be invoked.
-        self.permissions: List[contracts.ContractPermission] = [contracts.ContractPermission.default_permissions()]
+        self.permissions: list[contracts.ContractPermission] = [contracts.ContractPermission.default_permissions()]
 
         # Update trusts/safe_methods with outcome of https://github.com/neo-project/neo/issues/1664
         # Unfortunately we have to add this nonsense logic or we get deviating VM results.
         self.trusts = WildcardContainer()  # for UInt160 types
 
         #: Optional user defined data
-        self.extra: Optional[Dict] = None
+        self.extra: Optional[dict] = None
 
     def __len__(self):
         return utils.get_var_size(str(self.to_json()).replace(' ', ''))
@@ -351,7 +351,7 @@ class ContractManifest(serialization.ISerializable, IJson):
             trusts = '*'
         else:
             trusts = list(map(lambda m: m.to_json()['contract'], self.trusts))  # type: ignore
-        json: Dict[str, Any] = {
+        json: dict[str, Any] = {
             "name": self.name if self.name else None,
             "groups": list(map(lambda g: g.to_json(), self.groups)),
             "features": {},

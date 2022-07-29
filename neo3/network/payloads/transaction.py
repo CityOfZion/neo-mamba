@@ -5,7 +5,7 @@ import struct
 import base58  # type: ignore
 import base64
 from enum import Enum
-from typing import List, Optional, Type, TypeVar
+from typing import Optional, Type, TypeVar
 from neo3.core import Size as s, serialization, utils, types, IJson
 from neo3.network import payloads
 from neo3 import settings, vm, contracts
@@ -119,19 +119,6 @@ class HighPriorityAttribute(TransactionAttribute):
         super(HighPriorityAttribute, self).__init__()
         self.type_ = TransactionAttributeType.HIGH_PRIORITY
 
-    def verify(self, snapshot, tx: Transaction) -> bool:
-        """
-        Verifies the attribute with the transaction
-
-        Returns:
-            True if verification passes. False otherwise.
-        """
-        committee = contracts.NeoToken().get_committee_address(snapshot)
-        for signer in tx.signers:
-            if signer.account == committee:
-                return True
-        return False
-
     def _serialize_without_type(self, writer: serialization.BinaryWriter) -> None:
         pass
 
@@ -162,10 +149,10 @@ class Transaction(payloads.IInventory, IJson):
                  system_fee: int,
                  network_fee: int,
                  valid_until_block: int,
-                 attributes: List[TransactionAttribute] = None,
-                 signers: List[payloads.Signer] = None,
+                 attributes: list[TransactionAttribute] = None,
+                 signers: list[payloads.Signer] = None,
                  script: bytes = None,
-                 witnesses: List[payloads.Witness] = None,
+                 witnesses: list[payloads.Witness] = None,
                  protocol_magic: int = None):
         #: Transaction data structure version - for internal use
         self.version = version
@@ -382,7 +369,7 @@ class Transaction(payloads.IInventory, IJson):
         system_fee = int(json['sysfee'])
         network_fee = int(json['netfee'])
         valid_until_block = json['validuntilblock']
-        attributes: List[TransactionAttribute] = []
+        attributes: list[TransactionAttribute] = []
         # ugh :-(
         for attribute in json['attributes']:
             try:
@@ -407,7 +394,7 @@ class Transaction(payloads.IInventory, IJson):
                    witnesses,
                    procotol_magic)
 
-    def get_script_hashes_for_verifying(self, _) -> List[types.UInt160]:
+    def get_script_hashes_for_verifying(self, _) -> list[types.UInt160]:
         """
         Helper method to get the data used in verifying the object.
         """
@@ -433,12 +420,12 @@ class Transaction(payloads.IInventory, IJson):
     # TODO: implement Verify methods once we have Snapshot support
 
     @staticmethod
-    def _deserialize_signers(reader: serialization.BinaryReader, max_count: int) -> List[payloads.Signer]:
+    def _deserialize_signers(reader: serialization.BinaryReader, max_count: int) -> list[payloads.Signer]:
         count = reader.read_var_int(max_count)
         if count == 0:
             raise ValueError("Deserialization error - signers can't be empty")
 
-        values: List[payloads.Signer] = []
+        values: list[payloads.Signer] = []
         for i in range(0, count):
             signer = reader.read_serializable(payloads.Signer)
             if signer in values:
@@ -448,9 +435,9 @@ class Transaction(payloads.IInventory, IJson):
         return values
 
     @staticmethod
-    def _deserialize_attributes(reader: serialization.BinaryReader, max_count: int) -> List[TransactionAttribute]:
+    def _deserialize_attributes(reader: serialization.BinaryReader, max_count: int) -> list[TransactionAttribute]:
         count = reader.read_var_int(max_count)
-        values: List[TransactionAttribute] = []
+        values: list[TransactionAttribute] = []
 
         for _ in range(0, count):
             attribute = TransactionAttribute.deserialize_from(reader)

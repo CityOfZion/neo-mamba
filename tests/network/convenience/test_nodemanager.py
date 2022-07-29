@@ -1,4 +1,3 @@
-import unittest
 import aiodns
 import logging
 import asynctest

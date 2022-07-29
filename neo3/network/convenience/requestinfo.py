@@ -1,5 +1,5 @@
 from .flightinfo import FlightInfo
-from typing import Dict, Optional
+from typing import Optional
 
 
 class RequestInfo:
@@ -18,14 +18,14 @@ class RequestInfo:
         self.height: int = height
 
         #: A _dictionary holding node :attr:`~neo3.network.node.NeoNode.id` keys, with UTC timestamp values.
-        self.failed_nodes: Dict[int, int] = dict()
+        self.failed_nodes: dict[int, int] = dict()
 
         #: The total count of flights for this request that failed to meet the time requirements.
         self.failed_total: int = 0
 
         #: A _dictionary holding node_id keys with :class:`FlightInfo <neo3.network.convenience.flightinfo.FlightInfo>`
         # object values.
-        self.flights: Dict[int, FlightInfo] = dict()
+        self.flights: dict[int, FlightInfo] = dict()
 
         #: The :attr:`~neo3.network.node.NeoNode.id` of the node last used for a flight.
         self.last_used_node: int = -1

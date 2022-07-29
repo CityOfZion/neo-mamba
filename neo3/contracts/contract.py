@@ -1,13 +1,10 @@
 from __future__ import annotations
-
-from typing import List, Tuple
-from copy import deepcopy
 from neo3 import contracts, vm
 from neo3.core import cryptography, to_script_hash, types, serialization, Size as s
 
 
 class Contract:
-    def __init__(self, script: bytes, parameter_list: List[contracts.ContractParameterType]):
+    def __init__(self, script: bytes, parameter_list: list[contracts.ContractParameterType]):
         #: The contract instructions (OpCodes)
         self.script = script
         self.parameter_list = parameter_list
@@ -22,7 +19,7 @@ class Contract:
         return self._script_hash
 
     @classmethod
-    def create_multisig_contract(cls, m: int, public_keys: List[cryptography.ECPoint]) -> Contract:
+    def create_multisig_contract(cls, m: int, public_keys: list[cryptography.ECPoint]) -> Contract:
         """
         Create a multi-signature contract requiring `m` signatures from the list `public_keys`.
 
@@ -34,7 +31,7 @@ class Contract:
                    parameter_list=[contracts.ContractParameterType.SIGNATURE] * m)
 
     @staticmethod
-    def create_multisig_redeemscript(m: int, public_keys: List[cryptography.ECPoint]) -> bytes:
+    def create_multisig_redeemscript(m: int, public_keys: list[cryptography.ECPoint]) -> bytes:
         """
         Create a multi-signature redeem script requiring `m` signatures from the list `public_keys`.
 
@@ -129,7 +126,7 @@ class Contract:
         return valid
 
     @staticmethod
-    def parse_as_multisig_contract(script: bytes) -> Tuple[bool, int, List[cryptography.ECPoint]]:
+    def parse_as_multisig_contract(script: bytes) -> tuple[bool, int, list[cryptography.ECPoint]]:
         """
         Try to parse script as multisig contract and extract related data.
 
@@ -142,7 +139,7 @@ class Contract:
             list[ECPoint]: the public keys in the script if valiation passed. An empty array otherwise.
         """
         script = bytes(script)
-        VALIDATION_FAILURE: Tuple[bool, int, List[cryptography.ECPoint]] = (False, 0, [])
+        VALIDATION_FAILURE: tuple[bool, int, list[cryptography.ECPoint]] = (False, 0, [])
 
         len_script = len(script)
         if len_script < 42:
@@ -210,7 +207,7 @@ class Contract:
         return True, signature_threshold, public_keys
 
     @staticmethod
-    def get_consensus_address(validators: List[cryptography.ECPoint]) -> types.UInt160:
+    def get_consensus_address(validators: list[cryptography.ECPoint]) -> types.UInt160:
         script = contracts.Contract.create_multisig_redeemscript(
             len(validators) - (len(validators) - 1) // 3,
             validators

@@ -5,7 +5,6 @@ from datetime import datetime
 from neo3.network import payloads, convenience
 from neo3.core import msgrouter
 from neo3 import network_logger as logger, _Singleton
-from typing import Dict
 from contextlib import suppress
 
 
@@ -27,7 +26,7 @@ class SyncManager(_Singleton):
         # which is usedin the syncing logic
         self.ledger = None
         self.block_cache = []
-        self.block_requests = dict()  # type: Dict[int, convenience.RequestInfo]
+        self.block_requests = dict()  # type: dict[int, convenience.RequestInfo]
         self.shutting_down = False
 
         self._is_persisting_blocks = False

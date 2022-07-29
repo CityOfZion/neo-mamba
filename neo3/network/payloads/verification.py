@@ -5,7 +5,7 @@ import base64
 from enum import IntFlag, IntEnum
 from neo3.core import serialization, utils, types, cryptography, Size as s, IJson
 from neo3.network import payloads
-from typing import List, Dict, Any, no_type_check, Iterator
+from typing import Any, no_type_check, Iterator
 
 
 class Signer(serialization.ISerializable, IJson):
@@ -18,17 +18,17 @@ class Signer(serialization.ISerializable, IJson):
 
     def __init__(self, account: types.UInt160,
                  scope: payloads.WitnessScope = None,
-                 allowed_contracts: List[types.UInt160] = None,
-                 allowed_groups: List[cryptography.ECPoint] = None,
-                 rules: List[WitnessRule] = None):
+                 allowed_contracts: list[types.UInt160] = None,
+                 allowed_groups: list[cryptography.ECPoint] = None,
+                 rules: list[WitnessRule] = None):
         #: The TX sender.
         self.account = account
         #: payloads.WitnessScope: The configured validation scope.
         self.scope = scope if scope else payloads.WitnessScope.NONE
-        #: List[types.UInt160]: Whitelist of contract script hashes if used with
+        #: list[types.UInt160]: Whitelist of contract script hashes if used with
         #: :const:`~neo3.network.payloads.verification.WitnessScope.CUSTOM_CONTRACTS`.
         self.allowed_contracts = allowed_contracts if allowed_contracts else []
-        #: List[cryptography.ECPoint]: Whitelist of public keys if used with
+        #: list[cryptography.ECPoint]: Whitelist of public keys if used with
         #: :const:`~neo3.network.payloads.verification.WitnessScope.CUSTOM_GROUPS`.
         self.allowed_groups = allowed_groups if allowed_groups else []
         #: List of rules that must pass for the current execution context when used with
@@ -122,7 +122,7 @@ class Signer(serialization.ISerializable, IJson):
 
     def to_json(self) -> dict:
         """ Convert object into json """
-        json: Dict[str, Any] = {
+        json: dict[str, Any] = {
             "account": "0x" + str(self.account),
             "scopes": self.scope.to_csharp_name(),
         }
@@ -335,7 +335,7 @@ class WitnessCondition(serialization.ISerializable, IJson):
         """ Deserialize from a buffer without reading the `type` member. """
 
     @staticmethod
-    def _deserialize_conditions(reader: serialization.BinaryReader, max_nesting_depth: int) -> List[WitnessCondition]:
+    def _deserialize_conditions(reader: serialization.BinaryReader, max_nesting_depth: int) -> list[WitnessCondition]:
         conditions = []
         for _ in range(reader.read_var_int(WitnessCondition.MAX_SUB_ITEMS)):
             conditions.append(WitnessCondition._deserialize_from(reader, max_nesting_depth))
@@ -365,7 +365,7 @@ class WitnessCondition(serialization.ISerializable, IJson):
 class ConditionAnd(WitnessCondition):
     _type = WitnessConditionType.AND
 
-    def __init__(self, expressions: List[WitnessCondition]):
+    def __init__(self, expressions: list[WitnessCondition]):
         self.expressions = expressions
 
     def __len__(self):
@@ -464,7 +464,7 @@ class ConditionNot(WitnessCondition):
 class ConditionOr(WitnessCondition):
     _type = WitnessConditionType.OR
 
-    def __init__(self, expressions: List[WitnessCondition]):
+    def __init__(self, expressions: list[WitnessCondition]):
         self.expressions = expressions
 
     def __len__(self):
@@ -613,7 +613,7 @@ class WitnessRule(serialization.ISerializable, IJson):
 class IVerifiable(serialization.ISerializable):
     def __init__(self, *args, **kwargs):
         super(IVerifiable, self).__init__(*args, **kwargs)
-        self.witnesses: List[Witness] = []
+        self.witnesses: list[Witness] = []
 
     @abc.abstractmethod
     def serialize_unsigned(self, writer: serialization.BinaryWriter) -> None:
@@ -624,7 +624,7 @@ class IVerifiable(serialization.ISerializable):
         """ """
 
     @abc.abstractmethod
-    def get_script_hashes_for_verifying(self, snapshot) -> List[types.UInt160]:
+    def get_script_hashes_for_verifying(self, snapshot) -> list[types.UInt160]:
         """
         Helper method to get the data used in verifying the object.
         """

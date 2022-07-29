@@ -1,12 +1,12 @@
 from __future__ import annotations
 from neo3.core import serialization
-from typing import Type, Union
+from typing import Type, Optional
 
 __all__ = ['UInt160', 'UInt256']
 
 
 class _UIntBase(serialization.ISerializable):
-    def __init__(self, num_bytes: int, data: Union[bytes, bytearray] = None) -> None:
+    def __init__(self, num_bytes: int, data: Optional[bytes | bytearray] = None) -> None:
         """
 
         Args:

@@ -1,6 +1,5 @@
 from __future__ import annotations
 from enum import IntEnum
-from typing import List
 from neo3.core import types
 from neo3.core import Size as s, utils
 from neo3.core import serialization
@@ -25,7 +24,7 @@ class InventoryPayload(serialization.ISerializable):
         - :ref:`mempool <message-usage-mempool>`
     """
 
-    def __init__(self, type: InventoryType, hashes: List[types.UInt256]):
+    def __init__(self, type: InventoryType, hashes: list[types.UInt256]):
         """
         Create payload.
 

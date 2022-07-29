@@ -9,13 +9,13 @@ from neo3 import network_logger as logger, settings
 from neo3.core import types, msgrouter
 from contextlib import suppress
 from socket import AF_INET as IP4_FAMILY
-from typing import Optional, List, Tuple, Dict, Callable, cast
+from typing import Optional, Callable, cast
 
 
 class NeoNode:
 
-    #: List[payloads.NetworkAddress]: a list of known network addresses (class attribute).
-    addresses = []  # type: List[payloads.NetworkAddress]
+    #: list[payloads.NetworkAddress]: a list of known network addresses (class attribute).
+    addresses = []  # type: list[payloads.NetworkAddress]
 
     def __init__(self, protocol):
         self.protocol = protocol
@@ -33,9 +33,9 @@ class NeoNode:
         #: bool: Whether the node is in the process of disconnecting and shutting down its tasks.
         self.disconnecting: bool = False
 
-        #: Dict[message.MessageType, Callable[[message.Message], None]]: A table matching message types to handler
+        #: dict[message.MessageType, Callable[[message.Message], None]]: A table matching message types to handler
         #: functions.
-        self.dispatch_table: Dict[message.MessageType, Callable[[message.Message], None]] = {
+        self.dispatch_table: dict[message.MessageType, Callable[[message.Message], None]] = {
             message.MessageType.ADDR: self.handler_addr,
             message.MessageType.BLOCK: self.handler_block,
             message.MessageType.CONSENSUS: self.handler_consensus,
@@ -77,8 +77,8 @@ class NeoNode:
             await self.disconnect(payloads.DisconnectReason.IPFILTER_NOT_ALLOWED)
             return
 
-    async def _do_handshake(self) -> Tuple[bool, Optional[payloads.DisconnectReason]]:
-        caps: List[capabilities.NodeCapability] = [capabilities.FullNodeCapability(0)]
+    async def _do_handshake(self) -> tuple[bool, Optional[payloads.DisconnectReason]]:
+        caps: list[capabilities.NodeCapability] = [capabilities.FullNodeCapability(0)]
         # TODO: fix nonce and port if a service is running
         send_version = message.Message(msg_type=message.MessageType.VERSION,
                                        payload=payloads.VersionPayload(nonce=123,
@@ -418,7 +418,7 @@ class NeoNode:
         m = message.Message(msg_type=message.MessageType.GETADDR)
         await self.send_message(m)
 
-    async def send_address_list(self, network_addresses: List[payloads.NetworkAddress]) -> None:
+    async def send_address_list(self, network_addresses: list[payloads.NetworkAddress]) -> None:
         """
         Send network addresses.
 
@@ -443,7 +443,7 @@ class NeoNode:
                             payload=payloads.GetBlockByIndexPayload(index_start, count))
         await self.send_message(m)
 
-    async def send_headers(self, headers: List[payloads.Header]) -> None:
+    async def send_headers(self, headers: list[payloads.Header]) -> None:
         """
         Send a list of Header objects.
 
@@ -496,7 +496,7 @@ class NeoNode:
                             payload=payloads.GetBlockByIndexPayload(index_start, count))
         await self.send_message(m)
 
-    async def request_data(self, type: payloads.InventoryType, hashes: List[types.UInt256]) -> None:
+    async def request_data(self, type: payloads.InventoryType, hashes: list[types.UInt256]) -> None:
         """
         Send a request for receiving the specified inventory data.
 
@@ -580,7 +580,7 @@ class NeoNode:
                          port: int = None,
                          timeout=3,
                          loop=None,
-                         socket=None) -> Tuple[Optional[NeoNode], Optional[Tuple[str, str]]]:
+                         socket=None) -> tuple[Optional[NeoNode], Optional[tuple[str, str]]]:
         """
         Establish a connection to a Neo node
 

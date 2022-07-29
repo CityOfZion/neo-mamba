@@ -1,6 +1,6 @@
 import hashlib
 from neo3.core import types
-from typing import List, Optional
+from typing import Optional
 
 
 class _MerkleTreeNode:
@@ -24,7 +24,7 @@ class _MerkleTreeNode:
 
 
 class MerkleTree:
-    def __init__(self, hashes: List[types.UInt256]):
+    def __init__(self, hashes: list[types.UInt256]):
         """
 
         Args:
@@ -47,19 +47,19 @@ class MerkleTree:
             i = i.left_child
         self.depth = _depth
 
-    def to_hash_array(self) -> List[types.UInt256]:
+    def to_hash_array(self) -> list[types.UInt256]:
         """
         Create a list of hashes the Merkle tree is build up from.
 
         Note: does not include the Merkle root hash.
         """
-        hashes: List[types.UInt256] = []
+        hashes: list[types.UInt256] = []
         if self.has_root:
             MerkleTree._depth_first_search(self.root, hashes)
         return hashes
 
     @staticmethod
-    def _depth_first_search(node: _MerkleTreeNode, hashes: List[types.UInt256]) -> None:
+    def _depth_first_search(node: _MerkleTreeNode, hashes: list[types.UInt256]) -> None:
         # if left is None then Right is also always None, but it helps the static type checker understand this
         # otherwise it thinks it might go to the else branch and the second call is then invalid
         if node.left_child is None or node.right_child is None:
@@ -69,7 +69,7 @@ class MerkleTree:
             MerkleTree._depth_first_search(node.right_child, hashes)
 
     @staticmethod
-    def _build(leaves: List[_MerkleTreeNode]) -> _MerkleTreeNode:
+    def _build(leaves: list[_MerkleTreeNode]) -> _MerkleTreeNode:
         if len(leaves) == 0:
             raise ValueError('Leaves must have length')
         if len(leaves) == 1:
@@ -95,7 +95,7 @@ class MerkleTree:
         return MerkleTree._build(parents)
 
     @staticmethod
-    def compute_root(hashes: List[types.UInt256]) -> types.UInt256:
+    def compute_root(hashes: list[types.UInt256]) -> types.UInt256:
         """
         Compute the Merkle root hash from a list of hashes.
 

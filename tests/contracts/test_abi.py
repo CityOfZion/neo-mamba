@@ -1,6 +1,5 @@
 import unittest
 from neo3 import contracts
-from neo3.core import types
 
 
 class ContractParameterDefinitionTestCase(unittest.TestCase):
