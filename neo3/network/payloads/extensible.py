@@ -1,7 +1,5 @@
 from __future__ import annotations
 import hashlib
-from typing import List
-from neo3 import settings
 from neo3.core import types, serialization, Size as s, utils
 from neo3.network import payloads, message
 from neo3.network.payloads import InventoryType
@@ -111,7 +109,7 @@ class ExtensiblePayload(payloads.IInventory):
         """
         return InventoryType.EXTENSIBLE
 
-    def get_script_hashes_for_verifying(self, snapshot) -> List[types.UInt160]:
+    def get_script_hashes_for_verifying(self, snapshot) -> list[types.UInt160]:
         """
         Helper method to get the data used in verifying the object.
         """

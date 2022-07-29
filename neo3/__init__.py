@@ -1,7 +1,6 @@
 import logging
 import json
 import binascii
-from typing import List
 from types import SimpleNamespace
 from neo3.core import cryptography
 from .singleton import _Singleton
@@ -77,7 +76,7 @@ class Settings(IndexableNamespace):
             self._convert(where[k].__dict__, where[k].__dict__)
 
     @property
-    def standby_committee(self) -> List[cryptography.ECPoint]:
+    def standby_committee(self) -> list[cryptography.ECPoint]:
         if self._cached_standby_committee is None:
             points = []
             for p in self.network.standby_committee:
@@ -86,7 +85,7 @@ class Settings(IndexableNamespace):
         return self._cached_standby_committee
 
     @property
-    def standby_validators(self) -> List[cryptography.ECPoint]:
+    def standby_validators(self) -> list[cryptography.ECPoint]:
         return self.standby_committee[:self.network.validators_count]
 
     def reset_settings_to_default(self):

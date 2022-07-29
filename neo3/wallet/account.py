@@ -3,7 +3,7 @@ import base58  # type: ignore
 import base64
 import hashlib
 import unicodedata
-from typing import Optional, Dict, Any, List
+from typing import Optional, Any
 from Crypto.Cipher import AES  # type: ignore
 from jsonschema import validate  # type: ignore
 from neo3 import settings, contracts, vm, wallet
@@ -43,10 +43,10 @@ class AccountContract(contracts.Contract):
         "required": ["script", "parameters", "deployed"]
     }
 
-    def __init__(self, script: bytes, parameter_list: List[contracts.ContractParameterDefinition]):
+    def __init__(self, script: bytes, parameter_list: list[contracts.ContractParameterDefinition]):
         super().__init__(script, [param.type for param in parameter_list])
 
-        self.parameter_names: List[str] = [param.name for param in parameter_list]
+        self.parameter_names: list[str] = [param.name for param in parameter_list]
         self.deployed: bool = False
 
     @classmethod
@@ -114,7 +114,7 @@ class Account:
                  label: Optional[str] = None,
                  lock: bool = False,
                  contract: Optional[contracts.Contract] = None,
-                 extra: Optional[Dict[str, Any]] = None
+                 extra: Optional[dict[str, Any]] = None
                  ):
         """
         Instantiate an account. This constructor should only be directly called when it's desired to create a new

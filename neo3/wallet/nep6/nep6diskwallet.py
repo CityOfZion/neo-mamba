@@ -1,7 +1,7 @@
 from __future__ import annotations
 import json
 import os.path
-from typing import List, Optional
+from typing import Optional
 from neo3.wallet.account import Account
 from neo3.wallet.scrypt_parameters import ScryptParameters
 from neo3.wallet.wallet import Wallet
@@ -18,7 +18,7 @@ class NEP6DiskWallet(Wallet):
                  name: Optional[str] = None,
                  version: str = Wallet._wallet_version,
                  scrypt: Optional[ScryptParameters] = None,
-                 accounts: List[Account] = None,
+                 accounts: list[Account] = None,
                  default_account: Optional[Account] = None,
                  extra: Optional[dict] = None):
         """

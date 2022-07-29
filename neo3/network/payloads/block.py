@@ -1,12 +1,10 @@
 from __future__ import annotations
 import hashlib
 import struct
-from typing import List
-from neo3 import vm, settings
+from neo3 import settings
 from neo3.core import Size as s, serialization, types, utils, cryptography as crypto
 from neo3.network import payloads
 from bitarray import bitarray  # type: ignore
-from copy import deepcopy
 from .verification import IVerifiable
 
 
@@ -117,7 +115,7 @@ class Header(IVerifiable):
         self.merkle_root = types.UInt256(merkleroot)
         self.next_consensus = types.UInt160(consensus)
 
-    def get_script_hashes_for_verifying(self, snapshot) -> List[types.UInt160]:
+    def get_script_hashes_for_verifying(self, snapshot) -> list[types.UInt160]:
         """
         Helper method to get the data used in verifying the object.
         """
@@ -147,7 +145,7 @@ class Block(payloads.IInventory):
 
     def __init__(self,
                  header: Header,
-                 transactions: List[payloads.Transaction] = None,
+                 transactions: list[payloads.Transaction] = None,
                  *args,
                  **kwargs
                  ):
@@ -219,7 +217,7 @@ class Block(payloads.IInventory):
         """ A unique identifier based on the unsigned data portion of the object """
         return self.header.hash()
 
-    def get_script_hashes_for_verifying(self, snapshot) -> List[types.UInt160]:
+    def get_script_hashes_for_verifying(self, snapshot) -> list[types.UInt160]:
         """
         Helper method to get the data used in verifying the object.
         """
@@ -302,7 +300,7 @@ class TrimmedBlock(serialization.ISerializable):
     Contains consensus data and transactions hashes instead of their full objects.
     """
 
-    def __init__(self, header: Header, hashes: List[types.UInt256]):
+    def __init__(self, header: Header, hashes: list[types.UInt256]):
         super(TrimmedBlock, self).__init__()
         self.header = header
         self.hashes = hashes
@@ -394,7 +392,7 @@ class MerkleBlockPayload(serialization.ISerializable):
 class HeadersPayload(serialization.ISerializable):
     MAX_HEADERS_COUNT = 2000
 
-    def __init__(self, headers: List[Header] = None):
+    def __init__(self, headers: list[Header] = None):
         """
         Should not be called directly. Use create() instead.
         """

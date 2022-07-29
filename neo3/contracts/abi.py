@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import List, Optional
+from typing import Optional
 from enum import IntEnum
 from neo3.core import IJson
 from neo3 import contracts
@@ -87,7 +87,7 @@ class ContractEventDescriptor(IJson):
     """
     A description for an event that a contract can broadcast.
     """
-    def __init__(self, name: str, parameters: List[ContractParameterDefinition]):
+    def __init__(self, name: str, parameters: list[ContractParameterDefinition]):
         """
 
         Args:
@@ -139,7 +139,7 @@ class ContractMethodDescriptor(ContractEventDescriptor, IJson):
     """
     def __init__(self, name: str,
                  offset: int,
-                 parameters: List[ContractParameterDefinition],
+                 parameters: list[ContractParameterDefinition],
                  return_type: contracts.ContractParameterType,
                  safe: bool):
         """
@@ -211,8 +211,8 @@ class ContractABI(IJson):
     smart contract.
     """
     def __init__(self,
-                 methods: List[contracts.ContractMethodDescriptor],
-                 events: List[contracts.ContractEventDescriptor]):
+                 methods: list[contracts.ContractMethodDescriptor],
+                 events: list[contracts.ContractEventDescriptor]):
         """
         Args:
             byte code.

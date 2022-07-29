@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Dict, Optional
+from typing import Optional
 from neo3.network import payloads
 from neo3.core import types, msgrouter
 from neo3 import network_logger as logger, _Singleton
@@ -13,7 +13,7 @@ class RelayCache(_Singleton):
     Will be accessed in response to a GETDATA network payload.
     """
     def init(self):
-        self.cache: Dict[types.UInt256, payloads.inventory.IInventory] = dict()
+        self.cache: dict[types.UInt256, payloads.inventory.IInventory] = dict()
         msgrouter.on_block_persisted += self.update_cache_for_block_persist
 
     def add(self, inventory: payloads.inventory.IInventory) -> None:

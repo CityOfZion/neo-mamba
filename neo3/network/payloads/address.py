@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import List, Optional
+from typing import Optional
 from datetime import datetime
 from netaddr import IPAddress  # type: ignore
 from enum import IntEnum
@@ -51,7 +51,7 @@ class NetworkAddress(serialization.ISerializable):
 
     def __init__(self,
                  address: str,
-                 capabilities: List[capabilities.NodeCapability] = None,
+                 capabilities: list[capabilities.NodeCapability] = None,
                  timestamp: int = None,
                  state: AddressState = AddressState.NEW):
         """ Create an instance. """
@@ -176,7 +176,7 @@ class NetworkAddress(serialization.ISerializable):
 
 
 class AddrPayload(serialization.ISerializable):
-    def __init__(self, addresses: List[NetworkAddress]):
+    def __init__(self, addresses: list[NetworkAddress]):
         self.addresses = addresses
 
     def __len__(self):

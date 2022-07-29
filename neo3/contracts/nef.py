@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import base64
 import hashlib
-from typing import List
 from neo3.core import serialization, types, Size as s, utils, IJson
 from neo3 import contracts
 
@@ -11,7 +10,7 @@ class NEF(serialization.ISerializable, IJson):
     def __init__(self,
                  compiler_name: str = None,
                  script: bytes = None,
-                 tokens: List[MethodToken] = None,
+                 tokens: list[MethodToken] = None,
                  source: str = None,
                  _magic: int = 0x3346454E):
         """

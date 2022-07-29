@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from jsonschema import validate  # type: ignore
 from neo3.core import IJson, cryptography
 from neo3.wallet.account import Account, AccountContract
@@ -12,15 +12,15 @@ class MultiSigContext:
         self.initialised = False
         self.signing_threshold = 999
         #: List of valid public keys for signing
-        self.expected_public_keys: List[cryptography.ECPoint] = []
+        self.expected_public_keys: list[cryptography.ECPoint] = []
         #: Completed pairs
-        self.signature_pairs: Dict[cryptography.ECPoint, bytes] = {}
+        self.signature_pairs: dict[cryptography.ECPoint, bytes] = {}
 
     @property
     def is_complete(self):
         return len(self.signature_pairs) >= self.signing_threshold
 
-    def signing_status(self) -> Dict[cryptography.ECPoint, bool]:
+    def signing_status(self) -> dict[cryptography.ECPoint, bool]:
         # shows which keys have been completed
         pass
 
@@ -60,9 +60,9 @@ class Wallet(IJson):
                  name: Optional[str] = None,
                  version: str = _wallet_version,
                  scrypt: Optional[ScryptParameters] = None,
-                 accounts: List[Account] = None,
+                 accounts: list[Account] = None,
                  default_account: Optional[Account] = None,
-                 extra: Optional[Dict[Any, Any]] = None):
+                 extra: Optional[dict[Any, Any]] = None):
         """
         Args:
             name: a user defined label for the wallet
@@ -117,7 +117,7 @@ class Wallet(IJson):
 
     def import_multisig_address(self,
                                 signing_threshold: int,
-                                public_keys: List[cryptography.ECPoint]
+                                public_keys: list[cryptography.ECPoint]
                                 ) -> Account:
         if signing_threshold < 1 or signing_threshold > 1024:
             raise ValueError("Invalid signing threshold")

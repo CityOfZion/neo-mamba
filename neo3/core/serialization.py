@@ -3,7 +3,7 @@ import sys
 import abc
 import struct
 from io import BytesIO, SEEK_END
-from typing import Union, Any, List, Type, TypeVar
+from typing import Any, Type, TypeVar, Optional
 
 
 ISerializable_T = TypeVar('ISerializable_T', bound='ISerializable')
@@ -34,7 +34,7 @@ class ISerializable(abc.ABC):
         """
 
     @classmethod
-    def deserialize_from_bytes(cls: Type[ISerializable_T], data: Union[bytes, bytearray]) -> ISerializable_T:
+    def deserialize_from_bytes(cls: Type[ISerializable_T], data: bytes | bytearray) -> ISerializable_T:
         """
         Parse data into an object instance.
 
@@ -95,7 +95,7 @@ class BinaryReader(object):
                 my_value = br.read_uint16()
     """
 
-    def __init__(self, stream: Union[bytes, bytearray]) -> None:
+    def __init__(self, stream: bytes | bytearray) -> None:
         """
         Create an instance.
 
@@ -339,7 +339,7 @@ class BinaryReader(object):
         obj.deserialize(self)
         return obj
 
-    def read_serializable_list(self, obj_type: Type[ISerializable_T], max: int = None) -> List[ISerializable_T]:
+    def read_serializable_list(self, obj_type: Type[ISerializable_T], max: int = None) -> list[ISerializable_T]:
         """
         Read and deserialize a list of objects of `obj_type` from the stream.
 
@@ -391,7 +391,7 @@ class BinaryWriter(object):
             self.assertEqual(b'\\x05', bw._stream.getvalue())
     """
 
-    def __init__(self, stream: Union[bytearray, bytes] = None) -> None:
+    def __init__(self, stream: Optional[bytearray | bytes] = None) -> None:
         """
         Create an instance.
 
@@ -640,7 +640,7 @@ class BinaryWriter(object):
         """
         obj_instance.serialize(self)
 
-    def write_serializable_list(self, objects: List[ISerializable_T]) -> None:
+    def write_serializable_list(self, objects: list[ISerializable_T]) -> None:
         """
         Serialize a list of objects and write them to the stream.
 

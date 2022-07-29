@@ -5,7 +5,7 @@ from neo3crypto import (ECPoint as _ECPointCpp,  # type: ignore
                         ECCException,
                         sign as ecdsa_sign,
                         verify as ecdsa_verify)
-from typing import Type, Union, Any
+from typing import Type, Any
 import os
 import binascii
 
@@ -66,7 +66,7 @@ class ECPoint(_ECPointCpp, serialization.ISerializable, metaclass=SerializableEC
 
     @classmethod
     def deserialize_from_bytes(cls: Type[serialization.ISerializable_T],
-                               data: Union[bytes, bytearray],
+                               data: bytes | bytearray,
                                curve: ECCCurve = ECCCurve.SECP256R1,
                                validate: bool = True) -> serialization.ISerializable_T:
         """

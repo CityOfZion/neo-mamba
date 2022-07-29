@@ -55,7 +55,6 @@ Examples:
 """
 from ipaddress import IPv4Network
 from contextlib import suppress
-from typing import Dict, List
 from copy import deepcopy
 
 
@@ -131,7 +130,7 @@ class IPFilter():
         with suppress(ValueError):
             self._config['whitelist'].remove(address)
 
-    def load_config(self, config: Dict[str, List[str]]) -> None:
+    def load_config(self, config: dict[str, list[str]]) -> None:
         """
         Load filtering rules from a configuration object.
 

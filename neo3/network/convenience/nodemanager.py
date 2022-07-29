@@ -5,7 +5,7 @@ import ipaddress
 from neo3 import network_logger as logger, settings, _Singleton
 from neo3.network import node, payloads, convenience, message
 from neo3.core import msgrouter
-from typing import List, Optional
+from typing import Optional
 from contextlib import suppress
 from datetime import datetime
 
@@ -54,7 +54,7 @@ class NodeManager(_Singleton):
     # init() is used instead of __init__() due to the Singleton inheritance (read its class documentation)
     def init(self):
         #: A list of nodes that we're actively using to request data from
-        self.nodes: List[node.NeoNode] = []
+        self.nodes: list[node.NeoNode] = []
         #: A list of host:port addresses that have a task pending to to connect to, but are not fully processed
         self.queued_addresses = []
 
@@ -127,7 +127,7 @@ class NodeManager(_Singleton):
     """
     Start utility functions
     """
-    def get_node_addresses(self) -> List[payloads.NetworkAddress]:
+    def get_node_addresses(self) -> list[payloads.NetworkAddress]:
         """
         Return the addresses of connected nodes.
         """

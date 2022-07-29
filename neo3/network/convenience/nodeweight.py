@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import List
 
 
 class NodeWeight:
@@ -22,11 +21,11 @@ class NodeWeight:
         self.id: int = node_id
 
         #: in number of bytes per second
-        self.speed: List[float] = [self.SPEED_INIT_VALUE] * self.SPEED_RECORD_COUNT
+        self.speed: list[float] = [self.SPEED_INIT_VALUE] * self.SPEED_RECORD_COUNT
         self.timeout_count = 0
         self.error_response_count = 0
         now = datetime.utcnow().timestamp() * 1000  # milliseconds
-        self.request_time: List[float] = [now] * self.REQUEST_TIME_RECORD_COUNT
+        self.request_time: list[float] = [now] * self.REQUEST_TIME_RECORD_COUNT
 
     def append_new_speed(self, speed: float) -> None:
         """
