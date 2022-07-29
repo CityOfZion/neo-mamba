@@ -401,7 +401,6 @@ class NodeManagerTimedTestCase(asynctest.ClockedTestCase):
     async def test_monitor_node_height_within_limits(self):
         # test that if the last height update timestamp of a node is within the treshold
         # that we only ask for another update
-        settings.storage.use_default = False
         self.nodemgr.nodes = [self.node1]
         with self.assertLogs(network_logger, 'DEBUG') as context:
             with mock.patch.object(self.node1, 'send_message', side_effect=AsyncMock()) as patched_node_send_msg:

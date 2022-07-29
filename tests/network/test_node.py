@@ -413,7 +413,6 @@ class NeoNodeTestCase(asynctest.TestCase):
     async def test_processing_messages3(self):
         # we got 2 cases for which we need to test without using a backend
         settings.network.magic = 769
-        settings.storage.use_default = False
         socket_mock = NeoNodeSocketMock(self.loop, '127.0.0.1', 1111)
 
         m_inv1 = message.Message(msg_type=message.MessageType.INV, payload=payloads.InventoryPayload(
