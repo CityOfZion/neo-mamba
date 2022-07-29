@@ -17,7 +17,7 @@ to_add = os.path.abspath('../../neo3')
 sys.path.insert(0, to_add)
 sys.path.append(os.path.abspath("./_ext"))
 sys.path.append(os.path.abspath("./_theme"))
-from neo3 import version
+from neo3 import __version__ as version
 
 
 # -- Project information -----------------------------------------------------

@@ -8,7 +8,7 @@ from types import SimpleNamespace
 from neo3.core import cryptography
 from .singleton import _Singleton
 
-version = '0.11.0'
+__version__ = '0.12.0'
 
 core_logger = logging.getLogger('neo3.core')
 network_logger = logging.getLogger('neo3.network')

@@ -1,4 +1,4 @@
-.PHONY: clean clean-test clean-pyc clean-build docs help test lint coverage
+.PHONY: build clean clean-test clean-pyc clean-build docs help test lint coverage
 .DEFAULT_GOAL := help
 define BROWSER_PYSCRIPT
 import os, webbrowser, sys
@@ -68,3 +68,6 @@ docs: ## generate Sphinx HTML documentation, including API docs
 
 type: ## perform static type checking using mypy
 	mypy neo3/
+
+build:
+	python -m build
