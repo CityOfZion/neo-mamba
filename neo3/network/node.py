@@ -227,10 +227,7 @@ class NeoNode:
             # neo-cli broadcasts INV messages on a regular interval. We can use those as trigger to request
             # their latest block height
             if len(payload.hashes) > 0:
-                if settings.database:
-                    height = max(0, blockchain.Blockchain().height)
-                else:
-                    height = 0
+                height = 0
                 m = message.Message(msg_type=message.MessageType.PING,
                                     payload=payloads.PingPayload(height=height))
                 self._create_task_with_cleanup(self.send_message(m))
@@ -359,10 +356,7 @@ class NeoNode:
         Args:
             msg:
         """
-        if settings.database:
-            height = max(0, blockchain.Blockchain().height)
-        else:
-            height = 0
+        height = 0
         m = message.Message(msg_type=message.MessageType.PONG,
                             payload=payloads.PingPayload(height=height))
         self._create_task_with_cleanup(self.send_message(m))
@@ -532,10 +526,7 @@ class NeoNode:
         """
         Send a Ping message and expecting a Pong response
         """
-        if settings.database:
-            height = max(0, blockchain.Blockchain().height)
-        else:
-            height = 0
+        height = 0
 
         ping = payloads.PingPayload(height)
         m = message.Message(msg_type=message.MessageType.PING, payload=ping)

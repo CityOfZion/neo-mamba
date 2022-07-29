@@ -13,5 +13,4 @@
    complextypes
    core/index
    network/index
-   storage/index
    vm/index
