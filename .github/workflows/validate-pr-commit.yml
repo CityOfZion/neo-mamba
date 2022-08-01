@@ -93,8 +93,9 @@ jobs:
           cd mamba
           source venv/bin/activate
           make coverage
-      - name: upload coverage
-        run: |
-          cd mamba
-          pip install codecov
-          codecov
+      - name: upload to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          files: .coverage
+          working-directory: ./mamba/
+          env_vars: OS,PYTHON
