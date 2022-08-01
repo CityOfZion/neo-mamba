@@ -9,6 +9,7 @@ from neo3.core import types
 def _syscall_name_to_int(name: str) -> int:
     return int.from_bytes(hashlib.sha256(name.encode()).digest()[:4], 'little', signed=False)
 
+
 class OpCode(IntEnum):
     PUSHINT8 = 0x00
     PUSHINT16 = 0x01
@@ -218,6 +219,7 @@ class ScriptBuilder:
         if data is not None:
             self.emit_raw(data)
         return self
+
     def emit_push(self, value) -> ScriptBuilder:
         if value is None:
             return self.emit(OpCode.PUSHNULL)
