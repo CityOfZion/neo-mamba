@@ -1,0 +1,100 @@
+name: CI
+on:
+  pull_request:
+    types:
+      - opened
+  push:
+  workflow_dispatch:
+
+jobs:
+  setup:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+        - name: Python 3.10
+          os: ubuntu-latest
+          python-version: "3.10"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          path: 'mamba'
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4.1.0
+        with:
+          python-version: ${{ matrix.python-version }}
+          check-latest: true
+      - name: Setup install dependencies
+        run: |
+          cd mamba
+          python -m venv venv
+          source venv/bin/activate
+          pip install -e .[dev,docs]
+      - name: prep for persist
+        run: tar -czf mamba.tar.gz mamba/
+      - name: persist
+        uses: actions/upload-artifact@v2
+        with:
+          name: setup-artifact
+          path: mamba.tar.gz
+          retention-days: 1
+  linting:
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - name: restore artificat
+        uses: actions/download-artifact@v2
+        with:
+          name: setup-artifact
+      - run: |
+          tar -xf mamba.tar.gz
+          cd mamba
+          source venv/bin/activate
+          make lint
+  type-checking:
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - name: restore artificat
+        uses: actions/download-artifact@v2
+        with:
+          name: setup-artifact
+      - run: |
+          tar -xf mamba.tar.gz
+          cd mamba
+          source venv/bin/activate
+          make type
+  unit-tests:
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - name: restore artificat
+        uses: actions/download-artifact@v2
+        with:
+          name: setup-artifact
+      - run: |
+          tar -xf mamba.tar.gz
+          cd mamba
+          source venv/bin/activate
+          make test
+  coverage:
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - name: restore artificat
+        uses: actions/download-artifact@v2
+        with:
+          name: setup-artifact
+      - name: check coverage
+        run: |
+          tar -xf mamba.tar.gz
+          cd mamba
+          source venv/bin/activate
+          make coverage
+      - name: upload coverage
+        run: |
+          cd mamba
+          pip install codecov
+          codecov
