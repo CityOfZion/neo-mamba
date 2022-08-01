@@ -1,5 +1,5 @@
 from unittest import TestCase
-from neo3.vm import BigInteger
+from neo3.core.types import BigInteger
 
 
 class BigIntegerTestCase(TestCase):

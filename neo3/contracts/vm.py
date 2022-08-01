@@ -1,13 +1,7 @@
 from __future__ import annotations
-import hashlib
-from pybiginteger import BigInteger
 from enum import IntEnum
 from neo3 import contracts
 from neo3.core import types
-
-
-def _syscall_name_to_int(name: str) -> int:
-    return int.from_bytes(hashlib.sha256(name.encode()).digest()[:4], 'little', signed=False)
 
 
 class OpCode(IntEnum):
@@ -235,13 +229,13 @@ class ScriptBuilder:
             return self.emit_push(value.to_array())
         elif isinstance(value, IntEnum):
             return self.emit_push(value.value)
-        elif isinstance(value, (BigInteger, int)):
+        elif isinstance(value, (types.BigInteger, int)):
             if -1 <= value <= 16:
                 self.emit_raw((OpCode.PUSH0.value + value).to_bytes(1, "little"))
                 return self
             else:
                 if isinstance(value, int):
-                    bigint = BigInteger(value)
+                    bigint = types.BigInteger(value)
                 else:
                     bigint = value
                 data = bytearray(bigint.to_array())
@@ -304,7 +298,7 @@ class ScriptBuilder:
         self.emit_push(contracts.CallFlags.ALL)  # CallFlags.ALL
         self.emit_push(operation)
         self.emit_push(script_hash)
-        self.emit_syscall(_syscall_name_to_int("System.Contract.Call"))
+        self.emit_syscall(contracts.syscall_name_to_int("System.Contract.Call"))
         return self
 
     def emit_dynamic_call_with_args(self, script_hash, operation: str, args) -> ScriptBuilder:
@@ -315,7 +309,7 @@ class ScriptBuilder:
         self.emit_push(contracts.CallFlags.ALL)
         self.emit_push(operation)
         self.emit_push(script_hash)
-        self.emit_syscall(_syscall_name_to_int("System.Contract.Call"))
+        self.emit_syscall(contracts.syscall_name_to_int("System.Contract.Call"))
         return self
 
     def _pad_right(self, data: bytearray, length: int, is_negative: bool):

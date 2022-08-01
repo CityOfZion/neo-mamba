@@ -6,9 +6,10 @@ import unicodedata
 from typing import Optional, Any
 from Crypto.Cipher import AES  # type: ignore
 from jsonschema import validate  # type: ignore
-from neo3 import settings, contracts, vm, wallet
+from neo3 import settings, contracts, wallet
 from neo3.network import payloads
-from neo3.core import types, to_script_hash, cryptography, syscall_name_to_int
+from neo3.core import types, to_script_hash, cryptography
+from neo3.contracts import vm
 
 
 # both constants below are used to encrypt/decrypt a private key to/from a nep2 key

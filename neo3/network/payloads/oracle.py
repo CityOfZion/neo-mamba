@@ -3,7 +3,8 @@ import base64
 from enum import IntEnum
 from neo3.network import payloads
 from neo3.core import Size as s, utils, serialization, IJson
-from neo3 import vm, contracts
+from neo3 import contracts
+from neo3.contracts import vm
 
 
 class OracleReponseCode(IntEnum):
