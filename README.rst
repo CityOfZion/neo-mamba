@@ -4,8 +4,8 @@
 neo-mamba
 -----------
 
-.. image:: https://circleci.com/gh/CityOfZion/neo-mamba.svg?style=shield
-  :target: https://circleci.com/gh/CityOfZion/neo-mamba
+.. image:: https://img.shields.io/github/workflow/status/CityOfZion/neo-mamba/CI
+  :target: https://shields.io/
 
 .. image:: https://codecov.io/gh/CityOfZion/neo-mamba/branch/master/graph/badge.svg
   :target: https://codecov.io/gh/CityOfZion/neo-mamba
