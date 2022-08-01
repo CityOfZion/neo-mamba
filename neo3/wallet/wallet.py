@@ -102,7 +102,8 @@ class Wallet(IJson):
         """
         account = Account(password=password,
                           watch_only=False,
-                          label=label
+                          label=label,
+                          scrypt_parameters=self.scrypt
                           )
 
         self.account_add(account, is_default)
@@ -290,19 +291,20 @@ class Wallet(IJson):
 
         accounts = []
         default_account = None
+        scrypt_params = ScryptParameters.from_json(json['scrypt'])
         if len(json['accounts']) > 0:
             if password is None:
                 raise ValueError('Missing wallet password to decrypt account data')
             else:
                 for json_account in json['accounts']:
-                    account_from_json = Account.from_json(json_account, password)
+                    account_from_json = Account.from_json(json_account, password, scrypt_parameters=scrypt_params)
                     accounts.append(account_from_json)
                     if default_account is None and hasattr(json, 'isDefault') and json['isDefault']:
                         default_account = account_from_json
 
         return cls(name=json['name'],
                    version=json['version'],
-                   scrypt=ScryptParameters.from_json(json['scrypt']),
+                   scrypt=scrypt_params,
                    accounts=accounts,
                    default_account=default_account,
                    extra=json['extra'])

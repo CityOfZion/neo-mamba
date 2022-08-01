@@ -82,9 +82,10 @@ class WalletCreationTestCase(unittest.TestCase):
         password = '123'
 
         new_wallet = nep6.NEP6DiskWallet.default()
-        test_account = wallet.Account.create_new(password)
-        new_wallet.accounts.append(test_account)
-        new_wallet._default_account = test_account
+        # override scrypt parameters for testing
+        new_wallet.scrypt = wallet.ScryptParameters(2, 8, 8)
+        test_account = wallet.Account.create_new(password, scrypt_parameters=wallet.ScryptParameters(2, 8, 8))
+        new_wallet.account_add(test_account, is_default=True)
 
         json_wallet = new_wallet.to_json()
 
@@ -97,46 +98,52 @@ class WalletCreationTestCase(unittest.TestCase):
 
     def test_wallet_account_new(self):
         password = 'abcabc'
-        wallet = nep6.NEP6DiskWallet.default()
-        self.assertEqual(0, len(wallet.accounts))
+        test_wallet = nep6.NEP6DiskWallet.default()
+        # override scrypt parameters for testing
+        wallet.scrypt = wallet.ScryptParameters(2, 8, 8)
+        self.assertEqual(0, len(test_wallet.accounts))
 
         # create account without label
-        account = wallet.account_new(password)
-        self.assertEqual(1, len(wallet.accounts))
+        account = test_wallet.account_new(password)
+        self.assertEqual(1, len(test_wallet.accounts))
         self.assertEqual(None, account.label)
-        self.assertEqual(wallet._default_account, account)
+        self.assertEqual(test_wallet._default_account, account)
 
         # create account with label
         label = 'New Account'
-        account = wallet.account_new(password, label)
-        self.assertEqual(2, len(wallet.accounts))
+        account = test_wallet.account_new(password, label)
+        self.assertEqual(2, len(test_wallet.accounts))
         self.assertEqual(label, account.label)
-        self.assertNotEqual(wallet._default_account, account)
+        self.assertNotEqual(test_wallet._default_account, account)
 
         # create account with duplicated label
-        with self.assertRaises(ValueError):
-            # label already used
-            wallet.account_new(password, label)
+        with self.assertRaises(ValueError) as context:
+            test_wallet.account_new(password, label)
+        self.assertIn("Label is already used by an account", str(context.exception))
 
         # create account and set as default
         label = 'Other Account'
-        account = wallet.account_new(password, label, is_default=True)
-        self.assertEqual(3, len(wallet.accounts))
+        account = test_wallet.account_new(password, label, is_default=True)
+        self.assertEqual(3, len(test_wallet.accounts))
         self.assertEqual(label, account.label)
-        self.assertEqual(wallet._default_account, account)
+        self.assertEqual(test_wallet._default_account, account)
 
     def test_wallet_account_add(self):
         password = 'abcabc'
         test_wallet = nep6.NEP6DiskWallet.default()
+
         self.assertEqual(0, len(test_wallet.accounts))
 
+        scrypt = wallet.ScryptParameters(2, 8, 8)
         label = 'New Account'
-        account_1 = wallet.Account(password=password)
+        account_1 = wallet.Account(password=password, scrypt_parameters=scrypt)
         account_2 = wallet.Account(password=password,
-                                   label=label)
+                                   label=label,
+                                   scrypt_parameters=scrypt)
         account_3 = wallet.Account(password=password)
         account_4 = wallet.Account(password=password,
-                                   label=label)
+                                   label=label,
+                                   scrypt_parameters=scrypt)
 
         # add account, first account is set as default
         success = test_wallet.account_add(account_1)
@@ -161,15 +168,16 @@ class WalletCreationTestCase(unittest.TestCase):
         self.assertEqual(test_wallet._default_account, account_3)
 
         # add account with duplicated label
-        with self.assertRaises(ValueError):
-            # label already used
+        with self.assertRaises(ValueError) as context:
             test_wallet.account_add(account_4)
+        self.assertIn("Label is already used by an account", str(context.exception))
 
     def test_wallet_account_delete(self):
+        scrypt = wallet.ScryptParameters(2, 8, 8)
         password = 'abcabc'
-        account_1 = wallet.Account(password=password)
-        account_2 = wallet.Account(password=password)
-        account_3 = wallet.Account(password=password)
+        account_1 = wallet.Account(password=password, scrypt_parameters=scrypt)
+        account_2 = wallet.Account(password=password, scrypt_parameters=scrypt)
+        account_3 = wallet.Account(password=password, scrypt_parameters=scrypt)
 
         test_wallet = nep6.NEP6DiskWallet.default()
         test_wallet.account_add(account_1)
@@ -204,11 +212,14 @@ class WalletCreationTestCase(unittest.TestCase):
         label_not_used = 'Account 3'
 
         password = '123123'
+        scrypt = wallet.ScryptParameters(2, 8, 8)
         account_1 = wallet.Account(password=password,
-                                   label=label_1)
+                                   label=label_1,
+                                   scrypt_parameters=scrypt)
         account_2 = wallet.Account(password=password,
-                                   label=label_2)
-        account_3 = wallet.Account(password=password)
+                                   label=label_2,
+                                   scrypt_parameters = scrypt)
+        account_3 = wallet.Account(password=password, scrypt_parameters=scrypt)
 
         test_wallet = nep6.NEP6DiskWallet.default()
         test_wallet.account_add(account_1)
