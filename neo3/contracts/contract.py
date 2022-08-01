@@ -1,5 +1,6 @@
 from __future__ import annotations
-from neo3 import contracts, vm
+from neo3.contracts import vm
+from neo3 import contracts
 from neo3.core import cryptography, to_script_hash, types, serialization, Size as s
 
 

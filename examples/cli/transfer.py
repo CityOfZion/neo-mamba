@@ -10,7 +10,8 @@ import sys
 import asyncio
 import json
 import argparse
-from neo3 import api, wallet, vm
+from neo3 import api, wallet
+from neo3.contracts import vm
 from neo3.network import payloads
 from neo3.core import types
 
@@ -25,7 +26,7 @@ def create_transfer_script(contract_hash: types.UInt160,
     # Destination account
     to_account = wallet.Account.address_to_script_hash(to_addr)
     # We multiply the amount with the contract decimals because the NEO internals only support integers
-    amount = vm.BigInteger(int(amount * pow(10, contract_decimals)))
+    amount = types.BigInteger(int(amount * pow(10, contract_decimals)))
     # Arbitrary additional data to supply that will be printed in the "transfer" notify event.
     data = None
 

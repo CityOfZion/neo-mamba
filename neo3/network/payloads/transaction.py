@@ -8,7 +8,8 @@ from enum import Enum
 from typing import Optional, Type, TypeVar
 from neo3.core import Size as s, serialization, utils, types, IJson
 from neo3.network import payloads
-from neo3 import settings, vm, contracts
+from neo3.contracts import vm
+from neo3 import settings
 
 
 class TransactionAttributeType(Enum):

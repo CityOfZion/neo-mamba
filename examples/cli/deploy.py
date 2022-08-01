@@ -9,7 +9,8 @@ import sys
 import asyncio
 import json
 import argparse
-from neo3 import api, wallet, contracts, vm
+from neo3 import api, wallet, contracts
+from neo3.contracts import vm
 from neo3.network import payloads
 
 
