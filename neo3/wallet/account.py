@@ -115,7 +115,8 @@ class Account:
                  label: Optional[str] = None,
                  lock: bool = False,
                  contract: Optional[contracts.Contract] = None,
-                 extra: Optional[dict[str, Any]] = None
+                 extra: Optional[dict[str, Any]] = None,
+                 scrypt_parameters: Optional[wallet.ScryptParameters] = None
                  ):
         """
         Instantiate an account. This constructor should only be directly called when it's desired to create a new
@@ -139,7 +140,7 @@ class Account:
                 private_key = key_pair.private_key
             else:
                 key_pair = cryptography.KeyPair(private_key)
-            encrypted_key = self.private_key_to_nep2(private_key, password)
+            encrypted_key = self.private_key_to_nep2(private_key, password, scrypt_parameters)
             contract_script = contracts.Contract.create_signature_redeemscript(key_pair.public_key)
             script_hash = to_script_hash(contract_script)
             address = address if address else self.script_hash_to_address(script_hash)
@@ -150,6 +151,7 @@ class Account:
         self.public_key = public_key
         self.encrypted_key = encrypted_key
         self.lock = lock
+        self.scrypt_parameters = scrypt_parameters
 
         if not isinstance(contract, AccountContract):
             if contract is not None:
@@ -298,50 +300,66 @@ class Account:
         return cryptography.sign(data, private_key)
 
     @classmethod
-    def create_new(cls, password: str) -> Account:
-        return cls(password=password, watch_only=False)
+    def create_new(cls, password: str, scrypt_parameters: Optional[wallet.ScryptParameters] = None) -> Account:
+        return cls(password=password, watch_only=False, scrypt_parameters=scrypt_parameters)
 
     @classmethod
-    def from_encrypted_key(cls, nep2_key: str, password: str) -> Account:
+    def from_encrypted_key(cls,
+                           encrypted_key: str,
+                           password: str,
+                           scrypt_parameters: Optional[wallet.ScryptParameters] = None) -> Account:
         """
-        Instantiate and returns an account from a given nep2 key and password.
+        Instantiate and returns an account from a given key and password.
+        Default settings assume a NEP-2 encrypted key.
 
         Args:
-            nep2_key: the encrypted private key.
+            encrypted_key: the encrypted private key.
             password: the password to decrypt the nep2 key.
+            scrypt_parameters: supply custom Scrypt parameters.
 
         Returns:
             The newly created account.
         """
-        return cls(password=password, private_key=cls.private_key_from_nep2(nep2_key, password))
+        return cls(password=password,
+                   private_key=cls.private_key_from_nep2(encrypted_key, password, scrypt_parameters),
+                   scrypt_parameters=scrypt_parameters)
 
     @classmethod
-    def from_private_key(cls, private_key: bytes, password: str) -> Account:
+    def from_private_key(cls,
+                         private_key: bytes,
+                         password: str,
+                         scrypt_parameters: Optional[wallet.ScryptParameters] = None) -> Account:
         """
         Instantiate and returns an account from a given private key and password.
 
         Args:
             private_key: the private key that will be used to create an encrypted key.
             password: the password to encrypt a randomly generated private key.
+            scrypt_parameters: optional custom parameters to be used in the Scrypt algorithm. Default settings conform
+            to the NEP-2 standard
 
         Returns:
             The newly created account.
         """
-        return cls(password=password, private_key=private_key)
+        return cls(password=password, private_key=private_key, scrypt_parameters=scrypt_parameters)
 
     @classmethod
-    def from_wif(cls, wif: str, password: str) -> Account:
+    def from_wif(cls,
+                 wif: str,
+                 password: str,
+                 _scrypt_parameters: Optional[wallet.ScryptParameters] = None) -> Account:
         """
         Instantiate and returns an account from a given wif and password.
 
         Args:
             wif: the wif that will be decrypted to get a private key and generate an encrypted key.
             password: the password to encrypt the private key with.
+            _scrypt_parameters: the Scrypt parameters to use to encode the private key. Default conforms to NEP-2.
 
         Returns:
             The newly created account.
         """
-        return cls(password=password, private_key=cls.private_key_from_wif(wif))
+        return cls(password=password, private_key=cls.private_key_from_wif(wif), scrypt_parameters=_scrypt_parameters)
 
     @classmethod
     def watch_only(cls, script_hash: types.UInt160) -> Account:
@@ -380,13 +398,17 @@ class Account:
         }
 
     @classmethod
-    def from_json(cls, json: dict, password: str) -> Account:
+    def from_json(cls,
+                  json: dict,
+                  password: str,
+                  scrypt_parameters: Optional[wallet.ScryptParameters] = None) -> Account:
         """
         Parse object out of JSON data.
 
         Args:
             json: a dictionary.
             password: the password to decrypt the json data.
+            scrypt_parameters: the Scrypt parameters to use to encode the private key. Default conforms to NEP-2.
 
         Raises:
             KeyError: if the data supplied does not contain the necessary key.
@@ -394,7 +416,7 @@ class Account:
         validate(json, schema=cls._json_schema)
 
         return cls(password=password,
-                   private_key=(cls.private_key_from_nep2(json['key'], password)
+                   private_key=(cls.private_key_from_nep2(json['key'], password, scrypt_parameters)
                                 if json['key'] is not None else json['key']),
                    address=json['address'],
                    label=json['label'],
@@ -436,14 +458,14 @@ class Account:
 
     @staticmethod
     def private_key_from_nep2(nep2_key: str, passphrase: str,
-                              scrypt_parameters: Optional[wallet.ScryptParameters] = None) -> bytes:
+                              _scrypt_parameters: Optional[wallet.ScryptParameters] = None) -> bytes:
         """
         Decrypt a nep2 key into a private key.
 
         Args:
             nep2_key: the key that will be decrypt.
             passphrase: the password to decrypt the nep2 key.
-            scrypt_parameters: a ScryptParameters object that will be passed to the key derivation function.
+            _scrypt_parameters: a ScryptParameters object that will be passed to the key derivation function.
 
         Raises:
             ValueError: if the length of the nep2_key is not valid.
@@ -453,8 +475,8 @@ class Account:
         Returns:
             the private key.
         """
-        if scrypt_parameters is None:
-            scrypt_parameters = wallet.ScryptParameters()
+        if _scrypt_parameters is None:
+            _scrypt_parameters = wallet.ScryptParameters()
 
         if len(nep2_key) != 58:
             raise ValueError(f"Please provide a nep2_key with a length of 58 bytes (LEN: {len(nep2_key)})")
@@ -472,9 +494,9 @@ class Account:
 
         pwd_normalized = bytes(unicodedata.normalize("NFC", passphrase), "utf-8")
         derived = hashlib.scrypt(password=pwd_normalized, salt=address_checksum,
-                                 n=scrypt_parameters.n,
-                                 r=scrypt_parameters.r,
-                                 p=scrypt_parameters.p,
+                                 n=_scrypt_parameters.n,
+                                 r=_scrypt_parameters.r,
+                                 p=_scrypt_parameters.p,
                                  dklen=64)
 
         derived1 = derived[:32]
@@ -499,20 +521,20 @@ class Account:
 
     @staticmethod
     def private_key_to_nep2(private_key: bytes, passphrase: str,
-                            scrypt_parameters: Optional[wallet.ScryptParameters] = None) -> bytes:
+                            _scrypt_parameters: Optional[wallet.ScryptParameters] = None) -> bytes:
         """
         Encrypt a private key into a nep2 key.
 
         Args:
             private_key: the key that will be encrypt.
             passphrase: the password to encrypt the nep2 key.
-            scrypt_parameters: a ScryptParameters object that will be passed to the key derivation function.
+            _scrypt_parameters: a ScryptParameters object that will be passed to the key derivation function.
 
         Returns:
             the encrypted nep2 key.
         """
-        if scrypt_parameters is None:
-            scrypt_parameters = wallet.ScryptParameters()
+        if _scrypt_parameters is None:
+            _scrypt_parameters = wallet.ScryptParameters()
 
         key_pair = cryptography.KeyPair(private_key=private_key)
         script_hash = to_script_hash(contracts.Contract.create_signature_redeemscript(key_pair.public_key))
@@ -524,9 +546,9 @@ class Account:
 
         pwd_normalized = bytes(unicodedata.normalize("NFC", passphrase), "utf-8")
         derived = hashlib.scrypt(password=pwd_normalized, salt=checksum,
-                                 n=scrypt_parameters.n,
-                                 r=scrypt_parameters.r,
-                                 p=scrypt_parameters.p,
+                                 n=_scrypt_parameters.n,
+                                 r=_scrypt_parameters.r,
+                                 p=_scrypt_parameters.p,
                                  dklen=64)
 
         derived1 = derived[:32]
