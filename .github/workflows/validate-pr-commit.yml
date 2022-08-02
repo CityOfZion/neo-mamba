@@ -92,7 +92,8 @@ jobs:
           tar -xf mamba.tar.gz
           cd mamba
           source venv/bin/activate
-          make coverage
+          coverage run -m unittest discover -v -s tests/
+          coverage json
       - name: upload to Codecov
         uses: codecov/codecov-action@v3
         with:
