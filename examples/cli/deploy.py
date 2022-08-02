@@ -32,7 +32,7 @@ async def main(wallet_path, wallet_pw, nef_path, manifest_path, rpc_host):
 
     # build a contract deploy transaction
     sb = vm.ScriptBuilder()
-    sb.emit_dynamic_call_with_args(contracts.CONTRACT_HASHES.MANAGEMENT, "deploy", [nef_bytes, manifest_bytes])
+    sb.emit_contract_call_with_args(contracts.CONTRACT_HASHES.MANAGEMENT, "deploy", [nef_bytes, manifest_bytes])
 
     tx = payloads.Transaction(version=0,
                               nonce=123,

@@ -1,10 +1,24 @@
 from __future__ import annotations
 from enum import IntEnum
 from neo3 import contracts
-from neo3.core import types
+from neo3.core import types, serialization
+from typing import Optional
 
 
 class OpCode(IntEnum):
+    """
+    NEO Virtual Machine instructions
+
+    Can be concatenated into a hex-escaped bytes sequence
+
+    Example:
+        In [1]: from neo3.contracts import vm
+
+        In [2]: script = vm.OpCode.PUSHDATA1 + b'\x01' + vm.OpCode.RET
+
+        In [3]: script
+        Out[3]: b'\x0c\x01@'
+    """
     PUSHINT8 = 0x00
     PUSHINT16 = 0x01
     PUSHINT32 = 0x02
@@ -198,12 +212,36 @@ class OpCode(IntEnum):
     ISTYPE = 0xD9
     CONVERT = 0xDB
 
+    def __eq__(self, other):
+        if super(OpCode, self).__eq__(other) is True:
+            return True
+        if isinstance(other, bytes):
+            return self.value.to_bytes(1, "little") == other
+        return False
+
+    def __add__(self, other):
+        if isinstance(other, bytes):
+            return self.value.to_bytes(1, "little") + other
+        elif isinstance(other, OpCode):
+            return self.value.to_bytes(1, "little") + other.to_bytes(1, "little")
+        else:
+            return super(OpCode, self).__add__(other)
+
+    def __radd__(self, other):
+        if isinstance(other, bytes):
+            return other + self.value.to_bytes(1, "little")
+        elif isinstance(other, OpCode):
+            return other.to_bytes(1, "little") + self.value.to_bytes(1, "little")
+        else:
+            return super(OpCode, self).__radd__(other)
+
 
 class ScriptBuilder:
-    # TODO:
-    # * implement emit_call, emit_jump
-    # * emit_syscall to support SysCalls type (to be added)
-    # * test coverage
+    """
+    A utility class to create scripts (sequence of opcodes) that can be executed by the
+    NEO Virtual Machine.
+    """
+    # TODO: emit_syscall to support SysCalls type (to be added)
 
     def __init__(self):
         self.data = bytearray()
@@ -225,13 +263,13 @@ class ScriptBuilder:
         elif isinstance(value, str):
             self.emit_push(value.encode('utf-8'))
             return self
-        elif isinstance(value, (types.UInt160, types.UInt256)):
+        elif isinstance(value, serialization.ISerializable):
             return self.emit_push(value.to_array())
         elif isinstance(value, IntEnum):
             return self.emit_push(value.value)
         elif isinstance(value, (types.BigInteger, int)):
             if -1 <= value <= 16:
-                self.emit_raw((OpCode.PUSH0.value + value).to_bytes(1, "little"))
+                self.emit_raw((OpCode.PUSH0 + value).to_bytes(1, "little"))
                 return self
             else:
                 if isinstance(value, int):
@@ -285,28 +323,65 @@ class ScriptBuilder:
         return self
 
     def emit_jump(self, opcode: OpCode, offset: int) -> ScriptBuilder:
-        raise NotImplementedError
+        if opcode < OpCode.JMP or opcode > OpCode.JMPLE_L:
+            raise ValueError(f"OpCode {opcode.name} is not a valid jump OpCode")
+
+        # auto correct opcode
+        if opcode % 2 == 0 and (offset < -128 or offset > 127):
+            opcode = OpCode(opcode + 1)
+
+        if opcode % 2 == 0:
+            return self.emit(opcode, offset.to_bytes(1, "little"))
+        else:
+            return self.emit(opcode, offset.to_bytes(4, "little"))
 
     def emit_call(self, offset: int) -> ScriptBuilder:
-        raise NotImplementedError
+        if offset < -128 or offset > 127:
+            return self.emit(OpCode.CALL_L, offset.to_bytes(4, "little"))
+        else:
+            return self.emit(OpCode.CALL, offset.to_bytes(1, "little"))
 
     def emit_syscall(self, syscall_number: int):
         return self.emit(OpCode.SYSCALL, syscall_number.to_bytes(4, "little"))
 
-    def emit_dynamic_call(self, script_hash: types.UInt160, operation: str) -> ScriptBuilder:
+    def emit_contract_call(self,
+                           script_hash: types.UInt160,
+                           operation: str,
+                           call_flags: Optional[contracts.CallFlags] = None) -> ScriptBuilder:
+        """
+        Emit opcode sequence to call a smart contrat operation
+
+        Args:
+            script_hash: contract script hash
+            operation: method to call on contract
+            call_flags: call flags for the operation
+        """
         self.emit(OpCode.NEWARRAY0)
-        self.emit_push(contracts.CallFlags.ALL)  # CallFlags.ALL
+        self.emit_push(contracts.CallFlags.ALL if call_flags is None else call_flags)
         self.emit_push(operation)
         self.emit_push(script_hash)
         self.emit_syscall(contracts.syscall_name_to_int("System.Contract.Call"))
         return self
 
-    def emit_dynamic_call_with_args(self, script_hash, operation: str, args) -> ScriptBuilder:
+    def emit_contract_call_with_args(self,
+                                     script_hash,
+                                     operation: str,
+                                     args,
+                                     call_flags: Optional[contracts.CallFlags] = None) -> ScriptBuilder:
+        """
+        Emit opcode sequence to call a smart contrat operation with arguments
+
+        Args:
+            script_hash: contract script hash
+            operation: method to call on contrat
+            args: parameters to pass to the `operation`
+            call_flags: call flags for the operation
+        """
         for arg in reversed(args):
             self.emit_push(arg)
         self.emit_push(len(args))
         self.emit(OpCode.PACK)
-        self.emit_push(contracts.CallFlags.ALL)
+        self.emit_push(contracts.CallFlags.ALL if call_flags is None else call_flags)
         self.emit_push(operation)
         self.emit_push(script_hash)
         self.emit_syscall(contracts.syscall_name_to_int("System.Contract.Call"))
@@ -315,11 +390,9 @@ class ScriptBuilder:
     def _pad_right(self, data: bytearray, length: int, is_negative: bool):
         if len(data) >= length:
             return
+        pad = b'\xFF' if is_negative else b'\x00'
         while len(data) != length:
-            if is_negative:
-                data.extend(b'\xFF')
-            else:
-                data.extend(b'\x00')
+            data.extend(pad)
 
     def to_array(self) -> bytes:
         return bytes(self.data)

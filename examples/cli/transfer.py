@@ -31,7 +31,7 @@ def create_transfer_script(contract_hash: types.UInt160,
     data = None
 
     sb = vm.ScriptBuilder()
-    sb.emit_dynamic_call_with_args(contract_hash, "transfer", [from_account, to_account, amount, data])
+    sb.emit_contract_call_with_args(contract_hash, "transfer", [from_account, to_account, amount, data])
     return sb.to_array()
 
 
