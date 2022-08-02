@@ -96,6 +96,5 @@ jobs:
       - name: upload to Codecov
         uses: codecov/codecov-action@v3
         with:
-          files: .coverage
           working-directory: ./mamba/
           env_vars: OS,PYTHON
