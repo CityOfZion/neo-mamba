@@ -17,7 +17,8 @@ from .nef import (NEF, MethodToken)
 from .contract import (Contract, ContractState)
 from .findoptions import FindOptions
 from dataclasses import dataclass
-from neo3.core import types
+from neo3.core import types, to_script_hash
+from . import vm
 
 
 @dataclass
@@ -39,6 +40,15 @@ def validate_type(obj: object, type_: typing.Type):
     return obj
 
 
+def get_contract_hash(sender: types.UInt160, nef_checksum: int, contract_name: str) -> types.UInt160:
+    sb = vm.ScriptBuilder()
+    sb.emit(vm.OpCode.ABORT)
+    sb.emit_push(sender)
+    sb.emit_push(nef_checksum)
+    sb.emit_push(contract_name)
+    return to_script_hash(sb.to_array())
+
+
 __all__ = ['ContractParameterType',
            'ContractMethodDescriptor',
            'ContractEventDescriptor',
@@ -49,6 +59,4 @@ __all__ = ['ContractParameterType',
            'syscall_name_to_int',
            'NEF',
            'MethodToken',
-           'FindOptions',
-           'ScriptBuilder',
-           'VMState']
+           'FindOptions']
