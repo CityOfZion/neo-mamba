@@ -1,5 +1,4 @@
 from __future__ import annotations
-import hashlib
 import typing
 from .callflags import CallFlags
 from .descriptor import ContractPermissionDescriptor

@@ -6,7 +6,7 @@ from neo3.core import types, serialization
 from typing import Optional, Iterator
 
 
-def syscall_name_to_int(name: str) -> int:
+def _syscall_name_to_int(name: str) -> int:
     return int.from_bytes(hashlib.sha256(name.encode()).digest()[:4], 'little', signed=False)
 
 
@@ -414,7 +414,7 @@ class VMState(IntEnum):
 class Syscall:
     def __init__(self, syscall_name: str, required_callflags: contracts.CallFlags):
         self.name = syscall_name
-        self.number = syscall_name_to_int(self.name)
+        self.number = _syscall_name_to_int(self.name)
         self.required_callflags = required_callflags
 
     def __str__(self):
