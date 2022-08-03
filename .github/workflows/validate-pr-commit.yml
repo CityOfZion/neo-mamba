@@ -90,12 +90,10 @@ jobs:
           tar -xf mamba.tar.gz
           cd mamba
           source venv/bin/activate
-          coverage run -m unittest discover -v -s tests/
-          coverage json
-          cat coverage.json
+          make coverage
       - name: upload to Codecov
         uses: codecov/codecov-action@v3
         with:
-          files: coverage.json
+          files: .coverage
           working-directory: ./mamba/
           env_vars: OS,PYTHON
