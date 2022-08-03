@@ -1,10 +1,13 @@
 from __future__ import annotations
 import aiohttp
 import base64
+import asyncio
 from dataclasses import dataclass
 from typing import Optional, TypedDict, Any, Protocol, Iterator, Union
 import datetime
+import time
 from neo3 import contracts
+from neo3.contracts import vm
 from neo3.network import payloads
 from neo3.core import types, cryptography, IJson
 
@@ -310,20 +313,34 @@ class ApplicationExecution(ExecutionResult):
 
 
 @dataclass
-class AppliationLogResponse:
-    tx_id: types.UInt256
+class TransactionApplicationLogResponse:
+    tx_hash: types.UInt256
+    execution: ApplicationExecution
+
+    @classmethod
+    def from_json(cls, json: dict):
+        tx_id = types.UInt256.from_string(json['txid'])
+        return cls(tx_id, json['executions'][0])
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}(tx_hash={str(self.tx_hash)}, execution={self.execution})"
+
+
+@dataclass
+class BlockApplicationLogResponse:
+    block_hash: types.UInt256
     executions: list[ApplicationExecution]
 
     @classmethod
     def from_json(cls, json: dict):
-        tx_id = types.UInt256.from_string(json['txid'][2:])
+        block_hash = types.UInt256.from_string(json['blockhash'])
         executions = []
         for execution in json['executions']:
-            executions.append(ApplicationExecution.from_json(execution))
-        return cls(tx_id, executions)
+            executions.append(execution)
+        return cls(block_hash, executions)
 
     def __repr__(self):
-        return f"{self.__class__.__name__}(tx_id={str(self.tx_id)}, executions={self.executions})"
+        return f"{self.__class__.__name__}(block_hash={str(self.block_hash)}, executions={self.executions})"
 
 
 ContractParameter = Union[bool, int, str, bytes, bytearray, types.UInt160, types.UInt256, cryptography.ECPoint,
@@ -445,6 +462,17 @@ class JsonRpcError(Exception):
             return f"code={self.code}, message={self.message}"
 
 
+class JsonRpcTimeoutError(JsonRpcError):
+    def __init__(self, message: str = None):
+        self.message = message
+
+    def __str__(self):
+        if self.message is None:
+            return "Operation timed out"
+        else:
+            return self.message
+
+
 class NeoRpcClient(RPCClient):
     def __init__(self, host: str, **kwargs):
         super(NeoRpcClient, self).__init__(host, **kwargs)
@@ -467,7 +495,7 @@ class NeoRpcClient(RPCClient):
         result = await self._do_post("calculatenetworkfee", params)
         return int(result['networkfee'])
 
-    async def get_application_log(self, tx_hash: types.UInt256 | str) -> AppliationLogResponse:
+    async def get_application_log_transaction(self, tx_hash: types.UInt256 | str) -> TransactionApplicationLogResponse:
         """
         Fetch the smart contract event logs for a given transaction.
 
@@ -479,7 +507,19 @@ class NeoRpcClient(RPCClient):
         if isinstance(tx_hash, types.UInt256):
             tx_hash = f"0x{str(tx_hash)}"
         result = await self._do_post("getapplicationlog", [tx_hash])
-        return AppliationLogResponse.from_json(result)
+        return TransactionApplicationLogResponse.from_json(result)
+
+    async def get_application_log_block(self, block_hash: types.UInt256 | str) -> BlockApplicationLogResponse:
+        """
+        Fetch the system event logs for a given block.
+
+        Args:
+            block_hash: the hash of the block to query for.
+        """
+        if isinstance(block_hash, types.UInt256):
+            block_hash = f"0x{str(block_hash)}"
+        result = await self._do_post("getapplicationlog", [block_hash])
+        return BlockApplicationLogResponse.from_json(result)
 
     async def get_best_block_hash(self) -> types.UInt256:
         """
@@ -873,3 +913,16 @@ class NeoRpcClient(RPCClient):
             return "ContractParam"
         else:
             return f"Unknown({str(p)}"
+
+
+async def poll_tx_status(tx_id: types.UInt256, client: NeoRpcClient, timeout=20) -> vm.VMState:
+    start = time.time()
+    while time.time() - start > timeout:
+        try:
+            log = await client.get_application_log_transaction(tx_id)
+            break
+        except JsonRpcError:
+            await asyncio.sleep(5)
+    else:
+        raise JsonRpcTimeoutError(f"Could not find transaction {tx_id} within specified timeout of {timeout} seconds")
+    return vm.VMState(log.execution.state)
