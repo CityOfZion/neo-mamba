@@ -1,8 +1,13 @@
 from __future__ import annotations
+import hashlib
 from enum import IntEnum
 from neo3 import contracts
 from neo3.core import types, serialization
-from typing import Optional
+from typing import Optional, Iterator
+
+
+def _syscall_name_to_int(name: str) -> int:
+    return int.from_bytes(hashlib.sha256(name.encode()).digest()[:4], 'little', signed=False)
 
 
 class OpCode(IntEnum):
@@ -241,8 +246,6 @@ class ScriptBuilder:
     A utility class to create scripts (sequence of opcodes) that can be executed by the
     NEO Virtual Machine.
     """
-    # TODO: emit_syscall to support SysCalls type (to be added)
-
     def __init__(self):
         self.data = bytearray()
 
@@ -341,8 +344,11 @@ class ScriptBuilder:
         else:
             return self.emit(OpCode.CALL, offset.to_bytes(1, "little"))
 
-    def emit_syscall(self, syscall_number: int):
-        return self.emit(OpCode.SYSCALL, syscall_number.to_bytes(4, "little"))
+    def emit_syscall(self, syscall: int | Syscall):
+        if isinstance(syscall, Syscall):
+            syscall = syscall.number
+
+        return self.emit(OpCode.SYSCALL, syscall.to_bytes(4, "little"))
 
     def emit_contract_call(self,
                            script_hash: types.UInt160,
@@ -360,7 +366,7 @@ class ScriptBuilder:
         self.emit_push(contracts.CallFlags.ALL if call_flags is None else call_flags)
         self.emit_push(operation)
         self.emit_push(script_hash)
-        self.emit_syscall(contracts.syscall_name_to_int("System.Contract.Call"))
+        self.emit_syscall(Syscalls.SYSTEM_CONTRACT_CALL)
         return self
 
     def emit_contract_call_with_args(self,
@@ -384,7 +390,7 @@ class ScriptBuilder:
         self.emit_push(contracts.CallFlags.ALL if call_flags is None else call_flags)
         self.emit_push(operation)
         self.emit_push(script_hash)
-        self.emit_syscall(contracts.syscall_name_to_int("System.Contract.Call"))
+        self.emit_syscall(Syscalls.SYSTEM_CONTRACT_CALL)
         return self
 
     def _pad_right(self, data: bytearray, length: int, is_negative: bool):
@@ -417,3 +423,136 @@ class VMState(IntEnum):
                 return VMState.BREAK
             case _:
                 raise ValueError(f"{value} cannot be converted to VMState")
+
+
+class Syscall:
+    def __init__(self, syscall_name: str, required_callflags: contracts.CallFlags):
+        self.name = syscall_name
+        self.number = _syscall_name_to_int(self.name)
+        self.required_callflags = required_callflags
+
+    def __str__(self):
+        return self.name
+
+    def __repr__(self):
+        return f"<{self.__class__.__name__} {self.number}, {self.name}>"
+
+    def __eq__(self, other):
+        if type(other) == int:
+            return self.number == other
+        if type(other) == str:
+            return self.name == other
+        if type(other) == type(self):
+            return self.name == other.name and self.number == other.number
+        if type(other) in (bytes, bytearray):
+            return self.to_array() == other
+        else:
+            return False
+
+    def to_array(self) -> bytes:
+        return self.number.to_bytes(4, "little")
+
+
+class Syscalls:
+    """
+    Container holding all NEO blockchain interop syscalls.
+    """
+    #: Call another smart contract.
+    SYSTEM_CONTRACT_CALL = Syscall("System.Contract.Call",
+                                   contracts.CallFlags.READ_STATES | contracts.CallFlags.ALLOW_CALL)
+    #: Internal use only. Added for completeness.
+    SYSTEM_CONTRACT_CALL_NATIVE = Syscall("System.Contract.CallNative", contracts.CallFlags.NONE)
+    #: Get the call flags for the current execution context text.
+    SYSTEM_CONTRACT_GET_CALL_FLAGS = Syscall("System.Contract.GetCallFlags", contracts.CallFlags.NONE)
+    #: Get the (contract) account scripthash for the given public key.
+    SYSTEM_CONTRACT_CREATE_STANDARD_ACCOUNT = Syscall("System.Contract.CreateStandardAccount", contracts.CallFlags.NONE)
+    #: Get the (multisignature contract) account scripthash for the given public key(s).
+    SYSTEM_CONTRACT_CREATE_MULTI_SIGNATURE_ACCOUNT = Syscall("System.Contract.CreateMultisigAccount",
+                                                             contracts.CallFlags.NONE)
+    #: Internal use only. Added for completeness.
+    SYSTEM_CONTRACT_NATIVE_ON_PERSIST = Syscall("System.Contract.NativeOnPersist", contracts.CallFlags.STATES)
+    #: Internal use only. Added for completeness.
+    SYSTEM_CONTRACT_NATIVE_POST_PERSIST = Syscall("System.Contract.NativePostPersist", contracts.CallFlags.STATES)
+
+    #: Validates the signature of the current script container (usually a transaction).
+    SYSTEM_CRYPTO_CHECK_STANDARD_ACCOUNT = Syscall("System.Crypto.CheckSig", contracts.CallFlags.NONE)
+    #: Validates the signatures of the current script container (usually a transaction).
+    SYSTEM_CRYPTO_CHECK_MULTI_SIGNATURE_ACCOUNT = Syscall("System.Crypto.CheckMultisig", contracts.CallFlags.NONE)
+
+    #: Advance the iterator to the next element of the collection. See also SYSTEM_STORAGE_FIND.
+    SYSTEM_ITERATOR_NEXT = Syscall("System.Iterator.Next", contracts.CallFlags.NONE)
+    #: Get the element in the collection at the current position of the iterator. See also SYSTEM_STORAGE_FIND.
+    SYSTEM_ITERATOR_VALUE = Syscall("System.Iterator.Value", contracts.CallFlags.NONE)
+
+    #: Get the name of the current platform. For NEO blockchain fixed to "NEO".
+    SYSTEM_RUNTIME_PLATFORM = Syscall("System.Runtime.Platform", contracts.CallFlags.NONE)
+    #: Get the network magic number.
+    SYSTEM_RUNTIME_GET_NETWORK = Syscall("System.Runtime.GetNetwork", contracts.CallFlags.NONE)
+    #: Get the address version.
+    SYSTEM_RUNTIME_GET_ADDRESS_VERSION = Syscall("System.Runtime.GetAddressVersion", contracts.CallFlags.NONE)
+    #: Get the trigger type used in the engine for the current execution.
+    SYSTEM_RUNTIME_GET_TRIGGER = Syscall("System.Runtime.GetTrigger", contracts.CallFlags.NONE)
+    #: Get the timestamp of the block currently being persisted.
+    SYSTEM_RUNTIME_GET_TIME = Syscall("System.Runtime.GetTime", contracts.CallFlags.NONE)
+    #: Get the script container of the current execution (usually the transaction).
+    SYSTEM_RUNTIME_GET_SCRIPT_CONTAINER = Syscall("System.Runtime.GetScriptContainer", contracts.CallFlags.NONE)
+    #: Get the script hash of the current execution context.
+    SYSTEM_RUNTIME_GET_EXECUTING_SCRIPT_HASH = Syscall("System.Runtime.GetExecutingScriptHash",
+                                                       contracts.CallFlags.NONE)
+    #: Get the script hash of the calling contract.
+    SYSTEM_RUNTIME_GET_CALLING_SCRIPT_HASH = Syscall("System.Runtime.GetCallingScriptHash", contracts.CallFlags.NONE)
+    #: Get the script hash of the first execution context script. For a transaction this equals to `Transaction.script`.
+    SYSTEM_RUNTIME_GET_ENTRY_SCRIPT_HASH = Syscall("System.Runtime.GetEntryScriptHash", contracts.CallFlags.NONE)
+    #: Validate whether the specified account has witnessed the current transaction.
+    SYSTEM_RUNTIME_CHECK_WITNESS = Syscall("System.Runtime.CheckWitness", contracts.CallFlags.NONE)
+    #: Get the number of times the current contract has been called during the execution.
+    SYSTEM_RUNTIME_GET_INVOCATION_COUNTER = Syscall("System.Runtime.GetInvocationCounter", contracts.CallFlags.NONE)
+    #: Get a random number.
+    SYSTEM_RUNTIME_GET_RANDOM = Syscall("System.Runtime.GetRandom", contracts.CallFlags.NONE)
+    #: Write a log message.
+    SYSTEM_RUNTIME_LOG = Syscall("System.Runtime.Log", contracts.CallFlags.ALLOW_NOTIFY)
+    #: Send a notification.
+    SYSTEM_RUNTIME_NOTIFY = Syscall("System.Runtime.Notify", contracts.CallFlags.ALLOW_NOTIFY)
+    #: Get the list of notifications sent by the specified contract during the execution.
+    SYSTEM_RUNTIME_GET_NOTIFICATIONS = Syscall("System.Runtime.GetNotifications", contracts.CallFlags.NONE)
+    #: Get the remaining GAS that can be spent in order to complete the execution.
+    SYSTEM_RUNTIME_GAS_LEFT = Syscall("System.Runtime.GasLeft", contracts.CallFlags.NONE)
+    #: Burns gas.
+    SYSTEM_RUNTIME_BURN_GAS = Syscall("System.Runtime.BurnGas", contracts.CallFlags.NONE)
+
+    #: Get the storage context for the current contract.
+    SYSTEM_STORAGE_GET_CONTEXT = Syscall("System.Storage.GetContext", contracts.CallFlags.READ_STATES)
+    #: Get the storage context for the current contract as read-only.
+    SYSTEM_STORAGE_GET_READ_ONLY_CONTEXT = Syscall("System.Storage.GetReadOnlyContext", contracts.CallFlags.READ_STATES)
+    #: Convert the existing context to a new read-only context.
+    SYSTEM_STORAGE_AS_READ_ONLY = Syscall("System.Storage.AsReadOnly", contracts.CallFlags.READ_STATES)
+    #: Get an entry from storage by a specified key.
+    SYSTEM_STORAGE_GET = Syscall("System.Storage.Get", contracts.CallFlags.READ_STATES)
+    #: Find entries from storage by a given a search prefix and search options.
+    SYSTEM_STORAGE_FIND = Syscall("System.Storage.Find", contracts.CallFlags.READ_STATES)
+    #: Persist an entry to storage under a specified key.
+    SYSTEM_STORAGE_PUT = Syscall("System.Storage.Put", contracts.CallFlags.WRITE_STATES)
+    #: Delete an entry from storage under a specified key.
+    SYSTEM_STORAGE_DELETE = Syscall("System.Storage.Delete", contracts.CallFlags.WRITE_STATES)
+
+    @classmethod
+    def all(cls) -> Iterator[Syscall]:
+        for name, value in vars(cls).items():
+            if name.isupper():
+                yield value
+
+    @classmethod
+    def get_by_number(cls, syscall_number: int) -> Optional[Syscall]:
+        for name, value in vars(cls).items():
+            if name.isupper() and value.number == syscall_number:
+                return value
+        else:
+            return None
+
+    @classmethod
+    def get_by_name(cls, syscall_name: str) -> Optional[Syscall]:
+        for name, value in vars(cls).items():
+            if name.isupper() and value.name == syscall_name:
+                return value
+        else:
+            return None
