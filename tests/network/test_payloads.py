@@ -1,6 +1,5 @@
 import unittest
 import binascii
-import base58
 import enum
 from copy import deepcopy
 from bitarray import bitarray

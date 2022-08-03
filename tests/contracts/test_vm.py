@@ -165,6 +165,13 @@ class ScriptBuilderTestCase(unittest.TestCase):
         expected = "4175c893e3"
         self.assertEqual(expected, sb.to_array().hex())
 
+        sb = vm.ScriptBuilder()
+        sb.emit_syscall(vm.Syscalls.SYSTEM_CONTRACT_CALL)
+
+        # captured from C#
+        expected = "41627d5b52"
+        self.assertEqual(expected, sb.to_array().hex())
+
     def test_emit_contract_call(self):
         """
             UInt160 sh;
@@ -200,3 +207,42 @@ class ScriptBuilderTestCase(unittest.TestCase):
         expected = "0c14cf76e28bd0062c4a478ee35561011319f3cfa4d211c0150c0962616c616e63654f660c14f563ea40bc283d4d0e05c48ea305b3f2a07340ef41627d5b52"
         self.assertEqual(expected, sb.to_array().hex())
 
+
+class SyscallsTestCase(unittest.TestCase):
+    def test_find_by_name(self):
+        name = "System.Runtime.BurnGas"
+        s = vm.Syscalls.get_by_name(name)
+        self.assertEqual(name, s.name)
+        self.assertIsNone(vm.Syscalls.get_by_name("fake"))
+
+    def test_find_by_number(self):
+        number = 3163314883
+        s = vm.Syscalls.get_by_number(number)
+        self.assertEqual(number, s.number)
+        self.assertIsNone(vm.Syscalls.get_by_number(123))
+
+    def test_all(self):
+        self.assertEqual(35, len(list(vm.Syscalls.all())))
+
+    def test_equality(self):
+        # allow to compare against ints (should match the syscall number)
+        burn_gas_number = 3163314883
+        fake_number = 123
+        self.assertEqual(burn_gas_number, vm.Syscalls.SYSTEM_RUNTIME_BURN_GAS)
+        self.assertNotEqual(fake_number, vm.Syscalls.SYSTEM_RUNTIME_BURN_GAS)
+
+        # allow to compare against strings (should match the syscall name)
+        name = "System.Runtime.BurnGas"
+        name_wrong = "nope"
+        self.assertEqual(name, vm.Syscalls.SYSTEM_RUNTIME_BURN_GAS)
+        self.assertNotEqual(name_wrong, vm.Syscalls.SYSTEM_RUNTIME_BURN_GAS)
+
+        # compare against instances
+        self.assertEqual(vm.Syscalls.SYSTEM_RUNTIME_BURN_GAS, vm.Syscalls.SYSTEM_RUNTIME_BURN_GAS)
+        self.assertNotEqual(vm.Syscalls.SYSTEM_RUNTIME_BURN_GAS, vm.Syscalls.SYSTEM_CONTRACT_CALL)
+
+        # compare against byte sequences
+        self.assertEqual(b'\x56\xe7\xb3\x27', vm.Syscalls.SYSTEM_CRYPTO_CHECK_STANDARD_ACCOUNT)
+        self.assertNotEqual(b'\x01\x01\x01\x01', vm.Syscalls.SYSTEM_CRYPTO_CHECK_STANDARD_ACCOUNT)
+
+        self.assertNotEqual(vm.Syscalls.SYSTEM_RUNTIME_BURN_GAS, None)
