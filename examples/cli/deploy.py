@@ -30,8 +30,9 @@ async def main(wallet_path, wallet_pw, nef_path, manifest_path, rpc_host, poll_t
 
     with open(manifest_path, 'rb') as f:
         manifest_bytes = f.read()
+        manifest_json = json.loads(manifest_bytes.decode('utf-8'))
         try:
-            manifest = contracts.ContractManifest.deserialize_from_bytes(manifest_bytes)
+            manifest = contracts.ContractManifest.from_json(manifest_json)
         except ValueError as e:
             raise ValueError(f"Failed manifest validation with: {e}")
 
@@ -71,6 +72,7 @@ async def main(wallet_path, wallet_pw, nef_path, manifest_path, rpc_host, poll_t
             print(f"Contract hash: {get_contract_hash(tx.sender, nef.checksum, manifest.name)}")
             print(f"Transaction id: {tx_id}")
             if poll_timeout is not None:
+                print("Polling for transaction status, please wait..")
                 status = await api.poll_tx_status(tx_id, client)
                 if status == vm.VMState.HALT:
                     print(f"Transaction execution status: Success")
@@ -90,8 +92,8 @@ if __name__ == "__main__":
     parser.add_argument("-m", metavar='CONTRACT_MANIFEST', required=True, help="contract .manifest.json path")
     parser.add_argument("-s", metavar='RPC_SERVER', required=True,
                         help="RPC server address e.g. https://mainnet1.neo.coz.io:443")
-    parser.add_argument("-p", metavar='TIMEOUT_IN_SECONDS', type=int, help="Poll for transaction status after "
-                                                                           "deployment. Default timeout is 20 seconds")
+    parser.add_argument("-p", metavar='TIMEOUT_IN_SECONDS', nargs='?', const=20, type=int,
+                        help="Poll for transaction status after deployment. Default timeout is 20 seconds")
     args = parser.parse_args()
 
     asyncio.run(main(args.w, args.pw, args.c, args.m, args.s, args.p))

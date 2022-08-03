@@ -303,7 +303,7 @@ class ApplicationExecution(ExecutionResult):
         gc = int(json['gasconsumed'])
         stack = list(map(lambda item: ExecutionResult._parse_stack_item(item), json['stack']))
         state = json['vmstate']
-        ex = json['exception']
+        ex = json.get('exception', None)
         notifications = []
         for n in json['notifications']:
             notifications.append(Notification.from_json(n))
@@ -320,7 +320,8 @@ class TransactionApplicationLogResponse:
     @classmethod
     def from_json(cls, json: dict):
         tx_id = types.UInt256.from_string(json['txid'])
-        return cls(tx_id, json['executions'][0])
+        execution = ApplicationExecution.from_json(json['executions'][0])
+        return cls(tx_id, execution)
 
     def __repr__(self):
         return f"{self.__class__.__name__}(tx_hash={str(self.tx_hash)}, execution={self.execution})"
@@ -336,7 +337,7 @@ class BlockApplicationLogResponse:
         block_hash = types.UInt256.from_string(json['blockhash'])
         executions = []
         for execution in json['executions']:
-            executions.append(execution)
+            executions.append(ApplicationExecution.from_json(execution))
         return cls(block_hash, executions)
 
     def __repr__(self):
@@ -463,14 +464,11 @@ class JsonRpcError(Exception):
 
 
 class JsonRpcTimeoutError(JsonRpcError):
-    def __init__(self, message: str = None):
-        self.message = message
+    def __init__(self, message: Optional[str] = None):
+        self.message = "Operation timed out" if message is None else message
 
     def __str__(self):
-        if self.message is None:
-            return "Operation timed out"
-        else:
-            return self.message
+        return self.message
 
 
 class NeoRpcClient(RPCClient):
@@ -917,7 +915,7 @@ class NeoRpcClient(RPCClient):
 
 async def poll_tx_status(tx_id: types.UInt256, client: NeoRpcClient, timeout=20) -> vm.VMState:
     start = time.time()
-    while time.time() - start > timeout:
+    while time.time() - start < timeout:
         try:
             log = await client.get_application_log_transaction(tx_id)
             break
@@ -925,4 +923,4 @@ async def poll_tx_status(tx_id: types.UInt256, client: NeoRpcClient, timeout=20)
             await asyncio.sleep(5)
     else:
         raise JsonRpcTimeoutError(f"Could not find transaction {tx_id} within specified timeout of {timeout} seconds")
-    return vm.VMState(log.execution.state)
+    return vm.VMState.from_string(log.execution.state)

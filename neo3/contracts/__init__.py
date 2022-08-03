@@ -59,4 +59,5 @@ __all__ = ['ContractParameterType',
            'syscall_name_to_int',
            'NEF',
            'MethodToken',
-           'FindOptions']
+           'FindOptions',
+           'get_contract_hash']
