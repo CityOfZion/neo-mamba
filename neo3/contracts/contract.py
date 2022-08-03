@@ -65,7 +65,7 @@ class Contract:
             sb.emit_push(key.encode_point(True))
 
         sb.emit_push(len(public_keys))
-        sb.emit_syscall(contracts.syscall_name_to_int("System.Crypto.CheckMultisig"))
+        sb.emit_syscall(vm.Syscalls.SYSTEM_CRYPTO_CHECK_MULTI_SIGNATURE_ACCOUNT)
         return sb.to_array()
 
     @classmethod
@@ -93,7 +93,7 @@ class Contract:
         """
         sb = vm.ScriptBuilder()
         sb.emit_push(public_key.encode_point(True))
-        sb.emit_syscall(contracts.syscall_name_to_int("System.Crypto.CheckSig"))
+        sb.emit_syscall(vm.Syscalls.SYSTEM_CRYPTO_CHECK_STANDARD_ACCOUNT)
         return sb.to_array()
 
     @staticmethod
@@ -110,8 +110,7 @@ class Contract:
         if (script[0] != vm.OpCode.PUSHDATA1
                 or script[1] != 33
                 or script[35] != vm.OpCode.SYSCALL
-                or int.from_bytes(script[36:40], 'little') != contracts.syscall_name_to_int(
-                    "System.Crypto.CheckSig")):
+                or script[36:40] != vm.Syscalls.SYSTEM_CRYPTO_CHECK_STANDARD_ACCOUNT):
             return False
         return True
 
@@ -203,7 +202,7 @@ class Contract:
         i += 1
 
         syscall_num = int.from_bytes(script[i:i + 4], 'little')
-        if syscall_num != contracts.syscall_name_to_int("System.Crypto.CheckMultisig"):
+        if syscall_num != vm.Syscalls.SYSTEM_CRYPTO_CHECK_MULTI_SIGNATURE_ACCOUNT:
             return VALIDATION_FAILURE
         return True, signature_threshold, public_keys
 

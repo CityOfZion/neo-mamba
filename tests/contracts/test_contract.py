@@ -106,7 +106,7 @@ class ContractTestCase(unittest.TestCase):
         # and finally a contract that matches the correct format
         correct = bytearray([0xc, 33]) + b'\01' * 38
         correct[35] = int(vm.OpCode.SYSCALL)
-        correct[36:40] = contracts.syscall_name_to_int("System.Crypto.CheckSig").to_bytes(4, 'little')
+        correct[36:40] = vm.Syscalls.SYSTEM_CRYPTO_CHECK_STANDARD_ACCOUNT.to_array()
         self.assertTrue(contracts.Contract.is_signature_contract(correct))
 
     def test_is_multisig_contract_too_short(self):
@@ -213,7 +213,7 @@ class ContractTestCase(unittest.TestCase):
         # now we correct the public key count in the script and make it valid by adding the expected tail
         script[-2] = 2
         script += bytearray([int(vm.OpCode.SYSCALL)])
-        script += contracts.syscall_name_to_int("System.Crypto.CheckMultisig").to_bytes(4, 'little')
+        script += vm.Syscalls.SYSTEM_CRYPTO_CHECK_MULTI_SIGNATURE_ACCOUNT.to_array()
         self.assertTrue(contracts.Contract.is_multisig_contract(script))
 
     def test_is_multsig_contract_invalid_pubkey_count(self):
