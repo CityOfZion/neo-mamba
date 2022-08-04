@@ -7,8 +7,8 @@ neo-mamba
 .. image:: https://img.shields.io/github/workflow/status/CityOfZion/neo-mamba/CI
   :target: https://shields.io/
 
-.. image:: https://codecov.io/gh/CityOfZion/neo-mamba/branch/master/graph/badge.svg
-  :target: https://codecov.io/gh/CityOfZion/neo-mamba
+.. image:: https://coveralls.io/repos/github/CityOfZion/neo-mamba/badge.svg?branch=master
+  :target: https://coveralls.io/github/CityOfZion/neo-mamba?branch=master
 
 .. image:: http://www.mypy-lang.org/static/mypy_badge.svg
   :target: http://mypy-lang.org/
