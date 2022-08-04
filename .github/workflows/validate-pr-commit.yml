@@ -95,6 +95,13 @@ jobs:
           source venv/bin/activate
           coverage run -m unittest discover -v -s tests/
           coverage lcov
+          pwd
+      - name: test
+        run: |
+          pwd
+          ls -la
+          ls -la ./mamba/
+          cat ./mamba/coverage.lcov | head
       - name: upload to coveralls
         uses: coverallsapp/github-action@master
         with:
