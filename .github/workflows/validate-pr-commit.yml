@@ -46,7 +46,8 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: setup-artifact
-      - run: |
+      - name: extract & lint
+        run: |
           tar -xf mamba.tar.gz
           cd mamba
           source venv/bin/activate
@@ -59,7 +60,8 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: setup-artifact
-      - run: |
+      - name: extract & type check
+        run: |
           tar -xf mamba.tar.gz
           cd mamba
           source venv/bin/activate
@@ -72,7 +74,8 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: setup-artifact
-      - run: |
+      - name: extract and test
+        run: |
           tar -xf mamba.tar.gz
           cd mamba
           source venv/bin/activate
@@ -80,6 +83,8 @@ jobs:
   coverage:
     needs: setup
     runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: restore artificat
         uses: actions/download-artifact@v2
@@ -90,10 +95,6 @@ jobs:
           tar -xf mamba.tar.gz
           cd mamba
           source venv/bin/activate
-          make coverage
-      - name: upload to Codecov
-        uses: codecov/codecov-action@v3
-        with:
-          files: .coverage
-          working-directory: ./mamba/
-          env_vars: OS,PYTHON
+          coverage run -m unittest discover -v -s tests/
+          pip install coveralls
+          coveralls --service=github
