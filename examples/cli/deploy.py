@@ -91,7 +91,8 @@ if __name__ == "__main__":
     parser.add_argument("-c", metavar='CONTRACT_NEF', required=True, help="contract .NEF path")
     parser.add_argument("-m", metavar='CONTRACT_MANIFEST', required=True, help="contract .manifest.json path")
     parser.add_argument("-s", metavar='RPC_SERVER', required=True,
-                        help="RPC server address e.g. https://mainnet1.neo.coz.io:443")
+                        help="RPC server address e.g. https://testnet1.neo.coz.io:443 See https://dora.coz.io/monitor "
+                             "for more servers and for different networks")
     parser.add_argument("-p", metavar='TIMEOUT_IN_SECONDS', nargs='?', const=20, type=int,
                         help="Poll for transaction status after deployment. Default timeout is 20 seconds")
     args = parser.parse_args()
