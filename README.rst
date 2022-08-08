@@ -17,30 +17,26 @@ This SDK intends to provide building blocks for Python developers to interact wi
 In order to interact with the chain and obtain information it relies heavily on RPC nodes. You can find a list of public RPC nodes `here <https://dora.coz.io/monitor>`_.
 ::
 
-  Note that up to v0.11.0 this project had a full node focus. Maintaining full node consistency was a major resource consumer and ended up not
-  leaving enough resources to develop the areas users are more interested in. As such the project direction pivoted since version 0.12.0 to
-  focus on being an SDK again.
+  Note that up to v0.11.0 this project had a full node focus. Maintaining full node consistency was a
+  major resource consumer and ended up not leaving enough resources to develop the areas users are
+  more interested in. As such the project direction pivoted since version 0.12.0 to focus on being
+  an SDK again.
 
 Please report any issues on `Github <https://github.com/CityOfZion/neo-mamba/issues>`_ or submit ideas how to improve the SDK.
 
 Also check out our Python smart contract compiler `Boa <https://github.com/CityOfZion/neo3-boa>`_ !
 
-Quick install
--------------
-::
-
-   pip install neo-mamba
-
-or
+Install
+-------
+Requires Python 3.10.
+The SDK only version is currently only available from source. ``pip install mamba`` will get you the full node version
+with different requirements (e.g. limited to Linux/OSX)
 
 ::
 
   git clone https://github.com/CityOfZion/neo-mamba.git
   cd neo-mamba
   pip install -e .
-
-
-For full documentation go to `<https://docs.coz.io/neo3/mamba/index.html>`_.
 
 Developing or contributing
 --------------------------
