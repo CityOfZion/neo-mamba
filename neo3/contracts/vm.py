@@ -410,6 +410,20 @@ class VMState(IntEnum):
     FAULT = 1 << 1
     BREAK = 1 << 2
 
+    @staticmethod
+    def from_string(value: str) -> VMState:
+        match value:
+            case 'NONE':
+                return VMState.NONE
+            case 'HALT':
+                return VMState.HALT
+            case 'FAULT':
+                return VMState.FAULT
+            case 'BREAK':
+                return VMState.BREAK
+            case _:
+                raise ValueError(f"{value} cannot be converted to VMState")
+
 
 class Syscall:
     def __init__(self, syscall_name: str, required_callflags: contracts.CallFlags):

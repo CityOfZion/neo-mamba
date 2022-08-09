@@ -1,7 +1,7 @@
 import unittest
 import binascii
 import hashlib
-import mmh3
+from neo3crypto import mmh3_hash_bytes, mmh3_hash
 from neo3.core import types
 from neo3.core import cryptography as crypto
 
@@ -106,12 +106,12 @@ class Murmur128test(unittest.TestCase):
 
     def test_neo_cases(self):
         # https://github.com/Liaojinghui/neo/blob/30f33d075502acd792f804ffcf84cce689255306/tests/neo.UnitTests/Cryptography/UT_Murmur128.cs
-        self.assertEqual(bytes.fromhex("0bc59d0ad25fde2982ed65af61227a0e"), mmh3.hash_bytes("hello", 123))
-        self.assertEqual(bytes.fromhex("3d3810fed480472bd214a14023bb407f"), mmh3.hash_bytes("world", 123))
-        self.assertEqual(bytes.fromhex("e0a0632d4f51302c55e3b3e48d28795d"), mmh3.hash_bytes("hello world", 123))
+        self.assertEqual(bytes.fromhex("0bc59d0ad25fde2982ed65af61227a0e"), mmh3_hash_bytes("hello", 123))
+        self.assertEqual(bytes.fromhex("3d3810fed480472bd214a14023bb407f"), mmh3_hash_bytes("world", 123))
+        self.assertEqual(bytes.fromhex("e0a0632d4f51302c55e3b3e48d28795d"), mmh3_hash_bytes("hello world", 123))
 
 
 class MurMur32test(unittest.TestCase):
     def test_one(self):
-        x: int = mmh3.hash(b'\x01\x02\x03\x04\x05\x06', 123, signed=False)
+        x: int = mmh3_hash(b'\x01\x02\x03\x04\x05\x06', 123, signed=False)
         self.assertEqual(bytes.fromhex("3cdc1e41"), x.to_bytes(4, 'little', signed=False))
