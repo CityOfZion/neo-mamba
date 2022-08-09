@@ -1,5 +1,5 @@
 from bitarray import bitarray  # type: ignore
-import mmh3  # type: ignore
+from neo3crypto import mmh3_hash  # type: ignore
 
 
 class BloomFilter:
@@ -37,7 +37,7 @@ class BloomFilter:
             element: hex-escaped bytearray.
         """
         for s in self.seeds:
-            h = mmh3.hash(element, s, signed=False)
+            h = mmh3_hash(element, s, signed=False)
             self.bits[h % len(self.bits)] = True
 
     def check(self, element: bytes) -> bool:
@@ -50,7 +50,7 @@ class BloomFilter:
         Returns: True if present. False if not present.
         """
         for s in self.seeds:
-            h = mmh3.hash(element, s, signed=False)
+            h = mmh3_hash(element, s, signed=False)
             if not self.bits[h % len(self.bits)]:
                 return False
         return True

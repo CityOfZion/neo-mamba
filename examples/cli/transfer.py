@@ -10,6 +10,7 @@ import sys
 import asyncio
 import json
 import argparse
+from typing import Optional
 from neo3 import api, wallet
 from neo3.contracts import vm
 from neo3.network import payloads
@@ -35,7 +36,14 @@ def create_transfer_script(contract_hash: types.UInt160,
     return sb.to_array()
 
 
-async def main(wallet_path, wallet_pw, contract_hash, from_addr, to_addr, amount, rpc_host):
+async def main(wallet_path,
+               wallet_pw,
+               contract_hash,
+               from_addr,
+               to_addr,
+               amount,
+               rpc_host,
+               poll_timeout: Optional[str] = None):
     # some basic input validation
     wallet.Account.validate_address(from_addr)
     wallet.Account.validate_address(to_addr)
@@ -87,7 +95,17 @@ async def main(wallet_path, wallet_pw, contract_hash, from_addr, to_addr, amount
 
             res = await client.get_version()
             account.sign_tx(tx, password=wallet_pw, magic=res.protocol.network)
-            print(await client.send_transaction(tx))
+
+            tx_id = await client.send_transaction(tx)
+            print(f"Transaction id: {tx_id}")
+            if poll_timeout is not None:
+                print("Polling for transaction status, please wait..")
+                status = await api.poll_tx_status(tx_id, client)
+                if status == vm.VMState.HALT:
+                    print(f"Transaction execution status: Success")
+                else:
+                    print(f"Transaction execution status: Failed (VMState: {status})")
+
         except api.JsonRpcError as e:
             print(e)
             sys.exit(1)
@@ -97,11 +115,16 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Deploy contract')
     parser.add_argument("-w", metavar='WALLET', required=True, help="wallet.json path")
     parser.add_argument("-pw", metavar='PASSWORD', required=True, help="wallet password for signing")
-    parser.add_argument("-c", metavar='CONTRACT_HASH', required=True, help="contract hash e.g. 0xef4073a0f2b305a38ec4050e4d3d28bc40ea63f5")
+    parser.add_argument("-c", metavar='CONTRACT_HASH', required=True,
+                        help="contract hash e.g. 0xef4073a0f2b305a38ec4050e4d3d28bc40ea63f5")
     parser.add_argument("-f", metavar='FROM_ADDR', required=True, help="from address")
     parser.add_argument("-t", metavar='TO_ADDR', required=True, help="to address")
     parser.add_argument("-a", metavar='TOKEN_AMOUNT', required=True, help="amount", type=float)
-    parser.add_argument("-s", metavar='RPC_SERVER', required=True, help="RPC server address e.g. https://mainnet1.neo.coz.io:443")
+    parser.add_argument("-s", metavar='RPC_SERVER', required=True,
+                        help="RPC server address e.g. https://mainnet1.neo.coz.io:443")
+    parser.add_argument("-p", metavar='TIMEOUT_IN_SECONDS', nargs='?', const=20, type=int,
+                        help="Poll for transaction status after deployment. Default timeout is 20 seconds")
+
     args = parser.parse_args()
 
-    asyncio.run(main(args.w, args.pw, args.c, args.f, args.t, args.a, args.s))
+    asyncio.run(main(args.w, args.pw, args.c, args.f, args.t, args.a, args.s, args.p))

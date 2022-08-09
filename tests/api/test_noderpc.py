@@ -37,7 +37,7 @@ class TestNeoRpcClient(unittest.IsolatedAsyncioTestCase):
         response = await self.client.calculate_network_fee(payloads.Transaction._serializable_init())
         self.assertEqual(123, response)
 
-    async def test_get_application_log(self):
+    async def test_get_application_log_transaction(self):
         captured = {
             "txid": "0x7da6ae7ff9d0b7af3d32f3a2feb2aa96c2a27ef8b651f9a132cfaad6ef20724c",
             "executions": [
@@ -75,12 +75,64 @@ class TestNeoRpcClient(unittest.IsolatedAsyncioTestCase):
         }
         self.mock_response(captured)
         tx_hash = types.UInt256.from_string("0x7da6ae7ff9d0b7af3d32f3a2feb2aa96c2a27ef8b651f9a132cfaad6ef20724c"[2:])
-        response = await self.client.get_application_log(tx_hash)
-        self.assertEqual(1, len(response.executions))
+        response = await self.client.get_application_log_transaction(tx_hash)
+        self.assertEqual(0, len(response.execution.stack))
+        self.assertEqual("HALT", response.execution.state)
+        self.assertEqual(1, len(response.execution.notifications))
+        self.assertEqual("Transfer", response.execution.notifications[0].event_name)
+
+    async def test_get_application_log_block(self):
+        captured = {
+            "blockhash": "0x577ee5cf7c589f608937287f11da965c0462a8fae77f29959c834cbce38cacac",
+            "executions": [
+                {
+                    "trigger": "OnPersist",
+                    "vmstate": "HALT",
+                    "gasconsumed": "0",
+                    "stack": [],
+                    "notifications": []
+                },
+                {
+                    "trigger": "PostPersist",
+                    "vmstate": "HALT",
+                    "gasconsumed": "0",
+                    "stack": [],
+                    "notifications": [
+                        {
+                            "contract": "0xd2a4cff31913016155e38e474a2c06d08be276cf",
+                            "eventname": "Transfer",
+                            "state": {
+                                "type": "Array",
+                                "value": [
+                                    {
+                                        "type": "Any"
+                                    },
+                                    {
+                                        "type": "ByteString",
+                                        "value": "gSvnpwgsmEL8Ks76QRi4vFpbkYs="
+                                    },
+                                    {
+                                        "type": "Integer",
+                                        "value": "50000000"
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+        self.mock_response(captured)
+        block_hash = types.UInt256.from_string("0x577ee5cf7c589f608937287f11da965c0462a8fae77f29959c834cbce38cacac"[2:])
+        response = await self.client.get_application_log_block(block_hash)
+        self.assertEqual(2, len(response.executions))
         self.assertEqual(0, len(response.executions[0].stack))
         self.assertEqual("HALT", response.executions[0].state)
-        self.assertEqual(1, len(response.executions[0].notifications))
-        self.assertEqual("Transfer", response.executions[0].notifications[0].event_name)
+
+        self.assertEqual(0, len(response.executions[1].stack))
+        self.assertEqual("HALT", response.executions[1].state)
+        self.assertEqual(1, len(response.executions[1].notifications))
+        self.assertEqual("Transfer", response.executions[1].notifications[0].event_name)
 
     async def test_get_best_block_hash(self):
         hash_ = "0xbee7a65279d6b31cc45445a7579d4c4a4e52d1edc13cc7ec7a41f7b1affdf0ab"
