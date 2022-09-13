@@ -3,13 +3,14 @@ import aiohttp
 import base64
 import asyncio
 from dataclasses import dataclass
-from typing import Optional, TypedDict, Any, Protocol, Iterator, Union
+from typing import Optional, TypedDict, Any, Protocol, Iterator, Union, cast
 import datetime
 import time
-from neo3 import contracts
+from neo3 import contracts, wallet
 from neo3.contracts import vm
 from neo3.network import payloads
 from neo3.core import types, cryptography, IJson
+from contextlib import suppress
 
 
 @dataclass
@@ -182,6 +183,53 @@ class MempoolResponse:
 class StackItem:
     type: str
     value: Any
+
+    def as_bool(self) -> bool:
+        if self.type != "Boolean":
+            raise ValueError(f"item is not of type 'Boolean' but of type '{self.type}'")
+        return self.value
+
+    def as_str(self) -> str:
+        if self.type != "ByteString":
+            raise ValueError(f"item is not of type 'ByteString' but of type '{self.type}'")
+        v = cast(bytes, self.value)
+        return v.decode()
+
+    def as_int(self) -> int:
+        if self.type != "Integer":
+            raise ValueError(f"item is not of type 'Integer' but of type '{self.type}'")
+        v = cast(int, self.value)
+        return v
+
+    def as_uint160(self) -> types.UInt160:
+        if self.type not in ["ByteString", "Buffer"]:
+            raise ValueError(f"item is not of type 'ByteString' or 'Buffer' but of type '{self.type}'")
+        # we need to ensure the data is hex-escaped
+        data = self.value
+        with suppress(UnicodeDecodeError, ValueError):
+            data = bytes.fromhex(data.decode())
+        return types.UInt160(data)
+
+    def as_uint256(self) -> types.UInt256:
+        if self.type not in ["ByteString", "Buffer"]:
+            raise ValueError(f"item is not of type 'ByteString' or 'Buffer' but of type '{self.type}'")
+        # we need to ensure the data is hex-escaped
+        data = self.value
+        with suppress(UnicodeDecodeError, ValueError):
+            data = bytes.fromhex(data.decode())
+        return types.UInt256(data)
+
+    def as_address(self) -> str:
+        return wallet.Account.script_hash_to_address(self.as_uint160())
+
+    def as_public_key(self) -> cryptography.ECPoint:
+        if self.type not in ["ByteString", "Buffer"]:
+            raise ValueError(f"item is not of type 'ByteString' or 'Buffer' but of type '{self.type}'")
+        # we need to ensure the data is hex-escaped
+        data = self.value
+        with suppress(UnicodeDecodeError, ValueError):
+            data = bytes.fromhex(data.decode())
+        return cryptography.ECPoint.deserialize_from_bytes(data, validate=True)
 
 
 class MapStackItem(StackItem):

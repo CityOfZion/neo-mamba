@@ -1,8 +1,9 @@
 import unittest
 import base64
 from typing import Optional, Any
+import neo3crypto
 from aioresponses import aioresponses
-from neo3 import api
+from neo3 import api, wallet
 from neo3.network import payloads
 from neo3.core import types, cryptography
 
@@ -519,3 +520,93 @@ class TestNeoRpcClient(unittest.IsolatedAsyncioTestCase):
         self.assertIn("-2146233086", str(context.exception))
         self.assertIn("bogus_message", str(context.exception))
         self.assertIn("bogus_data", str(context.exception))
+
+
+class TestStackItem(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.si_int = api.StackItem("Integer", 1)
+        cls.si_bool = api.StackItem("Boolean", False)
+
+    def test_as_bool(self):
+        si = api.StackItem("Boolean", True)
+        value = si.as_bool()
+
+        self.assertIsInstance(value, bool)
+        self.assertTrue(value)
+
+        with self.assertRaises(ValueError) as context:
+            self.si_int.as_bool()
+        self.assertEqual("item is not of type 'Boolean' but of type 'Integer'", str(context.exception))
+
+    def test_as_int(self):
+        si = api.StackItem("Integer", 123)
+        value = si.as_int()
+
+        self.assertIsInstance(value, int)
+        self.assertTrue(value)
+
+        with self.assertRaises(ValueError) as context:
+            self.si_bool.as_int()
+        self.assertEqual("item is not of type 'Integer' but of type 'Boolean'", str(context.exception))
+
+    def test_as_str(self):
+        si = api.StackItem("ByteString", b'NEO')
+        value = si.as_str()
+
+        self.assertIsInstance(value, str)
+        self.assertEqual("NEO", value)
+
+        with self.assertRaises(ValueError) as context:
+            self.si_int.as_str()
+        self.assertEqual("item is not of type 'ByteString' but of type 'Integer'", str(context.exception))
+
+    def test_as_uint160(self):
+        si = api.StackItem("ByteString", b'\x01' * 20)
+        value = si.as_uint160()
+
+        self.assertIsInstance(value, types.UInt160)
+
+        with self.assertRaises(ValueError) as context:
+            self.si_int.as_uint160()
+        self.assertEqual("item is not of type 'ByteString' or 'Buffer' but of type 'Integer'", str(context.exception))
+
+    def test_as_uint256(self):
+        si = api.StackItem("ByteString", b'\x01' * 32)
+        value = si.as_uint256()
+
+        self.assertIsInstance(value, types.UInt256)
+
+        with self.assertRaises(ValueError) as context:
+            self.si_int.as_uint256()
+        self.assertEqual("item is not of type 'ByteString' or 'Buffer' but of type 'Integer'", str(context.exception))
+
+    def test_as_address(self):
+        addr = "NSEB78A7DYhPG7cFT7x4YFhSKumBBm7RYk"
+        script_hash = wallet.Account.address_to_script_hash(addr)
+
+        si = api.StackItem("ByteString", script_hash.to_array())
+        value = si.as_uint160()
+
+        self.assertIsInstance(value, types.UInt160)
+        self.assertEqual(script_hash, value)
+
+        with self.assertRaises(ValueError) as context:
+            self.si_int.as_address()
+        self.assertEqual("item is not of type 'ByteString' or 'Buffer' but of type 'Integer'", str(context.exception))
+
+    def test_as_public_key(self):
+        si = api.StackItem("ByteString", bytes.fromhex("03b209fd4f53a7170ea4444e0cb0a6bb6a53c2bd016926989cf85f9b0fba17a70c"))
+        value = si.as_public_key()
+
+        self.assertIsInstance(value, cryptography.ECPoint)
+
+        with self.assertRaises(ValueError) as context:
+            self.si_int.as_public_key()
+        self.assertEqual("item is not of type 'ByteString' or 'Buffer' but of type 'Integer'", str(context.exception))
+
+        # invalid public key
+        si = api.StackItem("ByteString", b'\x01' * 64)
+        with self.assertRaises(neo3crypto.ECCException) as context:
+            value = si.as_public_key()
+        self.assertEqual("Failed public key validation", str(context.exception))
