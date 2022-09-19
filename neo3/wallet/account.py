@@ -6,11 +6,10 @@ import unicodedata
 from typing import Optional, Any
 from Crypto.Cipher import AES  # type: ignore
 from jsonschema import validate  # type: ignore
-from neo3 import settings, contracts, wallet
+from neo3 import settings, contracts, vm
 from neo3.network import payloads
 from neo3.core import types, to_script_hash, cryptography
-from neo3.contracts import vm
-
+from neo3.wallet import utils, wallet, scrypt_parameters as scrypt
 
 # both constants below are used to encrypt/decrypt a private key to/from a nep2 key
 NEP_HEADER = bytes([0x01, 0x42])
@@ -116,7 +115,7 @@ class Account:
                  lock: bool = False,
                  contract: Optional[contracts.Contract] = None,
                  extra: Optional[dict[str, Any]] = None,
-                 scrypt_parameters: Optional[wallet.ScryptParameters] = None
+                 scrypt_parameters: Optional[scrypt.ScryptParameters] = None
                  ):
         """
         Instantiate an account. This constructor should only be directly called when it's desired to create a new
@@ -130,7 +129,7 @@ class Account:
             if address is None:
                 raise ValueError("Creating a watch only account requires an address")
             else:
-                self.validate_address(address)
+                utils.validate_address(address)
 
         else:
             key_pair: cryptography.KeyPair
@@ -143,7 +142,7 @@ class Account:
             encrypted_key = self.private_key_to_nep2(private_key, password, scrypt_parameters)
             contract_script = contracts.Contract.create_signature_redeemscript(key_pair.public_key)
             script_hash = to_script_hash(contract_script)
-            address = address if address else self.script_hash_to_address(script_hash)
+            address = address if address else utils.script_hash_to_address(script_hash)
             public_key = key_pair.public_key
 
         self.label: Optional[str] = label
@@ -171,7 +170,7 @@ class Account:
 
     @property
     def script_hash(self) -> types.UInt160:
-        return self.address_to_script_hash(self.address)
+        return utils.address_to_script_hash(self.address)
 
     @property
     def is_watchonly(self) -> bool:
@@ -300,14 +299,14 @@ class Account:
         return cryptography.sign(data, private_key)
 
     @classmethod
-    def create_new(cls, password: str, scrypt_parameters: Optional[wallet.ScryptParameters] = None) -> Account:
+    def create_new(cls, password: str, scrypt_parameters: Optional[scrypt.ScryptParameters] = None) -> Account:
         return cls(password=password, watch_only=False, scrypt_parameters=scrypt_parameters)
 
     @classmethod
     def from_encrypted_key(cls,
                            encrypted_key: str,
                            password: str,
-                           scrypt_parameters: Optional[wallet.ScryptParameters] = None) -> Account:
+                           scrypt_parameters: Optional[scrypt.ScryptParameters] = None) -> Account:
         """
         Instantiate and returns an account from a given key and password.
         Default settings assume a NEP-2 encrypted key.
@@ -328,7 +327,7 @@ class Account:
     def from_private_key(cls,
                          private_key: bytes,
                          password: str,
-                         scrypt_parameters: Optional[wallet.ScryptParameters] = None) -> Account:
+                         scrypt_parameters: Optional[scrypt.ScryptParameters] = None) -> Account:
         """
         Instantiate and returns an account from a given private key and password.
 
@@ -347,7 +346,7 @@ class Account:
     def from_wif(cls,
                  wif: str,
                  password: str,
-                 _scrypt_parameters: Optional[wallet.ScryptParameters] = None) -> Account:
+                 _scrypt_parameters: Optional[scrypt.ScryptParameters] = None) -> Account:
         """
         Instantiate and returns an account from a given wif and password.
 
@@ -372,7 +371,7 @@ class Account:
         Returns:
             The account that will be monitored.
         """
-        return cls(password='', watch_only=True, address=cls.script_hash_to_address(script_hash))
+        return cls(password='', watch_only=True, address=utils.script_hash_to_address(script_hash))
 
     @classmethod
     def watch_only_from_address(cls, address: str) -> Account:
@@ -401,7 +400,7 @@ class Account:
     def from_json(cls,
                   json: dict,
                   password: str,
-                  scrypt_parameters: Optional[wallet.ScryptParameters] = None) -> Account:
+                  scrypt_parameters: Optional[scrypt.ScryptParameters] = None) -> Account:
         """
         Parse object out of JSON data.
 
@@ -426,44 +425,13 @@ class Account:
                    )
 
     @staticmethod
-    def script_hash_to_address(script_hash: types.UInt160) -> str:
-        """
-        Converts the specified script hash to an address.
-
-        Args:
-            script_hash: script hash to convert.
-        """
-        version = settings.network.account_version  # this is the current Neo's protocol version
-        data = version.to_bytes(1, 'little') + script_hash.to_array()
-
-        return base58.b58encode_check(data).decode('utf-8')
-
-    @staticmethod
-    def address_to_script_hash(address: str) -> types.UInt160:
-        """
-        Converts the specified address to a script hash.
-
-        Args:
-            address: address to convert
-
-        Raises:
-            ValueError: if the length of data (address value in bytes) is not valid.
-            ValueError: if the account version is not valid.
-        """
-        Account.validate_address(address)
-
-        data = base58.b58decode_check(address)
-
-        return types.UInt160(data[1:])
-
-    @staticmethod
     def private_key_from_nep2(nep2_key: str, passphrase: str,
-                              _scrypt_parameters: Optional[wallet.ScryptParameters] = None) -> bytes:
+                              _scrypt_parameters: Optional[scrypt.ScryptParameters] = None) -> bytes:
         """
         Decrypt a nep2 key into a private key.
 
         Args:
-            nep2_key: the key that will be decrypt.
+            nep2_key: the key that will be decrypted.
             passphrase: the password to decrypt the nep2 key.
             _scrypt_parameters: a ScryptParameters object that will be passed to the key derivation function.
 
@@ -476,7 +444,7 @@ class Account:
             the private key.
         """
         if _scrypt_parameters is None:
-            _scrypt_parameters = wallet.ScryptParameters()
+            _scrypt_parameters = scrypt.ScryptParameters()
 
         if len(nep2_key) != 58:
             raise ValueError(f"Please provide a nep2_key with a length of 58 bytes (LEN: {len(nep2_key)})")
@@ -509,7 +477,7 @@ class Account:
         # Now check that the address hashes match. If they don't, the password was wrong.
         key_pair = cryptography.KeyPair(private_key=private_key)
         script_hash = to_script_hash(contracts.Contract.create_signature_redeemscript(key_pair.public_key))
-        address = Account.script_hash_to_address(script_hash)
+        address = utils.script_hash_to_address(script_hash)
         first_hash = hashlib.sha256(address.encode("utf-8")).digest()
         second_hash = hashlib.sha256(first_hash).digest()
         checksum = second_hash[:4]
@@ -521,7 +489,7 @@ class Account:
 
     @staticmethod
     def private_key_to_nep2(private_key: bytes, passphrase: str,
-                            _scrypt_parameters: Optional[wallet.ScryptParameters] = None) -> bytes:
+                            _scrypt_parameters: Optional[scrypt.ScryptParameters] = None) -> bytes:
         """
         Encrypt a private key into a nep2 key.
 
@@ -534,11 +502,11 @@ class Account:
             the encrypted nep2 key.
         """
         if _scrypt_parameters is None:
-            _scrypt_parameters = wallet.ScryptParameters()
+            _scrypt_parameters = scrypt.ScryptParameters()
 
         key_pair = cryptography.KeyPair(private_key=private_key)
         script_hash = to_script_hash(contracts.Contract.create_signature_redeemscript(key_pair.public_key))
-        address = Account.script_hash_to_address(script_hash)
+        address = utils.script_hash_to_address(script_hash)
         # NEP2 checksum: hash the address twice and get the first 4 bytes
         first_hash = hashlib.sha256(address.encode("utf-8")).digest()
         second_hash = hashlib.sha256(first_hash).digest()
@@ -597,39 +565,6 @@ class Account:
         private_key = decoded_key[1: 33]
 
         return private_key
-
-    @staticmethod
-    def is_valid_address(address: str) -> bool:
-        """
-        Test if the provided address is a valid address.
-
-        Args:
-            address: an address.
-        """
-        try:
-            Account.validate_address(address)
-        except ValueError:
-            return False
-        return True
-
-    @staticmethod
-    def validate_address(address: str) -> None:
-        """
-        Validate a given address. If address is not valid an exception will be raised.
-
-        Args:
-            address: an address.
-
-        Raises:
-            ValueError: if the length of data(address value in bytes) is not valid.
-            ValueError: if the account version is not valid.
-        """
-        data: bytes = base58.b58decode_check(address)
-        if len(data) != len(types.UInt160.zero()) + 1:
-            raise ValueError(f"The address is wrong, because data (address value in bytes) length should be "
-                             f"{len(types.UInt160.zero()) + 1}")
-        elif data[0] != settings.network.account_version:
-            raise ValueError(f"The account version is not {settings.network.account_version}")
 
     @staticmethod
     def _xor_bytes(a: bytes, b: bytes) -> bytes:

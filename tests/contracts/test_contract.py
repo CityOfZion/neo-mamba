@@ -1,7 +1,6 @@
 import unittest
 import binascii
-from neo3 import contracts
-from neo3.contracts import vm
+from neo3 import contracts, vm
 from neo3.core import cryptography, types
 
 

@@ -2,9 +2,8 @@ from __future__ import annotations
 from typing import Any, Optional
 from jsonschema import validate  # type: ignore
 from neo3.core import IJson, cryptography
-from neo3.wallet.account import Account, AccountContract
 from neo3 import contracts
-from neo3.wallet.scrypt_parameters import ScryptParameters
+from neo3.wallet import scrypt_parameters as scrypt, account
 
 
 class MultiSigContext:
@@ -42,10 +41,10 @@ class Wallet(IJson):
         "properties": {
             "name": {"type": ["string", "null"]},
             "version": {"type": "string"},
-            "scrypt": ScryptParameters.json_schema,
+            "scrypt": scrypt.ScryptParameters.json_schema,
             "accounts": {
                 "type": "array",
-                "items": Account._json_schema,
+                "items": account.Account._json_schema,
                 "minItems": 0,
             },
             "extra": {"type": ["object", "null"],
@@ -59,9 +58,9 @@ class Wallet(IJson):
     def __init__(self,
                  name: Optional[str] = None,
                  version: str = _wallet_version,
-                 scrypt: Optional[ScryptParameters] = None,
-                 accounts: list[Account] = None,
-                 default_account: Optional[Account] = None,
+                 scrypt_params: Optional[scrypt.ScryptParameters] = None,
+                 accounts: list[account.Account] = None,
+                 default_account: Optional[account.Account] = None,
                  extra: Optional[dict[Any, Any]] = None):
         """
         Args:
@@ -75,7 +74,7 @@ class Wallet(IJson):
 
         self.name = name
         self.version = version
-        self.scrypt = scrypt if scrypt else ScryptParameters()
+        self.scrypt = scrypt_params if scrypt_params else scrypt.ScryptParameters()
 
         if accounts is None:
             accounts = []
@@ -88,10 +87,10 @@ class Wallet(IJson):
             default_account = accounts[0]
 
         self.accounts = accounts if accounts is not None else []
-        self._default_account: Optional[Account] = default_account
+        self._default_account: Optional[account.Account] = default_account
         self.extra = extra if extra else {}
 
-    def account_new(self, password: str, label: str = None, is_default=False) -> Account:
+    def account_new(self, password: str, label: str = None, is_default=False) -> account.Account:
         """
         Creates a new account and adds it in the wallet
 
@@ -100,17 +99,17 @@ class Wallet(IJson):
             label: optional label to identify the account
             is_default: whether it should set the created account as the default
         """
-        account = Account(password=password,
-                          watch_only=False,
-                          label=label,
-                          scrypt_parameters=self.scrypt
-                          )
+        account_ = account.Account(password=password,
+                                   watch_only=False,
+                                   label=label,
+                                   scrypt_parameters=self.scrypt
+                                   )
 
-        self.account_add(account, is_default)
-        return account
+        self.account_add(account_, is_default)
+        return account_
 
     @property
-    def account_default(self) -> Optional[Account]:
+    def account_default(self) -> Optional[account.Account]:
         """
         Returns the default account if at least one account is present
         """
@@ -119,7 +118,7 @@ class Wallet(IJson):
     def import_multisig_address(self,
                                 signing_threshold: int,
                                 public_keys: list[cryptography.ECPoint]
-                                ) -> Account:
+                                ) -> account.Account:
         if signing_threshold < 1 or signing_threshold > 1024:
             raise ValueError("Invalid signing threshold")
 
@@ -129,28 +128,28 @@ class Wallet(IJson):
 
         multisig_contract = contracts.Contract.create_multisig_contract(signing_threshold, public_keys)
         # we start with a watchonly as base
-        account = Account.watch_only(multisig_contract.script_hash)
-        account.contract = AccountContract.from_contract(multisig_contract)
+        account_ = account.Account.watch_only(multisig_contract.script_hash)
+        account.contract = account.AccountContract.from_contract(multisig_contract)
 
         # if the wallet contains an account matching one required in the multisig, then copy key material
-        self._augment_multisig_with_key_material(account)
-        self.account_add(account)
-        return account
+        self._augment_multisig_with_key_material(account_)
+        self.account_add(account_)
+        return account_
 
-    def _augment_multisig_with_key_material(self, account: Account):
+    def _augment_multisig_with_key_material(self, acc: account.Account):
         """
         Tries to augment multisig accounts with key material such that they can be used for signing
 
-        There are 2 scenario's
+        There are 2 scenarios
         1. A multisig account is added while there already exists a regular account with key material for one of the
         keys required by the multisig
         2. A regular account is added while there already exists a multisig account missing key material that the
         regular now adds.
         """
-        if account.contract is None:
+        if acc.contract is None:
             return
 
-        is_multisig, _, public_keys = contracts.Contract.parse_as_multisig_contract(account.contract.script)
+        is_multisig, _, public_keys = contracts.Contract.parse_as_multisig_contract(acc.contract.script)
         if is_multisig:
             # scenario 1
             for acc in self.accounts:
@@ -161,53 +160,53 @@ class Wallet(IJson):
                     break
         else:
             # scenario 2
-            for acc in self.accounts:
-                if acc.is_watchonly and acc.is_multisig and acc.contract:  # testing acc.contract to silence mypy
-                    _, _, public_keys = contracts.Contract.parse_as_multisig_contract(acc.contract.script)
-                    if account.public_key in public_keys:
-                        acc.encrypted_key = account.encrypted_key
-                        acc.public_key = account.public_key
+            for account_ in self.accounts:
+                if account_.is_watchonly and account_.is_multisig and account_.contract:  # testing acc.contract to silence mypy
+                    _, _, public_keys = contracts.Contract.parse_as_multisig_contract(account_.contract.script)
+                    if acc.public_key in public_keys:
+                        account_.encrypted_key = acc.encrypted_key
+                        account_.public_key = acc.public_key
                         break
 
-    def account_add(self, account: Account, is_default=False) -> bool:
+    def account_add(self, acc: account.Account, is_default=False) -> bool:
         """
         Includes an account in the wallet
 
         Args:
-            account: the account to be included
+            acc: the account to be included
             is_default: whether it should set the created account as the default
 
         Raises:
             ValueError: if the account's label is already used by another one
         """
         # true if ok, false if duplicate (any other possible reasons? otherwise we need to throw exceptions)
-        if account in self.accounts:
+        if acc in self.accounts:
             return False
 
-        if account.label is not None and self.account_get_by_label(account.label) is not None:
-            raise ValueError(f"Label is already used by an account '{account.label}'")
+        if acc.label is not None and self.account_get_by_label(acc.label) is not None:
+            raise ValueError(f"Label is already used by an account '{acc.label}'")
 
         # if first account, also set to default
         if is_default or len(self.accounts) == 0:
-            self._default_account = account
+            self._default_account = acc
 
-        self._augment_multisig_with_key_material(account)
-        self.accounts.append(account)
+        self._augment_multisig_with_key_material(acc)
+        self.accounts.append(acc)
         return True
 
-    def account_delete(self, account: Account) -> bool:
+    def account_delete(self, acc: account.Account) -> bool:
         """
         Removes an account from the wallet
 
         Args:
-            account: the account to be removed
+            acc: the account to be removed
         """
         # return success or not
         if account not in self.accounts:
             return False
 
-        self.accounts.remove(account)
-        if account == self._default_account:
+        self.accounts.remove(acc)
+        if acc == self._default_account:
             # if it was the default account, select a new one
             # first by default
             self._default_account = self.accounts[0] if len(self.accounts) > 0 else None
@@ -222,15 +221,15 @@ class Wallet(IJson):
             label: unique identifier of the account
         """
         # return success or not
-        account = self.account_get_by_label(label)
+        acc = self.account_get_by_label(label)
 
-        if account is None:
+        if acc is None:
             # account with that label was not found
             return False
 
-        return self.account_delete(account)
+        return self.account_delete(acc)
 
-    def account_get_by_label(self, label: str) -> Optional[Account]:
+    def account_get_by_label(self, label: str) -> Optional[account.Account]:
         """
         Gets an account given its label. Returns None if not found.
 
@@ -263,9 +262,9 @@ class Wallet(IJson):
             'extra': self.extra if len(self.extra) > 0 else None
         }
 
-    def _account_to_json(self, account: Account) -> dict:
-        is_default = self._default_account is not None and self._default_account.address == account.address
-        json_account = account.to_json()
+    def _account_to_json(self, acc: account.Account) -> dict:
+        is_default = self._default_account is not None and self._default_account.address == acc.address
+        json_account = acc.to_json()
         json_account['isDefault'] = is_default
         return json_account
 
@@ -291,20 +290,21 @@ class Wallet(IJson):
 
         accounts = []
         default_account = None
-        scrypt_params = ScryptParameters.from_json(json['scrypt'])
+        scrypt_params = scrypt.ScryptParameters.from_json(json['scrypt'])
         if len(json['accounts']) > 0:
             if password is None:
                 raise ValueError('Missing wallet password to decrypt account data')
             else:
                 for json_account in json['accounts']:
-                    account_from_json = Account.from_json(json_account, password, scrypt_parameters=scrypt_params)
+                    account_from_json = account.Account.from_json(json_account, password,
+                                                                  scrypt_parameters=scrypt_params)
                     accounts.append(account_from_json)
                     if default_account is None and hasattr(json, 'isDefault') and json['isDefault']:
                         default_account = account_from_json
 
         return cls(name=json['name'],
                    version=json['version'],
-                   scrypt=scrypt_params,
+                   scrypt_params=scrypt_params,
                    accounts=accounts,
                    default_account=default_account,
                    extra=json['extra'])

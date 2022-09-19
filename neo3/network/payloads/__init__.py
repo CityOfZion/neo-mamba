@@ -36,5 +36,5 @@ __all__ = ['EmptyPayload', 'InventoryPayload', 'InventoryType', 'VersionPayload'
            'AddrPayload', 'PingPayload', 'Witness', 'WitnessScope', 'Header', 'Block', 'MerkleBlockPayload',
            'HeadersPayload', 'Transaction', 'TransactionAttribute',
            'TransactionAttributeType', 'Signer', 'GetBlocksPayload', 'GetBlockByIndexPayload', 'FilterAddPayload',
-           'FilterLoadPayload', 'TrimmedBlock', 'IVerifiable', 'OracleReponseCode', 'OracleReponseCode',
+           'FilterLoadPayload', 'TrimmedBlock', 'IVerifiable', 'OracleResponse', 'OracleReponseCode',
            'ExtensiblePayload', 'HighPriorityAttribute']

@@ -11,8 +11,7 @@ import asyncio
 import json
 import argparse
 from typing import Optional
-from neo3 import api, wallet
-from neo3.contracts import vm
+from neo3 import api, wallet, vm
 from neo3.network import payloads
 from neo3.core import types
 

@@ -6,8 +6,7 @@ from dataclasses import dataclass
 from typing import Optional, TypedDict, Any, Protocol, Iterator, Union, cast
 import datetime
 import time
-from neo3 import contracts, wallet
-from neo3.contracts import vm
+from neo3 import contracts, wallet, vm
 from neo3.network import payloads
 from neo3.core import types, cryptography, IJson
 from contextlib import suppress

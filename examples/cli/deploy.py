@@ -10,8 +10,8 @@ import asyncio
 import json
 import argparse
 from typing import Optional
-from neo3 import api, wallet, contracts
-from neo3.contracts import vm, get_contract_hash
+from neo3 import api, wallet, contracts, vm
+from neo3.contracts import get_contract_hash
 from neo3.network import payloads
 
 

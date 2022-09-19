@@ -1,7 +1,7 @@
 from __future__ import annotations
 import hashlib
 from enum import IntEnum
-from neo3 import contracts
+from neo3.contracts import callflags
 from neo3.core import types, serialization
 from typing import Optional, Iterator
 
@@ -353,7 +353,7 @@ class ScriptBuilder:
     def emit_contract_call(self,
                            script_hash: types.UInt160,
                            operation: str,
-                           call_flags: Optional[contracts.CallFlags] = None) -> ScriptBuilder:
+                           call_flags: Optional[vm.CallFlags] = None) -> ScriptBuilder:
         """
         Emit opcode sequence to call a smart contrat operation
 
