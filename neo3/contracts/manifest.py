@@ -3,12 +3,12 @@ import base64
 import binascii
 import orjson as json  # type: ignore
 from typing import Callable, Optional, Any
-from neo3 import contracts
-from neo3.core import serialization, types, IJson, cryptography, utils
+from neo3.contracts import utils as contractutils, abi, descriptor
+from neo3.core import serialization, types, cryptography, utils as coreutils, interfaces
 from neo3.core.serialization import BinaryReader, BinaryWriter
 
 
-class ContractGroup(IJson):
+class ContractGroup(interfaces.IJson):
     """
     Describes a set of mutually trusted contracts.
 
@@ -57,17 +57,17 @@ class ContractGroup(IJson):
             KeyError: if the data supplied does not contain the necessary keys.
             ValueError: if the signature length is not 64.
         """
-        pubkey = contracts.validate_type(json['pubkey'], str)
+        pubkey = contractutils.validate_type(json['pubkey'], str)
         c = cls(
             public_key=cryptography.ECPoint.deserialize_from_bytes(binascii.unhexlify(pubkey)),
-            signature=base64.b64decode(contracts.validate_type(json['signature'], str).encode('utf8'))
+            signature=base64.b64decode(contractutils.validate_type(json['signature'], str).encode('utf8'))
         )
         if len(c.signature) != 64:
             raise ValueError("Format error - invalid signature length")
         return c
 
 
-class ContractPermission(IJson):
+class ContractPermission(interfaces.IJson):
     """
     Describes a single set of outgoing call restrictions for a 'System.Contract.Call' SYSCALL.
     It describes what other smart contracts the executing contract is allowed to call and what exact methods on the
@@ -76,9 +76,9 @@ class ContractPermission(IJson):
     Example:
         Contract A (the executing contract) wants to call method "x" on Contract B. The runtime will query the manifest
         of Contract A and ask if this is allowed. The Manifest will search through its permissions (a list of
-        ContractPermission objects) and ask if it "is_allowed(target_contract, target_method)".
+        ContractPermission objects) and ask if it "is_allowed()".
     """
-    def __init__(self, contract: contracts.ContractPermissionDescriptor, methods: WildcardContainer):
+    def __init__(self, contract: descriptor.ContractPermissionDescriptor, methods: WildcardContainer):
         self.contract = contract
         self.methods = methods
 
@@ -92,22 +92,26 @@ class ContractPermission(IJson):
         """
         Construct a ContractPermission which allows any contract and any method to be called.
         """
-        return cls(contracts.ContractPermissionDescriptor(),  # with no parameters equals to Wildcard
+        return cls(descriptor.ContractPermissionDescriptor(),  # with no parameters equals to Wildcard
                    WildcardContainer.create_wildcard())
 
-    def is_allowed(self, target_contract: contracts.ContractState, target_method: str) -> bool:
+    def is_allowed(self,
+                   target_contract_hash: types.UInt160,
+                   target_manifest: ContractManifest,
+                   target_method: str) -> bool:
         """
         Return if it is allowed to call `target_method` on the target contract.
 
         Args:
-            target_contract: the contract state of the contract to be called.
+            target_contract_hash: the contract hash of the contract to be called.
+            target_manifest: the contract manifest of the contract to be called.
             target_method: the method of the contract to be called.
         """
         if self.contract.is_hash:
-            if not self.contract.contract_hash == target_contract.hash:
+            if not self.contract.contract_hash == target_contract_hash:
                 return False
         elif self.contract.is_group:
-            results = list(map(lambda p: p.public_key != self.contract.group, target_contract.manifest.groups))
+            results = list(map(lambda p: p.public_key != self.contract.group, target_manifest.groups))
             if all(results):
                 return False
         return self.methods.is_wildcard or target_method in self.methods
@@ -133,7 +137,7 @@ class ContractPermission(IJson):
             KeyError: if the data supplied does not contain the necessary keys.
             ValueError: if a method is zero length.
         """
-        cpd = contracts.ContractPermissionDescriptor.from_json(json)
+        cpd = descriptor.ContractPermissionDescriptor.from_json(json)
         json_wildcard = {'wildcard': json['methods']}
         methods = WildcardContainer.from_json(json_wildcard)
         for m in methods:
@@ -142,7 +146,7 @@ class ContractPermission(IJson):
         return cls(cpd, methods)
 
 
-class WildcardContainer(IJson):
+class WildcardContainer(interfaces.IJson):
     """
     An internal helper class for ContractManifest attributes.
     """
@@ -247,7 +251,7 @@ class WildcardContainer(IJson):
         raise ValueError(f"Invalid JSON - Cannot deduce WildcardContainer type from: {value}")
 
 
-class ContractManifest(serialization.ISerializable, IJson):
+class ContractManifest(serialization.ISerializable, interfaces.IJson):
     """
     A description of a smart contract's abilities (callable methods & events) as well as a set of restrictions
     describing what external contracts and methods are allowed to be called.
@@ -270,13 +274,13 @@ class ContractManifest(serialization.ISerializable, IJson):
 
         #: For technical details of ABI, please refer to NEP-14: NeoContract ABI.
         #: https://github.com/neo-project/proposals/blob/d1f4e9e1a67d22a5755c45595121f80b0971ea64/nep-14.mediawiki
-        self.abi: contracts.ContractABI = contracts.ContractABI(
+        self.abi: abi.ContractABI = abi.ContractABI(
             events=[],
             methods=[]
         )
 
         #: Permissions describe what external contract(s) and what method(s) on these are allowed to be invoked.
-        self.permissions: list[contracts.ContractPermission] = [contracts.ContractPermission.default_permissions()]
+        self.permissions: list[ContractPermission] = [ContractPermission.default_permissions()]
 
         # Update trusts/safe_methods with outcome of https://github.com/neo-project/neo/issues/1664
         # Unfortunately we have to add this nonsense logic or we get deviating VM results.
@@ -286,7 +290,7 @@ class ContractManifest(serialization.ISerializable, IJson):
         self.extra: Optional[dict] = None
 
     def __len__(self):
-        return utils.get_var_size(str(self.to_json()).replace(' ', ''))
+        return coreutils.get_var_size(str(self.to_json()).replace(' ', ''))
 
     def __eq__(self, other):
         if not isinstance(other, type(self)):
@@ -323,14 +327,16 @@ class ContractManifest(serialization.ISerializable, IJson):
         if json['name'] is None:
             self.name = ""
         else:
-            self.name = contracts.validate_type(json['name'], str)
-        self.abi = contracts.ContractABI.from_json(json['abi'])
+            self.name = contractutils.validate_type(json['name'], str)
+        self.abi = abi.ContractABI.from_json(json['abi'])
         self.groups = list(map(lambda g: ContractGroup.from_json(g), json['groups']))
 
         if len(json['features']) != 0:
             raise ValueError("Manifest features is reserved and cannot have any content at this time")
 
-        self.supported_standards = list(map(lambda ss: contracts.validate_type(ss, str), json['supportedstandards']))
+        self.supported_standards = list(
+            map(lambda ss: contractutils.validate_type(ss, str), json['supportedstandards'])
+        )
         self.permissions = list(map(lambda p: ContractPermission.from_json(p), json['permissions']))
 
         if json['trusts'] == '*':
@@ -338,7 +344,7 @@ class ContractManifest(serialization.ISerializable, IJson):
         else:
             self.trusts = WildcardContainer.from_json_as_type(
                 {'wildcard': json['trusts']},
-                lambda t: contracts.ContractPermissionDescriptor.from_json({'contract': t}))
+                lambda t: descriptor.ContractPermissionDescriptor.from_json({'contract': t}))
 
         # converting json key/value back to default WildcardContainer format
         self.extra = json['extra']
@@ -397,11 +403,16 @@ class ContractManifest(serialization.ISerializable, IJson):
         result = list(map(lambda g: g.is_valid(contract_hash), self.groups))
         return all(result)
 
-    def can_call(self, target_contract: contracts.ContractState, target_method: str) -> bool:
+    def can_call(self,
+                 target_contract_hash: types.UInt160,
+                 target_manifest: ContractManifest,
+                 target_method: str) -> bool:
         """
         Check if this contract is allowed to call `target_method` on `target_contract`.
         """
-        results = list(map(lambda p: p.is_allowed(target_contract, target_method), self.permissions))
+        results = list(
+            map(lambda p: p.is_allowed(target_contract_hash, target_manifest, target_method), self.permissions)
+        )
         return any(results)
 
     def contains_group(self, public_key: cryptography.ECPoint) -> bool:

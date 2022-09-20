@@ -1,9 +1,6 @@
 from __future__ import annotations
-import abc
-import hashlib
 from enum import IntEnum
 from events import Events  # type: ignore
-from neo3.core import types
 
 
 msgrouter = Events()
@@ -21,5 +18,3 @@ class Size(IntEnum):
     uint64 = 8
     uint160 = 20
     uint256 = 32
-
-

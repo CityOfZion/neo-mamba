@@ -1,7 +1,6 @@
-import abc
 import hashlib
 from enum import Enum
-from collections.abc import Iterable
+from collections.abc import Sequence
 from neo3.core import serialization, Size, types
 
 
@@ -35,7 +34,7 @@ def get_var_size(value: object) -> int:
             return Size.uint8 + Size.uint32
 
     # internal static int GetVarSize<T>(this T[] value)
-    elif isinstance(value, Iterable):
+    elif isinstance(value, Sequence):
         value_length = len(value)
         value_size = 0
 
@@ -57,17 +56,6 @@ def get_var_size(value: object) -> int:
         raise ValueError(f"[NOT SUPPORTED] Unexpected value type {type(value)} for get_var_size()")
 
     return get_var_size(value_length) + value_size
-
-
-class IJson(abc.ABC):
-    @abc.abstractmethod
-    def to_json(self) -> dict:
-        """ convert object into json """
-
-    @classmethod
-    @abc.abstractmethod
-    def from_json(cls, json: dict):
-        """ create object from JSON """
 
 
 def to_script_hash(data: bytes) -> types.UInt160:

@@ -1,6 +1,5 @@
 import unittest
-from unittest import mock
-from neo3.network import payloads
+from neo3.network.payloads import verification
 from neo3.core import types, cryptography
 
 
@@ -18,7 +17,7 @@ class WitnessRuleTestCase(unittest.TestCase):
         Console.WriteLine(w.ToArray().ToHexString());
         Console.WriteLine(w.ToJson());
         """
-        cls.rule = payloads.WitnessRule(payloads.WitnessRuleAction.ALLOW, payloads.ConditionBool(True))
+        cls.rule = verification.WitnessRule(verification.WitnessRuleAction.ALLOW, verification.ConditionBool(True))
 
     def test_len(self):
         # captured from C#, see setUpClass() for the capture code
@@ -33,7 +32,7 @@ class WitnessRuleTestCase(unittest.TestCase):
     def test_deserialization(self):
         # if the serialization() test for this class passes, we can use that as a reference to test deserialization
         # against
-        deserialized_rule = payloads.WitnessRule.deserialize_from_bytes(self.rule.to_array())
+        deserialized_rule = verification.WitnessRule.deserialize_from_bytes(self.rule.to_array())
         self.assertEqual(self.rule.action, deserialized_rule.action)
         self.assertEqual(self.rule.condition, deserialized_rule.condition)
 
@@ -43,7 +42,7 @@ class WitnessRuleTestCase(unittest.TestCase):
 
     def test_from_json(self):
         with self.assertRaises(NotImplementedError):
-            payloads.WitnessRule.from_json({})
+            verification.WitnessRule.from_json({})
 
 
 class ConditionsTestCase(unittest.TestCase):
@@ -70,20 +69,20 @@ class ConditionsTestCase(unittest.TestCase):
         expected_data = bytes.fromhex("020200010000")
         expected_json = {"type":"And","expressions":[{"type":"Boolean","expression":True},{"type":"Boolean","expression":False}]}
 
-        c = payloads.ConditionAnd([
-            payloads.ConditionBool(True),
-            payloads.ConditionBool(False)
+        c = verification.ConditionAnd([
+            verification.ConditionBool(True),
+            verification.ConditionBool(False)
         ])
         self.assertEqual(expected_len, len(c))
         self.assertEqual(expected_data, c.to_array())
         self.assertEqual(expected_json, c.to_json())
 
-        deserialized_c = payloads.ConditionAnd.deserialize_from_bytes(c.to_array())
+        deserialized_c = verification.ConditionAnd.deserialize_from_bytes(c.to_array())
         self.assertEqual(c.expressions, deserialized_c.expressions)
 
         with self.assertRaises(ValueError) as context:
-            c2 = payloads.ConditionAnd([])
-            payloads.ConditionAnd.deserialize_from_bytes(c2.to_array())
+            c2 = verification.ConditionAnd([])
+            verification.ConditionAnd.deserialize_from_bytes(c2.to_array())
         self.assertEqual("Cannot have 0 expressions", str(context.exception))
 
     def test_bool(self):
@@ -96,12 +95,12 @@ class ConditionsTestCase(unittest.TestCase):
         expected_len = 2
         expected_data = bytes.fromhex("0001")
         expected_json = {"type":"Boolean","expression":True}
-        c = payloads.ConditionBool(True)
+        c = verification.ConditionBool(True)
         self.assertEqual(expected_len, len(c))
         self.assertEqual(expected_data, c.to_array())
         self.assertEqual(expected_json, c.to_json())
 
-        deserialized_c = payloads.ConditionBool.deserialize_from_bytes(c.to_array())
+        deserialized_c = verification.ConditionBool.deserialize_from_bytes(c.to_array())
         self.assertEqual(c, deserialized_c)
 
     def test_not(self):
@@ -115,12 +114,12 @@ class ConditionsTestCase(unittest.TestCase):
         expected_len = 3
         expected_data = bytes.fromhex("010001")
         expected_json = {"type":"Not","expression":{"type":"Boolean","expression":True}}
-        c = payloads.ConditionNot(payloads.ConditionBool(True))
+        c = verification.ConditionNot(verification.ConditionBool(True))
         self.assertEqual(expected_len, len(c))
         self.assertEqual(expected_data, c.to_array())
         self.assertEqual(expected_json, c.to_json())
 
-        deserialized_c = payloads.ConditionNot.deserialize_from_bytes(c.to_array())
+        deserialized_c = verification.ConditionNot.deserialize_from_bytes(c.to_array())
         self.assertEqual(c, deserialized_c)
 
     def test_or(self):
@@ -142,20 +141,20 @@ class ConditionsTestCase(unittest.TestCase):
         expected_data = bytes.fromhex("030200010000")
         expected_json = {"type":"Or","expressions":[{"type":"Boolean","expression":True},{"type":"Boolean","expression":False}]}
 
-        c = payloads.ConditionOr([
-            payloads.ConditionBool(True),
-            payloads.ConditionBool(False)
+        c = verification.ConditionOr([
+            verification.ConditionBool(True),
+            verification.ConditionBool(False)
         ])
         self.assertEqual(expected_len, len(c))
         self.assertEqual(expected_data, c.to_array())
         self.assertEqual(expected_json, c.to_json())
 
-        deserialized_c = payloads.ConditionOr.deserialize_from_bytes(c.to_array())
+        deserialized_c = verification.ConditionOr.deserialize_from_bytes(c.to_array())
         self.assertEqual(c.expressions, deserialized_c.expressions)
 
         with self.assertRaises(ValueError) as context:
-            c2 = payloads.ConditionOr([])
-            payloads.ConditionOr.deserialize_from_bytes(c2.to_array())
+            c2 = verification.ConditionOr([])
+            verification.ConditionOr.deserialize_from_bytes(c2.to_array())
         self.assertEqual("Cannot have 0 expressions", str(context.exception))
 
     def test_by_contract(self):
@@ -172,13 +171,13 @@ class ConditionsTestCase(unittest.TestCase):
         expected_data = bytes.fromhex("280000000000000000000000000000000000000000")
         expected_json = {"type":"CalledByContract","hash":"0x0000000000000000000000000000000000000000"}
 
-        c = payloads.ConditionCalledByContract(types.UInt160.zero())
+        c = verification.ConditionCalledByContract(types.UInt160.zero())
 
         self.assertEqual(expected_len, len(c))
         self.assertEqual(expected_data, c.to_array())
         self.assertEqual(expected_json, c.to_json())
 
-        deserialized_c = payloads.ConditionCalledByContract.deserialize_from_bytes(c.to_array())
+        deserialized_c = verification.ConditionCalledByContract.deserialize_from_bytes(c.to_array())
         self.assertEqual(c.hash_, deserialized_c.hash_)
 
     def test_by_entry(self):
@@ -192,13 +191,13 @@ class ConditionsTestCase(unittest.TestCase):
         expected_data = bytes.fromhex("20")
         expected_json = {"type":"CalledByEntry"}
 
-        c = payloads.ConditionCalledByEntry()
+        c = verification.ConditionCalledByEntry()
 
         self.assertEqual(expected_len, len(c))
         self.assertEqual(expected_data, c.to_array())
         self.assertEqual(expected_json, c.to_json())
 
-        deserialized_c = payloads.ConditionCalledByEntry.deserialize_from_bytes(c.to_array())
+        deserialized_c = verification.ConditionCalledByEntry.deserialize_from_bytes(c.to_array())
         self.assertEqual(c, deserialized_c)
 
     def test_called_by_group(self):
@@ -217,11 +216,11 @@ class ConditionsTestCase(unittest.TestCase):
         point_data = expected_data[1:]
 
         group = cryptography.ECPoint.deserialize_from_bytes(point_data)
-        c = payloads.ConditionCalledByGroup(group)
+        c = verification.ConditionCalledByGroup(group)
 
         self.assertEqual(expected_len, len(c))
         self.assertEqual(expected_data, c.to_array())
         self.assertEqual(expected_json, c.to_json())
 
-        deserialized_c = payloads.ConditionCalledByGroup.deserialize_from_bytes(c.to_array())
+        deserialized_c = verification.ConditionCalledByGroup.deserialize_from_bytes(c.to_array())
         self.assertEqual(c, deserialized_c)

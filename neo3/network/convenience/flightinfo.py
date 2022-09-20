@@ -6,7 +6,7 @@ class FlightInfo:
     An internal class for tracking a single outstanding header or block request from a specific node.
 
     It is used as part of ``SyncManager`` for syncing the chain over the P2P network in combination with the global data
-    tracking :class:`RequestInfo <neo3.network.conveniencerequestinfo.RequestInfo>` class.
+    tracking :class:`RequestInfo <neo3.network.convenience.requestinfo.RequestInfo>` class.
     """
     def __init__(self, node_id: int, height: int):
         """

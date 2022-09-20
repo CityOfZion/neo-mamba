@@ -1,38 +1,15 @@
 from __future__ import annotations
+import os.path
+import json
 from typing import Any, Optional
 from jsonschema import validate  # type: ignore
-from neo3.core import IJson, cryptography
-from neo3 import contracts
-from neo3.wallet import scrypt_parameters as scrypt, account
+from neo3.core import interfaces, cryptography
+from neo3.contracts import contract, utils as contractutils
+from neo3.wallet import account
+from neo3.wallet import scrypt_parameters as scrypt
 
 
-class MultiSigContext:
-    def __init__(self):
-        self.initialised = False
-        self.signing_threshold = 999
-        #: List of valid public keys for signing
-        self.expected_public_keys: list[cryptography.ECPoint] = []
-        #: Completed pairs
-        self.signature_pairs: dict[cryptography.ECPoint, bytes] = {}
-
-    @property
-    def is_complete(self):
-        return len(self.signature_pairs) >= self.signing_threshold
-
-    def signing_status(self) -> dict[cryptography.ECPoint, bool]:
-        # shows which keys have been completed
-        pass
-
-    def process_contract(self, script: bytes) -> None:
-        valid, threshold, public_keys = contracts.Contract.parse_as_multisig_contract(script)
-        if not valid:
-            raise ValueError("Invalid script")
-        self.expected_public_keys = public_keys
-        self.signing_threshold = threshold
-        self.initialised = True
-
-
-class Wallet(IJson):
+class Wallet(interfaces.IJson):
     _wallet_version = '1.0'
 
     # Wallet JSON validation schema
@@ -66,15 +43,18 @@ class Wallet(IJson):
         Args:
             name: a user defined label for the wallet
             version: the wallet's version, must be equal to or greater than 3.0
-            scrypt:  the parameters of the Scrypt algorithm used for encrypting and decrypting the private keys in the
-            wallet.
+            scrypt_params:  the parameters of the Scrypt algorithm used for encrypting and decrypting the private keys
+            in the wallet.
             accounts: an array of Account objects to add to the wallet.
             extra: a user defined object for storing extra data. This field can be None.
         """
 
         self.name = name
         self.version = version
-        self.scrypt = scrypt_params if scrypt_params else scrypt.ScryptParameters()
+        try:
+            self.scrypt = scrypt_params if scrypt_params else scrypt.ScryptParameters()
+        except AttributeError:
+            pass
 
         if accounts is None:
             accounts = []
@@ -126,10 +106,10 @@ class Wallet(IJson):
             raise ValueError(f"Minimum signing threshold is {signing_threshold}, "
                              f"received only {len(public_keys)} public keys")
 
-        multisig_contract = contracts.Contract.create_multisig_contract(signing_threshold, public_keys)
+        multisig_contract = contract.Contract.create_multisig_contract(signing_threshold, public_keys)
         # we start with a watchonly as base
         account_ = account.Account.watch_only(multisig_contract.script_hash)
-        account.contract = account.AccountContract.from_contract(multisig_contract)
+        account_.contract = account.AccountContract.from_contract(multisig_contract)
 
         # if the wallet contains an account matching one required in the multisig, then copy key material
         self._augment_multisig_with_key_material(account_)
@@ -138,31 +118,32 @@ class Wallet(IJson):
 
     def _augment_multisig_with_key_material(self, acc: account.Account):
         """
-        Tries to augment multisig accounts with key material such that they can be used for signing
+        Tries to augment multi-sig accounts with key material such that they can be used for signing
 
         There are 2 scenarios
-        1. A multisig account is added while there already exists a regular account with key material for one of the
-        keys required by the multisig
-        2. A regular account is added while there already exists a multisig account missing key material that the
+        1. A multi-sig account is added while there already exists a regular account with key material for one of the
+        keys required by the multi-signature
+        2. A regular account is added while there already exists a multi-sig account missing key material that the
         regular now adds.
         """
         if acc.contract is None:
             return
 
-        is_multisig, _, public_keys = contracts.Contract.parse_as_multisig_contract(acc.contract.script)
+        is_multisig, _, public_keys = contractutils.parse_as_multisig_contract(acc.contract.script)
         if is_multisig:
             # scenario 1
-            for acc in self.accounts:
-                if not acc.is_watchonly and acc.public_key in public_keys:
+            for account_ in self.accounts:
+                if not account_.is_watchonly and account_.public_key in public_keys:
                     # copy key information of the first matching account
-                    account.encrypted_key = acc.encrypted_key
-                    account.public_key = acc.public_key
+                    acc.encrypted_key = account_.encrypted_key
+                    acc.public_key = account_.public_key
                     break
         else:
             # scenario 2
             for account_ in self.accounts:
-                if account_.is_watchonly and account_.is_multisig and account_.contract:  # testing acc.contract to silence mypy
-                    _, _, public_keys = contracts.Contract.parse_as_multisig_contract(account_.contract.script)
+                # testing acc.contract to silence mypy
+                if account_.is_watchonly and account_.is_multisig and account_.contract:
+                    _, _, public_keys = contractutils.parse_as_multisig_contract(account_.contract.script)
                     if acc.public_key in public_keys:
                         account_.encrypted_key = acc.encrypted_key
                         account_.public_key = acc.public_key
@@ -202,7 +183,7 @@ class Wallet(IJson):
             acc: the account to be removed
         """
         # return success or not
-        if account not in self.accounts:
+        if acc not in self.accounts:
             return False
 
         self.accounts.remove(acc)
@@ -258,7 +239,7 @@ class Wallet(IJson):
             'name': self.name,
             'version': self.version,
             'scrypt': self.scrypt.to_json(),
-            'accounts': [self._account_to_json(account) for account in self.accounts],
+            'accounts': [self._account_to_json(acc) for acc in self.accounts],
             'extra': self.extra if len(self.extra) > 0 else None
         }
 
@@ -290,21 +271,21 @@ class Wallet(IJson):
 
         accounts = []
         default_account = None
-        scrypt_params = scrypt.ScryptParameters.from_json(json['scrypt'])
+        scryptp = scrypt.ScryptParameters.from_json(json['scrypt'])
         if len(json['accounts']) > 0:
             if password is None:
                 raise ValueError('Missing wallet password to decrypt account data')
             else:
                 for json_account in json['accounts']:
                     account_from_json = account.Account.from_json(json_account, password,
-                                                                  scrypt_parameters=scrypt_params)
+                                                                  scrypt_parameters=scryptp)
                     accounts.append(account_from_json)
                     if default_account is None and hasattr(json, 'isDefault') and json['isDefault']:
                         default_account = account_from_json
 
         return cls(name=json['name'],
                    version=json['version'],
-                   scrypt_params=scrypt_params,
+                   scrypt_params=scryptp,
                    accounts=accounts,
                    default_account=default_account,
                    extra=json['extra'])
@@ -314,3 +295,71 @@ class Wallet(IJson):
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         self.save()
+
+
+class NEP6DiskWallet(Wallet):
+    """
+    A specialised wallet for persisting wallets to media.
+    """
+    _default_path = './wallet.json'
+
+    def __init__(self,
+                 path: str,
+                 name: Optional[str] = None,
+                 version: str = Wallet._wallet_version,
+                 scrypt_params: Optional[scrypt.ScryptParameters] = None,
+                 accounts: list[account.Account] = None,
+                 default_account: Optional[account.Account] = None,
+                 extra: Optional[dict] = None):
+        """
+
+        Args:
+            path: the location where the wallet will be stored.
+            name: a user defined label for the wallet
+            version: the wallet's version, must be equal to or greater than 3.0
+            scrypt_params:  the parameters of the Scrypt algorithm used for encrypting and decrypting the private keys
+            in the wallet.
+            accounts: an array of Account objects to add to the wallet.
+            extra: a user defined object for storing extra data. This field can be None.
+        """
+
+        filepath, extension = os.path.splitext(path)
+        if len(extension) == 0:
+            # if the path doesn't have a file extension, sets it as a .json file
+            path += '.json'
+
+        if name is None:
+            # sets the wallet name the same as the file name
+            dir_path, name = os.path.split(path)
+            name, extension = os.path.splitext(name)
+
+        self.path: str = path
+        super().__init__(name=name,
+                         version=version,
+                         scrypt_params=scrypt_params,
+                         accounts=accounts,
+                         default_account=default_account,
+                         extra=extra)
+
+    def save(self) -> None:
+        """
+        Persists the wallet
+        """
+        with open(self.path, 'w') as json_file:
+            json.dump(self.to_json(), json_file)
+
+    @classmethod
+    def default(cls, path: str = _default_path, name: Optional[str] = 'wallet.json') -> NEP6DiskWallet:
+        """
+        Create a new Wallet with the default settings.
+
+        Args:
+            path: the JSON's path.
+            name: the Wallet name.
+        """
+        return cls(path=path,
+                   name=name,
+                   version=cls._wallet_version,
+                   scrypt_params=scrypt.ScryptParameters(),
+                   accounts=[],
+                   extra=None)

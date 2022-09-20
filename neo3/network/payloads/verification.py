@@ -3,12 +3,11 @@ import hashlib
 import abc
 import base64
 from enum import IntFlag, IntEnum
-from neo3.core import serialization, utils, types, cryptography, Size as s, IJson
-from neo3.network import payloads
+from neo3.core import serialization, utils, types, cryptography, Size as s, interfaces
 from typing import Any, no_type_check, Iterator
 
 
-class Signer(serialization.ISerializable, IJson):
+class Signer(serialization.ISerializable, interfaces.IJson):
     """
     A class that specifies who can pass CheckWitness() verifications in a smart contract.
     """
@@ -17,14 +16,14 @@ class Signer(serialization.ISerializable, IJson):
     MAX_SUB_ITEMS = 16
 
     def __init__(self, account: types.UInt160,
-                 scope: payloads.WitnessScope = None,
+                 scope: WitnessScope = None,
                  allowed_contracts: list[types.UInt160] = None,
                  allowed_groups: list[cryptography.ECPoint] = None,
                  rules: list[WitnessRule] = None):
         #: The TX sender.
         self.account = account
-        #: payloads.WitnessScope: The configured validation scope.
-        self.scope = scope if scope else payloads.WitnessScope.NONE
+        #: WitnessScope: The configured validation scope.
+        self.scope = scope if scope else WitnessScope.NONE
         #: list[types.UInt160]: Whitelist of contract script hashes if used with
         #: :const:`~neo3.network.payloads.verification.WitnessScope.CUSTOM_CONTRACTS`.
         self.allowed_contracts = allowed_contracts if allowed_contracts else []
@@ -37,15 +36,15 @@ class Signer(serialization.ISerializable, IJson):
 
     def __len__(self):
         contracts_size = 0
-        if payloads.WitnessScope.CUSTOM_CONTRACTS in self.scope:
+        if WitnessScope.CUSTOM_CONTRACTS in self.scope:
             contracts_size = utils.get_var_size(self.allowed_contracts)
 
         groups_size = 0
-        if payloads.WitnessScope.CUSTOM_GROUPS in self.scope:
+        if WitnessScope.CUSTOM_GROUPS in self.scope:
             groups_size = utils.get_var_size(self.allowed_groups)
 
         rules_size = 0
-        if payloads.WitnessScope.WITNESS_RULES in self.scope:
+        if WitnessScope.WITNESS_RULES in self.scope:
             rules_size = utils.get_var_size(self.rules)
 
         return s.uint160 + s.uint8 + contracts_size + groups_size + rules_size
@@ -69,13 +68,13 @@ class Signer(serialization.ISerializable, IJson):
         writer.write_serializable(self.account)
         writer.write_uint8(self.scope)
 
-        if payloads.WitnessScope.CUSTOM_CONTRACTS in self.scope:
+        if WitnessScope.CUSTOM_CONTRACTS in self.scope:
             writer.write_serializable_list(self.allowed_contracts)
 
-        if payloads.WitnessScope.CUSTOM_GROUPS in self.scope:
+        if WitnessScope.CUSTOM_GROUPS in self.scope:
             writer.write_serializable_list(self.allowed_groups)
 
-        if payloads.WitnessScope.WITNESS_RULES in self.scope:
+        if WitnessScope.WITNESS_RULES in self.scope:
             writer.write_serializable_list(self.rules)
 
     def deserialize(self, reader: serialization.BinaryReader) -> None:
@@ -86,37 +85,37 @@ class Signer(serialization.ISerializable, IJson):
             reader: instance.
         """
         self.account = reader.read_serializable(types.UInt160)
-        self.scope = payloads.WitnessScope(reader.read_uint8())
+        self.scope = WitnessScope(reader.read_uint8())
 
-        if payloads.WitnessScope.GLOBAL in self.scope and self.scope != payloads.WitnessScope.GLOBAL:
+        if WitnessScope.GLOBAL in self.scope and self.scope != WitnessScope.GLOBAL:
             raise ValueError("Deserialization error - invalid scope. GLOBAL scope not allowed with other scope types")
 
-        if payloads.WitnessScope.CUSTOM_CONTRACTS in self.scope:
+        if WitnessScope.CUSTOM_CONTRACTS in self.scope:
             self.allowed_contracts = reader.read_serializable_list(types.UInt160, max=self.MAX_SUB_ITEMS)
 
-        if payloads.WitnessScope.CUSTOM_GROUPS in self.scope:
+        if WitnessScope.CUSTOM_GROUPS in self.scope:
             self.allowed_groups = reader.read_serializable_list(cryptography.ECPoint,  # type: ignore
                                                                 max=self.MAX_SUB_ITEMS)
 
-        if payloads.WitnessScope.WITNESS_RULES in self.scope:
+        if WitnessScope.WITNESS_RULES in self.scope:
             self.rules = reader.read_serializable_list(WitnessRule, max=self.MAX_SUB_ITEMS)
 
     def get_all_rules(self) -> Iterator[WitnessRule]:
-        if payloads.WitnessScope.GLOBAL in self.scope:
+        if WitnessScope.GLOBAL in self.scope:
             yield WitnessRule(WitnessRuleAction.ALLOW, ConditionBool(True))
         else:
-            if payloads.WitnessScope.CALLED_BY_ENTRY in self.scope:
+            if WitnessScope.CALLED_BY_ENTRY in self.scope:
                 yield WitnessRule(WitnessRuleAction.ALLOW, ConditionCalledByEntry())
 
-            if payloads.WitnessScope.CUSTOM_CONTRACTS in self.scope:
+            if WitnessScope.CUSTOM_CONTRACTS in self.scope:
                 for hash_ in self.allowed_contracts:
                     yield WitnessRule(WitnessRuleAction.ALLOW, ConditionScriptHash(hash_))
 
-            if payloads.WitnessScope.CUSTOM_GROUPS in self.scope:
+            if WitnessScope.CUSTOM_GROUPS in self.scope:
                 for group in self.allowed_groups:
                     yield WitnessRule(WitnessRuleAction.ALLOW, ConditionGroup(group))
 
-            if payloads.WitnessScope.WITNESS_RULES in self.scope:
+            if WitnessScope.WITNESS_RULES in self.scope:
                 for rule in self.rules:
                     yield rule
 
@@ -127,11 +126,11 @@ class Signer(serialization.ISerializable, IJson):
             "scopes": self.scope.to_csharp_name(),
         }
 
-        if payloads.WitnessScope.CUSTOM_CONTRACTS in self.scope:
+        if WitnessScope.CUSTOM_CONTRACTS in self.scope:
             json.update({"allowedcontracts": list(map(lambda a: "0x" + str(a), self.allowed_contracts))})
-        if payloads.WitnessScope.CUSTOM_GROUPS in self.scope:
+        if WitnessScope.CUSTOM_GROUPS in self.scope:
             json.update({"allowedgroups": list(map(lambda g: str(g), self.allowed_groups))})
-        if payloads.WitnessScope.WITNESS_RULES in self.scope:
+        if WitnessScope.WITNESS_RULES in self.scope:
             json.update({"rules": list(map(lambda r: r.to_json(), self.rules))})
 
         return json
@@ -140,7 +139,7 @@ class Signer(serialization.ISerializable, IJson):
     def from_json(cls, json: dict):
         """ Create object from JSON """
         account = types.UInt160.from_string(json['account'][2:])
-        scopes = payloads.WitnessScope.from_chsarp_name(json['scopes'])
+        scopes = WitnessScope.from_chsarp_name(json['scopes'])
 
         allowed_contracts = []
         if "allowedcontracts" in json:
@@ -159,7 +158,7 @@ class Signer(serialization.ISerializable, IJson):
         return cls(types.UInt160.zero())
 
 
-class Witness(serialization.ISerializable, IJson):
+class Witness(serialization.ISerializable, interfaces.IJson):
     """
     An executable verification script that validates a verifiable object like a transaction.
     """
@@ -167,7 +166,7 @@ class Witness(serialization.ISerializable, IJson):
     _MAX_VERIFICATION_SCRIPT = 1024
 
     def __init__(self, invocation_script: bytes, verification_script: bytes):
-        #: A set of VM instructions to setup the stack for verification.
+        #: A set of VM instructions to set up the stack for verification.
         self.invocation_script = invocation_script
         #: A set of VM instructions that does the actual verification.
         #: It is expected to set the result stack to a boolean True if validation passed.
@@ -305,7 +304,7 @@ class WitnessConditionType(IntEnum):
             return self.name.title()
 
 
-class WitnessCondition(serialization.ISerializable, IJson):
+class WitnessCondition(serialization.ISerializable, interfaces.IJson):
     MAX_SUB_ITEMS = 16
     MAX_NESTING_DEPTH = 2
 
@@ -577,7 +576,7 @@ class ConditionScriptHash(ConditionCalledByContract):
     _type = WitnessConditionType.SCRIPT_HASH
 
 
-class WitnessRule(serialization.ISerializable, IJson):
+class WitnessRule(serialization.ISerializable, interfaces.IJson):
     def __init__(self, action: WitnessRuleAction, condition: WitnessCondition):
         self.action = action
         self.condition = condition

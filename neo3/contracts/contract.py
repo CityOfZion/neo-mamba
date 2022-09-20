@@ -1,14 +1,11 @@
 from __future__ import annotations
-from neo3 import vm
-from neo3.contracts import abi
-from neo3.core import cryptography, utils as coreutils, types, serialization, Size as s
-
 from dataclasses import dataclass
+from neo3.contracts import abi, utils, nef, manifest
+from neo3.core import cryptography, utils as coreutils, types, serialization, Size as s
 
 
 @dataclass
 class _ContractHashes:
-
     CRYPTO_LIB = types.UInt160.from_string("0x726cb6e0cd8628a1350a611384688911ab75f51b")
     GAS_TOKEN = types.UInt160.from_string("0xd2a4cff31913016155e38e474a2c06d08be276cf")
     LEDGER = types.UInt160.from_string("0xda65b600f7124ce6c79950c1772a36403104f2be")
@@ -18,6 +15,7 @@ class _ContractHashes:
     POLICY = types.UInt160.from_string("0xcc5e4edd9f5f8dba8bb65734541df7a1c081c67b")
     ROLE_MANAGEMENT = types.UInt160.from_string("0x49cf4e5378ffcd4dec034fd98a174c5491e395e2")
     STD_LIB = types.UInt160.from_string("0xacce6fd80d44e1796aa0c2c625e9e4e0ce39efc0")
+
 
 # Neo's native contract hashes
 CONTRACT_HASHES = _ContractHashes()
@@ -47,45 +45,8 @@ class Contract:
             m: minimum number of signature required for signing. Can't be lower than 2.
             public_keys: public keys to use during verification.
         """
-        return cls(script=cls.create_multisig_redeemscript(m, public_keys),
+        return cls(script=utils.create_multisig_redeemscript(m, public_keys),
                    parameter_list=[abi.ContractParameterType.SIGNATURE] * m)
-
-    @staticmethod
-    def create_multisig_redeemscript(m: int, public_keys: list[cryptography.ECPoint]) -> bytes:
-        """
-        Create a multi-signature redeem script requiring `m` signatures from the list `public_keys`.
-
-        This generated script is intended to be executed by the VM to indicate that the requested action is allowed.
-
-        Args:
-            m: minimum number of signature required for signing. Can't be lower than 2.
-            public_keys: public keys to use during verification.
-
-        Raises:
-            ValueError: if the minimum required signatures is not met.
-            ValueError: if the maximum allowed signatures is exceeded.
-            ValueError: if the maximum allowed public keys is exceeded.
-        """
-        if m < 1:
-            raise ValueError(f"Minimum required signature count is 1, specified {m}.")
-
-        if m > len(public_keys):
-            raise ValueError("Invalid public key count. "
-                             "Minimum required signatures is bigger than supplied public keys count.")
-
-        if len(public_keys) > 1024:
-            raise ValueError(f"Supplied public key count ({len(public_keys)}) exceeds maximum of 1024.")
-
-        sb = vm.ScriptBuilder()
-        sb.emit_push(m)
-        public_keys.sort()
-
-        for key in public_keys:
-            sb.emit_push(key.encode_point(True))
-
-        sb.emit_push(len(public_keys))
-        sb.emit_syscall(vm.Syscalls.SYSTEM_CRYPTO_CHECK_MULTI_SIGNATURE_ACCOUNT)
-        return sb.to_array()
 
     @classmethod
     def create_signature_contract(cls, public_key: cryptography.ECPoint) -> Contract:
@@ -98,147 +59,14 @@ class Contract:
         Returns:
 
         """
-        return cls(cls.create_signature_redeemscript(public_key), [abi.ContractParameterType.SIGNATURE])
-
-    @staticmethod
-    def create_signature_redeemscript(public_key: cryptography.ECPoint) -> bytes:
-        """
-        Create a single signature redeem script.
-
-        This generated script is intended to be executed by the VM to indicate that the requested action is allowed.
-
-        Args:
-            public_key: the public key to use during verification.
-        """
-        sb = vm.ScriptBuilder()
-        sb.emit_push(public_key.encode_point(True))
-        sb.emit_syscall(vm.Syscalls.SYSTEM_CRYPTO_CHECK_STANDARD_ACCOUNT)
-        return sb.to_array()
-
-    @staticmethod
-    def is_signature_contract(script: bytes) -> bool:
-        """
-        Test if the provided script is signature contract.
-
-        Args:
-            script: contract script.
-        """
-        if len(script) != 40:
-            return False
-
-        if (script[0] != vm.OpCode.PUSHDATA1
-                or script[1] != 33
-                or script[35] != vm.OpCode.SYSCALL
-                or script[36:40] != vm.Syscalls.SYSTEM_CRYPTO_CHECK_STANDARD_ACCOUNT):
-            return False
-        return True
-
-    @staticmethod
-    def is_multisig_contract(script: bytes) -> bool:
-        """
-        Test if the provided script is multi-signature contract.
-
-        Args:
-            script: contract script.
-        """
-        valid, _, _ = Contract.parse_as_multisig_contract(script)
-        return valid
-
-    @staticmethod
-    def parse_as_multisig_contract(script: bytes) -> tuple[bool, int, list[cryptography.ECPoint]]:
-        """
-        Try to parse script as multisig contract and extract related data.
-
-        Args:
-            script: array of vm byte code
-
-        Returns:
-            bool: True if the script passes as a valid multisignature contract script. False otherwise
-            int: the signing threshold if validation passed. 0 otherwise
-            list[ECPoint]: the public keys in the script if valiation passed. An empty array otherwise.
-        """
-        script = bytes(script)
-        VALIDATION_FAILURE: tuple[bool, int, list[cryptography.ECPoint]] = (False, 0, [])
-
-        len_script = len(script)
-        if len_script < 42:
-            return VALIDATION_FAILURE
-
-        # read signature length, which is encoded as variable_length
-        first_byte = script[0]
-        if first_byte == int(vm.OpCode.PUSHINT8):
-            signature_threshold = script[1]
-            i = 2
-        elif first_byte == int(vm.OpCode.PUSHINT16):
-            signature_threshold = int.from_bytes(script[1:3], 'little', signed=False)
-            i = 3
-        elif int(vm.OpCode.PUSH1) <= first_byte <= int(vm.OpCode.PUSH16):
-            signature_threshold = first_byte - int(vm.OpCode.PUSH0)
-            i = 1
-        else:
-            return VALIDATION_FAILURE
-
-        if signature_threshold < 1 or signature_threshold > 1024:
-            return VALIDATION_FAILURE
-
-        # try reading public keys and do a basic format validation
-        pushdata1 = int(vm.OpCode.PUSHDATA1)
-        public_keys = []
-        while script[i] == pushdata1:
-            if len_script <= i + 35:
-                return VALIDATION_FAILURE
-            if script[i + 1] != 33:
-                return VALIDATION_FAILURE
-            public_keys.append(cryptography.ECPoint.deserialize_from_bytes(script[i + 2:i + 2 + 33]))
-            i += 35
-
-        public_key_count = len(public_keys)
-        if public_key_count < signature_threshold or public_key_count > 1024:
-            return VALIDATION_FAILURE
-
-        # validate that the number of collected public keys match the expected count
-        value = script[i]
-        if value == int(vm.OpCode.PUSHINT8):
-            if len_script <= i + 1 or public_key_count != script[i + 1]:
-                return VALIDATION_FAILURE
-            i += 2
-        elif value == int(vm.OpCode.PUSHINT16):
-            if len_script < i + 3 or public_key_count != int.from_bytes(script[i + 1:i + 3], 'little', signed=False):
-                return VALIDATION_FAILURE
-            i += 3
-        elif int(vm.OpCode.PUSH1) <= value <= int(vm.OpCode.PUSH16):
-            if public_key_count != value - int(vm.OpCode.PUSH0):
-                return VALIDATION_FAILURE
-            i += 1
-        else:
-            return VALIDATION_FAILURE
-
-        if len_script != i + 5:
-            return VALIDATION_FAILURE
-
-        if script[i] != int(vm.OpCode.SYSCALL):
-            return VALIDATION_FAILURE
-        i += 1
-
-        syscall_num = int.from_bytes(script[i:i + 4], 'little')
-        if syscall_num != vm.Syscalls.SYSTEM_CRYPTO_CHECK_MULTI_SIGNATURE_ACCOUNT:
-            return VALIDATION_FAILURE
-        return True, signature_threshold, public_keys
-
-    @staticmethod
-    def get_consensus_address(validators: list[cryptography.ECPoint]) -> types.UInt160:
-        script = contracts.Contract.create_multisig_redeemscript(
-            len(validators) - (len(validators) - 1) // 3,
-            validators
-        )
-        return coreutils.to_script_hash(script)
+        return cls(utils.create_signature_redeemscript(public_key), [abi.ContractParameterType.SIGNATURE])
 
 
 class ContractState(serialization.ISerializable):
     def __init__(self,
                  id_: int,
-                 nef: contracts.NEF,
-                 manifest_: contracts.ContractManifest,
+                 nef: nef.NEF,
+                 manifest_: manifest.ContractManifest,
                  update_counter: int,
                  hash_: types.UInt160):
         self.id = id_
@@ -283,15 +111,17 @@ class ContractState(serialization.ISerializable):
 
     def deserialize(self, reader: serialization.BinaryReader) -> None:
         self.id = reader.read_int32()
-        self.nef = reader.read_serializable(contracts.NEF)
-        self.manifest = reader.read_serializable(contracts.ContractManifest)
+        self.nef = reader.read_serializable(nef.NEF)
+        self.manifest = reader.read_serializable(manifest.ContractManifest)
         self.update_counter = reader.read_uint16()
         self.hash = reader.read_serializable(types.UInt160)
 
     def can_call(self, target_contract: ContractState, target_method: str) -> bool:
-        results = list(map(lambda p: p.is_allowed(target_contract, target_method), self.manifest.permissions))
+        results = list(map(lambda p: p.is_allowed(target_contract.hash,
+                                                  target_contract.manifest,
+                                                  target_method), self.manifest.permissions))
         return any(results)
 
     @classmethod
     def _serializable_init(cls):
-        return cls(0, contracts.NEF._serializable_init(), contracts.ContractManifest(), 0, types.UInt160.zero())
+        return cls(0, nef.NEF._serializable_init(), manifest.ContractManifest(), 0, types.UInt160.zero())

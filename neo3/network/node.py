@@ -2,9 +2,10 @@ from __future__ import annotations
 import asyncio
 import traceback
 from datetime import datetime
-from neo3.network import encode_base62, message, payloads, capabilities, protocol as protocol, relaycache
+from neo3.network import encode_base62, message, capabilities, protocol, relaycache
 from neo3.network.ipfilter import ipfilter
 from neo3.network.convenience import nodeweight
+from neo3.network.payloads import address, version, inventory, ping, block
 from neo3 import network_logger as logger, settings
 from neo3.core import types, msgrouter
 from contextlib import suppress
@@ -13,14 +14,13 @@ from typing import Optional, Callable, cast
 
 
 class NeoNode:
+    #: list[address.NetworkAddress]: a list of known network addresses (class attribute).
+    addresses = []  # type: list[address.NetworkAddress]
 
-    #: list[payloads.NetworkAddress]: a list of known network addresses (class attribute).
-    addresses = []  # type: list[payloads.NetworkAddress]
-
-    def __init__(self, protocol):
-        self.protocol = protocol
-        #: payloads.NetworkAddress: Address of the remote endpoint.
-        self.address = payloads.NetworkAddress("0.0.0.0:0", state=payloads.AddressState.DEAD)
+    def __init__(self, proto):
+        self.protocol = proto
+        #: address.NetworkAddress: Address of the remote endpoint.
+        self.address = address.NetworkAddress("0.0.0.0:0", state=address.AddressState.DEAD)
         self.nodeid: int = id(self)  #: int: Unique identifier.
         self.nodeid_human: str = encode_base62(self.nodeid)  #: str: Human readable id.
         self.version = None
@@ -63,52 +63,52 @@ class NeoNode:
         Event called by the :meth:`base protocol <asyncio.BaseProtocol.connection_made>`.
         """
         addr_tuple = self.protocol._stream_writer.get_extra_info('peername')
-        address = f"{addr_tuple[0]}:{addr_tuple[1]}"
+        addr = f"{addr_tuple[0]}:{addr_tuple[1]}"
 
-        network_addr = self._find_address_by_host_port(address)
+        network_addr = self._find_address_by_host_port(addr)
         if network_addr:
             # this scenario occurs when the NodeManager queues seed nodes
             self.address = network_addr
         else:
-            self.address.address = address
+            self.address.address = addr
 
         if not ipfilter.is_allowed(addr_tuple[0]):
             logger.debug(f"Blocked by ipfilter: {self.address.address}")
-            await self.disconnect(payloads.DisconnectReason.IPFILTER_NOT_ALLOWED)
+            await self.disconnect(address.DisconnectReason.IPFILTER_NOT_ALLOWED)
             return
 
-    async def _do_handshake(self) -> tuple[bool, Optional[payloads.DisconnectReason]]:
+    async def _do_handshake(self) -> tuple[bool, Optional[address.DisconnectReason]]:
         caps: list[capabilities.NodeCapability] = [capabilities.FullNodeCapability(0)]
         # TODO: fix nonce and port if a service is running
         send_version = message.Message(msg_type=message.MessageType.VERSION,
-                                       payload=payloads.VersionPayload(nonce=123,
-                                                                       user_agent="NEO-MAMBA",
-                                                                       capabilities=caps))
+                                       payload=version.VersionPayload(nonce=123,
+                                                                      user_agent="NEO-MAMBA",
+                                                                      capabilities=caps))
         await self.send_message(send_version)
 
         m = await self.read_message(timeout=3)
         if not m or m.type != message.MessageType.VERSION:
-            await self.disconnect(payloads.DisconnectReason.HANDSHAKE_VERSION_ERROR)
-            return (False, payloads.DisconnectReason.HANDSHAKE_VERSION_ERROR)
+            await self.disconnect(address.DisconnectReason.HANDSHAKE_VERSION_ERROR)
+            return False, address.DisconnectReason.HANDSHAKE_VERSION_ERROR
 
         if not self._validate_version(m.payload):
-            await self.disconnect(payloads.DisconnectReason.HANDSHAKE_VERSION_ERROR)
-            return (False, payloads.DisconnectReason.HANDSHAKE_VERSION_ERROR)
+            await self.disconnect(address.DisconnectReason.HANDSHAKE_VERSION_ERROR)
+            return False, address.DisconnectReason.HANDSHAKE_VERSION_ERROR
 
         m_verack = message.Message(msg_type=message.MessageType.VERACK)
         await self.send_message(m_verack)
 
         m = await self.read_message(timeout=3)
         if not m or m.type != message.MessageType.VERACK:
-            await self.disconnect(payloads.DisconnectReason.HANDSHAKE_VERACK_ERROR)
-            return (False, payloads.DisconnectReason.HANDSHAKE_VERACK_ERROR)
+            await self.disconnect(address.DisconnectReason.HANDSHAKE_VERACK_ERROR)
+            return False, address.DisconnectReason.HANDSHAKE_VERACK_ERROR
 
         logger.debug(f"Connected to {self.version.user_agent} @ {self.address.address}: {self.best_height}.")
         msgrouter.on_node_connected(self)
 
-        return (True, None)
+        return True, None
 
-    async def disconnect(self, reason: payloads.DisconnectReason) -> None:
+    async def disconnect(self, reason: address.DisconnectReason) -> None:
         """
         Close the connection to remote endpoint.
 
@@ -122,13 +122,13 @@ class NeoNode:
 
         logger.debug(f"Disconnect called with reason={reason.name}")
         self.address.disconnect_reason = reason
-        if reason in [payloads.DisconnectReason.MAX_CONNECTIONS_REACHED,
-                      payloads.DisconnectReason.POOR_PERFORMANCE,
-                      payloads.DisconnectReason.HANDSHAKE_VERACK_ERROR,
-                      payloads.DisconnectReason.HANDSHAKE_VERSION_ERROR,
-                      payloads.DisconnectReason.UNKNOWN]:
+        if reason in [address.DisconnectReason.MAX_CONNECTIONS_REACHED,
+                      address.DisconnectReason.POOR_PERFORMANCE,
+                      address.DisconnectReason.HANDSHAKE_VERACK_ERROR,
+                      address.DisconnectReason.HANDSHAKE_VERSION_ERROR,
+                      address.DisconnectReason.UNKNOWN]:
             self.address.set_state_poor()
-        elif reason == payloads.DisconnectReason.IPFILTER_NOT_ALLOWED:
+        elif reason == address.DisconnectReason.IPFILTER_NOT_ALLOWED:
             self.address.set_state_dead()
 
         for t in self.tasks:
@@ -147,14 +147,14 @@ class NeoNode:
         logger.debug(f"{datetime.now()} Connection lost {self.address} exception: {exc}")
 
         if self.address.is_state_connected:
-            await self.disconnect(payloads.DisconnectReason.UNKNOWN)
+            await self.disconnect(address.DisconnectReason.UNKNOWN)
 
     def _validate_version(self, version) -> bool:
         if version.nonce == self.nodeid:
             logger.debug("Client is self.")
             return False
 
-        if version.magic != settings.network.magic:
+        if version.magic != settings.settings.network.magic:
             logger.debug(f"Wrong network id {version.magic}.")
             return False
 
@@ -168,10 +168,10 @@ class NeoNode:
                 else:
                     logger.debug(f"Adding address from outside {self.address.address}.")
                     # new connection initiated from outside
-                    addr = payloads.address.NetworkAddress(
+                    addr = address.NetworkAddress(
                         address=self.address.address,
                         capabilities=version.capabilities,
-                        state=payloads.address.AddressState.CONNECTED
+                        state=address.AddressState.CONNECTED
                     )
                     self.addresses.append(addr)
                 break
@@ -193,7 +193,7 @@ class NeoNode:
         Args:
             msg:
         """
-        payload = cast(payloads.AddrPayload, msg.payload)
+        payload = cast(address.AddrPayload, msg.payload)
         self.addresses = list(set(self.addresses + payload.addresses))
         msgrouter.on_addr(payload.addresses)
 
@@ -222,14 +222,13 @@ class NeoNode:
         Args:
             msg:
         """
-        payload = cast(payloads.InventoryPayload, msg.payload)
-        if payload.type == payloads.InventoryType.BLOCK:
+        payload = cast(inventory.InventoryPayload, msg.payload)
+        if payload.type == inventory.InventoryType.BLOCK:
             # neo-cli broadcasts INV messages on a regular interval. We can use those as trigger to request
             # their latest block height
             if len(payload.hashes) > 0:
                 height = 0
-                m = message.Message(msg_type=message.MessageType.PING,
-                                    payload=payloads.PingPayload(height=height))
+                m = message.Message(msg_type=message.MessageType.PING, payload=ping.PingPayload(height=height))
                 self._create_task_with_cleanup(self.send_message(m))
         else:
             logger.debug(f"Message with type INV received. No processing for payload type "  # type:ignore
@@ -270,9 +269,9 @@ class NeoNode:
             msg:
         """
         addr_list = []
-        for address in self.addresses:  # type: payloads.NetworkAddress
-            if address.is_state_new or address.is_state_connected:
-                addr_list.append(address)
+        for addr in self.addresses:  # type: address.NetworkAddress
+            if addr.is_state_new or addr.is_state_connected:
+                addr_list.append(addr)
         self._create_task_with_cleanup(self.send_address_list(addr_list))
 
     def handler_getblocks(self, msg: message.Message) -> None:
@@ -300,13 +299,13 @@ class NeoNode:
         Args:
             msg:
         """
-        payload = cast(payloads.InventoryPayload, msg.payload)
+        payload = cast(inventory.InventoryPayload, msg.payload)
         for h in payload.hashes:
             item = relaycache.RelayCache().try_get(h)
             if item is None:
                 # for the time being we only support data retrieval for our own relays
                 continue
-            if payload.type == payloads.InventoryType.TX:
+            if payload.type == inventory.InventoryType.TX:
                 m = message.Message(msg_type=message.MessageType.TRANSACTION,
                                     payload=item)
                 self._create_task_with_cleanup(self.send_message(m))
@@ -345,7 +344,7 @@ class NeoNode:
         Args:
             msg:
         """
-        payload = cast(payloads.HeadersPayload, msg.payload)
+        payload = cast(block.HeadersPayload, msg.payload)
         if len(payload.headers) > 0:
             msgrouter.on_headers(self.nodeid, payload.headers)
 
@@ -358,7 +357,7 @@ class NeoNode:
         """
         height = 0
         m = message.Message(msg_type=message.MessageType.PONG,
-                            payload=payloads.PingPayload(height=height))
+                            payload=ping.PingPayload(height=height))
         self._create_task_with_cleanup(self.send_message(m))
 
     def handler_pong(self, msg: message.Message) -> None:
@@ -368,7 +367,7 @@ class NeoNode:
         Args:
             msg:
         """
-        payload = cast(payloads.PingPayload, msg.payload)
+        payload = cast(ping.PingPayload, msg.payload)
         if self.best_height != payload.current_height:
             logger.debug(f"Updating node {self.nodeid_human} height "
                          f"from {self.best_height} to {payload.current_height}")
@@ -418,7 +417,7 @@ class NeoNode:
         m = message.Message(msg_type=message.MessageType.GETADDR)
         await self.send_message(m)
 
-    async def send_address_list(self, network_addresses: list[payloads.NetworkAddress]) -> None:
+    async def send_address_list(self, network_addresses: list[address.NetworkAddress]) -> None:
         """
         Send network addresses.
 
@@ -426,10 +425,10 @@ class NeoNode:
             network_addresses:
         """
         m = message.Message(msg_type=message.MessageType.ADDR,
-                            payload=payloads.AddrPayload(addresses=network_addresses))
+                            payload=address.AddrPayload(addresses=network_addresses))
         await self.send_message(m)
 
-    async def request_headers(self, index_start: int, count: int = payloads.HeadersPayload.MAX_HEADERS_COUNT) -> None:
+    async def request_headers(self, index_start: int, count: int = block.HeadersPayload.MAX_HEADERS_COUNT) -> None:
         """
         Send a request for headers from `index_start` to `index_start`+`count`.
 
@@ -440,10 +439,10 @@ class NeoNode:
             count:
         """
         m = message.Message(msg_type=message.MessageType.GETHEADERS,
-                            payload=payloads.GetBlockByIndexPayload(index_start, count))
+                            payload=block.GetBlockByIndexPayload(index_start, count))
         await self.send_message(m)
 
-    async def send_headers(self, headers: list[payloads.Header]) -> None:
+    async def send_headers(self, headers: list[block.Header]) -> None:
         """
         Send a list of Header objects.
 
@@ -453,7 +452,7 @@ class NeoNode:
         if len(headers) > 2000:
             headers = headers[:2000]
 
-        m = message.Message(msg_type=message.MessageType.HEADERS, payload=payloads.HeadersPayload(headers))
+        m = message.Message(msg_type=message.MessageType.HEADERS, payload=block.HeadersPayload(headers))
         await self.send_message(m)
 
     async def request_blocks(self, hash_start: types.UInt256, count: int = None) -> None:
@@ -476,7 +475,7 @@ class NeoNode:
             count:
         """
         m = message.Message(msg_type=message.MessageType.GETBLOCKS,
-                            payload=payloads.GetBlocksPayload(hash_start, count))
+                            payload=block.GetBlocksPayload(hash_start, count))
         await self.send_message(m)
 
     async def request_block_data(self, index_start, count) -> None:
@@ -493,10 +492,10 @@ class NeoNode:
             count: number of blocks to return.
         """
         m = message.Message(msg_type=message.MessageType.GETBLOCKBYINDEX,
-                            payload=payloads.GetBlockByIndexPayload(index_start, count))
+                            payload=block.GetBlockByIndexPayload(index_start, count))
         await self.send_message(m)
 
-    async def request_data(self, type: payloads.InventoryType, hashes: list[types.UInt256]) -> None:
+    async def request_data(self, type: inventory.InventoryType, hashes: list[types.UInt256]) -> None:
         """
         Send a request for receiving the specified inventory data.
 
@@ -507,10 +506,10 @@ class NeoNode:
         if len(hashes) < 1:
             return
 
-        m = message.Message(msg_type=message.MessageType.GETDATA, payload=payloads.InventoryPayload(type, hashes))
+        m = message.Message(msg_type=message.MessageType.GETDATA, payload=inventory.InventoryPayload(type, hashes))
         await self.send_message(m)
 
-    async def send_inventory(self, inv_type: payloads.InventoryType, inv_hash: types.UInt256) -> None:
+    async def send_inventory(self, inv_type: inventory.InventoryType, inv_hash: types.UInt256) -> None:
         """
         Send an inventory to the network
 
@@ -518,7 +517,7 @@ class NeoNode:
             inv_type:
             inv_hash:
         """
-        inv = payloads.InventoryPayload(type=inv_type, hashes=[inv_hash])
+        inv = inventory.InventoryPayload(type=inv_type, hashes=[inv_hash])
         m = message.Message(msg_type=message.MessageType.INV, payload=inv)
         await self.send_message(m)
 
@@ -528,30 +527,27 @@ class NeoNode:
         """
         height = 0
 
-        ping = payloads.PingPayload(height)
-        m = message.Message(msg_type=message.MessageType.PING, payload=ping)
+        p = ping.PingPayload(height)
+        m = message.Message(msg_type=message.MessageType.PING, payload=p)
         await self.send_message(m)
 
-    async def relay(self, inventory: payloads.IInventory) -> bool:
+    async def relay(self, inv: inventory.IInventory) -> bool:
         """
         Relay the inventory to the network
 
         Args:
-            inventory: should be of type Block, Transaction or Consensus. See: :class:`~neo3.network.payloads.inventory.InventoryType`. # noqa
+            inv: should be of type Block, Transaction or Consensus. See: :class:`~neo3.network.payloads.inventory.InventoryType`. # noqa
         """
-        relaycache.RelayCache().add(inventory)
-        await self.send_inventory(inventory.inventory_type, inventory.hash())
+        relaycache.RelayCache().add(inv)
+        await self.send_inventory(inv.inventory_type, inv.hash())
         return True
 
     # utility functions
-    async def send_message(self, message: message.Message) -> None:
+    async def send_message(self, msg: message.Message) -> None:
         """
         Send a Message over the wire.
-
-        Args:
-            message:
         """
-        await self.protocol.send_message(message)
+        await self.protocol.send_message(msg)
 
     async def read_message(self, timeout: int = 30) -> Optional[message.Message]:
         """
@@ -634,7 +630,7 @@ class NeoNode:
         return None, (f"{host}:{port}", reason)
 
     @classmethod
-    def get_address_new(cls) -> Optional[payloads.NetworkAddress]:
+    def get_address_new(cls) -> Optional[address.NetworkAddress]:
         """
         Utility function to return the first address with the state NEW.
         """
@@ -644,8 +640,8 @@ class NeoNode:
         # explicit return to silence mypy
         return None
 
-    def _find_address_by_host_port(self, host_port) -> Optional[payloads.NetworkAddress]:
-        addr = payloads.NetworkAddress(address=host_port)
+    def _find_address_by_host_port(self, host_port) -> Optional[address.NetworkAddress]:
+        addr = address.NetworkAddress(address=host_port)
         try:
             idx = self.addresses.index(addr)
             return self.addresses[idx]
@@ -665,7 +661,7 @@ class NeoNode:
         # when we break out of the read/write loops, we should make sure we disconnect
         self._read_task = asyncio.create_task(self._process_incoming_data())
         self._read_task.add_done_callback(lambda _:
-                                          asyncio.create_task(self.disconnect(payloads.DisconnectReason.UNKNOWN)))
+                                          asyncio.create_task(self.disconnect(address.DisconnectReason.UNKNOWN)))
 
     @classmethod
     def _reset_for_test(cls) -> None:

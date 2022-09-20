@@ -2,13 +2,14 @@ from __future__ import annotations
 import asyncio
 import traceback
 from datetime import datetime
-from neo3.network import payloads, convenience
+from neo3.network.payloads import block
+from neo3.network.convenience import nodemanager, requestinfo, flightinfo
 from neo3.core import msgrouter
-from neo3 import network_logger as logger, _Singleton
+from neo3 import network_logger as logger, singleton
 from contextlib import suppress
 
 
-class SyncManager(_Singleton):
+class SyncManager(singleton._Singleton):
     #: Maximum number of Blocks to cache in memory. Block persisting empties the cache allowing new blocks to be
     #: requested.
     BLOCK_MAX_CACHE_SIZE = 500
@@ -21,12 +22,12 @@ class SyncManager(_Singleton):
 
     # init() is used instead of __init__() due to the Singleton inheritance (read its class documentation)
     def init(self):
-        self.nodemgr = convenience.NodeManager()  # singleton
+        self.nodemgr = nodemanager.NodeManager()  # singleton
         # TODO: need a mechanism to specify a ledger that has at least a `height` property returning an int
-        # which is usedin the syncing logic
+        # which is used in the syncing logic
         self.ledger = None
         self.block_cache = []
-        self.block_requests = dict()  # type: dict[int, convenience.RequestInfo]
+        self.block_requests = dict()  # type: dict[int, requestinfo.RequestInfo]
         self.shutting_down = False
 
         self._is_persisting_blocks = False
@@ -83,7 +84,7 @@ class SyncManager(_Singleton):
             t.cancel()
         await asyncio.gather(*self._tasks, return_exceptions=True)
 
-    def on_block_received(self, from_nodeid, block: payloads.Block) -> int:
+    def on_block_received(self, from_nodeid, block: block.Block) -> int:
         try:
             request_info = self.block_requests.pop(block.index)
         except KeyError:
@@ -187,7 +188,7 @@ class SyncManager(_Singleton):
             # in the range that have been filled in the mean time by other nodes that timed out.
             # This leads to minimal (acceptable) additional traffic in certain scenarios.
             for request_info in remaining_requests:
-                request_info.add_new_flight(convenience.FlightInfo(node.nodeid, request_info.height))
+                request_info.add_new_flight(flightinfo.FlightInfo(node.nodeid, request_info.height))
 
             count = max(1, request_info_last.height - request_info_first.height)
             logger.debug(f"Block timeout for blocks {request_info_first.height} - {request_info_last.height}. "
@@ -280,11 +281,11 @@ class SyncManager(_Singleton):
 
         if request_info is None:
             # no outstanding requests for this particular height, so we create it
-            req = convenience.RequestInfo(height)
-            req.add_new_flight(convenience.FlightInfo(nodeid, height))
+            req = requestinfo.RequestInfo(height)
+            req.add_new_flight(flightinfo.FlightInfo(nodeid, height))
             self.block_requests[height] = req
         else:
-            request_info.flights.update({nodeid: convenience.FlightInfo(nodeid, height)})
+            request_info.flights.update({nodeid: flightinfo.FlightInfo(nodeid, height)})
 
     def _is_in_blockcache(self, block_height: int) -> bool:
         for b in self.block_cache:

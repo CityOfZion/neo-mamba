@@ -1,19 +1,19 @@
 import unittest
-from neo3.network import convenience
+from neo3.network.convenience import nodeweight, requestinfo, flightinfo
 
 
 class RequestInfoTestCase(unittest.TestCase):
     def test_most_recent_flight(self):
-        ri = convenience.RequestInfo(0)
+        ri = requestinfo.RequestInfo(0)
         self.assertIsNone(ri.most_recent_flight())
 
-        fi = convenience.FlightInfo(1, 0)
+        fi = flightinfo.FlightInfo(1, 0)
         ri.add_new_flight(fi)
         most_recent = ri.most_recent_flight()
         self.assertEqual(ri.last_used_node, fi.node_id)
 
     def test_mark_failed(self):
-        ri = convenience.RequestInfo(0)
+        ri = requestinfo.RequestInfo(0)
         self.assertEqual(0, ri.failed_total)
         self.assertEqual(0, len(ri.failed_nodes))
 
@@ -24,12 +24,12 @@ class RequestInfoTestCase(unittest.TestCase):
 
 class NodeWeightTestCase(unittest.TestCase):
     def test_weight(self):
-        nw1 = convenience.NodeWeight(node_id=123)
-        self.assertEqual(convenience.NodeWeight.SPEED_RECORD_COUNT, len(nw1.speed))
+        nw1 = nodeweight.NodeWeight(node_id=123)
+        self.assertEqual(nodeweight.NodeWeight.SPEED_RECORD_COUNT, len(nw1.speed))
         nw1.append_new_speed(1)
-        self.assertEqual(convenience.NodeWeight.SPEED_RECORD_COUNT, len(nw1.speed))
+        self.assertEqual(nodeweight.NodeWeight.SPEED_RECORD_COUNT, len(nw1.speed))
 
-        nw2 = convenience.NodeWeight(node_id=456)
+        nw2 = nodeweight.NodeWeight(node_id=456)
         nw2.append_new_speed(1000)
 
         # highest speed + longest time since used has best weight. Here nw1 has the worst speed,

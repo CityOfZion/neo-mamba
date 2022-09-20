@@ -3,9 +3,10 @@ import base64
 from typing import Optional, Any
 import neo3crypto
 from aioresponses import aioresponses
-from neo3 import api, wallet
-from neo3.network import payloads
+from neo3 import api
+from neo3.network.payloads import transaction, block, verification
 from neo3.core import types, cryptography
+from neo3.wallet import utils
 
 JSON = Any
 
@@ -35,7 +36,7 @@ class TestNeoRpcClient(unittest.IsolatedAsyncioTestCase):
 
     async def test_calculate_network_fee(self):
         self.mock_response({"networkfee": "123"})
-        response = await self.client.calculate_network_fee(payloads.Transaction._serializable_init())
+        response = await self.client.calculate_network_fee(transaction.Transaction._serializable_init())
         self.assertEqual(123, response)
 
     async def test_get_application_log_transaction(self):
@@ -142,10 +143,10 @@ class TestNeoRpcClient(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(types.UInt256.from_string(hash_[2:]), response)
 
     async def test_get_block(self):
-        block = payloads.Block._serializable_init()
-        self.mock_response(base64.b64encode(block.to_array()).decode())
+        block_ = block.Block._serializable_init()
+        self.mock_response(base64.b64encode(block_.to_array()).decode())
         response_block = await self.client.get_block(1)
-        self.assertEqual(block, response_block)
+        self.assertEqual(block_, response_block)
 
     async def test_get_block_count(self):
         count = 1
@@ -160,10 +161,10 @@ class TestNeoRpcClient(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(types.UInt256.from_string(hash_[2:]), response)
 
     async def test_get_block_header(self):
-        block = payloads.Block._serializable_init()
-        self.mock_response(base64.b64encode(block.to_array()).decode())
+        block_ = block.Block._serializable_init()
+        self.mock_response(base64.b64encode(block_.to_array()).decode())
         response_header = await self.client.get_block_header(1)
-        self.assertEqual(block.header, response_header)
+        self.assertEqual(block_.header, response_header)
 
     async def test_get_committee(self):
         points = [
@@ -309,11 +310,11 @@ class TestNeoRpcClient(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(storage_value, response)
 
     async def test_get_transaction(self):
-        tx = payloads.Transaction._serializable_init()
+        tx = transaction.Transaction._serializable_init()
         # set some properties to ensure the TX will pass the deserialization checks
-        tx.signers.append(payloads.Signer._serializable_init())
+        tx.signers.append(verification.Signer._serializable_init())
         tx.script = b'\x01'
-        tx.witnesses = [payloads.Witness._serializable_init()]
+        tx.witnesses = [verification.Witness._serializable_init()]
 
         self.mock_response(base64.b64encode(tx.to_array()).decode())
 
@@ -477,7 +478,7 @@ class TestNeoRpcClient(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(response.stack[0].value)
 
     async def test_send_tx(self):
-        tx = payloads.Transaction._serializable_init()
+        tx = transaction.Transaction._serializable_init()
         hash_ = "0x13ccdb9f7eda95a24aa5a4841b24fed957fe7f1b944996cbc2e92a4fa4f1fa73"
         hash_type = types.UInt256.from_string(hash_[2:])
         bogus_response = {"hash": hash_}
@@ -486,12 +487,12 @@ class TestNeoRpcClient(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(hash_type, response_tx_id)
 
     async def test_send_block(self):
-        block = payloads.Block._serializable_init()
+        block_ = block.Block._serializable_init()
         hash_ = "0x13ccdb9f7eda95a24aa5a4841b24fed957fe7f1b944996cbc2e92a4fa4f1fa73"
         hash_type = types.UInt256.from_string(hash_[2:])
         bogus_response = {"hash": hash_}
         self.mock_response(bogus_response)
-        response_block_id = await self.client.send_block(block)
+        response_block_id = await self.client.send_block(block_)
         self.assertEqual(hash_type, response_block_id)
 
     async def test_validate_address(self):
@@ -583,7 +584,7 @@ class TestStackItem(unittest.TestCase):
 
     def test_as_address(self):
         addr = "NSEB78A7DYhPG7cFT7x4YFhSKumBBm7RYk"
-        script_hash = wallet.Account.address_to_script_hash(addr)
+        script_hash = utils.address_to_script_hash(addr)
 
         si = api.StackItem("ByteString", script_hash.to_array())
         value = si.as_uint160()

@@ -1,12 +1,11 @@
 from __future__ import annotations
-
 import base64
 import hashlib
-from neo3.core import serialization, types, Size as s, utils, IJson
-from neo3 import contracts
+from neo3.core import serialization, types, Size as s, utils as coreutils, interfaces
+from neo3.contracts import callflags
 
 
-class NEF(serialization.ISerializable, IJson):
+class NEF(serialization.ISerializable, interfaces.IJson):
     def __init__(self,
                  compiler_name: str = None,
                  script: bytes = None,
@@ -39,12 +38,12 @@ class NEF(serialization.ISerializable, IJson):
         return (
             s.uint32  # magic
             + 64  # compiler
-            + utils.get_var_size(self.source)
+            + coreutils.get_var_size(self.source)
             + 1  # reserved
-            + utils.get_var_size(self.tokens)
+            + coreutils.get_var_size(self.tokens)
             + 2  # reserved
             + s.uint32  # checksum
-            + utils.get_var_size(self.script))
+            + coreutils.get_var_size(self.script))
 
     def __eq__(self, other):
         if not isinstance(other, type(self)):
@@ -131,13 +130,13 @@ class NEF(serialization.ISerializable, IJson):
         return c
 
 
-class MethodToken(serialization.ISerializable, IJson):
+class MethodToken(serialization.ISerializable, interfaces.IJson):
     def __init__(self,
                  hash: types.UInt160,
                  method: str,
                  parameters_count: int,
                  has_return_value: bool,
-                 call_flags: contracts.CallFlags):
+                 call_flags: callflags.CallFlags):
         self.hash = hash
         self.method = method
         self.parameters_count = parameters_count
@@ -145,7 +144,7 @@ class MethodToken(serialization.ISerializable, IJson):
         self.call_flags = call_flags
 
     def __len__(self):
-        return s.uint160 + utils.get_var_size(self.method) + s.uint16 + s.uint8 + s.uint8
+        return s.uint160 + coreutils.get_var_size(self.method) + s.uint16 + s.uint8 + s.uint8
 
     def serialize(self, writer: serialization.BinaryWriter) -> None:
         """
@@ -171,7 +170,7 @@ class MethodToken(serialization.ISerializable, IJson):
         self.method = reader.read_var_string(32)
         self.parameters_count = reader.read_uint16()
         self.has_return_value = bool(reader.read_uint8())
-        self.call_flags = contracts.CallFlags(reader.read_uint8())
+        self.call_flags = callflags.CallFlags(reader.read_uint8())
 
     def to_json(self) -> dict:
         """ convert object into json """
@@ -184,9 +183,9 @@ class MethodToken(serialization.ISerializable, IJson):
         m = json['method']
         pc = json['paramcount']
         rv = json['hasreturnvalue']
-        cf = contracts.CallFlags.from_csharp_name(json['callflags'])
+        cf = callflags.CallFlags.from_csharp_name(json['callflags'])
         return cls(h, m, pc, rv, cf)
 
     @classmethod
     def _serializable_init(cls):
-        return cls(types.UInt160.zero(), "", 0, False, contracts.CallFlags.NONE)
+        return cls(types.UInt160.zero(), "", 0, False, callflags.CallFlags.NONE)

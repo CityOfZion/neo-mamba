@@ -3,7 +3,7 @@ import sys
 import abc
 import struct
 from io import BytesIO, SEEK_END
-from typing import Any, Type, TypeVar, Optional
+from typing import Type, TypeVar, Optional
 
 
 ISerializable_T = TypeVar('ISerializable_T', bound='ISerializable')
@@ -62,9 +62,9 @@ class ISerializable(abc.ABC):
     @classmethod
     def _serializable_init(cls):
         """
-        If the interface inheritor has mandatory arguments, override this functin and provide dummy values. These values
-        will be overwritten by the read_serializable, read_serializable_list and deserialize_from_bytes methods that
-        rely on this function for class instantiation.
+        If the interface inheritor has mandatory arguments, override this function and provide dummy values. These
+        values will be overwritten by the read_serializable, read_serializable_list and deserialize_from_bytes methods
+        that rely on this function for class instantiation.
         """
         return cls()
 

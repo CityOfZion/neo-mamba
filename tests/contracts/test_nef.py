@@ -1,6 +1,6 @@
 import unittest
 import binascii
-from neo3 import contracts
+from neo3.contracts import callflags, nef
 from neo3.core import types
 from copy import deepcopy
 
@@ -35,38 +35,38 @@ class NEFTestCase(unittest.TestCase):
         compiler = "test-compiler 0.1"
         source = "source_link"
         ret = b'\x40'  # vm.OpCode.RET
-        tokens = [contracts.MethodToken(types.UInt160.zero(), "test_method", 0, True, contracts.CallFlags.NONE)]
-        cls.nef = contracts.NEF(compiler_name=compiler, script=ret, tokens=tokens, source=source)
+        tokens = [nef.MethodToken(types.UInt160.zero(), "test_method", 0, True, callflags.CallFlags.NONE)]
+        cls.nef = nef.NEF(compiler_name=compiler, script=ret, tokens=tokens, source=source)
 
     def test_serialization(self):
         self.assertEqual(self.expected, self.nef.to_array())
 
     def test_deserialization(self):
-        nef = contracts.NEF.deserialize_from_bytes(self.expected)
-        self.assertEqual(self.nef.magic, nef.magic)
-        self.assertEqual(self.nef.source, nef.source)
-        self.assertEqual(self.nef.compiler, nef.compiler)
-        self.assertEqual(self.nef.script, nef.script)
-        self.assertEqual(self.nef.checksum, nef.checksum)
+        nef_ = nef.NEF.deserialize_from_bytes(self.expected)
+        self.assertEqual(self.nef.magic, nef_.magic)
+        self.assertEqual(self.nef.source, nef_.source)
+        self.assertEqual(self.nef.compiler, nef_.compiler)
+        self.assertEqual(self.nef.script, nef_.script)
+        self.assertEqual(self.nef.checksum, nef_.checksum)
 
     def test_deserialization_error(self):
-        nef = deepcopy(self.nef)
-        nef.magic = 0xDEADBEEF
+        nef1 = deepcopy(self.nef)
+        nef1.magic = 0xDEADBEEF
         with self.assertRaises(ValueError) as context:
-            contracts.NEF.deserialize_from_bytes(nef.to_array())
+            nef.NEF.deserialize_from_bytes(nef1.to_array())
         self.assertEqual("Deserialization error - Incorrect magic", str(context.exception))
 
-        nef = deepcopy(self.nef)
-        nef.script = b''
+        nef_ = deepcopy(self.nef)
+        nef_.script = b''
         with self.assertRaises(ValueError) as context:
-            contracts.NEF.deserialize_from_bytes(nef.to_array())
+            nef.NEF.deserialize_from_bytes(nef_.to_array())
         self.assertEqual("Deserialization error - Script can't be empty", str(context.exception))
 
         # test with wrong checksum
-        nef = deepcopy(self.nef)
-        nef._checksum = 0xDEADBEEF
+        nef_ = deepcopy(self.nef)
+        nef_._checksum = 0xDEADBEEF
         with self.assertRaises(ValueError) as context:
-            contracts.NEF.deserialize_from_bytes(nef.to_array())
+            nef.NEF.deserialize_from_bytes(nef_.to_array())
         self.assertEqual("Deserialization error - Invalid checksum", str(context.exception))
 
     def test_len(self):
@@ -75,7 +75,7 @@ class NEFTestCase(unittest.TestCase):
     def test_eq(self):
         compiler = "test-compiler 0.1"
         ret = b'\x40'  # vm.OpCode.RET
-        nef = contracts.NEF(compiler_name=compiler, script=ret)
-        nef2 = contracts.NEF(compiler_name=compiler, script=ret)
-        self.assertFalse(nef == object())
-        self.assertTrue(nef == nef2)
+        nef1 = nef.NEF(compiler_name=compiler, script=ret)
+        nef2 = nef.NEF(compiler_name=compiler, script=ret)
+        self.assertFalse(nef1 == object())
+        self.assertTrue(nef1 == nef2)

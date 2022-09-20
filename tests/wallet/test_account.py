@@ -1,6 +1,6 @@
 import unittest
 
-from neo3.wallet import Account, ScryptParameters
+from neo3.wallet import account, scrypt_parameters as scrypt
 
 account_list = [
     {
@@ -38,67 +38,67 @@ class AccountCreationTestCase(unittest.TestCase):
         for testcase in account_list[1:]:
             scrypt_params = testcase.get("scrypt", None)
             if scrypt_params is not None:
-                scrypt_params = ScryptParameters.from_json(scrypt_params)
-            account = Account(testcase['password'], scrypt_parameters=scrypt_params)
-            self.assertIsNotNone(account)
-            self.assertIsNotNone(account.address)
-            self.assertIsNotNone(account.encrypted_key)
-            self.assertIsNotNone(account.public_key)
+                scrypt_params = scrypt.ScryptParameters.from_json(scrypt_params)
+            acc = account.Account(testcase['password'], scrypt_parameters=scrypt_params)
+            self.assertIsNotNone(acc)
+            self.assertIsNotNone(acc.address)
+            self.assertIsNotNone(acc.encrypted_key)
+            self.assertIsNotNone(acc.public_key)
 
     def test_new_account_from_private_key(self):
         for testcase in account_list:
             scrypt_params = testcase.get("scrypt", None)
             if scrypt_params is not None:
-                scrypt_params = ScryptParameters.from_json(scrypt_params)
-            account = Account.from_private_key(bytes.fromhex(testcase['private_key']), testcase['password'], scrypt_params)
-            self.assertEqual(testcase['address'], account.address)
-            self.assertEqual(testcase['encrypted_key'].encode('utf-8'), account.encrypted_key)
-            self.assertEqual(testcase['script_hash'], str(account.script_hash))
-            self.assertIsNotNone(account.public_key)
+                scrypt_params = scrypt.ScryptParameters.from_json(scrypt_params)
+            acc = account.Account.from_private_key(bytes.fromhex(testcase['private_key']), testcase['password'], scrypt_params)
+            self.assertEqual(testcase['address'], acc.address)
+            self.assertEqual(testcase['encrypted_key'].encode('utf-8'), acc.encrypted_key)
+            self.assertEqual(testcase['script_hash'], str(acc.script_hash))
+            self.assertIsNotNone(acc.public_key)
 
     def test_new_account_from_encrypted_key(self):
         for testcase in account_list[1:]:
             scrypt_params = testcase.get("scrypt", None)
             if scrypt_params is not None:
-                scrypt_params = ScryptParameters.from_json(scrypt_params)
+                scrypt_params = scrypt.ScryptParameters.from_json(scrypt_params)
 
-            account = Account.from_encrypted_key(testcase['encrypted_key'], testcase['password'], scrypt_params)
-            self.assertEqual(testcase['address'], account.address)
-            self.assertEqual(testcase['encrypted_key'].encode('utf-8'), account.encrypted_key)
-            self.assertEqual(testcase['script_hash'], str(account.script_hash))
-            self.assertIsNotNone(account.public_key)
+            acc = account.Account.from_encrypted_key(testcase['encrypted_key'], testcase['password'], scrypt_params)
+            self.assertEqual(testcase['address'], acc.address)
+            self.assertEqual(testcase['encrypted_key'].encode('utf-8'), acc.encrypted_key)
+            self.assertEqual(testcase['script_hash'], str(acc.script_hash))
+            self.assertIsNotNone(acc.public_key)
 
     def test_new_watch_only_account(self):
         from neo3.core.types import UInt160
         for testcase in account_list[1:]:
-            account = Account.watch_only(UInt160.from_string(testcase['script_hash']))
-            self.assertEqual(testcase['address'], account.address)
-            self.assertIsNone(account.encrypted_key)
-            self.assertEqual(testcase['script_hash'], str(account.script_hash))
-            self.assertIsNone(account.public_key)
+            acc = account.Account.watch_only(UInt160.from_string(testcase['script_hash']))
+            self.assertEqual(testcase['address'], acc.address)
+            self.assertIsNone(acc.encrypted_key)
+            self.assertEqual(testcase['script_hash'], str(acc.script_hash))
+            self.assertIsNone(acc.public_key)
 
     def test_new_watch_only_account_from_address(self):
         for testcase in account_list[1:]:
-            account = Account.watch_only_from_address(testcase['address'])
-            self.assertEqual(testcase['address'], account.address)
-            self.assertIsNone(account.encrypted_key)
-            self.assertEqual(testcase['script_hash'], str(account.script_hash))
-            self.assertIsNone(account.public_key)
+            acc = account.Account.watch_only_from_address(testcase['address'])
+            self.assertEqual(testcase['address'], acc.address)
+            self.assertIsNone(acc.encrypted_key)
+            self.assertEqual(testcase['script_hash'], str(acc.script_hash))
+            self.assertIsNone(acc.public_key)
 
     def test_new_account_from_wif(self):
         for testcase in account_list[:1]:
             scrypt_params = testcase.get("scrypt", None)
             if scrypt_params is not None:
-                scrypt_params = ScryptParameters.from_json(scrypt_params)
+                scrypt_params = scrypt.ScryptParameters.from_json(scrypt_params)
 
-            account = Account.from_wif(testcase['wif_key'], testcase['password'], scrypt_params)
-            self.assertEqual(testcase['address'], account.address)
-            self.assertEqual(testcase['encrypted_key'].encode('utf-8'), account.encrypted_key)
-            self.assertEqual(testcase['script_hash'], str(account.script_hash))
-            self.assertIsNotNone(account.public_key)
+            acc = account.Account.from_wif(testcase['wif_key'], testcase['password'], scrypt_params)
+            self.assertEqual(testcase['address'], acc.address)
+            self.assertEqual(testcase['encrypted_key'].encode('utf-8'), acc.encrypted_key)
+            self.assertEqual(testcase['script_hash'], str(acc.script_hash))
+            self.assertIsNotNone(acc.public_key)
 
     def test_new_account_wrong_password(self):
         for testcase in account_list:
             with self.assertRaises(ValueError) as context:
-                Account.from_encrypted_key(testcase['encrypted_key'], "wrong password")
+                account.Account.from_encrypted_key(testcase['encrypted_key'], "wrong password")
             self.assertIn("Wrong passphrase", str(context.exception))

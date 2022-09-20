@@ -1,6 +1,7 @@
 import unittest
-from neo3 import contracts, vm
+from neo3 import vm
 from neo3.core import types, cryptography
+from neo3.contracts import callflags
 
 
 class ScriptBuilderTestCase(unittest.TestCase):
@@ -182,7 +183,7 @@ class ScriptBuilderTestCase(unittest.TestCase):
         """
         sh = types.UInt160.from_string("0xef4073a0f2b305a38ec4050e4d3d28bc40ea63f5")
         sb = vm.ScriptBuilder()
-        sb.emit_contract_call(sh, "symbol", contracts.CallFlags.READ_ONLY)
+        sb.emit_contract_call(sh, "symbol", callflags.CallFlags.READ_ONLY)
 
         expected = "c2150c0673796d626f6c0c14f563ea40bc283d4d0e05c48ea305b3f2a07340ef41627d5b52"
         self.assertEqual(expected, sb.to_array().hex())
@@ -201,7 +202,7 @@ class ScriptBuilderTestCase(unittest.TestCase):
         sh = types.UInt160.from_string("0xef4073a0f2b305a38ec4050e4d3d28bc40ea63f5")
         account = types.UInt160.from_string("0xd2a4cff31913016155e38e474a2c06d08be276cf")
         sb = vm.ScriptBuilder()
-        sb.emit_contract_call_with_args(sh, "balanceOf", [account], contracts.CallFlags.READ_ONLY)
+        sb.emit_contract_call_with_args(sh, "balanceOf", [account], callflags.CallFlags.READ_ONLY)
 
         expected = "0c14cf76e28bd0062c4a478ee35561011319f3cfa4d211c0150c0962616c616e63654f660c14f563ea40bc283d4d0e05c48ea305b3f2a07340ef41627d5b52"
         self.assertEqual(expected, sb.to_array().hex())

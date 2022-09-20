@@ -1,10 +1,8 @@
 from __future__ import annotations
-from enum import IntEnum
-from neo3.core import types
-from neo3.core import Size as s, utils
-from neo3.core import serialization
 import abc
-from .verification import IVerifiable
+from enum import IntEnum
+from neo3.core import types, Size as s, utils, serialization
+from neo3.network.payloads import verification
 
 
 class InventoryType(IntEnum):
@@ -29,7 +27,7 @@ class InventoryPayload(serialization.ISerializable):
         Create payload.
 
         Args:
-            type: indicator to what type of object the the hashes of this payload relate to.
+            type: indicator to what type of object the hashes of this payload relate to.
             hashes: hashes of "type" objects.
         """
         self.type = type
@@ -66,7 +64,7 @@ class InventoryPayload(serialization.ISerializable):
         return cls(InventoryType.BLOCK, [])
 
 
-class IInventory(IVerifiable):
+class IInventory(verification.IVerifiable):
     @abc.abstractmethod
     def hash(self) -> types.UInt256:
         """"""

@@ -4,8 +4,11 @@ import asynctest
 import socket
 import asyncio
 from unittest import mock
-from neo3.network import payloads, convenience, node, message, capabilities
-from neo3 import network_logger, settings
+from neo3.network import node, message, capabilities
+from neo3.network.convenience import nodemanager, requestinfo
+from neo3.network.payloads import address, version
+from neo3 import network_logger
+from neo3.settings import settings
 from datetime import datetime
 from neo3.core import msgrouter
 
@@ -13,7 +16,7 @@ from neo3.core import msgrouter
 class NodeManagerTestCase(asynctest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        cls.nodemgr = convenience.NodeManager()
+        cls.nodemgr = nodemanager.NodeManager()
 
     def setUp(self) -> None:
         self.nodemgr._reset_for_test()
@@ -24,8 +27,8 @@ class NodeManagerTestCase(asynctest.TestCase):
         self.node1 = node.NeoNode(fake_protocol)
         self.node2 = node.NeoNode(fake_protocol)
 
-        self.addr1 = payloads.NetworkAddress(address="127.0.0.1:10333")
-        self.addr2 = payloads.NetworkAddress(address="127.0.0.2:20333")
+        self.addr1 = address.NetworkAddress(address="127.0.0.1:10333")
+        self.addr2 = address.NetworkAddress(address="127.0.0.2:20333")
         self.node1.address = self.addr1
         self.node2.address = self.addr2
 
@@ -73,7 +76,7 @@ class NodeManagerTestCase(asynctest.TestCase):
         self.node2.best_height = 0
         # setup node manager
         self.nodemgr.nodes = [self.node1, self.node2]
-        ri = convenience.RequestInfo(height=10)
+        ri = requestinfo.RequestInfo(height=10)
         self.assertEqual(None, self.nodemgr.get_least_failed_node(ri))
 
     def test_get_least_failed_node2(self):
@@ -82,7 +85,7 @@ class NodeManagerTestCase(asynctest.TestCase):
         self.node1.best_height = 10
         self.node2.best_height = 10
 
-        ri = convenience.RequestInfo(height=1)
+        ri = requestinfo.RequestInfo(height=1)
         # pretend node 1 has already failed once for this request
         ri.failed_nodes[self.node1.nodeid] = 1
 
@@ -95,7 +98,7 @@ class NodeManagerTestCase(asynctest.TestCase):
         self.node1.best_height = 10
         self.node1.disconnecting = True
         self.nodemgr.nodes = [self.node1, self.node2]
-        ri = convenience.RequestInfo(height=10)
+        ri = requestinfo.RequestInfo(height=10)
         self.assertEqual(None, self.nodemgr.get_least_failed_node(ri))
 
     def test_increase_node_error_count(self):
@@ -105,7 +108,7 @@ class NodeManagerTestCase(asynctest.TestCase):
         # we call self.assertLogs because we want to test for no DBEUG logs being produced
         with self.assertRaises(AssertionError) as assert_log_context:
             with self.assertLogs(network_logger, 'DEBUG') as context:
-                    self.nodemgr.increase_node_error_count(self.node1.nodeid)
+                self.nodemgr.increase_node_error_count(self.node1.nodeid)
         self.assertEqual(1, self.node1.nodeweight.error_response_count)
         self.assertEqual(0, len(context.output))
 
@@ -159,11 +162,10 @@ class NeoNodeSocketMock(asynctest.SocketMock):
     def _recv_data(self):
         caps = [capabilities.FullNodeCapability(0)]
         m_send_version = message.Message(msg_type=message.MessageType.VERSION,
-                                          payload=payloads.VersionPayload(nonce=123,
-                                                                                 user_agent="NEO3-MOCK-CLIENT",
-                                                                                 capabilities=caps))
+                                         payload=version.VersionPayload(nonce=123,
+                                                                        user_agent="NEO3-MOCK-CLIENT",
+                                                                        capabilities=caps))
         m_verack = message.Message(msg_type=message.MessageType.VERACK)
-
 
         yield m_send_version.to_array()
         yield m_verack.to_array()
@@ -211,7 +213,7 @@ class NodeManagerTestCase2(asynctest.TestCase):
         # network_logger.addHandler(stdio_handler)
         network_logger.setLevel(logging.DEBUG)
 
-        cls.nodemgr = convenience.NodeManager()
+        cls.nodemgr = nodemanager.NodeManager()
 
     def setUp(self) -> None:
         self.nodemgr._reset_for_test()
@@ -237,6 +239,7 @@ class NodeManagerTestCase2(asynctest.TestCase):
         self.nodemgr._test_client_provider = client_provider
 
         call_back_result = None
+
         def client_connect_done(node_instance, failure):
             nonlocal call_back_result
             call_back_result = node_instance
@@ -260,7 +263,7 @@ class NodeManagerTestCase2(asynctest.TestCase):
         # create 1 open spot
         self.nodemgr.max_clients = 1
         # ensure we have an address that can be connected to
-        node.NeoNode.addresses = [payloads.NetworkAddress(address='127.0.0.1:1111')]
+        node.NeoNode.addresses = [address.NetworkAddress(address='127.0.0.1:1111')]
 
         with self.assertLogs(network_logger, 'DEBUG') as context:
             with mock.patch('asyncio.create_task'):
@@ -273,7 +276,7 @@ class NodeManagerTestCase2(asynctest.TestCase):
         self.node1 = node.NeoNode(fake_protocol)
 
         # ensure we have an address that can be connected to
-        addr = payloads.NetworkAddress(address='127.0.0.1:1111')
+        addr = address.NetworkAddress(address='127.0.0.1:1111')
         # create 1 open spot
         self.nodemgr.max_clients = 2
         node.NeoNode.addresses = [addr]
@@ -299,7 +302,8 @@ class NodeManagerTestCase2(asynctest.TestCase):
         with self.assertLogs(network_logger, 'DEBUG') as context:
             await self.nodemgr._fill_open_connection_spots()
         self.assertIn("Found 1 open pool spots, trying to add nodes...", context.output[0])
-        self.assertIn("No addresses available to fill spots. However, minimum clients still satisfied", context.output[1])
+        self.assertIn("No addresses available to fill spots. However, minimum clients still satisfied",
+                      context.output[1])
 
         # next we clear the nodes and start inducing errors for not being able to fill the open spots
         self.nodemgr.nodes = []
@@ -315,7 +319,7 @@ class NodeManagerTestCase2(asynctest.TestCase):
 
         # 3rd time we reached our threshold
         # let's also setup an address in POOR state that should be reset to NEW
-        addr = payloads.NetworkAddress(address='127.0.0.1:1111')
+        addr = address.NetworkAddress(address='127.0.0.1:1111')
         addr.set_state_poor()
         node.NeoNode.addresses = [addr]
         with self.assertLogs(network_logger, 'DEBUG') as context:
@@ -328,10 +332,11 @@ class NodeManagerTestCase2(asynctest.TestCase):
     async def test_fill_open_connection_spots_node_timeout_error(self):
         self.nodemgr.min_clients = 1
         self.nodemgr.max_clients = 2
-        addr = payloads.NetworkAddress(address='127.0.0.1:1111')
+        addr = address.NetworkAddress(address='127.0.0.1:1111')
         node.NeoNode.addresses = [addr]
 
         call_back_result = None
+
         def client_connect_done(node_instance, failure):
             nonlocal call_back_result
             call_back_result = failure
@@ -353,7 +358,7 @@ class NodeManagerTestCase2(asynctest.TestCase):
 class NodeManagerTimedTestCase(asynctest.ClockedTestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        cls.nodemgr = convenience.NodeManager()
+        cls.nodemgr = nodemanager.NodeManager()
 
     def setUp(self) -> None:
         self.nodemgr._reset_for_test()
@@ -364,14 +369,15 @@ class NodeManagerTimedTestCase(asynctest.ClockedTestCase):
         self.node1 = node.NeoNode(fake_protocol)
         self.node2 = node.NeoNode(fake_protocol)
 
-        self.addr1 = payloads.NetworkAddress(address="127.0.0.1:10333")
-        self.addr2 = payloads.NetworkAddress(address="127.0.0.2:20333")
+        self.addr1 = address.NetworkAddress(address="127.0.0.1:10333")
+        self.addr2 = address.NetworkAddress(address="127.0.0.2:20333")
         self.node1.address = self.addr1
         self.node2.address = self.addr2
 
     @asynctest.SkipTest
     async def test_utility_run_in_loop(self):
         counter = 0
+
         async def coro():
             nonlocal counter
             counter += 1
@@ -395,7 +401,7 @@ class NodeManagerTimedTestCase(asynctest.ClockedTestCase):
                 with mock.patch('asyncio.create_task'):
                     await self.nodemgr._monitor_node_height()
         self.assertIn("max height update threshold exceeded", context.output[0])
-        patched_node_disconnect.assert_called_with(reason=payloads.DisconnectReason.POOR_PERFORMANCE)
+        patched_node_disconnect.assert_called_with(reason=address.DisconnectReason.POOR_PERFORMANCE)
 
     async def test_monitor_node_height_within_limits(self):
         # test that if the last height update timestamp of a node is within the treshold
@@ -417,7 +423,8 @@ class NodeManagerTimedTestCase(asynctest.ClockedTestCase):
     async def test_query_addresses(self):
         self.nodemgr.nodes = [self.node1]
         with self.assertLogs(network_logger, 'DEBUG') as context:
-            with mock.patch.object(self.node1, 'request_address_list', side_effect=AsyncMock()) as patched_node_req_addr:
+            with mock.patch.object(self.node1, 'request_address_list',
+                                   side_effect=AsyncMock()) as patched_node_req_addr:
                 await self.nodemgr._query_addresses()
         self.assertIn("Asking node ", context.output[1])
         self.assertIn("for its address list", context.output[1])
@@ -436,8 +443,10 @@ class NodeManagerTimedTestCase(asynctest.ClockedTestCase):
         # this works *shrug*
         class wtf:
             host = '127.0.0.123'
+
         result = [wtf()]
-        with mock.patch('aiodns.DNSResolver.query', side_effect=asynctest.CoroutineMock(return_value=result)) as query_result:
+        with mock.patch('aiodns.DNSResolver.query',
+                        side_effect=asynctest.CoroutineMock(return_value=result)) as query_result:
             await self.nodemgr._process_seed_list_addresses()
         self.assertEqual(1, len(node.NeoNode.addresses))
 
