@@ -1,8 +1,8 @@
 from __future__ import annotations
 from typing import Optional
 from enum import IntEnum
-from neo3.core import IJson
-from neo3 import contracts
+from neo3.core import interfaces
+from neo3.contracts import utils as contractutils
 
 
 class ContractParameterType(IntEnum):
@@ -31,14 +31,14 @@ class ContractParameterType(IntEnum):
             return self.name.title()
 
 
-class ContractParameterDefinition(IJson):
+class ContractParameterDefinition(interfaces.IJson):
     """
     A parameter description for a contract Method or Event.
     """
-    def __init__(self, name: str, type: contracts.ContractParameterType):
+    def __init__(self, name: str, type: ContractParameterType):
         """
         Args:
-            name: the human readable identifier.
+            name: the human-readable identifier.
             type: the type of parameter.
         """
         self.name = name
@@ -73,17 +73,17 @@ class ContractParameterDefinition(IJson):
             ValueError: if the type is VOID.
         """
         c = cls(
-            name=contracts.validate_type(json['name'], str),
-            type=contracts.ContractParameterType[contracts.validate_type(json['type'], str).upper()]
+            name=contractutils.validate_type(json['name'], str),
+            type=ContractParameterType[contractutils.validate_type(json['type'], str).upper()]
         )
         if c.name is None or len(c.name) == 0:
             raise ValueError("Format error - invalid 'name'")
-        if c.type == contracts.ContractParameterType.VOID:
+        if c.type == ContractParameterType.VOID:
             raise ValueError("Format error - parameter type VOID is not allowed")
         return c
 
 
-class ContractEventDescriptor(IJson):
+class ContractEventDescriptor(interfaces.IJson):
     """
     A description for an event that a contract can broadcast.
     """
@@ -91,7 +91,7 @@ class ContractEventDescriptor(IJson):
         """
 
         Args:
-            name: the human readable identifier of the event.
+            name: the human-readable identifier of the event.
             parameters: the list of parameters the event takes.
         """
         self.name = name
@@ -125,7 +125,7 @@ class ContractEventDescriptor(IJson):
             ValueError: if the 'name' property has an incorrect format
         """
         c = cls(
-            name=contracts.validate_type(json['name'], str),
+            name=contractutils.validate_type(json['name'], str),
             parameters=list(map(lambda p: ContractParameterDefinition.from_json(p), json['parameters']))
         )
         if c.name is None or len(c.name) == 0:
@@ -133,18 +133,18 @@ class ContractEventDescriptor(IJson):
         return c
 
 
-class ContractMethodDescriptor(ContractEventDescriptor, IJson):
+class ContractMethodDescriptor(ContractEventDescriptor, interfaces.IJson):
     """
     A description of a callable method on a contract.
     """
     def __init__(self, name: str,
                  offset: int,
                  parameters: list[ContractParameterDefinition],
-                 return_type: contracts.ContractParameterType,
+                 return_type: ContractParameterType,
                  safe: bool):
         """
         Args:
-            name: the human readable identifier of the method.
+            name: the human-readable identifier of the method.
             offset: script offset
             parameters: the list of parameters the method takes.
             return_type: the type of the returned value.
@@ -189,11 +189,11 @@ class ContractMethodDescriptor(ContractEventDescriptor, IJson):
             ValueError: if the offset is negative.
         """
         c = cls(
-            name=contracts.validate_type(json['name'], str),
-            offset=contracts.validate_type(json['offset'], int),
-            parameters=list(map(lambda p: contracts.ContractParameterDefinition.from_json(p), json['parameters'])),
-            return_type=contracts.ContractParameterType[contracts.validate_type(json['returntype'], str).upper()],
-            safe=contracts.validate_type(json['safe'], bool)
+            name=contractutils.validate_type(json['name'], str),
+            offset=contractutils.validate_type(json['offset'], int),
+            parameters=list(map(lambda p: ContractParameterDefinition.from_json(p), json['parameters'])),
+            return_type=ContractParameterType[contractutils.validate_type(json['returntype'], str).upper()],
+            safe=contractutils.validate_type(json['safe'], bool)
         )
         if c.name is None or len(c.name) == 0:
             raise ValueError("Format error - invalid 'name'")
@@ -205,19 +205,19 @@ class ContractMethodDescriptor(ContractEventDescriptor, IJson):
         return f"<{self.__class__.__name__} at {hex(id(self))}> {self.name}"
 
 
-class ContractABI(IJson):
+class ContractABI(interfaces.IJson):
     """
     The smart contract application binary interface describes the callable events and contracts for a given
     smart contract.
     """
     def __init__(self,
-                 methods: list[contracts.ContractMethodDescriptor],
-                 events: list[contracts.ContractEventDescriptor]):
+                 methods: list[ContractMethodDescriptor],
+                 events: list[ContractEventDescriptor]):
         """
         Args:
             byte code.
             methods: the available methods in the contract.
-            events: the various events that can be broad casted by the contract.
+            events: the various events that can be broadcast by the contract.
         """
         self.methods = methods
         self.events = events
@@ -228,7 +228,7 @@ class ContractABI(IJson):
         return (self.methods == other.methods
                 and self.events == other.events)
 
-    def get_method(self, name, parameter_count: int) -> Optional[contracts.ContractMethodDescriptor]:
+    def get_method(self, name, parameter_count: int) -> Optional[ContractMethodDescriptor]:
         """
         Return the ContractMethodDescriptor matching the name (and optional parameter count) or None otherwise.
 
@@ -272,11 +272,11 @@ class ContractABI(IJson):
 
         Raises:
             KeyError: if the data supplied does not contain the necessary keys.
-            ValuError: if the contract has no methods
+            ValueError: if the contract has no methods
         """
         c = cls(
-            methods=list(map(lambda m: contracts.ContractMethodDescriptor.from_json(m), json['methods'])),
-            events=list(map(lambda e: contracts.ContractEventDescriptor.from_json(e), json['events'])),
+            methods=list(map(lambda m: ContractMethodDescriptor.from_json(m), json['methods'])),
+            events=list(map(lambda e: ContractEventDescriptor.from_json(e), json['events'])),
         )
         if len(c.methods) == 0:
             raise ValueError("Invalid contract - contract has no methods")

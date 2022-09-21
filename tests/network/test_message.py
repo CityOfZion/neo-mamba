@@ -2,9 +2,11 @@ import unittest
 import binascii
 import lz4
 from unittest.mock import patch, call
-from neo3.network import payloads, message
+from neo3.network import message
+from neo3.network.payloads import inventory, empty, block, transaction, ping, address, version
 from neo3.core.types.uint import UInt256
 from neo3.core import serialization
+
 
 class NetworkMessageTestCase(unittest.TestCase):
     def test_create_no_payload(self):
@@ -14,13 +16,13 @@ class NetworkMessageTestCase(unittest.TestCase):
 
     def test_create_inv_message(self):
         hashes = [UInt256.zero()]
-        inv_payload = payloads.InventoryPayload(payloads.InventoryType.BLOCK, hashes)
+        inv_payload = inventory.InventoryPayload(inventory.InventoryType.BLOCK, hashes)
         m = message.Message(message.MessageType.INV, inv_payload)
         data = m.to_array()
 
         self.assertEqual(message.MessageType.INV, m.type)
         self.assertEqual(message.MessageConfig.NONE, m.config)
-        self.assertIsInstance(m.payload, payloads.InventoryPayload)
+        self.assertIsInstance(m.payload, inventory.InventoryPayload)
 
         """
             Taken from constructing the same object in C#
@@ -44,13 +46,13 @@ class NetworkMessageTestCase(unittest.TestCase):
 
     def test_create_compressed_inv_message(self):
         hashes = [UInt256.zero(), UInt256.zero(), UInt256.zero(), UInt256.zero()]
-        inv_payload = payloads.InventoryPayload(payloads.InventoryType.BLOCK, hashes)
+        inv_payload = inventory.InventoryPayload(inventory.InventoryType.BLOCK, hashes)
         m = message.Message(message.MessageType.INV, inv_payload)
         data = m.to_array() # triggers payload compression
 
         self.assertEqual(message.MessageType.INV, m.type)
         self.assertEqual(message.MessageConfig.COMPRESSED, m.config)
-        self.assertIsInstance(m.payload, payloads.InventoryPayload)
+        self.assertIsInstance(m.payload, inventory.InventoryPayload)
 
         """
         Data created in the same fashion as how it's done in test_create_inv_message()
@@ -64,7 +66,7 @@ class NetworkMessageTestCase(unittest.TestCase):
         # see test_create_compressed_inv_message() how it was obtained
         raw_data = binascii.unhexlify(b'012711820000003F2C0400010067500000000000')
         m = message.Message.deserialize_from_bytes(raw_data)
-        self.assertIsInstance(m.payload, payloads.InventoryPayload)
+        self.assertIsInstance(m.payload, inventory.InventoryPayload)
         self.assertEqual(132, len(m))
 
     def test_deserialization_with_not_enough_data(self):
@@ -87,15 +89,15 @@ class NetworkMessageTestCase(unittest.TestCase):
             m = message.Message(message.MessageType.DEFAULT)
             m.deserialize(br)
             self.assertEqual(m.type, message.MessageType.INV)
-            self.assertEqual(m.payload.type, payloads.inventory.InventoryType.BLOCK)
+            self.assertEqual(m.payload.type, inventory.InventoryType.BLOCK)
 
     def test_deserialization_with_unsupported_payload_type(self):
         hashes = [UInt256.zero()]
-        inv_payload = payloads.InventoryPayload(payloads.InventoryType.BLOCK, hashes)
+        inv_payload = inventory.InventoryPayload(inventory.InventoryType.BLOCK, hashes)
         m = message.Message(message.MessageType.ALERT, inv_payload)
 
         m2 = message.Message.deserialize_from_bytes(m.to_array())
-        self.assertIsInstance(m2.payload, payloads.EmptyPayload)
+        self.assertIsInstance(m2.payload, empty.EmptyPayload)
 
     def test_deserialization_erroneous_compressed_data(self):
         # see test_create_compressed_inv_message() how it was obtained
@@ -122,15 +124,15 @@ class NetworkMessageTestCase(unittest.TestCase):
             message.Message._payload_from_data(message.MessageType.TRANSACTION, b'')
 
             calls = [
-                call(payloads.InventoryPayload),
-                call(payloads.GetBlockByIndexPayload),
-                call(payloads.VersionPayload),
-                call(payloads.EmptyPayload),
-                call(payloads.Block),
-                call(payloads.HeadersPayload),
-                call(payloads.PingPayload),
-                call(payloads.PingPayload),
-                call(payloads.AddrPayload),
-                call(payloads.Transaction)
+                call(inventory.InventoryPayload),
+                call(block.GetBlockByIndexPayload),
+                call(version.VersionPayload),
+                call(empty.EmptyPayload),
+                call(block.Block),
+                call(block.HeadersPayload),
+                call(ping.PingPayload),
+                call(ping.PingPayload),
+                call(address.AddrPayload),
+                call(transaction.Transaction)
             ]
             reader.read_serializable.assert_has_calls(calls, any_order=False)

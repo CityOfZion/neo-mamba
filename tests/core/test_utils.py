@@ -1,5 +1,5 @@
 import unittest
-from neo3.core import utils, serialization
+from neo3.core import utils, serialization, types
 from neo3.core.serialization import BinaryReader, BinaryWriter
 from enum import IntEnum
 
@@ -69,3 +69,12 @@ class VarSizeTestCase(unittest.TestCase):
         with self.assertRaises(ValueError) as context:
             utils.get_var_size(object())
         self.assertIn("NOT SUPPORTED", str(context.exception))
+
+
+class ScriptHashTestCase(unittest.TestCase):
+    def test_to_script_hash(self):
+        # from https://github.com/neo-project/neo/blob/8e68c3fabf8b7cad3bd27e0c556cbeda17c2b123/tests/Neo.UnitTests/UT_Helper.cs#L35
+        data = b'\x42' + b'\x20' * 63
+        expected = types.UInt160.from_string("0x2d3b96ae1bcc5a585e075e3b81920210dec16302")
+        actual = utils.to_script_hash(data)
+        self.assertEqual(expected, actual)

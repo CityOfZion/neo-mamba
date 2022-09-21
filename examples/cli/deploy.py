@@ -10,9 +10,10 @@ import asyncio
 import json
 import argparse
 from typing import Optional
-from neo3 import api, wallet, contracts
-from neo3.contracts import vm, get_contract_hash
-from neo3.network import payloads
+from neo3 import api, vm
+from neo3.contracts import utils as contractutils, nef, manifest, contract
+from neo3.network.payloads import verification, transaction
+from neo3.wallet import wallet
 
 
 async def main(wallet_path, wallet_pw, nef_path, manifest_path, rpc_host, poll_timeout: Optional[str] = None):
@@ -24,7 +25,7 @@ async def main(wallet_path, wallet_pw, nef_path, manifest_path, rpc_host, poll_t
     with open(nef_path, 'rb') as f:
         nef_bytes = f.read()
         try:
-            nef = contracts.NEF.deserialize_from_bytes(nef_bytes)
+            nef_ = nef.NEF.deserialize_from_bytes(nef_bytes)
         except ValueError as e:
             raise ValueError(f"Failed NEF file validation with: {e}")
 
@@ -32,22 +33,22 @@ async def main(wallet_path, wallet_pw, nef_path, manifest_path, rpc_host, poll_t
         manifest_bytes = f.read()
         manifest_json = json.loads(manifest_bytes.decode('utf-8'))
         try:
-            manifest = contracts.ContractManifest.from_json(manifest_json)
+            manifest_ = manifest.ContractManifest.from_json(manifest_json)
         except ValueError as e:
             raise ValueError(f"Failed manifest validation with: {e}")
 
     # build a contract deploy transaction
     sb = vm.ScriptBuilder()
-    sb.emit_contract_call_with_args(contracts.CONTRACT_HASHES.MANAGEMENT, "deploy", [nef_bytes, manifest_bytes])
+    sb.emit_contract_call_with_args(contract.CONTRACT_HASHES.MANAGEMENT, "deploy", [nef_bytes, manifest_bytes])
 
-    tx = payloads.Transaction(version=0,
-                              nonce=123,
-                              system_fee=0,
-                              network_fee=0,
-                              valid_until_block=0,
-                              attributes=[],
-                              signers=[],
-                              script=sb.to_array())
+    tx = transaction.Transaction(version=0,
+                                 nonce=123,
+                                 system_fee=0,
+                                 network_fee=0,
+                                 valid_until_block=0,
+                                 attributes=[],
+                                 signers=[],
+                                 script=sb.to_array())
 
     account.add_as_sender(tx)
 
@@ -61,7 +62,8 @@ async def main(wallet_path, wallet_pw, nef_path, manifest_path, rpc_host, poll_t
             tx.system_fee = res.gas_consumed
 
             # adding a witness so we can calculate the network fee
-            tx.witnesses.append(payloads.Witness(invocation_script=b'', verification_script=account.contract.script))
+            tx.witnesses.append(
+                verification.Witness(invocation_script=b'', verification_script=account.contract.script))
             tx.network_fee = await client.calculate_network_fee(tx)
             # removing it here as it will be replaced by a proper one once we're signing
             tx.witnesses = []
@@ -69,7 +71,7 @@ async def main(wallet_path, wallet_pw, nef_path, manifest_path, rpc_host, poll_t
             res = await client.get_version()
             account.sign_tx(tx, password=wallet_pw, magic=res.protocol.network)
             tx_id = await client.send_transaction(tx)
-            print(f"Contract hash: {get_contract_hash(tx.sender, nef.checksum, manifest.name)}")
+            print(f"Contract hash: {contractutils.get_contract_hash(tx.sender, nef_.checksum, manifest_.name)}")
             print(f"Transaction id: {tx_id}")
             if poll_timeout is not None:
                 print("Polling for transaction status, please wait..")

@@ -1,6 +1,7 @@
 import asynctest
 import asyncio
-from neo3.network import convenience, node
+from neo3.network import node
+from neo3.network.convenience import syncmanager, nodemanager, requestinfo, flightinfo
 from neo3 import network_logger
 from datetime import datetime
 
@@ -8,7 +9,7 @@ from datetime import datetime
 class SyncManagerUtilitiesTestCase(asynctest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        cls.syncmgr = convenience.SyncManager()
+        cls.syncmgr = syncmanager.SyncManager()
 
     def setUp(self) -> None:
         self.syncmgr._reset_for_test()
@@ -40,7 +41,7 @@ class SyncManagerUtilitiesTestCase(asynctest.TestCase):
         target_height = 1
         self.syncmgr._add_block_flight_info(nodeid=123, height=target_height)
         self.assertIn(target_height, self.syncmgr.block_requests)
-        self.assertIsInstance(self.syncmgr.block_requests[target_height], convenience.RequestInfo)
+        self.assertIsInstance(self.syncmgr.block_requests[target_height], requestinfo.RequestInfo)
         flights = self.syncmgr.block_requests[target_height].flights
         self.assertEqual(1, len(flights))
 
@@ -63,8 +64,8 @@ class SyncManagerUtilitiesTestCase(asynctest.TestCase):
 class SyncManagerSyncBlocksTestCase(asynctest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        cls.syncmgr = convenience.SyncManager()
-        cls.nodemgr = convenience.NodeManager()
+        cls.syncmgr = syncmanager.SyncManager()
+        cls.nodemgr = nodemanager.NodeManager()
 
     def setUp(self) -> None:
         self.syncmgr._reset_for_test()
@@ -96,7 +97,7 @@ class SyncManagerSyncBlocksTestCase(asynctest.TestCase):
         # expected result: 1 flight added
 
         self.syncmgr.block_cache = (self.syncmgr.BLOCK_MAX_CACHE_SIZE - 2) * [None]
-        mock_node = node.NeoNode(protocol=object())
+        mock_node = node.NeoNode(proto=object())
         mock_node.best_height = 2
         mock_node.request_block_data = asynctest.CoroutineMock()
         self.nodemgr.nodes = [mock_node]
@@ -112,8 +113,8 @@ class SyncManagerSyncBlocksTestCase(asynctest.TestCase):
 class SyncManagerCheckTimeoutTestCase(asynctest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        cls.syncmgr = convenience.SyncManager()
-        cls.nodemgr = convenience.NodeManager()
+        cls.syncmgr = syncmanager.SyncManager()
+        cls.nodemgr = nodemanager.NodeManager()
 
     def setUp(self) -> None:
         self.syncmgr._reset_for_test()
@@ -125,8 +126,8 @@ class SyncManagerCheckTimeoutTestCase(asynctest.TestCase):
 
     async def test_no_flights_timedout(self):
         target_height = 1
-        request_info = convenience.RequestInfo(target_height)
-        request_info.add_new_flight(convenience.FlightInfo(node_id=123, height=target_height))
+        request_info = requestinfo.RequestInfo(target_height)
+        request_info.add_new_flight(flightinfo.FlightInfo(node_id=123, height=target_height))
         self.syncmgr.block_requests[1] = request_info
 
         # a recently recreated flight should not have timed out
@@ -140,9 +141,9 @@ class SyncManagerCheckTimeoutTestCase(asynctest.TestCase):
         # construct flight 1 - request not yet satisfied
         target_height = 2
         node1_id = 123
-        request_info = convenience.RequestInfo(target_height)
+        request_info = requestinfo.RequestInfo(target_height)
         request_info.mark_failed_node = asynctest.MagicMock()
-        flight_info = convenience.FlightInfo(node_id=node1_id, height=target_height)
+        flight_info = flightinfo.FlightInfo(node_id=node1_id, height=target_height)
         # reduce start time to enforce exceeding timeout treshold
         flight_info.start_time -= self.syncmgr.BLOCK_REQUEST_TIMEOUT + 1
         request_info.add_new_flight(flight_info)
@@ -151,8 +152,8 @@ class SyncManagerCheckTimeoutTestCase(asynctest.TestCase):
         # construct flight 2 - request already satisfied
         target_height2 = 1
         node2_id = 456
-        request_info2 = convenience.RequestInfo(target_height2)
-        flight_info2 = convenience.FlightInfo(node_id=node2_id, height=target_height2)
+        request_info2 = requestinfo.RequestInfo(target_height2)
+        flight_info2 = flightinfo.FlightInfo(node_id=node2_id, height=target_height2)
         flight_info2.start_time -= self.syncmgr.BLOCK_REQUEST_TIMEOUT + 1
         request_info2.add_new_flight(flight_info2)
         self.syncmgr.block_requests[target_height2] = request_info2
@@ -172,7 +173,7 @@ class SyncManagerCheckTimeoutTestCase(asynctest.TestCase):
         self.assertEqual(-3, result)
 
         # now we "connect" a new node
-        mock_node = node.NeoNode(protocol=object())
+        mock_node = node.NeoNode(proto=object())
         mock_node.best_height = 10
         mock_node_id = 789
         mock_node.nodeid = mock_node_id
@@ -204,9 +205,9 @@ class DummyLedger:
 class SyncManagerVarious(asynctest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        cls.syncmgr = convenience.SyncManager()
+        cls.syncmgr = syncmanager.SyncManager()
         cls.syncmgr.ledger = DummyLedger()
-        cls.nodemgr = convenience.NodeManager()
+        cls.nodemgr = nodemanager.NodeManager()
 
     def setUp(self) -> None:
         self.syncmgr._reset_for_test()
@@ -248,8 +249,8 @@ class SyncManagerVarious(asynctest.TestCase):
 
         # next test receiving a block that we DO have an outstanding request for, but not from the node that is now
         # delivering the block
-        request_info = convenience.RequestInfo(height=1)
-        request_info.add_new_flight(convenience.FlightInfo(node_id=456, height=1))
+        request_info = requestinfo.RequestInfo(height=1)
+        request_info.add_new_flight(flightinfo.FlightInfo(node_id=456, height=1))
         self.syncmgr.block_requests[1] = request_info
         self.assertEqual(-2, self.syncmgr.on_block_received(from_nodeid=123, block=fake_block))
         self.assertEqual(request_info, self.syncmgr.block_requests.get(1, None))
@@ -306,7 +307,7 @@ class SyncManagerVarious(asynctest.TestCase):
 class SyncManagerTimedTestCase(asynctest.ClockedTestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        cls.syncmgr = convenience.SyncManager()
+        cls.syncmgr = syncmanager.SyncManager()
 
     def setUp(self) -> None:
         self.syncmgr._reset_for_test()

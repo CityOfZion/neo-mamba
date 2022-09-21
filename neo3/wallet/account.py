@@ -6,11 +6,11 @@ import unicodedata
 from typing import Optional, Any
 from Crypto.Cipher import AES  # type: ignore
 from jsonschema import validate  # type: ignore
-from neo3 import settings, contracts, wallet
-from neo3.network import payloads
-from neo3.core import types, to_script_hash, cryptography
-from neo3.contracts import vm
-
+from neo3 import settings, vm
+from neo3.contracts import abi, utils as contractutils, contract
+from neo3.network.payloads import transaction, verification
+from neo3.core import types, utils as coreutils, cryptography
+from neo3.wallet import utils, scrypt_parameters as scrypt
 
 # both constants below are used to encrypt/decrypt a private key to/from a nep2 key
 NEP_HEADER = bytes([0x01, 0x42])
@@ -21,7 +21,33 @@ WIF_SUFFIX = bytes([0x01])
 PRIVATE_KEY_LENGTH = 32
 
 
-class AccountContract(contracts.Contract):
+class MultiSigContext:
+    def __init__(self):
+        self.initialised = False
+        self.signing_threshold = 999
+        #: List of valid public keys for signing
+        self.expected_public_keys: list[cryptography.ECPoint] = []
+        #: Completed pairs
+        self.signature_pairs: dict[cryptography.ECPoint, bytes] = {}
+
+    @property
+    def is_complete(self):
+        return len(self.signature_pairs) >= self.signing_threshold
+
+    def signing_status(self) -> dict[cryptography.ECPoint, bool]:
+        # shows which keys have been completed
+        pass
+
+    def process_contract(self, script: bytes) -> None:
+        valid, threshold, public_keys = contractutils.parse_as_multisig_contract(script)
+        if not valid:
+            raise ValueError("Invalid script")
+        self.expected_public_keys = public_keys
+        self.signing_threshold = threshold
+        self.initialised = True
+
+
+class AccountContract(contract.Contract):
     _contract_params_schema = {
         "type": ["object", "null"],
         "properties": {
@@ -44,20 +70,20 @@ class AccountContract(contracts.Contract):
         "required": ["script", "parameters", "deployed"]
     }
 
-    def __init__(self, script: bytes, parameter_list: list[contracts.ContractParameterDefinition]):
+    def __init__(self, script: bytes, parameter_list: list[abi.ContractParameterDefinition]):
         super().__init__(script, [param.type for param in parameter_list])
 
         self.parameter_names: list[str] = [param.name for param in parameter_list]
         self.deployed: bool = False
 
     @classmethod
-    def from_contract(cls, contract: contracts.Contract) -> AccountContract:
-        if isinstance(contract, AccountContract):
-            return contract
+    def from_contract(cls, c: contract.Contract) -> AccountContract:
+        if isinstance(c, AccountContract):
+            return c
 
-        parameters = [contracts.ContractParameterDefinition(f"arg{index}", contract.parameter_list[index])
-                      for index in range(len(contract.parameter_list))]
-        return cls(script=contract.script,
+        parameters = [abi.ContractParameterDefinition(f"arg{index}", c.parameter_list[index])
+                      for index in range(len(c.parameter_list))]
+        return cls(script=c.script,
                    parameter_list=parameters)
 
     @classmethod
@@ -70,13 +96,13 @@ class AccountContract(contracts.Contract):
         """
         validate(json, schema=cls._json_schema)
 
-        contract = cls(
+        c = cls(
             script=base64.b64decode(json['script']),
-            parameter_list=list(map(lambda p: contracts.ContractParameterDefinition.from_json(p), json['parameters']))
+            parameter_list=list(map(lambda p: abi.ContractParameterDefinition.from_json(p), json['parameters']))
         )
-        contract.deployed = json['deployed']
+        c.deployed = json['deployed']
 
-        return contract
+        return c
 
     def to_json(self) -> dict:
         """ Convert object into JSON representation. """
@@ -114,9 +140,9 @@ class Account:
                  address: Optional[str] = None,
                  label: Optional[str] = None,
                  lock: bool = False,
-                 contract: Optional[contracts.Contract] = None,
+                 contract_: Optional[contract.Contract] = None,
                  extra: Optional[dict[str, Any]] = None,
-                 scrypt_parameters: Optional[wallet.ScryptParameters] = None
+                 scrypt_parameters: Optional[scrypt.ScryptParameters] = None
                  ):
         """
         Instantiate an account. This constructor should only be directly called when it's desired to create a new
@@ -130,7 +156,7 @@ class Account:
             if address is None:
                 raise ValueError("Creating a watch only account requires an address")
             else:
-                self.validate_address(address)
+                utils.validate_address(address)
 
         else:
             key_pair: cryptography.KeyPair
@@ -141,9 +167,9 @@ class Account:
             else:
                 key_pair = cryptography.KeyPair(private_key)
             encrypted_key = self.private_key_to_nep2(private_key, password, scrypt_parameters)
-            contract_script = contracts.Contract.create_signature_redeemscript(key_pair.public_key)
-            script_hash = to_script_hash(contract_script)
-            address = address if address else self.script_hash_to_address(script_hash)
+            contract_script = contractutils.create_signature_redeemscript(key_pair.public_key)
+            script_hash = coreutils.to_script_hash(contract_script)
+            address = address if address else utils.script_hash_to_address(script_hash)
             public_key = key_pair.public_key
 
         self.label: Optional[str] = label
@@ -153,17 +179,17 @@ class Account:
         self.lock = lock
         self.scrypt_parameters = scrypt_parameters
 
-        if not isinstance(contract, AccountContract):
-            if contract is not None:
-                contract = AccountContract.from_contract(contract)
+        if not isinstance(contract_, AccountContract):
+            if contract_ is not None:
+                contract_ = AccountContract.from_contract(contract_)
             elif contract_script is not None:
                 default_parameters_list = [
-                    contracts.ContractParameterDefinition(name='signature',
-                                                          type=contracts.ContractParameterType.SIGNATURE)
+                    abi.ContractParameterDefinition(name='signature',
+                                                    type=abi.ContractParameterType.SIGNATURE)
                 ]
-                contract = AccountContract(contract_script, default_parameters_list)
+                contract_ = AccountContract(contract_script, default_parameters_list)
 
-        self.contract: Optional[AccountContract] = contract
+        self.contract: Optional[AccountContract] = contract_
         self.extra = extra if extra else {}
 
     def __eq__(self, other) -> bool:
@@ -171,7 +197,7 @@ class Account:
 
     @property
     def script_hash(self) -> types.UInt160:
-        return self.address_to_script_hash(self.address)
+        return utils.address_to_script_hash(self.address)
 
     @property
     def is_watchonly(self) -> bool:
@@ -184,24 +210,27 @@ class Account:
     def is_multisig(self) -> bool:
         if self.contract is None:
             return False
-        return contracts.Contract.is_multisig_contract(self.contract.script)
+        return contractutils.is_multisig_contract(self.contract.script)
 
     @property
     def is_single_sig(self) -> bool:
         if self.contract is None:
             return False
-        return contracts.Contract.is_signature_contract(self.contract.script)
+        return contractutils.is_signature_contract(self.contract.script)
 
-    def add_as_sender(self, tx: payloads.Transaction):
+    def add_as_sender(self, tx: transaction.Transaction, scope: Optional[verification.WitnessScope] = None):
         """
-        Add the account as sender of the transaction.
+        Add the account as sender of the transaction
 
         Args:
             tx: the transaction to modify
+            scope: the type of scope the signature of the sender has. Defaults to CALLED_BY_ENTRY.
+             See Also: WitnessScope
         """
-        tx.signers.insert(0, payloads.Signer(self.script_hash, payloads.WitnessScope.GLOBAL))
+        scope = scope if scope else verification.WitnessScope.CALLED_BY_ENTRY
+        tx.signers.insert(0, verification.Signer(self.script_hash, scope))
 
-    def sign_tx(self, tx: payloads.Transaction, password: str, magic: Optional[int] = None) -> None:
+    def sign_tx(self, tx: transaction.Transaction, password: str, magic: Optional[int] = None) -> None:
         """
         Helper function that signs the TX, adds the Witness and Sender
 
@@ -214,7 +243,7 @@ class Account:
             ValueError: if transaction validation fails
         """
         if magic is None:
-            magic = settings.network.magic
+            magic = settings.settings.network.magic
 
         self._validate_tx(tx)
 
@@ -224,15 +253,15 @@ class Account:
         invocation_script = vm.ScriptBuilder().emit_push(signature).to_array()
         # mypy can't infer that the is_watchonly check ensures public_key has a value
         verification_script = contracts.Contract.create_signature_redeemscript(self.public_key)  # type: ignore
-        tx.witnesses.insert(0, payloads.Witness(invocation_script, verification_script))
+        tx.witnesses.insert(0, verification.Witness(invocation_script, verification_script))
 
     def sign_multisig_tx(self,
-                         tx: payloads.Transaction,
+                         tx: transaction.Transaction,
                          password: str,
-                         context: wallet.MultiSigContext,
+                         context: MultiSigContext,
                          magic: Optional[int] = None) -> None:
         if magic is None:
-            magic = settings.network.magic
+            magic = settings.settings.network.magic
 
         if not self.contract:
             raise ValueError("Account is not a valid multi-signature account")
@@ -241,7 +270,7 @@ class Account:
         # However, it is possible to add a multi-sig account before having a regular account with one of the required
         # public keys for the multi-sig account. Therefore, we should check if we actually have key material to continue
         if self.is_watchonly:
-            _, _, public_keys = contracts.Contract.parse_as_multisig_contract(self.contract.script)
+            _, _, public_keys = contractutils.parse_as_multisig_contract(self.contract.script)
             raise ValueError(f"Cannot sign with watch only account. Try adding a regular account to your wallet "
                              f"matching one of the following public keys, or update the key material for this account "
                              f"directly."
@@ -277,10 +306,10 @@ class Account:
                 sb.emit_push(sig)
 
             invocation_script = sb.to_array()
-            verification_script = contracts.Contract.create_multisig_redeemscript(context.signing_threshold,
-                                                                                  context.expected_public_keys)
+            verification_script = contractutils.create_multisig_redeemscript(context.signing_threshold,
+                                                                             context.expected_public_keys)
 
-            tx.witnesses.insert(0, payloads.Witness(invocation_script, verification_script))
+            tx.witnesses.insert(0, verification.Witness(invocation_script, verification_script))
 
     def sign(self, data: bytes, password: str) -> bytes:
         """
@@ -300,14 +329,14 @@ class Account:
         return cryptography.sign(data, private_key)
 
     @classmethod
-    def create_new(cls, password: str, scrypt_parameters: Optional[wallet.ScryptParameters] = None) -> Account:
+    def create_new(cls, password: str, scrypt_parameters: Optional[scrypt.ScryptParameters] = None) -> Account:
         return cls(password=password, watch_only=False, scrypt_parameters=scrypt_parameters)
 
     @classmethod
     def from_encrypted_key(cls,
                            encrypted_key: str,
                            password: str,
-                           scrypt_parameters: Optional[wallet.ScryptParameters] = None) -> Account:
+                           scrypt_parameters: Optional[scrypt.ScryptParameters] = None) -> Account:
         """
         Instantiate and returns an account from a given key and password.
         Default settings assume a NEP-2 encrypted key.
@@ -328,7 +357,7 @@ class Account:
     def from_private_key(cls,
                          private_key: bytes,
                          password: str,
-                         scrypt_parameters: Optional[wallet.ScryptParameters] = None) -> Account:
+                         scrypt_parameters: Optional[scrypt.ScryptParameters] = None) -> Account:
         """
         Instantiate and returns an account from a given private key and password.
 
@@ -347,7 +376,7 @@ class Account:
     def from_wif(cls,
                  wif: str,
                  password: str,
-                 _scrypt_parameters: Optional[wallet.ScryptParameters] = None) -> Account:
+                 _scrypt_parameters: Optional[scrypt.ScryptParameters] = None) -> Account:
         """
         Instantiate and returns an account from a given wif and password.
 
@@ -372,7 +401,7 @@ class Account:
         Returns:
             The account that will be monitored.
         """
-        return cls(password='', watch_only=True, address=cls.script_hash_to_address(script_hash))
+        return cls(password='', watch_only=True, address=utils.script_hash_to_address(script_hash))
 
     @classmethod
     def watch_only_from_address(cls, address: str) -> Account:
@@ -401,7 +430,7 @@ class Account:
     def from_json(cls,
                   json: dict,
                   password: str,
-                  scrypt_parameters: Optional[wallet.ScryptParameters] = None) -> Account:
+                  scrypt_parameters: Optional[scrypt.ScryptParameters] = None) -> Account:
         """
         Parse object out of JSON data.
 
@@ -421,49 +450,19 @@ class Account:
                    address=json['address'],
                    label=json['label'],
                    lock=json['lock'],
-                   contract=AccountContract.from_json(json['contract']),
-                   extra=json['extra']
+                   contract_=AccountContract.from_json(json['contract']),
+                   extra=json['extra'],
+                   scrypt_parameters=scrypt_parameters
                    )
 
     @staticmethod
-    def script_hash_to_address(script_hash: types.UInt160) -> str:
-        """
-        Converts the specified script hash to an address.
-
-        Args:
-            script_hash: script hash to convert.
-        """
-        version = settings.network.account_version  # this is the current Neo's protocol version
-        data = version.to_bytes(1, 'little') + script_hash.to_array()
-
-        return base58.b58encode_check(data).decode('utf-8')
-
-    @staticmethod
-    def address_to_script_hash(address: str) -> types.UInt160:
-        """
-        Converts the specified address to a script hash.
-
-        Args:
-            address: address to convert
-
-        Raises:
-            ValueError: if the length of data (address value in bytes) is not valid.
-            ValueError: if the account version is not valid.
-        """
-        Account.validate_address(address)
-
-        data = base58.b58decode_check(address)
-
-        return types.UInt160(data[1:])
-
-    @staticmethod
     def private_key_from_nep2(nep2_key: str, passphrase: str,
-                              _scrypt_parameters: Optional[wallet.ScryptParameters] = None) -> bytes:
+                              _scrypt_parameters: Optional[scrypt.ScryptParameters] = None) -> bytes:
         """
         Decrypt a nep2 key into a private key.
 
         Args:
-            nep2_key: the key that will be decrypt.
+            nep2_key: the key that will be decrypted.
             passphrase: the password to decrypt the nep2 key.
             _scrypt_parameters: a ScryptParameters object that will be passed to the key derivation function.
 
@@ -476,7 +475,7 @@ class Account:
             the private key.
         """
         if _scrypt_parameters is None:
-            _scrypt_parameters = wallet.ScryptParameters()
+            _scrypt_parameters = scrypt.ScryptParameters()
 
         if len(nep2_key) != 58:
             raise ValueError(f"Please provide a nep2_key with a length of 58 bytes (LEN: {len(nep2_key)})")
@@ -508,25 +507,25 @@ class Account:
 
         # Now check that the address hashes match. If they don't, the password was wrong.
         key_pair = cryptography.KeyPair(private_key=private_key)
-        script_hash = to_script_hash(contracts.Contract.create_signature_redeemscript(key_pair.public_key))
-        address = Account.script_hash_to_address(script_hash)
+        script_hash = coreutils.to_script_hash(contractutils.create_signature_redeemscript(key_pair.public_key))
+        address = utils.script_hash_to_address(script_hash)
         first_hash = hashlib.sha256(address.encode("utf-8")).digest()
         second_hash = hashlib.sha256(first_hash).digest()
         checksum = second_hash[:4]
         if checksum != address_checksum:
             raise ValueError(f"Wrong passphrase or key was encrypted with an address version that is not "
-                             f"{settings.network.account_version}")
+                             f"{settings.settings.network.account_version}")
 
         return private_key
 
     @staticmethod
     def private_key_to_nep2(private_key: bytes, passphrase: str,
-                            _scrypt_parameters: Optional[wallet.ScryptParameters] = None) -> bytes:
+                            _scrypt_parameters: Optional[scrypt.ScryptParameters] = None) -> bytes:
         """
         Encrypt a private key into a nep2 key.
 
         Args:
-            private_key: the key that will be encrypt.
+            private_key: the key that will be encrypted.
             passphrase: the password to encrypt the nep2 key.
             _scrypt_parameters: a ScryptParameters object that will be passed to the key derivation function.
 
@@ -534,11 +533,11 @@ class Account:
             the encrypted nep2 key.
         """
         if _scrypt_parameters is None:
-            _scrypt_parameters = wallet.ScryptParameters()
+            _scrypt_parameters = scrypt.ScryptParameters()
 
         key_pair = cryptography.KeyPair(private_key=private_key)
-        script_hash = to_script_hash(contracts.Contract.create_signature_redeemscript(key_pair.public_key))
-        address = Account.script_hash_to_address(script_hash)
+        script_hash = coreutils.to_script_hash(contractutils.create_signature_redeemscript(key_pair.public_key))
+        address = utils.script_hash_to_address(script_hash)
         # NEP2 checksum: hash the address twice and get the first 4 bytes
         first_hash = hashlib.sha256(address.encode("utf-8")).digest()
         second_hash = hashlib.sha256(first_hash).digest()
@@ -599,39 +598,6 @@ class Account:
         return private_key
 
     @staticmethod
-    def is_valid_address(address: str) -> bool:
-        """
-        Test if the provided address is a valid address.
-
-        Args:
-            address: an address.
-        """
-        try:
-            Account.validate_address(address)
-        except ValueError:
-            return False
-        return True
-
-    @staticmethod
-    def validate_address(address: str) -> None:
-        """
-        Validate a given address. If address is not valid an exception will be raised.
-
-        Args:
-            address: an address.
-
-        Raises:
-            ValueError: if the length of data(address value in bytes) is not valid.
-            ValueError: if the account version is not valid.
-        """
-        data: bytes = base58.b58decode_check(address)
-        if len(data) != len(types.UInt160.zero()) + 1:
-            raise ValueError(f"The address is wrong, because data (address value in bytes) length should be "
-                             f"{len(types.UInt160.zero()) + 1}")
-        elif data[0] != settings.network.account_version:
-            raise ValueError(f"The account version is not {settings.network.account_version}")
-
-    @staticmethod
     def _xor_bytes(a: bytes, b: bytes) -> bytes:
         """
         XOR on two bytes objects
@@ -647,7 +613,7 @@ class Account:
             res.append(a[i] ^ b[i])
         return bytes(res)
 
-    def _validate_tx(self, tx: payloads.Transaction) -> None:
+    def _validate_tx(self, tx: transaction.Transaction) -> None:
         """
         Helper to validate properties before signing
         """

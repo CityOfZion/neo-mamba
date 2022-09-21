@@ -2,15 +2,16 @@ from __future__ import annotations
 import aiohttp
 import base64
 import asyncio
-from dataclasses import dataclass
-from typing import Optional, TypedDict, Any, Protocol, Iterator, Union, cast
 import datetime
 import time
-from neo3 import contracts, wallet
-from neo3.contracts import vm
-from neo3.network import payloads
-from neo3.core import types, cryptography, IJson
 from contextlib import suppress
+from dataclasses import dataclass
+from typing import Optional, TypedDict, Any, Protocol, Iterator, Union, cast
+from neo3 import vm
+from neo3.core import types, cryptography, interfaces
+from neo3.contracts import manifest, nef, contract, abi
+from neo3.network.payloads import transaction, block, verification
+from neo3.wallet import utils as walletutils
 
 
 @dataclass
@@ -220,7 +221,7 @@ class StackItem:
         return types.UInt256(data)
 
     def as_address(self) -> str:
-        return wallet.Account.script_hash_to_address(self.as_uint160())
+        return walletutils.script_hash_to_address(self.as_uint160())
 
     def as_public_key(self) -> cryptography.ECPoint:
         if self.type not in ["ByteString", "Buffer"]:
@@ -416,35 +417,35 @@ class ContractParameterDict(Protocol):
     def __iter__(self) -> Iterator[ContractParameter]: ...
 
 
-class _ContractParameter(IJson):
+class _ContractParameter(interfaces.IJson):
     def __init__(self, obj: ContractParameter):
         self.value: ContractParameter = ''  # just to help mypy
         if isinstance(obj, bool):
-            self.type = contracts.ContractParameterType.BOOLEAN
+            self.type = abi.ContractParameterType.BOOLEAN
             self.value = obj
         elif isinstance(obj, int):
-            self.type = contracts.ContractParameterType.INTEGER
+            self.type = abi.ContractParameterType.INTEGER
             self.value = str(obj)
         elif isinstance(obj, str):
-            self.type = contracts.ContractParameterType.STRING
+            self.type = abi.ContractParameterType.STRING
             self.value = obj
         elif isinstance(obj, (bytes, bytearray)):
-            self.type = contracts.ContractParameterType.BYTEARRAY
+            self.type = abi.ContractParameterType.BYTEARRAY
             self.value = base64.b64encode(obj).decode()
         elif isinstance(obj, types.UInt160):
-            self.type = contracts.ContractParameterType.HASH160
+            self.type = abi.ContractParameterType.HASH160
             self.value = f"0x{obj}"
         elif isinstance(obj, types.UInt256):
-            self.type = contracts.ContractParameterType.HASH256
+            self.type = abi.ContractParameterType.HASH256
             self.value = f"0x{obj}"
         elif isinstance(obj, cryptography.ECPoint):
-            self.type = contracts.ContractParameterType.PUBLICKEY
+            self.type = abi.ContractParameterType.PUBLICKEY
             self.value = obj.to_array().hex()
         elif isinstance(obj, list):
-            self.type = contracts.ContractParameterType.ARRAY
+            self.type = abi.ContractParameterType.ARRAY
             self.value = list(map(lambda element: _ContractParameter(element), obj))
         elif isinstance(obj, dict):
-            self.type = contracts.ContractParameterType.MAP
+            self.type = abi.ContractParameterType.MAP
             pairs: list[dict] = []
             for k, v in obj.items():
                 pairs.append({"key": _ContractParameter(k), "value": _ContractParameter(v)})
@@ -531,13 +532,13 @@ class NeoRpcClient(RPCClient):
             raise JsonRpcError(**response['error'])
         return response['result']
 
-    async def calculate_network_fee(self, transaction: bytes | payloads.Transaction) -> int:
+    async def calculate_network_fee(self, tx: bytes | transaction.Transaction) -> int:
         """
         Obtain the cost of verifying the transaction and including it in a block (a.k.a network fee).
         """
-        if isinstance(transaction, payloads.Transaction):
-            transaction = transaction.to_array()
-        params = [base64.b64encode(transaction).decode()]
+        if isinstance(tx, transaction.Transaction):
+            tx = tx.to_array()
+        params = [base64.b64encode(tx).decode()]
         result = await self._do_post("calculatenetworkfee", params)
         return int(result['networkfee'])
 
@@ -574,7 +575,7 @@ class NeoRpcClient(RPCClient):
         response = await self._do_post("getbestblockhash")
         return types.UInt256.from_string(response[2:])
 
-    async def get_block(self, index_or_hash: int | types.UInt256) -> payloads.Block:
+    async def get_block(self, index_or_hash: int | types.UInt256) -> block.Block:
         """
         Fetch the block by its index or block hash.
         """
@@ -584,11 +585,11 @@ class NeoRpcClient(RPCClient):
         else:
             params.append(index_or_hash)
         response = await self._do_post("getblock", params)
-        return payloads.Block.deserialize_from_bytes(base64.b64decode(response))
+        return block.Block.deserialize_from_bytes(base64.b64decode(response))
 
     async def get_block_count(self) -> int:
         """
-        Fetch the current height of the block chain.
+        Fetch the current height of the blockchain.
         """
         return await self._do_post("getblockcount")
 
@@ -599,7 +600,7 @@ class NeoRpcClient(RPCClient):
         response = await self._do_post("getblockhash", [index])
         return types.UInt256.from_string(response[2:])
 
-    async def get_block_header(self, index_or_hash: int | types.UInt256) -> payloads.Header:
+    async def get_block_header(self, index_or_hash: int | types.UInt256) -> block.Header:
         """
         Fetch the block header by its index or block hash.
         """
@@ -608,7 +609,7 @@ class NeoRpcClient(RPCClient):
         else:
             params = [str(index_or_hash)]
         response = await self._do_post("getblockheader", params)
-        return payloads.Header.deserialize_from_bytes(base64.b64decode(response))
+        return block.Header.deserialize_from_bytes(base64.b64decode(response))
 
     async def get_committee(self) -> list[cryptography.ECPoint]:
         """
@@ -626,7 +627,7 @@ class NeoRpcClient(RPCClient):
         """
         return await self._do_post("getconnectioncount")
 
-    async def get_contract_state(self, contract_hash_or_name: types.UInt160 | str) -> contracts.ContractState:
+    async def get_contract_state(self, contract_hash_or_name: types.UInt160 | str) -> contract.ContractState:
         """
         Fetch smart contract state information.
 
@@ -640,9 +641,9 @@ class NeoRpcClient(RPCClient):
         result = await self._do_post("getcontractstate", params)
 
         h = types.UInt160.from_string(result['hash'][2:])
-        nef = contracts.NEF.from_json(result['nef'])
-        manifest = contracts.ContractManifest.from_json(result['manifest'])
-        return contracts.ContractState(result['id'], nef, manifest, result['updatecounter'], h)
+        nef_ = nef.NEF.from_json(result['nef'])
+        manifest_ = manifest.ContractManifest.from_json(result['manifest'])
+        return contract.ContractState(result['id'], nef_, manifest_, result['updatecounter'], h)
 
     async def get_nep17_balances(self, address: str) -> Nep17BalancesResponse:
         """
@@ -729,7 +730,7 @@ class NeoRpcClient(RPCClient):
         result = await self._do_post("getstorage", params=[hash_, key_encoded])
         return base64.b64decode(result)
 
-    async def get_transaction(self, tx_hash: types.UInt256 | str) -> payloads.Transaction:
+    async def get_transaction(self, tx_hash: types.UInt256 | str) -> transaction.Transaction:
         """
         Fetch a transaction by its hash.
 
@@ -739,7 +740,7 @@ class NeoRpcClient(RPCClient):
         if isinstance(tx_hash, str):
             tx_hash = types.UInt256.from_string(tx_hash)
         result = await self._do_post("getrawtransaction", [f"0x{tx_hash}"])
-        return payloads.Transaction.deserialize_from_bytes(base64.b64decode(result))
+        return transaction.Transaction.deserialize_from_bytes(base64.b64decode(result))
 
     async def get_transaction_height(self, tx_hash: types.UInt256 | str) -> int:
         """
@@ -771,7 +772,7 @@ class NeoRpcClient(RPCClient):
     async def invoke_contract_verify(self,
                                      contract_hash: types.UInt160 | str,
                                      function_params: Optional[list[ContractParameter]] = None,
-                                     signers: Optional[list[payloads.Signer]] = None
+                                     signers: Optional[list[verification.Signer]] = None
                                      ) -> ExecutionResultResponse:
         """
         Invoke the `verify` method on the contract.
@@ -804,7 +805,7 @@ class NeoRpcClient(RPCClient):
                               contract_hash: types.UInt160 | str,
                               name: str,
                               function_params: Optional[list[ContractParameter]] = None,
-                              signers: Optional[list[payloads.Signer]] = None
+                              signers: Optional[list[verification.Signer]] = None
                               ) -> ExecutionResultResponse:
         """
         Invoke a smart contract function.
@@ -824,7 +825,7 @@ class NeoRpcClient(RPCClient):
             policy_contract = "cc5e4edd9f5f8dba8bb65734541df7a1c081c67b"
             account_to_check = types.UInt160.from_string("86df72a6b4ab5335d506294f9ce993722253b6e2")
             signer_account = types.UInt160.from_string("f621168b1fce3a89c33a5f6bcf7e774b4657031c")
-            signer = payloads.Signer(signer_account, payloads.WitnessScope.CALLED_BY_ENTRY)
+            signer = verification.Signer(signer_account, payloads.WitnessScope.CALLED_BY_ENTRY)
             await client.invoke_function(contract_hash=policy_contract, name="isBlocked",
                                          function_params=[account_to_check], signers=[signer])
         """
@@ -844,7 +845,7 @@ class NeoRpcClient(RPCClient):
 
     async def invoke_script(self,
                             script: bytes,
-                            signers: Optional[list[payloads.Signer]] = None
+                            signers: Optional[list[verification.Signer]] = None
                             ) -> ExecutionResultResponse:
         """
         Executes a script in the virtual machine.
@@ -866,7 +867,7 @@ class NeoRpcClient(RPCClient):
         result = await self._do_post("invokescript", params)
         return ExecutionResultResponse.from_json(result)
 
-    async def send_transaction(self, tx: payloads.Transaction | bytes) -> types.UInt256:
+    async def send_transaction(self, tx: transaction.Transaction | bytes) -> types.UInt256:
         """
         Broadcast a transaction to the network.
 
@@ -879,24 +880,24 @@ class NeoRpcClient(RPCClient):
         Returns:
             a transaction hash if successful.
         """
-        if isinstance(tx, payloads.Transaction):
+        if isinstance(tx, transaction.Transaction):
             tx = tx.to_array()
         result = await self._do_post("sendrawtransaction", [base64.b64encode(tx).decode()])
         return types.UInt256.from_string(result['hash'][2:])
 
-    async def send_block(self, block: payloads.Block | bytes) -> types.UInt256:
+    async def send_block(self, block_: block.Block | bytes) -> types.UInt256:
         """
         Broadcast a transaction to the network.
 
         Args:
-            block: either a Block object or a serialized Block
+            block_: either a Block object or a serialized Block
 
         Returns:
             a block hash if successful.
         """
-        if isinstance(block, payloads.Block):
-            block = block.to_array()
-        result = await self._do_post("submitblock", [base64.b64encode(block).decode()])
+        if isinstance(block_, block.Block):
+            block_ = block_.to_array()
+        result = await self._do_post("submitblock", [base64.b64encode(block_).decode()])
         return types.UInt256.from_string(result['hash'][2:])
 
     async def validate_address(self, address: str) -> bool:
@@ -934,28 +935,29 @@ class NeoRpcClient(RPCClient):
         print("ContractParam = Union[bool, int, str, bytes, UInt160, UInt256, ECPoint, list[ContractParam], "
               "dict[ContractParam, ContractParam]")
 
-    def _contract_param_to_native(self, p: contracts.ContractParameterType) -> str:
-        if p == contracts.ContractParameterType.BOOLEAN:
+    @staticmethod
+    def _contract_param_to_native(p: abi.ContractParameterType) -> str:
+        if p == abi.ContractParameterType.BOOLEAN:
             return "bool"
-        elif p == contracts.ContractParameterType.INTEGER:
+        elif p == abi.ContractParameterType.INTEGER:
             return "int"
-        elif p == contracts.ContractParameterType.STRING:
+        elif p == abi.ContractParameterType.STRING:
             return "str"
-        elif p == contracts.ContractParameterType.BYTEARRAY:
+        elif p == abi.ContractParameterType.BYTEARRAY:
             return "bytes"
-        elif p == contracts.ContractParameterType.HASH160:
+        elif p == abi.ContractParameterType.HASH160:
             return "UInt160"
-        elif p == contracts.ContractParameterType.HASH256:
+        elif p == abi.ContractParameterType.HASH256:
             return "UInt256"
-        elif p == contracts.ContractParameterType.PUBLICKEY:
+        elif p == abi.ContractParameterType.PUBLICKEY:
             return "ECPoint"
-        elif p == contracts.ContractParameterType.ARRAY:
+        elif p == abi.ContractParameterType.ARRAY:
             return "list"
-        elif p == contracts.ContractParameterType.MAP:
+        elif p == abi.ContractParameterType.MAP:
             return "dict"
-        elif p == contracts.ContractParameterType.VOID:
+        elif p == abi.ContractParameterType.VOID:
             return "None"
-        elif p == contracts.ContractParameterType.ANY:
+        elif p == abi.ContractParameterType.ANY:
             return "ContractParam"
         else:
             return f"Unknown({str(p)}"

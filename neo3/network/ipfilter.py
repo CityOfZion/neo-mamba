@@ -58,7 +58,7 @@ from contextlib import suppress
 from copy import deepcopy
 
 
-class IPFilter():
+class IPFilter:
 
     default_config: dict = {'blacklist': [], 'whitelist': []}
 

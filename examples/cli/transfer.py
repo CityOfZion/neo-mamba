@@ -11,10 +11,10 @@ import asyncio
 import json
 import argparse
 from typing import Optional
-from neo3 import api, wallet
-from neo3.contracts import vm
-from neo3.network import payloads
+from neo3 import api, vm
+from neo3.network.payloads import transaction, verification
 from neo3.core import types
+from neo3.wallet import utils, wallet
 
 
 def create_transfer_script(contract_hash: types.UInt160,
@@ -23,16 +23,16 @@ def create_transfer_script(contract_hash: types.UInt160,
                            amount: float,
                            contract_decimals: int) -> bytes:
     # Source account
-    from_account = wallet.Account.address_to_script_hash(from_addr)
+    from_account = utils.address_to_script_hash(from_addr)
     # Destination account
-    to_account = wallet.Account.address_to_script_hash(to_addr)
+    to_account = utils.address_to_script_hash(to_addr)
     # We multiply the amount with the contract decimals because the NEO internals only support integers
-    amount = types.BigInteger(int(amount * pow(10, contract_decimals)))
+    amount_ = types.BigInteger(int(amount * pow(10, contract_decimals)))
     # Arbitrary additional data to supply that will be printed in the "transfer" notify event.
     data = None
 
     sb = vm.ScriptBuilder()
-    sb.emit_contract_call_with_args(contract_hash, "transfer", [from_account, to_account, amount, data])
+    sb.emit_contract_call_with_args(contract_hash, "transfer", [from_account, to_account, amount_, data])
     return sb.to_array()
 
 
@@ -45,8 +45,8 @@ async def main(wallet_path,
                rpc_host,
                poll_timeout: Optional[str] = None):
     # some basic input validation
-    wallet.Account.validate_address(from_addr)
-    wallet.Account.validate_address(to_addr)
+    utils.validate_address(from_addr)
+    utils.validate_address(to_addr)
     contract_hash = types.UInt160.from_string(contract_hash)
 
     with open(wallet_path) as f:
@@ -54,14 +54,14 @@ async def main(wallet_path,
         w = wallet.Wallet.from_json(data, password=wallet_pw)
         account = w.account_default
 
-    tx = payloads.Transaction(version=0,
-                              nonce=123,
-                              system_fee=0,
-                              network_fee=0,
-                              valid_until_block=0,
-                              attributes=[],
-                              signers=[],
-                              script=b'')
+    tx = transaction.Transaction(version=0,
+                                 nonce=123,
+                                 system_fee=0,
+                                 network_fee=0,
+                                 valid_until_block=0,
+                                 attributes=[],
+                                 signers=[],
+                                 script=b'')
 
     account.add_as_sender(tx)
 
@@ -72,7 +72,7 @@ async def main(wallet_path,
                 raise ValueError("Contract does not support the NEP-17 standard")
 
             # request the contract decimal count so we can adjust the amount we're sending to the internal format
-            # the chain it self only supports integers so we have to convert
+            # the chain itself only supports integers so we have to convert
             res = await client.invoke_function(contract_hash, "decimals")
             if res.state != "HALT":
                 print(f"Failed to get contract decimals: {res.exception}")
@@ -88,7 +88,8 @@ async def main(wallet_path,
             tx.system_fee = res.gas_consumed
 
             # adding a witness so we can calculate the network fee
-            tx.witnesses.append(payloads.Witness(invocation_script=b'', verification_script=account.contract.script))
+            tx.witnesses.append(
+                verification.Witness(invocation_script=b'', verification_script=account.contract.script))
             tx.network_fee = await client.calculate_network_fee(tx)
             # removing it here as it will be replaced by a proper one once we're signing
             tx.witnesses = []

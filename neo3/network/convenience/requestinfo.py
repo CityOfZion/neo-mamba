@@ -1,4 +1,4 @@
-from .flightinfo import FlightInfo
+from neo3.network.convenience import flightinfo
 from typing import Optional
 
 
@@ -25,12 +25,12 @@ class RequestInfo:
 
         #: A _dictionary holding node_id keys with :class:`FlightInfo <neo3.network.convenience.flightinfo.FlightInfo>`
         # object values.
-        self.flights: dict[int, FlightInfo] = dict()
+        self.flights: dict[int, flightinfo.FlightInfo] = dict()
 
         #: The :attr:`~neo3.network.node.NeoNode.id` of the node last used for a flight.
         self.last_used_node: int = -1
 
-    def add_new_flight(self, flight_info: FlightInfo) -> None:
+    def add_new_flight(self, flight_info: flightinfo.FlightInfo) -> None:
         """
         Store a new flight to the tracking list.
 
@@ -40,7 +40,7 @@ class RequestInfo:
         self.flights[flight_info.node_id] = flight_info
         self.last_used_node = flight_info.node_id
 
-    def most_recent_flight(self) -> Optional[FlightInfo]:
+    def most_recent_flight(self) -> Optional[flightinfo.FlightInfo]:
         """
         Get the last :class:`FlightInfo <neo3.network.convenience.flightinfo.FlightInfo>` object created for this
         request.
