@@ -76,6 +76,7 @@ class AccountCreationTestCase(unittest.TestCase):
             self.assertIsNone(acc.encrypted_key)
             self.assertEqual(testcase['script_hash'], str(acc.script_hash))
             self.assertIsNone(acc.public_key)
+            self.assertTrue(acc.is_watchonly)
 
     def test_new_watch_only_account_from_address(self):
         for testcase in account_list[1:]:
