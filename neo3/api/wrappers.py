@@ -48,8 +48,8 @@ _DEFAULT_RPC = "http://seed1.neo.org:10332"
 class Config:
     # TODO: describe, organise
     def __init__(self,
-                 sender: verification.Signer = None,
-                 rpc_host: str = None,
+                 sender: verification.Signer,
+                 rpc_host: str,
                  acc: account.Account = None
                  ):
         self.sender = sender
@@ -66,6 +66,7 @@ class Config:
 
 
 async def test_invoke(f: ContractMethodFuture[ReturnType],
+                      config: Config,
                       signers: Optional[list[verification.Signer]] = None) -> ReturnType:
     """
     Call the contract method in read-only mode
@@ -77,7 +78,7 @@ async def test_invoke(f: ContractMethodFuture[ReturnType],
     # just grabbing the exception to avoid runtime warnings. We're not supposed to call this future
     f.exception()
 
-    async with noderpc.NeoRpcClient(Config.dummy_config().rpc_host) as client:
+    async with noderpc.NeoRpcClient(config.rpc_host) as client:
         script = getattr(f, "script", None)
         if script is None or not isinstance(script, bytes):
             raise ValueError(f"invalid script: {script}")
@@ -89,6 +90,7 @@ async def test_invoke(f: ContractMethodFuture[ReturnType],
 
 
 async def invoke(f: ContractMethodFuture[ReturnType],
+                 config: Config,
                  signers: Optional[list[verification.Signer]] = None) -> types.UInt256:
     """
     Call the contract method in write-only mode
@@ -97,6 +99,7 @@ async def invoke(f: ContractMethodFuture[ReturnType],
 
     Args:
         f:
+        config:
         signers: override the list of signers
 
     Returns: transaction id if successful.
@@ -105,6 +108,7 @@ async def invoke(f: ContractMethodFuture[ReturnType],
 
 
 async def estimate_gas(f: ContractMethodFuture,
+                       config: Config,
                        signers: Optional[list[verification.Signer]] = None) -> int:
     """
     Estimates the gas price for calling the contract method
@@ -112,7 +116,7 @@ async def estimate_gas(f: ContractMethodFuture,
     # just grabbing the exception to avoid runtime warnings as we're not supposed to use the actual future
     f.exception()
 
-    async with noderpc.NeoRpcClient(Config.dummy_config().rpc_host) as client:
+    async with noderpc.NeoRpcClient(config.rpc_host) as client:
         script = getattr(f, "script", None)
         if script is None or not isinstance(script, bytes):
             raise ValueError(f"invalid script: {script}")
@@ -142,9 +146,8 @@ class GenericContract:
     """
     Generic class to call arbitrary methods on a smart contract
     """
-    def __init__(self, contract_hash, config: Config):
+    def __init__(self, contract_hash):
         self.hash = contract_hash
-        self.config = config
 
     def call_function(self, name, args=None) -> ContractMethodFuture[noderpc.ExecutionResult]:
         if args is None:
@@ -158,9 +161,8 @@ class NEP17Contract:
     """
     Base class for calling NEP-17 compliant smart contracts
     """
-    def __init__(self, contract_hash: types.UInt160, config: Config):
+    def __init__(self, contract_hash: types.UInt160):
         self.hash = contract_hash
-        self.config = config
 
     def symbol(self) -> ContractMethodFuture[str]:
         """
@@ -205,7 +207,7 @@ class NEP17Contract:
         sb.emit_contract_call_with_args(self.hash, "balanceOf", [account])
         sb.emit_contract_call(self.hash, "decimals")
 
-        def process(res: noderpc.ExecutionResult, _: int) -> float:
+        def process(res: noderpc.ExecutionResult, _: int = 0) -> float:
             unwrap.check_state_ok(res)
             balance = unwrap.as_int(res, 0)
             decimals = unwrap.as_int(res, 1)
@@ -258,12 +260,12 @@ class NEP17Contract:
 
         # when abort_on_failure is used the result of the `transfer()` call is consumed by the ASSERT opcode
         # and the `stack` will be empty. Therefore, we only check for the VM state
-        def process_with_assert(res: noderpc.ExecutionResult, _: int) -> bool:
+        def process_with_assert(res: noderpc.ExecutionResult, _: int = 0) -> bool:
             unwrap.check_state_ok(res)
             return True
 
         # when abort_on_failure is not used we iterate over all transfer() results
-        def process(res: noderpc.ExecutionResult, _: int) -> bool:
+        def process(res: noderpc.ExecutionResult, _: int = 0) -> bool:
             unwrap.check_state_ok(res)
             for si in res.stack:
                 if si.as_bool() is False:
@@ -277,8 +279,8 @@ class NEP17Contract:
 
 
 class GasToken(NEP17Contract):
-    def __init__(self, config: Config):
-        super(GasToken, self).__init__(contract.CONTRACT_HASHES.GAS_TOKEN, config)
+    def __init__(self):
+        super(GasToken, self).__init__(contract.CONTRACT_HASHES.GAS_TOKEN)
 
 
 class Candidate:
@@ -293,8 +295,8 @@ class Candidate:
 
 
 class NeoToken(NEP17Contract):
-    def __init__(self, config: Config):
-        super(NeoToken, self).__init__(contract.CONTRACT_HASHES.NEO_TOKEN, config)
+    def __init__(self):
+        super(NeoToken, self).__init__(contract.CONTRACT_HASHES.NEO_TOKEN)
 
     def get_gas_per_block(self) -> ContractMethodFuture[int]:
         """
@@ -386,7 +388,7 @@ class NeoToken(NEP17Contract):
         """
         script = vm.ScriptBuilder().emit_contract_call(self.hash, "getCandidates").to_array()
 
-        def process(res: noderpc.ExecutionResult, _: int) -> list[Candidate]:
+        def process(res: noderpc.ExecutionResult, _: int = 1) -> list[Candidate]:
             raw_results: list[noderpc.StackItem] = unwrap.as_list(res)
             result = []
 
@@ -398,4 +400,3 @@ class NeoToken(NEP17Contract):
             return result
 
         return future_contract_method_result(script, process)
-
