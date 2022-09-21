@@ -232,6 +232,11 @@ class StackItem:
             data = bytes.fromhex(data.decode())
         return cryptography.ECPoint.deserialize_from_bytes(data, validate=True)
 
+    def as_list(self) -> list:
+        if self.type != "Array":
+            raise ValueError(f"item is not of type 'Array' but of type '{self.type}'")
+        return cast(list, self.value)
+
 
 class MapStackItem(StackItem):
     def items(self) -> Iterator:
