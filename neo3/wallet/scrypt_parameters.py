@@ -1,9 +1,9 @@
 from __future__ import annotations
 from jsonschema import validate  # type: ignore
-from neo3.core import IJson
+from neo3.core import interfaces
 
 
-class ScryptParameters(IJson):
+class ScryptParameters(interfaces.IJson):
 
     json_schema = {
         "type": "object",

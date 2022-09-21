@@ -1,16 +1,20 @@
 import asynctest
 import asyncio
 import logging
-from neo3.network import node, message, payloads, capabilities
+from neo3.network import node, message, capabilities
+from neo3.network.payloads import address, block
+
 
 class NetworkTestCase(asynctest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         loop = asyncio.get_event_loop()
         loop.set_debug(True)
+
         def my_exc_handler(loop, context):
             print(f"woahhh error! {context}")
             loop.default_exception_handler(context)
+
         loop.set_exception_handler(my_exc_handler)
 
         stdio_handler = logging.StreamHandler()
@@ -27,17 +31,17 @@ class NetworkTestCase(asynctest.TestCase):
     @asynctest.SkipTest
     async def test_sending_addresses(self):
         n = await node.NeoNode.connect_to('127.0.0.1', 40333)
-        await n.send_address_list([payloads.NetworkAddress(host='127.0.0.1', timestamp=0,
-                                capabilities=[capabilities.FullNodeCapability(start_height=123)])])
+        await n.send_address_list([address.NetworkAddress(host='127.0.0.1', timestamp=0,
+                                                          capabilities=[
+                                                              capabilities.FullNodeCapability(start_height=123)])])
         await asyncio.sleep(100)
 
     @asynctest.SkipTest
     async def test_basic_setup(self):
         n = await node.NeoNode.connect_to('127.0.0.1', 40333)
-        m = message.Message(message.MessageType.GETFULLBLOCKS, payloads.GetFullBlocksPayload(index_start=1, count=10))
+        m = message.Message(message.MessageType.GETFULLBLOCKS, block.GetFullBlocksPayload(index_start=1, count=10))
         if n:
             await n.send_message(m)
-
 
             # await n.request_address_list()
             await asyncio.sleep(500)
@@ -48,4 +52,3 @@ class NetworkTestCase(asynctest.TestCase):
             # - quality_check_result
             # - relay_cache.try_get(header)  (can we create relay cache somewhere else?)
             # - sending address list (requires accessing known nodes)
-

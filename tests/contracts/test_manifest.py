@@ -1,7 +1,7 @@
 import unittest
 import json
 from copy import deepcopy
-from neo3 import contracts
+from neo3.contracts import abi, manifest, nef, contract, descriptor
 from neo3.core import cryptography, types, serialization
 
 
@@ -12,7 +12,8 @@ class ContractGroupTestCase(unittest.TestCase):
         cls.keypair = cryptography.KeyPair(private_key)
 
         # capture from C#
-        cls.expected_json = {"pubkey":"033d523f36a732974c0f7dbdfafb5206ecd087211366a274190f05b86d357f4bad","signature":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="}
+        cls.expected_json = {"pubkey": "033d523f36a732974c0f7dbdfafb5206ecd087211366a274190f05b86d357f4bad",
+                             "signature": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="}
 
     def test_is_valid(self):
         """
@@ -33,37 +34,37 @@ class ContractGroupTestCase(unittest.TestCase):
         Console.Write(cg.ToJson());
         """
         bad_signature = b'\x00' * 64
-        cg = contracts.ContractGroup(self.keypair.public_key, bad_signature)
+        cg = manifest.ContractGroup(self.keypair.public_key, bad_signature)
         self.assertFalse(cg.is_valid(types.UInt160.zero()))
 
         # finally test is_valid() with a keypair we know the private key off
         contract_hash = b'\x01' * 20
         signature = cryptography.sign(contract_hash, self.keypair.private_key)
 
-        cg2 = contracts.ContractGroup(self.keypair.public_key, signature)
+        cg2 = manifest.ContractGroup(self.keypair.public_key, signature)
         self.assertTrue(cg2.is_valid(types.UInt160(contract_hash)))
 
     def test_json(self):
         bad_signature = b'\x00' * 64
-        cg = contracts.ContractGroup(self.keypair.public_key, bad_signature)
+        cg = manifest.ContractGroup(self.keypair.public_key, bad_signature)
         self.assertEqual(self.expected_json, cg.to_json())
 
         # if the test_to_json() passes then we know our manually created ControlGroup (cg) is valid,
         # we can now use that to validate our `from_json` object
-        cg2 = contracts.ContractGroup.from_json(self.expected_json)
+        cg2 = manifest.ContractGroup.from_json(self.expected_json)
         self.assertEqual(cg.public_key, cg2.public_key)
         self.assertEqual(cg.signature, cg2.signature)
 
     def test_eq(self):
-        cg = contracts.ContractGroup.from_json(self.expected_json)
-        cg2 = contracts.ContractGroup.from_json(self.expected_json)
+        cg = manifest.ContractGroup.from_json(self.expected_json)
+        cg2 = manifest.ContractGroup.from_json(self.expected_json)
         self.assertFalse(cg == object())
         self.assertTrue(cg == cg2)
 
 
 class ContractPermissionTestCase(unittest.TestCase):
     def test_default(self):
-        cp = contracts.ContractPermission.default_permissions()
+        cp = manifest.ContractPermission.default_permissions()
         self.assertTrue(cp.contract.is_wildcard)
         self.assertTrue(cp.methods.is_wildcard)
 
@@ -71,20 +72,20 @@ class ContractPermissionTestCase(unittest.TestCase):
         # We test the group permissions where all methods are allowed to be called
         # if contract_hash is valid.
         dummy_contract_hash = types.UInt160.zero()
-        contract_state = contracts.ContractState(1,
-                                               contracts.NEF(),
-                                               contracts.ContractManifest(),
-                                               0,
-                                               dummy_contract_hash)
+        contract_state = contract.ContractState(1,
+                                                nef.NEF(),
+                                                manifest.ContractManifest(),
+                                                0,
+                                                dummy_contract_hash)
 
         # setup an allowed permission for a contract with UInt160.zero hash for all methods
-        cpd = contracts.ContractPermissionDescriptor(contract_hash=dummy_contract_hash)
-        cp = contracts.ContractPermission(contract=cpd, methods=contracts.WildcardContainer.create_wildcard())
-        self.assertTrue(cp.is_allowed(contract_state, "dummy_method"))
+        cpd = descriptor.ContractPermissionDescriptor(contract_hash=dummy_contract_hash)
+        cp = manifest.ContractPermission(contract=cpd, methods=manifest.WildcardContainer.create_wildcard())
+        self.assertTrue(cp.is_allowed(contract_state.hash, contract_state.manifest, "dummy_method"))
 
         # now create a different contract hash and verify it does not give permission
         contract_state.hash = types.UInt160(b'\x01' * 20)
-        self.assertFalse(cp.is_allowed(contract_state, "dummy_method"))
+        self.assertFalse(cp.is_allowed(contract_state.hash, contract_state.manifest, "dummy_method"))
 
     def test_is_allowed_based_on_group(self):
         # We test the group permissions where all methods are allowed to be called
@@ -94,45 +95,45 @@ class ContractPermissionTestCase(unittest.TestCase):
         keypair = cryptography.KeyPair(private_key)
 
         dummy_contract_hash = types.UInt160.from_string("01" * 20)
-        contract_state = contracts.ContractState(1,
-                                               contracts.NEF(),
-                                               contracts.ContractManifest(),
-                                               0,
-                                               dummy_contract_hash)
+        contract_state = contract.ContractState(1,
+                                                nef.NEF(),
+                                                manifest.ContractManifest(),
+                                                0,
+                                                dummy_contract_hash)
 
         signature = cryptography.sign(contract_state.hash.to_array(), keypair.private_key)
-        contract_state.manifest.groups = [contracts.ContractGroup(keypair.public_key, signature)]
+        contract_state.manifest.groups = [manifest.ContractGroup(keypair.public_key, signature)]
 
-        cpd = contracts.ContractPermissionDescriptor(group=keypair.public_key)
-        cp = contracts.ContractPermission(contract=cpd, methods=contracts.WildcardContainer.create_wildcard())
-        self.assertTrue(cp.is_allowed(contract_state, "dummy_method"))
+        cpd = descriptor.ContractPermissionDescriptor(group=keypair.public_key)
+        cp = manifest.ContractPermission(contract=cpd, methods=manifest.WildcardContainer.create_wildcard())
+        self.assertTrue(cp.is_allowed(contract_state.hash, contract_state.manifest, "dummy_method"))
 
         # now modify the manifest to have a different `groups` attribute such that validation fails
         public_key = cryptography.ECPoint.deserialize_from_bytes(b'\x00')  # ECPoint.Infinity
-        contract_state.manifest.groups = [contracts.ContractGroup(public_key, signature)]
-        self.assertFalse(cp.is_allowed(contract_state, "dummy_method"))
+        contract_state.manifest.groups = [manifest.ContractGroup(public_key, signature)]
+        self.assertFalse(cp.is_allowed(contract_state.hash, contract_state.manifest, "dummy_method"))
 
     def test_is_allowed_invalid_method(self):
         # in the above tests we validated the 'group' and 'contract_hash' matching logic
         # now we validate 'method' matching
         dummy_contract_hash = types.UInt160.from_string("01" * 20)
-        contract_state = contracts.ContractState(1,
-                                               contracts.NEF(),
-                                               contracts.ContractManifest(),
-                                               0,
-                                               dummy_contract_hash)
+        contract_state = contract.ContractState(1,
+                                                nef.NEF(),
+                                                manifest.ContractManifest(),
+                                                0,
+                                                dummy_contract_hash)
 
         # setup an allowed permission for a contract with UInt160.zero hash for 2 methods
-        cpd = contracts.ContractPermissionDescriptor(contract_hash=dummy_contract_hash)
-        cp = contracts.ContractPermission(contract=cpd, methods=contracts.WildcardContainer(data=['method1', 'method2']))
-        self.assertTrue(cp.is_allowed(contract_state, "method1"))
-        self.assertTrue(cp.is_allowed(contract_state, "method2"))
-        self.assertFalse(cp.is_allowed(contract_state, "method3"))
+        cpd = descriptor.ContractPermissionDescriptor(contract_hash=dummy_contract_hash)
+        cp = manifest.ContractPermission(contract=cpd, methods=manifest.WildcardContainer(data=['method1', 'method2']))
+        self.assertTrue(cp.is_allowed(contract_state.hash, contract_state.manifest, "method1"))
+        self.assertTrue(cp.is_allowed(contract_state.hash, contract_state.manifest, "method2"))
+        self.assertFalse(cp.is_allowed(contract_state.hash, contract_state.manifest, "method3"))
 
     def test_to_json(self):
         # var cg = ContractPermission.DefaultPermission;
         # Console.WriteLine(cg.ToJson());
-        cp = contracts.ContractPermission.default_permissions()
+        cp = manifest.ContractPermission.default_permissions()
         expected = {"contract": "*", "methods": "*"}
         self.assertDictEqual(expected, cp.to_json())
 
@@ -141,22 +142,22 @@ class ContractPermissionTestCase(unittest.TestCase):
         # we only test parsing basic data, as the detailed parsing is covered
         # by the tests for specific object classes
         json = {"contract": "*", "methods": "*"}
-        from_json = contracts.ContractPermission.from_json(json)
+        from_json = manifest.ContractPermission.from_json(json)
         self.assertTrue(from_json.methods.is_wildcard)
         self.assertTrue(from_json.contract.is_wildcard)
 
     def test_eq(self):
         json = {"contract": "*", "methods": "*"}
-        from_json = contracts.ContractPermission.from_json(json)
-        from_json2 = contracts.ContractPermission.from_json(json)
+        from_json = manifest.ContractPermission.from_json(json)
+        from_json2 = manifest.ContractPermission.from_json(json)
         self.assertFalse(from_json == object())
         self.assertTrue(from_json == from_json2)
 
 
 class WildcardContainerTestCase(unittest.TestCase):
     def test_dunders(self):
-        wc = contracts.WildcardContainer(data=['method1', 'method2'])
-        wc2 = contracts.WildcardContainer(data=['method1', 'method2'])
+        wc = manifest.WildcardContainer(data=['method1', 'method2'])
+        wc2 = manifest.WildcardContainer(data=['method1', 'method2'])
         self.assertIn('method1', wc)
         self.assertIn('method2', wc)
         self.assertNotIn('method3', wc)
@@ -166,56 +167,56 @@ class WildcardContainerTestCase(unittest.TestCase):
         self.assertEqual(wc, wc2)
 
     def test_wildcard(self):
-        wc = contracts.WildcardContainer.create_wildcard()
+        wc = manifest.WildcardContainer.create_wildcard()
         self.assertTrue(wc.is_wildcard)
 
-        wc = contracts.WildcardContainer(['method1'])
+        wc = manifest.WildcardContainer(['method1'])
         self.assertFalse(wc.is_wildcard)
 
     def test_to_json(self):
-        wc = contracts.WildcardContainer.create_wildcard()
+        wc = manifest.WildcardContainer.create_wildcard()
         self.assertDictEqual({'wildcard': '*'}, wc.to_json())
 
-        wc = contracts.WildcardContainer(data=['method1', 'method2'])
+        wc = manifest.WildcardContainer(data=['method1', 'method2'])
         self.assertDictEqual({'wildcard': ['method1', 'method2']}, wc.to_json())
 
     def test_from_json_default(self):
-        wc = contracts.WildcardContainer.from_json({'wildcard': '*'})
+        wc = manifest.WildcardContainer.from_json({'wildcard': '*'})
         self.assertTrue(wc.is_wildcard)
 
-        wc = contracts.WildcardContainer.from_json({'wildcard': ['method1', 'method2']})
+        wc = manifest.WildcardContainer.from_json({'wildcard': ['method1', 'method2']})
         self.assertFalse(wc.is_wildcard)
         self.assertIn('method1', wc)
         self.assertIn('method2', wc)
 
         with self.assertRaises(ValueError) as context:
-            contracts.WildcardContainer.from_json({})
+            manifest.WildcardContainer.from_json({})
         self.assertEqual("Invalid JSON - Cannot recreate wildcard from None", str(context.exception))
 
         with self.assertRaises(ValueError) as context:
-            contracts.WildcardContainer.from_json({'wildcard': 'abc'})
+            manifest.WildcardContainer.from_json({'wildcard': 'abc'})
         self.assertEqual("Invalid JSON - Cannot deduce WildcardContainer type from: abc", str(context.exception))
 
     def test_from_json_as_type(self):
-        wc = contracts.WildcardContainer.from_json_as_type({'wildcard': '*'}, lambda: None)
+        wc = manifest.WildcardContainer.from_json_as_type({'wildcard': '*'}, lambda: None)
         self.assertTrue(wc.is_wildcard)
 
         t1 = types.UInt160.zero()
         t2 = types.UInt160.from_string("11" * 20)
         t3 = types.UInt160.from_string("22" * 20)
-        wc = contracts.WildcardContainer.from_json_as_type({'wildcard': [str(t1), str(t2)]},
-                                                           lambda t: types.UInt160.from_string(t))
+        wc = manifest.WildcardContainer.from_json_as_type({'wildcard': [str(t1), str(t2)]},
+                                                          lambda t: types.UInt160.from_string(t))
         self.assertFalse(wc.is_wildcard)
         self.assertIn(t1, wc)
         self.assertIn(t2, wc)
         self.assertNotIn(t3, wc)
 
         with self.assertRaises(ValueError) as context:
-            contracts.WildcardContainer.from_json_as_type({}, lambda: None)
+            manifest.WildcardContainer.from_json_as_type({}, lambda: None)
         self.assertEqual("Invalid JSON - Cannot recreate wildcard from None", str(context.exception))
 
         with self.assertRaises(ValueError) as context:
-            contracts.WildcardContainer.from_json_as_type({'wildcard': 'abc'}, lambda: None)
+            manifest.WildcardContainer.from_json_as_type({'wildcard': 'abc'}, lambda: None)
         self.assertEqual("Invalid JSON - Cannot deduce WildcardContainer type from: abc", str(context.exception))
 
 
@@ -248,15 +249,17 @@ class ManifestTestCase(unittest.TestCase):
         };
         Console.WriteLine($"{manifest.ToJson()}");
         """
-        cls.expected_json = {"name":"test_contract","groups":[],"features":{},"supportedstandards":[],"abi":{"methods":[{"name":"main_entry","parameters":[],"returntype":"Integer","offset":0,"safe":True}],"events":[]},"permissions":[{"contract":"*","methods":"*"}],"trusts":[],"extra":None}
+        cls.expected_json = {"name": "test_contract", "groups": [], "features": {}, "supportedstandards": [], "abi": {
+            "methods": [{"name": "main_entry", "parameters": [], "returntype": "Integer", "offset": 0, "safe": True}],
+            "events": []}, "permissions": [{"contract": "*", "methods": "*"}], "trusts": [], "extra": None}
 
     def test_create(self):
-        cm = contracts.ContractManifest("test_contract")
-        method1 = contracts.ContractMethodDescriptor(
+        cm = manifest.ContractManifest("test_contract")
+        method1 = abi.ContractMethodDescriptor(
             name="main_entry",
             offset=0,
             parameters=[],
-            return_type=contracts.ContractParameterType.INTEGER,
+            return_type=abi.ContractParameterType.INTEGER,
             safe=True
         )
         cm.abi.methods = [method1]
@@ -264,12 +267,12 @@ class ManifestTestCase(unittest.TestCase):
 
     def test_serialize(self):
         # if test_create() passes, then we know `to_json()` is ok, which serialize internally uses
-        cm = contracts.ContractManifest("test_contract")
-        method1 = contracts.ContractMethodDescriptor(
+        cm = manifest.ContractManifest("test_contract")
+        method1 = abi.ContractMethodDescriptor(
             name="main_entry",
             offset=0,
             parameters=[],
-            return_type=contracts.ContractParameterType.INTEGER,
+            return_type=abi.ContractParameterType.INTEGER,
             safe=True
         )
         cm.abi.methods = [method1]
@@ -279,19 +282,19 @@ class ManifestTestCase(unittest.TestCase):
 
     def test_to_json_with_trusts_extra(self):
         # create a default manifest
-        m = contracts.ContractManifest("test_contract")
-        method1 = contracts.ContractMethodDescriptor(
+        m = manifest.ContractManifest("test_contract")
+        method1 = abi.ContractMethodDescriptor(
             name="main_entry",
             offset=0,
             parameters=[],
-            return_type=contracts.ContractParameterType.INTEGER,
+            return_type=abi.ContractParameterType.INTEGER,
             safe=True
         )
         m.abi.methods = [method1]
 
-        t1 = contracts.ContractPermissionDescriptor(contract_hash=types.UInt160.from_string("01" * 20))
-        t2 = contracts.ContractPermissionDescriptor(contract_hash=types.UInt160.from_string("02" * 20))
-        m.trusts = contracts.WildcardContainer(data=[t1, t2])
+        t1 = descriptor.ContractPermissionDescriptor(contract_hash=types.UInt160.from_string("01" * 20))
+        t2 = descriptor.ContractPermissionDescriptor(contract_hash=types.UInt160.from_string("02" * 20))
+        m.trusts = manifest.WildcardContainer(data=[t1, t2])
         m.extra = False
         json_out = m.to_json()
         self.assertIn(t1.to_json()['contract'], json_out['trusts'])
@@ -300,8 +303,8 @@ class ManifestTestCase(unittest.TestCase):
 
     def test_from_json(self):
         expected_json = deepcopy(self.expected_json)
-        cm = contracts.ContractManifest.from_json(expected_json)
-        default = contracts.ContractManifest()
+        cm = manifest.ContractManifest.from_json(expected_json)
+        default = manifest.ContractManifest()
         self.assertEqual(default.groups, cm.groups)
         self.assertEqual(default.permissions, cm.permissions)
         self.assertEqual(default.trusts, cm.trusts)
@@ -309,26 +312,26 @@ class ManifestTestCase(unittest.TestCase):
 
     def test_deserialization(self):
         # this assumes test_serialization() passes
-        cm = contracts.ContractManifest("test_contract")
-        method1 = contracts.ContractMethodDescriptor(
+        cm = manifest.ContractManifest("test_contract")
+        method1 = abi.ContractMethodDescriptor(
             name="main_entry",
             offset=0,
             parameters=[],
-            return_type=contracts.ContractParameterType.INTEGER,
+            return_type=abi.ContractParameterType.INTEGER,
             safe=True
         )
         cm.abi.methods = [method1]
-        cm_deserialized = contracts.ContractManifest.deserialize_from_bytes(cm.to_array())
+        cm_deserialized = manifest.ContractManifest.deserialize_from_bytes(cm.to_array())
         self.assertEqual(cm, cm_deserialized)
 
     def test_is_valid(self):
         # create a contract
-        cm = contracts.ContractManifest("test_contract")
-        method1 = contracts.ContractMethodDescriptor(
+        cm = manifest.ContractManifest("test_contract")
+        method1 = abi.ContractMethodDescriptor(
             name="main_entry",
             offset=0,
             parameters=[],
-            return_type=contracts.ContractParameterType.INTEGER,
+            return_type=abi.ContractParameterType.INTEGER,
             safe=True
         )
         cm.abi.methods = [method1]
@@ -344,17 +347,17 @@ class ManifestTestCase(unittest.TestCase):
         private_key = b'\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
         keypair = cryptography.KeyPair(private_key)
         bad_signature = bytes(64)
-        cm.groups = [contracts.ContractGroup(keypair.public_key, bad_signature)]
+        cm.groups = [manifest.ContractGroup(keypair.public_key, bad_signature)]
         # this time validation should fail
         self.assertFalse(cm.is_valid(dummy_contract_hash))
 
         # Finally test with a group member that did sign the ABI
         good_signature = cryptography.sign(dummy_contract_hash.to_array(), keypair.private_key)
-        cm.groups = [contracts.ContractGroup(keypair.public_key, good_signature)]
+        cm.groups = [manifest.ContractGroup(keypair.public_key, good_signature)]
         self.assertTrue(cm.is_valid(dummy_contract_hash))
 
     def test_eq(self):
-        cm = contracts.ContractManifest.from_json(self.expected_json)
-        cm2 = contracts.ContractManifest.from_json(self.expected_json)
+        cm = manifest.ContractManifest.from_json(self.expected_json)
+        cm2 = manifest.ContractManifest.from_json(self.expected_json)
         self.assertFalse(cm == object())
         self.assertTrue(cm == cm2)

@@ -4,7 +4,7 @@ from datetime import datetime
 from netaddr import IPAddress  # type: ignore
 from enum import IntEnum
 from neo3.core import serialization, Size as s, utils
-from neo3.network.payloads import VersionPayload
+from neo3.network.payloads import version
 from neo3.network import capabilities
 
 
@@ -35,7 +35,7 @@ class DisconnectReason(IntEnum):
     """
     Reason for disconnecting a node.
 
-    Will also be broadcasted back to the node when `this PR <https://github.com/neo-project/neo/pull/1154>`__ is merged.
+    Will also be broadcast back to the node when `this PR <https://github.com/neo-project/neo/pull/1154>`__ is merged.
     For now only used internally with logging.
     """
     UNKNOWN = 0x0
@@ -160,7 +160,7 @@ class NetworkAddress(serialization.ISerializable):
         host = '.'.join(map(lambda b: str(b), ip_bytes))
         port = 0
 
-        capabilities_cnt = reader.read_var_int(VersionPayload.MAX_CAPABILITIES)
+        capabilities_cnt = reader.read_var_int(version.VersionPayload.MAX_CAPABILITIES)
         capabilities_list = []
         for _ in range(capabilities_cnt):
             capa = capabilities.NodeCapability.deserialize_from(reader)

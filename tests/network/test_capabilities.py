@@ -3,6 +3,7 @@ import binascii
 from neo3.network import capabilities
 from neo3.core import serialization
 
+
 class FullNodeCapabilitiesTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -28,6 +29,7 @@ class FullNodeCapabilitiesTestCase(unittest.TestCase):
         # if the serialization() test for this class passes, we can use that as a reference to test deserialization against
         deserialized_capability = capabilities.FullNodeCapability.deserialize_from_bytes(self.capability.to_array())
         self.assertEqual(self.capability.start_height, deserialized_capability.start_height)
+
 
 class ServerNodeCapabilitiesTestCase(unittest.TestCase):
     @classmethod
@@ -61,6 +63,7 @@ class ServerNodeCapabilitiesTestCase(unittest.TestCase):
         with self.assertRaises(TypeError) as context:
             capabilities.ServerCapability(n_type=999, port=123)
         self.assertIn("999 not one of: TCPSERVER WSSERVER", str(context.exception))
+
 
 class BaseCapabilitiesTestCase(unittest.TestCase):
     def test_deserialize_from(self):

@@ -3,16 +3,25 @@ import binascii
 import enum
 from copy import deepcopy
 from bitarray import bitarray
-from neo3.network import payloads, capabilities
-from neo3.core import types, serialization
-from neo3.core import cryptography as crypto
-from neo3 import settings
+from neo3.network import capabilities
+from neo3.network.payloads import (address,
+                                   empty,
+                                   transaction,
+                                   block,
+                                   verification,
+                                   inventory,
+                                   ping,
+                                   filter as filterpayload,
+                                   version)
+from neo3.core import types, serialization, cryptography as crypto
+from neo3.settings import settings
 
 
 class AddrTestCase(unittest.TestCase):
     """
     Tests both Network addresses and the AddrPayload
     """
+
     @classmethod
     def setUpClass(cls) -> None:
         """
@@ -23,10 +32,10 @@ class AddrTestCase(unittest.TestCase):
         Console.WriteLine($"len: {network_addr.Size}");
         Console.WriteLine($"b\'{BitConverter.ToString(network_addr.ToArray()).Replace("-", "")}\'");
         """
-        cls.network_addr = payloads.NetworkAddress(address='127.0.0.1:0', timestamp=0,
-                                capabilities=[capabilities.FullNodeCapability(start_height=123)])
+        cls.network_addr = address.NetworkAddress(address='127.0.0.1:0', timestamp=0,
+                                                  capabilities=[capabilities.FullNodeCapability(start_height=123)])
 
-        cls.addr_payload = payloads.AddrPayload([cls.network_addr])
+        cls.addr_payload = address.AddrPayload([cls.network_addr])
 
     def test_network_addr_len(self):
         # captured from C#, see setUpClass() for the capture code
@@ -40,7 +49,7 @@ class AddrTestCase(unittest.TestCase):
 
     def test_network_addr_deserialization(self):
         # if the serialization() test for this class passes, we can use that as a reference to test deserialization against
-        deserialized_addr = payloads.NetworkAddress.deserialize_from_bytes(self.network_addr.to_array())
+        deserialized_addr = address.NetworkAddress.deserialize_from_bytes(self.network_addr.to_array())
         self.assertEqual(self.network_addr.timestamp, deserialized_addr.timestamp)
         self.assertEqual(self.network_addr.address, deserialized_addr.address)
         self.assertEqual(self.network_addr.capabilities[0].start_height, deserialized_addr.capabilities[0].start_height)
@@ -54,29 +63,29 @@ class AddrTestCase(unittest.TestCase):
         self.assertEqual(expected_data, self.addr_payload.to_array())
 
     def test_addrpayload_deserialization(self):
-        deserialized_addr_payload = payloads.AddrPayload.deserialize_from_bytes(self.addr_payload.to_array())
+        deserialized_addr_payload = address.AddrPayload.deserialize_from_bytes(self.addr_payload.to_array())
         self.assertEqual(len(self.addr_payload.addresses), len(deserialized_addr_payload.addresses))
         self.assertEqual(self.addr_payload.addresses[0].capabilities[0].start_height,
                          deserialized_addr_payload.addresses[0].capabilities[0].start_height)
 
     def test_addrpayload_deserialization2(self):
         capa = capabilities.ServerCapability(n_type=capabilities.NodeCapabilityType.TCPSERVER, port=123)
-        network_addr = payloads.NetworkAddress(address='127.0.0.1:0', timestamp=0, capabilities=[capa])
-        addr_payload = payloads.AddrPayload([network_addr])
+        network_addr = address.NetworkAddress(address='127.0.0.1:0', timestamp=0, capabilities=[capa])
+        addr_payload = address.AddrPayload([network_addr])
 
-        deserialized_addr_payload = payloads.AddrPayload.deserialize_from_bytes(addr_payload.to_array())
+        deserialized_addr_payload = address.AddrPayload.deserialize_from_bytes(addr_payload.to_array())
         self.assertEqual(123, deserialized_addr_payload.addresses[0].capabilities[0].port)
 
     def test_equality(self):
-        addr1 = payloads.NetworkAddress(address="127.0.0.1:0")
-        addr2 = payloads.NetworkAddress(address="127.0.0.1:0")
-        addr3 = payloads.NetworkAddress(address="127.0.0.2:0")
+        addr1 = address.NetworkAddress(address="127.0.0.1:0")
+        addr2 = address.NetworkAddress(address="127.0.0.1:0")
+        addr3 = address.NetworkAddress(address="127.0.0.2:0")
         self.assertTrue(addr1 == addr2)
         self.assertFalse(addr1 == addr3)
         self.assertFalse(addr1 == object())
 
     def test_various_dunder(self):
-        addr1 = payloads.NetworkAddress(address="127.0.0.1:0")
+        addr1 = address.NetworkAddress(address="127.0.0.1:0")
         self.assertEqual("127.0.0.1:0", str(addr1))
         self.assertNotEqual("127.0.0.1", str(addr1))
 
@@ -95,7 +104,7 @@ class AddrTestCase(unittest.TestCase):
         self.assertIn("(NEW)", repr(addr1))
 
     def test_properties(self):
-        addr1 = payloads.NetworkAddress(address="127.0.0.1:30333")
+        addr1 = address.NetworkAddress(address="127.0.0.1:30333")
 
         self.assertEqual("127.0.0.1", addr1.ip)
         self.assertEqual(30333, addr1.port)
@@ -160,26 +169,30 @@ class BlockTestCase(unittest.TestCase):
             Console.WriteLine($"{BitConverter.ToString(trimmedBlock.ToArray()).Replace("-", "")}");
 
         """
-        cls.tx = payloads.Transaction(version=0,
-                                      nonce=123,
-                                      system_fee=456,
-                                      network_fee=789,
-                                      valid_until_block=1,
-                                      attributes=[],
-                                      signers=[payloads.Signer(types.UInt160.from_string("e239c7228fa6b46cc0cf43623b2f934301d0b4f7"))],
-                                      script=b'\x01',
-                                      witnesses=[payloads.Witness(invocation_script=b'', verification_script=b'\x55')])
+        cls.tx = transaction.Transaction(version=0,
+                                         nonce=123,
+                                         system_fee=456,
+                                         network_fee=789,
+                                         valid_until_block=1,
+                                         attributes=[],
+                                         signers=[verification.Signer(
+                                             types.UInt160.from_string("e239c7228fa6b46cc0cf43623b2f934301d0b4f7"))],
+                                         script=b'\x01',
+                                         witnesses=[
+                                             verification.Witness(invocation_script=b'', verification_script=b'\x55')])
 
-        cls.header = payloads.Header(version=0,
-                                     prev_hash=types.UInt256.from_string("f782c7fbb2eef6afe629b96c0d53fb525eda64ce5345057caf975ac3c2b9ae0a"),
-                                     timestamp=123,
-                                     nonce=0,
-                                     index=1,
-                                     primary_index=0,
-                                     next_consensus=types.UInt160.from_string("d7678dd97c000be3f33e9362e673101bac4ca654"),
-                                     witness=payloads.Witness(invocation_script=b'', verification_script=b'\x55'))
-        cls.block = payloads.Block(cls.header,
-                                   transactions=[cls.tx])
+        cls.header = block.Header(version=0,
+                                  prev_hash=types.UInt256.from_string(
+                                      "f782c7fbb2eef6afe629b96c0d53fb525eda64ce5345057caf975ac3c2b9ae0a"),
+                                  timestamp=123,
+                                  nonce=0,
+                                  index=1,
+                                  primary_index=0,
+                                  next_consensus=types.UInt160.from_string(
+                                      "d7678dd97c000be3f33e9362e673101bac4ca654"),
+                                  witness=verification.Witness(invocation_script=b'', verification_script=b'\x55'))
+        cls.block = block.Block(cls.header,
+                                transactions=[cls.tx])
         cls.block.rebuild_merkle_root()
 
     def test_len(self):
@@ -199,12 +212,13 @@ class BlockTestCase(unittest.TestCase):
 
     def test_serialization(self):
         # captured from C#, see setUpClass() for the capture code
-        expected_data = binascii.unhexlify("000000000AAEB9C2C35A97AF7C054553CE64DA5E52FB530D6CB929E6AFF6EEB2FBC782F75618ADD6F91FAD691D6A4D430DB27CE5CA607296863E73A23FC3622A415CDD407B000000000000000000000000000000010000000054A64CAC1B1073E662933EF3E30B007CD98D67D70100015501007B000000C80100000000000015030000000000000100000001F7B4D00143932F3B6243CFC06CB4A68F22C739E20000010101000155")
+        expected_data = binascii.unhexlify(
+            "000000000AAEB9C2C35A97AF7C054553CE64DA5E52FB530D6CB929E6AFF6EEB2FBC782F75618ADD6F91FAD691D6A4D430DB27CE5CA607296863E73A23FC3622A415CDD407B000000000000000000000000000000010000000054A64CAC1B1073E662933EF3E30B007CD98D67D70100015501007B000000C80100000000000015030000000000000100000001F7B4D00143932F3B6243CFC06CB4A68F22C739E20000010101000155")
         self.assertEqual(expected_data, self.block.to_array())
 
     def test_deserialization(self):
         # if the serialization() test for this class passes, we can use that as a reference to test deserialization against
-        deserialized_block = payloads.Block.deserialize_from_bytes(self.block.to_array())
+        deserialized_block = block.Block.deserialize_from_bytes(self.block.to_array())
         self.assertEqual(self.block.version, deserialized_block.version)
         self.assertEqual(self.block.prev_hash, deserialized_block.prev_hash)
         self.assertEqual(self.block.timestamp, deserialized_block.timestamp)
@@ -221,30 +235,31 @@ class BlockTestCase(unittest.TestCase):
         block_copy = deepcopy(self.block)
         block_copy.transactions.append(block_copy.transactions[0])
         with self.assertRaises(ValueError) as context:
-            payloads.Block.deserialize_from_bytes(block_copy.to_array())
+            block.Block.deserialize_from_bytes(block_copy.to_array())
         self.assertIn("Deserialization error - block contains duplicate transaction", str(context.exception))
 
     def test_deserialization_wrong_merkle_root(self):
         block_copy = deepcopy(self.block)
         block_copy.header.merkle_root = types.UInt256.zero()
         with self.assertRaises(ValueError) as context:
-            payloads.Block.deserialize_from_bytes(block_copy.to_array())
+            block.Block.deserialize_from_bytes(block_copy.to_array())
         self.assertIn("Deserialization error - merkle root mismatch", str(context.exception))
 
     def test_inventory_type(self):
-        self.assertEqual(payloads.InventoryType.BLOCK, self.block.inventory_type)
+        self.assertEqual(inventory.InventoryType.BLOCK, self.block.inventory_type)
 
     def test_trim(self):
         trimmed_block = self.block.trim()
-        self.assertIsInstance(trimmed_block, payloads.TrimmedBlock)
+        self.assertIsInstance(trimmed_block, block.TrimmedBlock)
         # captured from C#, see setUpClass() for the capture code
         expected_len = 146
         self.assertEqual(expected_len, len(trimmed_block))
 
-        expected_data = binascii.unhexlify('000000000AAEB9C2C35A97AF7C054553CE64DA5E52FB530D6CB929E6AFF6EEB2FBC782F75618ADD6F91FAD691D6A4D430DB27CE5CA607296863E73A23FC3622A415CDD407B000000000000000000000000000000010000000054A64CAC1B1073E662933EF3E30B007CD98D67D701000155015618ADD6F91FAD691D6A4D430DB27CE5CA607296863E73A23FC3622A415CDD40')
+        expected_data = binascii.unhexlify(
+            '000000000AAEB9C2C35A97AF7C054553CE64DA5E52FB530D6CB929E6AFF6EEB2FBC782F75618ADD6F91FAD691D6A4D430DB27CE5CA607296863E73A23FC3622A415CDD407B000000000000000000000000000000010000000054A64CAC1B1073E662933EF3E30B007CD98D67D701000155015618ADD6F91FAD691D6A4D430DB27CE5CA607296863E73A23FC3622A415CDD40')
         self.assertEqual(expected_data, trimmed_block.to_array())
 
-        deserialized_trimmed_block = payloads.TrimmedBlock.deserialize_from_bytes(trimmed_block.to_array())
+        deserialized_trimmed_block = block.TrimmedBlock.deserialize_from_bytes(trimmed_block.to_array())
         self.assertEqual(trimmed_block.header, deserialized_trimmed_block.header)
         self.assertEqual(trimmed_block.hashes, deserialized_trimmed_block.hashes)
         self.assertEqual(1, len(deserialized_trimmed_block.hashes))
@@ -267,10 +282,11 @@ class SignerTestCase(unittest.TestCase):
         Console.WriteLine($"{BitConverter.ToString(co.ToArray()).Replace("-","")}");
         Console.Write(co.ToJson());
         """
-        cls.signer = payloads.Signer(types.UInt160.from_string("d7678dd97c000be3f33e9362e673101bac4ca654"))
-        cls.signer.scope = payloads.WitnessScope.CUSTOM_CONTRACTS | payloads.WitnessScope.CUSTOM_GROUPS
+        cls.signer = verification.Signer(types.UInt160.from_string("d7678dd97c000be3f33e9362e673101bac4ca654"))
+        cls.signer.scope = verification.WitnessScope.CUSTOM_CONTRACTS | verification.WitnessScope.CUSTOM_GROUPS
         cls.signer.allowed_contracts = [types.UInt160.from_string("5b7074e873973a6ed3708862f219a6fbf4d1c411")]
-        point = crypto.ECPoint(binascii.unhexlify("026241e7e26b38bb7154b8ad49458b97fb1c4797443dc921c5ca5774f511a2bbfc"), crypto.ECCCurve.SECP256R1, True)
+        point = crypto.ECPoint(binascii.unhexlify("026241e7e26b38bb7154b8ad49458b97fb1c4797443dc921c5ca5774f511a2bbfc"),
+                               crypto.ECCCurve.SECP256R1, True)
         cls.signer.allowed_groups = [point]
 
     def test_len(self):
@@ -281,18 +297,19 @@ class SignerTestCase(unittest.TestCase):
     def test_equals(self):
         self.assertFalse(self.signer == None)
         self.assertFalse(self.signer == object())
-        signer2 = payloads.Signer._serializable_init()
+        signer2 = verification.Signer._serializable_init()
         self.assertFalse(self.signer == signer2)
         self.assertTrue(self.signer == self.signer)
 
     def test_serialization(self):
         # captured from C#, see setUpClass() for the capture code
-        expected_data = binascii.unhexlify(b'54A64CAC1B1073E662933EF3E30B007CD98D67D7300111C4D1F4FBA619F2628870D36E3A9773E874705B01026241E7E26B38BB7154B8AD49458B97FB1C4797443DC921C5CA5774F511A2BBFC')
+        expected_data = binascii.unhexlify(
+            b'54A64CAC1B1073E662933EF3E30B007CD98D67D7300111C4D1F4FBA619F2628870D36E3A9773E874705B01026241E7E26B38BB7154B8AD49458B97FB1C4797443DC921C5CA5774F511A2BBFC')
         self.assertEqual(expected_data, self.signer.to_array())
 
     def test_deserialization(self):
         # if the serialization() test for this class passes, we can use that as a reference to test deserialization against
-        deserialized_signer = payloads.Signer.deserialize_from_bytes(self.signer.to_array())
+        deserialized_signer = verification.Signer.deserialize_from_bytes(self.signer.to_array())
         self.assertEqual(self.signer.account, deserialized_signer.account)
         self.assertEqual(self.signer.scope, deserialized_signer.scope)
         self.assertEqual(self.signer.allowed_contracts, deserialized_signer.allowed_contracts)
@@ -305,19 +322,22 @@ class SignerTestCase(unittest.TestCase):
         data[20] = 0xFF
 
         with self.assertRaises(ValueError) as context:
-            payloads.Signer.deserialize_from_bytes(data)
-        self.assertEqual("Deserialization error - invalid scope. GLOBAL scope not allowed with other scope types", str(context.exception))
+            verification.Signer.deserialize_from_bytes(data)
+        self.assertEqual("Deserialization error - invalid scope. GLOBAL scope not allowed with other scope types",
+                         str(context.exception))
 
     def test_to_json(self):
         # captured from C#, see setUpClass() for the capture code
-        expected = {"account":"0xd7678dd97c000be3f33e9362e673101bac4ca654","scopes":"CustomContracts, CustomGroups","allowedcontracts":["0x5b7074e873973a6ed3708862f219a6fbf4d1c411"],"allowedgroups":["026241e7e26b38bb7154b8ad49458b97fb1c4797443dc921c5ca5774f511a2bbfc"]}
+        expected = {"account": "0xd7678dd97c000be3f33e9362e673101bac4ca654", "scopes": "CustomContracts, CustomGroups",
+                    "allowedcontracts": ["0x5b7074e873973a6ed3708862f219a6fbf4d1c411"],
+                    "allowedgroups": ["026241e7e26b38bb7154b8ad49458b97fb1c4797443dc921c5ca5774f511a2bbfc"]}
         self.assertEqual(expected, self.signer.to_json())
 
     def test_from_json(self):
         captured = {"account": "0xd7678dd97c000be3f33e9362e673101bac4ca654", "scopes": "CustomContracts, CustomGroups",
                     "allowedcontracts": ["0x5b7074e873973a6ed3708862f219a6fbf4d1c411"],
                     "allowedgroups": ["026241e7e26b38bb7154b8ad49458b97fb1c4797443dc921c5ca5774f511a2bbfc"]}
-        signer = payloads.Signer.from_json(captured)
+        signer = verification.Signer.from_json(captured)
         # relies on test_to_json() to pass
         self.assertEqual(captured, signer.to_json())
 
@@ -330,7 +350,7 @@ class FilterAddTestCase(unittest.TestCase):
         Console.WriteLine($"{fa.Size}");
         Console.WriteLine($"{BitConverter.ToString(fa.ToArray()).Replace("-", "")}");
         """
-        cls.filter = payloads.FilterAddPayload(b'\x01\x02')
+        cls.filter = filterpayload.FilterAddPayload(b'\x01\x02')
 
     def test_len(self):
         # captured from C#, see setUpClass() for the capture code
@@ -344,7 +364,7 @@ class FilterAddTestCase(unittest.TestCase):
 
     def test_deserialization(self):
         # if the serialization() test for this class passes, we can use that as a reference to test deserialization against
-        deserialized_filter = payloads.FilterAddPayload.deserialize_from_bytes(self.filter.to_array())
+        deserialized_filter = filterpayload.FilterAddPayload.deserialize_from_bytes(self.filter.to_array())
         self.assertEqual(self.filter.data, deserialized_filter.data)
 
 
@@ -358,7 +378,7 @@ class FilterLoadTestCase(unittest.TestCase):
         Console.WriteLine($"{BitConverter.ToString(fl.ToArray()).Replace("-", "")}");
         """
         bloom = crypto.BloomFilter(8, 2, 345, b'\x01\x02')
-        cls.filter = payloads.FilterLoadPayload(bloom)
+        cls.filter = filterpayload.FilterLoadPayload(bloom)
 
     def test_len(self):
         # captured from C#, see setUpClass() for the capture code
@@ -372,7 +392,7 @@ class FilterLoadTestCase(unittest.TestCase):
 
     def test_deserialization(self):
         # if the serialization() test for this class passes, we can use that as a reference to test deserialization against
-        deserialized_filter = payloads.FilterLoadPayload.deserialize_from_bytes(self.filter.to_array())
+        deserialized_filter = filterpayload.FilterLoadPayload.deserialize_from_bytes(self.filter.to_array())
         self.assertEqual(self.filter.filter, deserialized_filter.filter)
         self.assertEqual(self.filter.K, deserialized_filter.K)
         self.assertEqual(self.filter.tweak, deserialized_filter.tweak)
@@ -380,10 +400,10 @@ class FilterLoadTestCase(unittest.TestCase):
     def test_deserialization_with_invalid_K_value(self):
         invalid_K = 51
         bloom = crypto.BloomFilter(8, invalid_K, 345, b'\x01\x02')
-        filter = payloads.FilterLoadPayload(bloom)
+        filter = filterpayload.FilterLoadPayload(bloom)
 
         with self.assertRaises(ValueError) as context:
-            payloads.FilterLoadPayload.deserialize_from_bytes(filter.to_array())
+            filterpayload.FilterLoadPayload.deserialize_from_bytes(filter.to_array())
         self.assertIn("Deserialization error - K exceeds limit of 50", str(context.exception))
 
 
@@ -397,7 +417,7 @@ class GetBlocksPayloadTestCase(unittest.TestCase):
         Console.WriteLine($"b\'{BitConverter.ToString(payload.ToArray()).Replace("-", "")}\'");
         """
         cls.hash_start = types.UInt256.from_string("a400ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff01")
-        cls.payload = payloads.GetBlocksPayload(hash_start=cls.hash_start, count=2)
+        cls.payload = block.GetBlocksPayload(hash_start=cls.hash_start, count=2)
 
     def test_len(self):
         # captured from C#, see setUpClass() for the capture code
@@ -411,7 +431,7 @@ class GetBlocksPayloadTestCase(unittest.TestCase):
 
     def test_deserialization(self):
         # if the serialization() test for this class passes, we can use that as a reference to test deserialization against
-        deserialized_payload = payloads.GetBlocksPayload.deserialize_from_bytes(self.payload.to_array())
+        deserialized_payload = block.GetBlocksPayload.deserialize_from_bytes(self.payload.to_array())
         self.assertEqual(self.payload.hash_start, deserialized_payload.hash_start)
         self.assertEqual(2, deserialized_payload.count)
 
@@ -424,7 +444,7 @@ class GetBlockByIndexPayloadTestCase(unittest.TestCase):
         Console.WriteLine($"len: {payload.Size}");
         Console.WriteLine($"b\'{BitConverter.ToString(payload.ToArray()).Replace("-", "")}\'");
         """
-        cls.payload = payloads.GetBlockByIndexPayload(index_start=1, count=2)
+        cls.payload = block.GetBlockByIndexPayload(index_start=1, count=2)
 
     def test_len(self):
         # captured from C#, see setUpClass() for the capture code
@@ -438,27 +458,27 @@ class GetBlockByIndexPayloadTestCase(unittest.TestCase):
 
     def test_deserialization(self):
         # if the serialization() test for this class passes, we can use that as a reference to test deserialization against
-        deserialized_payload = payloads.GetBlockByIndexPayload.deserialize_from_bytes(self.payload.to_array())
+        deserialized_payload = block.GetBlockByIndexPayload.deserialize_from_bytes(self.payload.to_array())
         self.assertEqual(self.payload.index_start, deserialized_payload.index_start)
         self.assertEqual(2, deserialized_payload.count)
 
     def test_deserialization_error(self):
         # test exceed max count
-        payload = payloads.GetBlockByIndexPayload(index_start=1, count=payloads.HeadersPayload.MAX_HEADERS_COUNT + 1)
+        payload = block.GetBlockByIndexPayload(index_start=1, count=block.HeadersPayload.MAX_HEADERS_COUNT + 1)
         with self.assertRaises(ValueError) as context:
-            payloads.GetBlockByIndexPayload.deserialize_from_bytes(payload.to_array())
+            block.GetBlockByIndexPayload.deserialize_from_bytes(payload.to_array())
         self.assertIn("Deserialization error - invalid count", str(context.exception))
 
         # test 0 count
-        payload = payloads.GetBlockByIndexPayload(index_start=1, count=0)
+        payload = block.GetBlockByIndexPayload(index_start=1, count=0)
         with self.assertRaises(ValueError) as context:
-            payloads.GetBlockByIndexPayload.deserialize_from_bytes(payload.to_array())
+            block.GetBlockByIndexPayload.deserialize_from_bytes(payload.to_array())
         self.assertIn("Deserialization error - invalid count", str(context.exception))
 
         # test negative count
-        payload = payloads.GetBlockByIndexPayload(index_start=1, count=-10)
+        payload = block.GetBlockByIndexPayload(index_start=1, count=-10)
         with self.assertRaises(ValueError) as context:
-            payloads.GetBlockByIndexPayload.deserialize_from_bytes(payload.to_array())
+            block.GetBlockByIndexPayload.deserialize_from_bytes(payload.to_array())
         self.assertIn("Deserialization error - invalid count", str(context.exception))
 
 
@@ -494,9 +514,10 @@ class HeaderTestCase(unittest.TestCase):
         index = 123
         primary_index = 0
         next_consensus = types.UInt160.from_string("e239c7228fa6b46cc0cf43623b2f934301d0b4f7")
-        witness = payloads.Witness(invocation_script=b'\x01\x02', verification_script=b'\x03\x04')
+        witness = verification.Witness(invocation_script=b'\x01\x02', verification_script=b'\x03\x04')
 
-        cls.header = payloads.Header(version, previous_hash, timestamp, nonce, index, primary_index, next_consensus, witness, merkleroot)
+        cls.header = block.Header(version, previous_hash, timestamp, nonce, index, primary_index, next_consensus,
+                                  witness, merkleroot)
 
     def test_len_and_hash(self):
         # captured from C#, see setUpClass() for the capture code
@@ -507,12 +528,13 @@ class HeaderTestCase(unittest.TestCase):
 
     def test_serialization(self):
         # captured from C#, see setUpClass() for the capture code
-        expected_data = binascii.unhexlify(b'0000000001FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A402FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A4000000000000000000000000000000007B00000000F7B4D00143932F3B6243CFC06CB4A68F22C739E201020102020304')
+        expected_data = binascii.unhexlify(
+            b'0000000001FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A402FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A4000000000000000000000000000000007B00000000F7B4D00143932F3B6243CFC06CB4A68F22C739E201020102020304')
         self.assertEqual(expected_data, self.header.to_array())
 
     def test_deserialization(self):
         # if the serialization() test for this class passes, we can use that as a reference to test deserialization against
-        deserialized_header = payloads.Header.deserialize_from_bytes(self.header.to_array())
+        deserialized_header = block.Header.deserialize_from_bytes(self.header.to_array())
         self.assertEqual(self.header.hash(), deserialized_header.hash())
         self.assertEqual(self.header.version, deserialized_header.version)
         self.assertEqual(self.header.prev_hash, deserialized_header.prev_hash)
@@ -527,12 +549,13 @@ class HeaderTestCase(unittest.TestCase):
     def test_deserialization_failure1(self):
         # there should be a 1 byte witness object count (fixed to value 1) before the actual witness object.
         # see https://github.com/neo-project/neo/issues/1128
-        raw_data = binascii.unhexlify(b'0000000001FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A402FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A4000000000000000000000000000000007B00000000F7B4D00143932F3B6243CFC06CB4A68F22C739E200020102020304')
-        deserialized_header = payloads.Header._serializable_init()
+        raw_data = binascii.unhexlify(
+            b'0000000001FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A402FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A4000000000000000000000000000000007B00000000F7B4D00143932F3B6243CFC06CB4A68F22C739E200020102020304')
+        deserialized_header = block.Header._serializable_init()
 
         with self.assertRaises(ValueError) as context:
             with serialization.BinaryReader(raw_data) as br:
-                    deserialized_header.deserialize(br)
+                deserialized_header.deserialize(br)
         self.assertIn("Deserialization error", str(context.exception))
         self.assertIn("Witness object count is 0 must be 1", str(context.exception))
 
@@ -585,11 +608,13 @@ class HeadersPayloadTestCase(unittest.TestCase):
         index = 123
         primary_index = 0
         next_consensus = types.UInt160.from_string("8a2b438eaca8b4b2ab6b4524b5a69a45d920c351")
-        witness = payloads.Witness(invocation_script=b'\x01\x02', verification_script=b'\x03\x04')
+        witness = verification.Witness(invocation_script=b'\x01\x02', verification_script=b'\x03\x04')
 
-        h1 = payloads.Header(version, previous_hash, timestamp, nonce, index, primary_index, next_consensus, witness, merkleroot)
-        h2 = payloads.Header(version, previous_hash, timestamp, nonce, index, primary_index, next_consensus, witness, merkleroot)
-        cls.payload = payloads.HeadersPayload([h1, h2])
+        h1 = block.Header(version, previous_hash, timestamp, nonce, index, primary_index, next_consensus, witness,
+                          merkleroot)
+        h2 = block.Header(version, previous_hash, timestamp, nonce, index, primary_index, next_consensus, witness,
+                          merkleroot)
+        cls.payload = block.HeadersPayload([h1, h2])
 
     def test_len(self):
         # captured from C#, see setUpClass() for the capture code
@@ -598,16 +623,17 @@ class HeadersPayloadTestCase(unittest.TestCase):
 
     def test_serialization(self):
         # captured from C#, see setUpClass() for the capture code
-        expected_data = binascii.unhexlify(b'020000000001FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A402FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A4000000000000000000000000000000007B0000000051C320D9459AA6B524456BABB2B4A8AC8E432B8A010201020203040000000001FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A402FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A4000000000000000000000000000000007B0000000051C320D9459AA6B524456BABB2B4A8AC8E432B8A01020102020304')
+        expected_data = binascii.unhexlify(
+            b'020000000001FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A402FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A4000000000000000000000000000000007B0000000051C320D9459AA6B524456BABB2B4A8AC8E432B8A010201020203040000000001FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A402FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A4000000000000000000000000000000007B0000000051C320D9459AA6B524456BABB2B4A8AC8E432B8A01020102020304')
         self.assertEqual(expected_data, self.payload.to_array())
 
     def test_deserialization(self):
         # if the serialization() test for this class passes, we can use that as a reference to test deserialization against
-        deserialized_payload = payloads.HeadersPayload.deserialize_from_bytes(self.payload.to_array())
+        deserialized_payload = block.HeadersPayload.deserialize_from_bytes(self.payload.to_array())
         self.assertEqual(len(self.payload.headers), len(deserialized_payload.headers))
         self.assertEqual(2, len(self.payload.headers))
-        self.assertIsInstance(deserialized_payload.headers[0], payloads.Header)
-        self.assertIsInstance(deserialized_payload.headers[1], payloads.Header)
+        self.assertIsInstance(deserialized_payload.headers[0], block.Header)
+        self.assertIsInstance(deserialized_payload.headers[1], block.Header)
 
 
 class InventoryPayloadTestCase(unittest.TestCase):
@@ -622,7 +648,7 @@ class InventoryPayloadTestCase(unittest.TestCase):
         """
         cls.u1 = types.UInt256.from_string("a400ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff01")
         cls.u2 = types.UInt256.from_string("a400ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff02")
-        cls.inv = payloads.InventoryPayload(payloads.InventoryType.BLOCK, [cls.u1, cls.u2])
+        cls.inv = inventory.InventoryPayload(inventory.InventoryType.BLOCK, [cls.u1, cls.u2])
 
     def test_len(self):
         # captured from C#, see setUpClass() for the capture code
@@ -631,12 +657,13 @@ class InventoryPayloadTestCase(unittest.TestCase):
 
     def test_serialization(self):
         # captured from C#, see setUpClass() for the capture code
-        expected_data = binascii.unhexlify(b'2C0201FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A402FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A4')
+        expected_data = binascii.unhexlify(
+            b'2C0201FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A402FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A4')
         self.assertEqual(expected_data, self.inv.to_array())
 
     def test_deserialization(self):
         # if the serialization() test for this class passes, we can use that as a reference to test deserialization against
-        deserialized_inv_payload = payloads.InventoryPayload.deserialize_from_bytes(self.inv.to_array())
+        deserialized_inv_payload = inventory.InventoryPayload.deserialize_from_bytes(self.inv.to_array())
         self.assertEqual(self.inv.type, deserialized_inv_payload.type)
         self.assertEqual(len(self.inv.hashes), len(deserialized_inv_payload.hashes))
         self.assertEqual(self.inv.hashes[0], deserialized_inv_payload.hashes[0])
@@ -680,30 +707,34 @@ class MerkleBlockPayloadTestCase(unittest.TestCase):
         Console.WriteLine($"b\'{BitConverter.ToString(mbp.ToArray()).Replace("-", "")}\'");
         """
 
-        cls.tx = payloads.Transaction(version=0,
-                                      nonce=123,
-                                      system_fee=456,
-                                      network_fee=789,
-                                      valid_until_block=1,
-                                      attributes=[],
-                                      signers=[payloads.Signer(types.UInt160.from_string("e239c7228fa6b46cc0cf43623b2f934301d0b4f7"))],
-                                      script=b'\x01',
-                                      witnesses=[payloads.Witness(invocation_script=b'', verification_script=b'\x55')])
+        cls.tx = transaction.Transaction(version=0,
+                                         nonce=123,
+                                         system_fee=456,
+                                         network_fee=789,
+                                         valid_until_block=1,
+                                         attributes=[],
+                                         signers=[verification.Signer(
+                                             types.UInt160.from_string("e239c7228fa6b46cc0cf43623b2f934301d0b4f7"))],
+                                         script=b'\x01',
+                                         witnesses=[
+                                             verification.Witness(invocation_script=b'', verification_script=b'\x55')])
 
-        cls.header = payloads.Header(version=0,
-                                     prev_hash=types.UInt256.from_string("f782c7fbb2eef6afe629b96c0d53fb525eda64ce5345057caf975ac3c2b9ae0a"),
-                                     timestamp=123,
-                                     nonce=0,
-                                     index=1,
-                                     primary_index=0,
-                                     next_consensus=types.UInt160.from_string("d7678dd97c000be3f33e9362e673101bac4ca654"),
-                                     witness=payloads.Witness(invocation_script=b'', verification_script=b'\x55'))
-        cls.block = payloads.Block(cls.header,
-                                   transactions=[cls.tx])
+        cls.header = block.Header(version=0,
+                                  prev_hash=types.UInt256.from_string(
+                                      "f782c7fbb2eef6afe629b96c0d53fb525eda64ce5345057caf975ac3c2b9ae0a"),
+                                  timestamp=123,
+                                  nonce=0,
+                                  index=1,
+                                  primary_index=0,
+                                  next_consensus=types.UInt160.from_string(
+                                      "d7678dd97c000be3f33e9362e673101bac4ca654"),
+                                  witness=verification.Witness(invocation_script=b'', verification_script=b'\x55'))
+        cls.block = block.Block(cls.header,
+                                transactions=[cls.tx])
         cls.block.rebuild_merkle_root()
         flags = bitarray()
         flags.frombytes(b'\x01')
-        cls.merkle_payload = payloads.MerkleBlockPayload(cls.block, flags)
+        cls.merkle_payload = block.MerkleBlockPayload(cls.block, flags)
 
     def test_len(self):
         # captured from C#, see setUpClass() for the capture code
@@ -712,12 +743,13 @@ class MerkleBlockPayloadTestCase(unittest.TestCase):
 
     def test_serialization(self):
         # captured from C#, see setUpClass() for the capture code
-        expected_data = binascii.unhexlify(b'000000000AAEB9C2C35A97AF7C054553CE64DA5E52FB530D6CB929E6AFF6EEB2FBC782F75618ADD6F91FAD691D6A4D430DB27CE5CA607296863E73A23FC3622A415CDD407B000000000000000000000000000000010000000054A64CAC1B1073E662933EF3E30B007CD98D67D70100015501015618ADD6F91FAD691D6A4D430DB27CE5CA607296863E73A23FC3622A415CDD400101')
+        expected_data = binascii.unhexlify(
+            b'000000000AAEB9C2C35A97AF7C054553CE64DA5E52FB530D6CB929E6AFF6EEB2FBC782F75618ADD6F91FAD691D6A4D430DB27CE5CA607296863E73A23FC3622A415CDD407B000000000000000000000000000000010000000054A64CAC1B1073E662933EF3E30B007CD98D67D70100015501015618ADD6F91FAD691D6A4D430DB27CE5CA607296863E73A23FC3622A415CDD400101')
         self.assertEqual(expected_data, self.merkle_payload.to_array())
 
     def test_deserialization(self):
         # if the serialization() test for this class passes, we can use that as a reference to test deserialization against
-        deserialized_merkle_payload = payloads.MerkleBlockPayload.deserialize_from_bytes(self.merkle_payload.to_array())
+        deserialized_merkle_payload = block.MerkleBlockPayload.deserialize_from_bytes(self.merkle_payload.to_array())
         # not testing all properties again. It re-uses the same block as created in the Block test case
         # only testing new properties
         self.assertEqual(self.merkle_payload.tx_count, deserialized_merkle_payload.tx_count)
@@ -735,7 +767,7 @@ class PingTestCase(unittest.TestCase):
         Console.WriteLine(payload.Size);
         Console.WriteLine($"b\'{BitConverter.ToString(payload.ToArray()).Replace("-", "")}\'");
         """
-        cls.ping = payloads.PingPayload(123)
+        cls.ping = ping.PingPayload(123)
         cls.ping.nonce = 456
         cls.ping.timestamp = 888
 
@@ -751,7 +783,7 @@ class PingTestCase(unittest.TestCase):
 
     def test_deserialization(self):
         # if the serialization() test for this class passes, we can use that as a reference to test deserialization against
-        deserialized_ping = payloads.PingPayload.deserialize_from_bytes(self.ping.to_array())
+        deserialized_ping = ping.PingPayload.deserialize_from_bytes(self.ping.to_array())
         self.assertEqual(self.ping.timestamp, deserialized_ping.timestamp)
         self.assertEqual(self.ping.nonce, deserialized_ping.nonce)
         self.assertEqual(self.ping.current_height, deserialized_ping.current_height)
@@ -761,7 +793,7 @@ class TestAttributeTypeEnum(enum.IntEnum):
     TYPE_ZERO = 0x00
 
 
-class TestTXAttribute(payloads.TransactionAttribute):
+class TestTXAttribute(transaction.TransactionAttribute):
 
     def __init__(self):
         super(TestTXAttribute, self).__init__()
@@ -843,14 +875,14 @@ class TransactionAttributeTestCase(unittest.TestCase):
     def test_deserialization_from(self):
         stream_with_type_zero = b'\x00\x01'
         with serialization.BinaryReader(stream_with_type_zero) as reader:
-            ta = payloads.TransactionAttribute.deserialize_from(reader)
+            ta = transaction.TransactionAttribute.deserialize_from(reader)
         self.assertIsInstance(ta, TestTXAttribute)
 
     def test_deserialization_from_failure(self):
         stream_with_invalid_type = b'\xFF'
         with serialization.BinaryReader(stream_with_invalid_type) as reader:
             with self.assertRaises(ValueError) as context:
-                payloads.TransactionAttribute.deserialize_from(reader)
+                transaction.TransactionAttribute.deserialize_from(reader)
             self.assertEqual("Deserialization error - unknown transaction attribute type", str(context.exception))
 
 
@@ -878,20 +910,20 @@ class TransactionTestCase(unittest.TestCase):
         Console.WriteLine(tx.Hash);
         Console.WriteLine(tx.FeePerByte);
         """
-        signer = payloads.Signer(account=types.UInt160.from_string("d7678dd97c000be3f33e9362e673101bac4ca654"),
-                                 scope=payloads.WitnessScope.NONE)
+        signer = verification.Signer(account=types.UInt160.from_string("d7678dd97c000be3f33e9362e673101bac4ca654"),
+                                     scope=verification.WitnessScope.NONE)
 
-        witness = payloads.Witness(invocation_script=b'', verification_script=b'\x55')
+        witness = verification.Witness(invocation_script=b'', verification_script=b'\x55')
 
-        cls.tx = payloads.Transaction(version=0,
-                                      nonce=123,
-                                      system_fee=456,
-                                      network_fee=789,
-                                      valid_until_block=1,
-                                      attributes=[],
-                                      signers=[signer],
-                                      script=b'\x01\x02',
-                                      witnesses=[witness])
+        cls.tx = transaction.Transaction(version=0,
+                                         nonce=123,
+                                         system_fee=456,
+                                         network_fee=789,
+                                         valid_until_block=1,
+                                         attributes=[],
+                                         signers=[signer],
+                                         script=b'\x01\x02',
+                                         witnesses=[witness])
 
     def tearDown(cls) -> None:
         settings.reset_settings_to_default()
@@ -905,12 +937,13 @@ class TransactionTestCase(unittest.TestCase):
 
     def test_serialization(self):
         # captured from C#, see setUpClass() for the capture code
-        expected_data = binascii.unhexlify(b'007B000000C8010000000000001503000000000000010000000154A64CAC1B1073E662933EF3E30B007CD98D67D7000002010201000155')
+        expected_data = binascii.unhexlify(
+            b'007B000000C8010000000000001503000000000000010000000154A64CAC1B1073E662933EF3E30B007CD98D67D7000002010201000155')
         self.assertEqual(expected_data, self.tx.to_array())
 
     def test_deserialization(self):
         # if the serialization() test for this class passes, we can use that as a reference to test deserialization against
-        deserialized_tx = payloads.Transaction.deserialize_from_bytes(self.tx.to_array())
+        deserialized_tx = transaction.Transaction.deserialize_from_bytes(self.tx.to_array())
         self.assertEqual(self.tx.version, deserialized_tx.version)
         self.assertEqual(self.tx.nonce, deserialized_tx.nonce)
         self.assertEqual(self.tx.system_fee, deserialized_tx.system_fee)
@@ -929,50 +962,50 @@ class TransactionTestCase(unittest.TestCase):
         tx = deepcopy(self.tx)
         tx.version = 1
         with self.assertRaises(ValueError) as context:
-            payloads.Transaction.deserialize_from_bytes(tx.to_array())
+            transaction.Transaction.deserialize_from_bytes(tx.to_array())
         self.assertEqual("Deserialization error - invalid version", str(context.exception))
 
     def test_deserialization_system_fee_error(self):
         tx = deepcopy(self.tx)
         tx.system_fee = -1
         with self.assertRaises(ValueError) as context:
-            payloads.Transaction.deserialize_from_bytes(tx.to_array())
+            transaction.Transaction.deserialize_from_bytes(tx.to_array())
         self.assertEqual("Deserialization error - negative system fee", str(context.exception))
 
     def test_deserialization_network_fee_error(self):
         tx = deepcopy(self.tx)
         tx.network_fee = -1
         with self.assertRaises(ValueError) as context:
-            payloads.Transaction.deserialize_from_bytes(tx.to_array())
+            transaction.Transaction.deserialize_from_bytes(tx.to_array())
         self.assertEqual("Deserialization error - negative network fee", str(context.exception))
 
     def test_deserialization_script_length_error(self):
         tx = deepcopy(self.tx)
         tx.script = b''
         with self.assertRaises(ValueError) as context:
-            payloads.Transaction.deserialize_from_bytes(tx.to_array())
+            transaction.Transaction.deserialize_from_bytes(tx.to_array())
         self.assertEqual("Deserialization error - invalid script length 0", str(context.exception))
 
     def test_deserialization_duplicate_attribute_error(self):
         tx = deepcopy(self.tx)
         tx.attributes = [TestTXAttribute(), TestTXAttribute()]
         with self.assertRaises(ValueError) as context:
-            payloads.Transaction.deserialize_from_bytes(tx.to_array())
+            transaction.Transaction.deserialize_from_bytes(tx.to_array())
         self.assertEqual("Deserialization error - duplicate transaction attribute", str(context.exception))
 
     def test_deserialization_empty_signers_error(self):
         tx = deepcopy(self.tx)
         tx.signers = []
         with self.assertRaises(ValueError) as context:
-            payloads.Transaction.deserialize_from_bytes(tx.to_array())
+            transaction.Transaction.deserialize_from_bytes(tx.to_array())
         self.assertEqual("Deserialization error - signers can't be empty", str(context.exception))
 
     def test_deserialization_duplicate_signer(self):
         tx = deepcopy(self.tx)
-        tx.signers[0].scope = payloads.WitnessScope.GLOBAL
+        tx.signers[0].scope = verification.WitnessScope.GLOBAL
         tx.signers.append(deepcopy(tx.signers[0]))
         with self.assertRaises(ValueError) as context:
-            payloads.Transaction.deserialize_from_bytes(tx.to_array())
+            transaction.Transaction.deserialize_from_bytes(tx.to_array())
         self.assertEqual("Deserialization error - duplicate signer", str(context.exception))
 
     def test_fee_per_byte(self):
@@ -991,7 +1024,7 @@ class TransactionTestCase(unittest.TestCase):
         self.assertTrue(self.tx == self.tx)
 
     def test_inventory_type(self):
-        self.assertEqual(payloads.InventoryType.TX, self.tx.inventory_type)
+        self.assertEqual(inventory.InventoryType.TX, self.tx.inventory_type)
 
     def test_special_serialization(self):
         tx_special = deepcopy(self.tx)
@@ -1001,7 +1034,7 @@ class TransactionTestCase(unittest.TestCase):
             tx_special_bytes = bw.to_array()
 
         with serialization.BinaryReader(tx_special_bytes) as br:
-            tx_from_bytes = payloads.Transaction._serializable_init()
+            tx_from_bytes = transaction.Transaction._serializable_init()
             tx_from_bytes.deserialize_special(br)
         self.assertEqual(tx_special.block_height, tx_from_bytes.block_height)
 
@@ -1014,24 +1047,24 @@ class TransactionTestCase(unittest.TestCase):
 
     def test_protocol_magic(self):
         # test proper initialization
-        tx = payloads.Transaction._serializable_init()
+        tx = transaction.Transaction._serializable_init()
         # test default
         self.assertEqual(0x4F454E, tx.protocol_magic)
         # test init supplied
-        tx = payloads.Transaction(0, 0, 0, 0, 0, protocol_magic=123)
+        tx = transaction.Transaction(0, 0, 0, 0, 0, protocol_magic=123)
         self.assertEqual(123, tx.protocol_magic)
         # test settings supplied
         settings.network.magic = 456
-        tx = payloads.Transaction._serializable_init()
+        tx = transaction.Transaction._serializable_init()
         self.assertEqual(456, tx.protocol_magic)
 
     def test_scripthashes_for_verifying(self):
-        tx = payloads.Transaction._serializable_init()
+        tx = transaction.Transaction._serializable_init()
 
         account1 = types.UInt160.from_string("d7678dd97c000be3f33e9362e673101bac4ca654")
         account2 = types.UInt160.zero()
-        signer1 = payloads.Signer(account=account1, scope=payloads.WitnessScope.NONE)
-        signer2 = payloads.Signer(account=account2, scope=payloads.WitnessScope.NONE)
+        signer1 = verification.Signer(account=account1, scope=verification.WitnessScope.NONE)
+        signer2 = verification.Signer(account=account2, scope=verification.WitnessScope.NONE)
 
         tx.signers = [signer1, signer2]
 
@@ -1040,15 +1073,26 @@ class TransactionTestCase(unittest.TestCase):
 
     def test_to_json(self):
         tx = deepcopy(self.tx)
-        tx.attributes = [payloads.HighPriorityAttribute()]
+        tx.attributes = [transaction.HighPriorityAttribute()]
 
-        expected = {"hash":"0x61a72c37793ea32b9181105931e7a935eb57c915e9dbeb84dc37068c21df2b20","size":56,"version":0,"nonce":123,"sender":"NTdZAZXWiMSDUTkEFU3nHpT7FEEwwtjwfC","sysfee":"456","netfee":"789","validuntilblock":1,"signers":[{"account":"0xd7678dd97c000be3f33e9362e673101bac4ca654","scopes":"None"}],"attributes":[{"type":"HighPriority"}],"script":"AQI=","witnesses":[{"invocation":"","verification":"VQ=="}]}
+        expected = {"hash": "0x61a72c37793ea32b9181105931e7a935eb57c915e9dbeb84dc37068c21df2b20", "size": 56,
+                    "version": 0, "nonce": 123, "sender": "NTdZAZXWiMSDUTkEFU3nHpT7FEEwwtjwfC", "sysfee": "456",
+                    "netfee": "789", "validuntilblock": 1,
+                    "signers": [{"account": "0xd7678dd97c000be3f33e9362e673101bac4ca654", "scopes": "None"}],
+                    "attributes": [{"type": "HighPriority"}], "script": "AQI=",
+                    "witnesses": [{"invocation": "", "verification": "VQ=="}]}
         self.assertEqual(expected, tx.to_json())
 
     def test_from_json(self):
-        expected = expected = {"hash":"0x61a72c37793ea32b9181105931e7a935eb57c915e9dbeb84dc37068c21df2b20","size":56,"version":0,"nonce":123,"sender":"NTdZAZXWiMSDUTkEFU3nHpT7FEEwwtjwfC","sysfee":"456","netfee":"789","validuntilblock":1,"signers":[{"account":"0xd7678dd97c000be3f33e9362e673101bac4ca654","scopes":"None"}],"attributes":[{"type":"HighPriority"}],"script":"AQI=","witnesses":[{"invocation":"","verification":"VQ=="}]}
-        tx = payloads.Transaction.from_json(expected)
+        expected = expected = {"hash": "0x61a72c37793ea32b9181105931e7a935eb57c915e9dbeb84dc37068c21df2b20", "size": 56,
+                               "version": 0, "nonce": 123, "sender": "NTdZAZXWiMSDUTkEFU3nHpT7FEEwwtjwfC",
+                               "sysfee": "456", "netfee": "789", "validuntilblock": 1,
+                               "signers": [{"account": "0xd7678dd97c000be3f33e9362e673101bac4ca654", "scopes": "None"}],
+                               "attributes": [{"type": "HighPriority"}], "script": "AQI=",
+                               "witnesses": [{"invocation": "", "verification": "VQ=="}]}
+        tx = transaction.Transaction.from_json(expected)
         self.assertEqual(expected, tx.to_json())
+
 
 class VersionTestCase(unittest.TestCase):
     @classmethod
@@ -1071,7 +1115,7 @@ class VersionTestCase(unittest.TestCase):
             capabilities.FullNodeCapability(start_height=123),
             capabilities.ServerCapability(capabilities.NodeCapabilityType.TCPSERVER, port=456)
         ]
-        cls.vp = payloads.VersionPayload(nonce=888, user_agent="my-user-agent", capabilities=capa)
+        cls.vp = version.VersionPayload(nonce=888, user_agent="my-user-agent", capabilities=capa)
         cls.vp.timestamp = 0
 
     @classmethod
@@ -1085,12 +1129,13 @@ class VersionTestCase(unittest.TestCase):
 
     def test_serialization(self):
         # captured from C#, see setUpClass() for the capture code
-        expected_data = binascii.unhexlify(b'010300000000000000000000780300000D6D792D757365722D6167656E7402107B00000001C801')
+        expected_data = binascii.unhexlify(
+            b'010300000000000000000000780300000D6D792D757365722D6167656E7402107B00000001C801')
         self.assertEqual(expected_data, self.vp.to_array())
 
     def test_deserialization(self):
         # if the serialization() test for this class passes, we can use that as a reference to test deserialization against
-        deserialized_vp = payloads.VersionPayload.deserialize_from_bytes(self.vp.to_array())
+        deserialized_vp = version.VersionPayload.deserialize_from_bytes(self.vp.to_array())
         self.assertEqual(len(self.vp.capabilities), len(deserialized_vp.capabilities))
         self.assertIsInstance(deserialized_vp.capabilities[0], capabilities.FullNodeCapability)
         self.assertEqual(self.vp.capabilities[0].start_height, deserialized_vp.capabilities[0].start_height)
@@ -1108,7 +1153,7 @@ class WitnessTestCase(unittest.TestCase):
         Console.WriteLine($"b\'{BitConverter.ToString(witness.ToArray()).Replace("-","")}\'");
         Console.Write(witness.ToJson());
         """
-        cls.witness = payloads.Witness(verification_script=b'\x01\x02', invocation_script=b'\x03\x04')
+        cls.witness = verification.Witness(verification_script=b'\x01\x02', invocation_script=b'\x03\x04')
 
     def test_len(self):
         # captured from C#, see setUpClass() for the capture code
@@ -1129,29 +1174,29 @@ class WitnessTestCase(unittest.TestCase):
 
     def test_deserialization(self):
         # if the serialization() test for this class passes, we can use that as a reference to test deserialization against
-        deserialized_witness = payloads.Witness.deserialize_from_bytes(self.witness.to_array())
+        deserialized_witness = verification.Witness.deserialize_from_bytes(self.witness.to_array())
         self.assertEqual(self.witness.verification_script, deserialized_witness.verification_script)
         self.assertEqual(self.witness.invocation_script, deserialized_witness.invocation_script)
 
     def test_to_json(self):
         # captured from C#, see setUpClass() for the capture code
-        expected = {"invocation":"AwQ=","verification":"AQI="}
+        expected = {"invocation": "AwQ=", "verification": "AQI="}
         self.assertEqual(expected, self.witness.to_json())
 
-        expected_empty = {"invocation":"","verification":""}
-        empty_witness = payloads.Witness(b'', b'')
+        expected_empty = {"invocation": "", "verification": ""}
+        empty_witness = verification.Witness(b'', b'')
         self.assertEqual(expected_empty, empty_witness.to_json())
 
     def test_from_json(self):
         witness_json = {"invocation": "AwQ=", "verification": "AQI="}
-        witness = payloads.Witness.from_json(witness_json)
+        witness = verification.Witness.from_json(witness_json)
         self.assertEqual(witness_json, witness.to_json())
 
 
 class EmptyPayloadTestCase(unittest.TestCase):
     def test_empty(self):
-        e = payloads.EmptyPayload()
+        e = empty.EmptyPayload()
         self.assertEqual(0, len(e))
         self.assertEqual(0, len(e.to_array()))
         bogus_data = b'\x01\x02\x03'
-        self.assertIsInstance(payloads.EmptyPayload.deserialize_from_bytes(bogus_data), payloads.EmptyPayload)
+        self.assertIsInstance(empty.EmptyPayload.deserialize_from_bytes(bogus_data), empty.EmptyPayload)

@@ -1,34 +1,34 @@
 from __future__ import annotations
 from typing import Optional
-from neo3.network import payloads
+from neo3.network.payloads import inventory, block
 from neo3.core import types, msgrouter
-from neo3 import network_logger as logger, _Singleton
+from neo3 import network_logger as logger, singleton
 from contextlib import suppress
 
 
-class RelayCache(_Singleton):
+class RelayCache(singleton._Singleton):
     """
-    A cache holding transactions broadcasted to the network to be included in a block.
+    A cache holding transactions broadcast to the network to be included in a block.
 
     Will be accessed in response to a GETDATA network payload.
     """
     def init(self):
-        self.cache: dict[types.UInt256, payloads.inventory.IInventory] = dict()
+        self.cache: dict[types.UInt256, inventory.IInventory] = dict()
         msgrouter.on_block_persisted += self.update_cache_for_block_persist
 
-    def add(self, inventory: payloads.inventory.IInventory) -> None:
+    def add(self, inventory: inventory.IInventory) -> None:
         self.cache.update({inventory.hash(): inventory})
 
-    def get_and_remove(self, inventory_hash: types.UInt256) -> Optional[payloads.inventory.IInventory]:
+    def get_and_remove(self, inventory_hash: types.UInt256) -> Optional[inventory.IInventory]:
         try:
             return self.cache.pop(inventory_hash)
         except KeyError:
             return None
 
-    def try_get(self, inventory_hash: types.UInt256) -> Optional[payloads.inventory.IInventory]:
+    def try_get(self, inventory_hash: types.UInt256) -> Optional[inventory.IInventory]:
         return self.cache.get(inventory_hash, None)
 
-    def update_cache_for_block_persist(self, block: payloads.Block) -> None:
+    def update_cache_for_block_persist(self, block: block.Block) -> None:
         for tx in block.transactions:
             with suppress(KeyError):
                 self.cache.pop(tx.hash())

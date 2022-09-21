@@ -1,7 +1,7 @@
 from __future__ import annotations
 import lz4.block  # type: ignore
 from enum import IntEnum, IntFlag
-from neo3.network import payloads
+from neo3.network.payloads import inventory, block, version, address, empty, extensible, ping, transaction
 from neo3.core import Size as s, serialization
 from neo3 import network_logger as logger
 
@@ -61,7 +61,7 @@ class Message(serialization.ISerializable):
         self.config = MessageConfig.NONE  #: MessageConfig: message object configuration.
         #: MessageType: an identifier specifying the purpose of the message.
         self.type: MessageType = msg_type
-        self.payload: serialization.ISerializable_T = payloads.EmptyPayload()  # type: ignore
+        self.payload: serialization.ISerializable_T = empty.EmptyPayload()  # type: ignore
         # mypy doesn't get EmptyPayload is an ISerializable
 
         if payload:
@@ -81,7 +81,7 @@ class Message(serialization.ISerializable):
         payload = self.payload.to_array()
 
         if len(self.payload) > self.COMPRESSION_MIN_SIZE and MessageConfig.COMPRESSED not in self.config:
-            compressed_data = lz4.block.compress(self.payload.to_array(), store_size=False)
+            compressed_data = lz4.block.compress(self.payload.to_array(), store_size=False)  # type: ignore
             compressed_data = len(payload).to_bytes(4, 'little') + compressed_data
             if len(compressed_data) < len(self.payload) - self.COMPRESSION_THRESHOLD:
                 payload = compressed_data
@@ -118,31 +118,31 @@ class Message(serialization.ISerializable):
             self.payload = self._payload_from_data(self.type, payload_data)
 
         if self.payload is None:
-            self.payload = payloads.EmptyPayload()
+            self.payload = empty.EmptyPayload()
 
     @staticmethod
     def _payload_from_data(msg_type, data):
         with serialization.BinaryReader(data) as br:
             if msg_type in [MessageType.INV, MessageType.GETDATA]:
-                return br.read_serializable(payloads.InventoryPayload)
+                return br.read_serializable(inventory.InventoryPayload)
             elif msg_type == MessageType.GETBLOCKBYINDEX:
-                return br.read_serializable(payloads.GetBlockByIndexPayload)
+                return br.read_serializable(block.GetBlockByIndexPayload)
             elif msg_type == MessageType.VERSION:
-                return br.read_serializable(payloads.VersionPayload)
+                return br.read_serializable(version.VersionPayload)
             elif msg_type == MessageType.VERACK:
-                return br.read_serializable(payloads.EmptyPayload)
+                return br.read_serializable(empty.EmptyPayload)
             elif msg_type == MessageType.BLOCK:
-                return br.read_serializable(payloads.Block)
+                return br.read_serializable(block.Block)
             elif msg_type == MessageType.HEADERS:
-                return br.read_serializable(payloads.HeadersPayload)
+                return br.read_serializable(block.HeadersPayload)
             elif msg_type in [MessageType.PING, MessageType.PONG]:
-                return br.read_serializable(payloads.PingPayload)
+                return br.read_serializable(ping.PingPayload)
             elif msg_type == MessageType.ADDR:
-                return br.read_serializable(payloads.AddrPayload)
+                return br.read_serializable(address.AddrPayload)
             elif msg_type == MessageType.TRANSACTION:
-                return br.read_serializable(payloads.Transaction)
+                return br.read_serializable(transaction.Transaction)
             elif msg_type == MessageType.EXTENSIBLE:
-                return br.read_serializable(payloads.ExtensiblePayload)
+                return br.read_serializable(extensible.ExtensiblePayload)
             else:
                 logger.debug(f"Unsupported payload {msg_type.name}")
 

@@ -1,9 +1,9 @@
 from __future__ import annotations
 import binascii
-from neo3.core import IJson, types, cryptography
+from neo3.core import interfaces, types, cryptography
 
 
-class ContractPermissionDescriptor(IJson):
+class ContractPermissionDescriptor(interfaces.IJson):
     """
     A restriction object that limits the smart contract's calling abilities. Enforced at runtime.
 

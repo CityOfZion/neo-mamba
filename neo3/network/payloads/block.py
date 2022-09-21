@@ -3,12 +3,11 @@ import hashlib
 import struct
 from neo3 import settings
 from neo3.core import Size as s, serialization, types, utils, cryptography as crypto
-from neo3.network import payloads
+from neo3.network.payloads import verification, transaction, inventory
 from bitarray import bitarray  # type: ignore
-from .verification import IVerifiable
 
 
-class Header(IVerifiable):
+class Header(verification.IVerifiable):
     """
     A Block header only object.
 
@@ -18,7 +17,7 @@ class Header(IVerifiable):
         :class:`~neo3.network.payloads.block.TrimmedBlock`
     """
     def __init__(self, version: int, prev_hash: types.UInt256, timestamp: int, nonce: int, index: int,
-                 primary_index: int, next_consensus: types.UInt160, witness: payloads.Witness,
+                 primary_index: int, next_consensus: types.UInt160, witness: verification.Witness,
                  merkle_root: types.UInt256 = None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.version = version
@@ -85,7 +84,7 @@ class Header(IVerifiable):
             ValueError: if the check byte does not equal.
         """
         self.deserialize_unsigned(reader)
-        witnesses = reader.read_serializable_list(payloads.Witness, max=1)
+        witnesses = reader.read_serializable_list(verification.Witness, max=1)
         if len(witnesses) != 1:
             raise ValueError(f"Deserialization error - Witness object count is {len(witnesses)} must be 1")
         self.witness = witnesses[0]
@@ -108,9 +107,9 @@ class Header(IVerifiable):
          self.index,
          self.primary_index,
          consensus) = struct.unpack("<I32s32sQQIB20s", reader._stream.read(109))
-        if self.primary_index >= len(settings.standby_validators):
+        if self.primary_index >= len(settings.settings.standby_validators):
             raise ValueError(f"Deserialization error - primary index {self.primary_index} exceeds validator count "
-                             f"{len(settings.standby_validators)}")
+                             f"{len(settings.settings.standby_validators)}")
         self.prev_hash = types.UInt256(prev_hash)
         self.merkle_root = types.UInt256(merkleroot)
         self.next_consensus = types.UInt160(consensus)
@@ -135,17 +134,17 @@ class Header(IVerifiable):
                    0,
                    0,
                    types.UInt160.zero(),
-                   payloads.Witness(b'', b''))
+                   verification.Witness(b'', b''))
 
 
-class Block(payloads.IInventory):
+class Block(inventory.IInventory):
     """
     The famous Block. I transfer chain state.
     """
 
     def __init__(self,
                  header: Header,
-                 transactions: list[payloads.Transaction] = None,
+                 transactions: list[transaction.Transaction] = None,
                  *args,
                  **kwargs
                  ):
@@ -185,7 +184,7 @@ class Block(payloads.IInventory):
 
     @property
     def timestamp(self) -> int:
-        """ UTC timestamp in miliseconds """
+        """ UTC timestamp in milliseconds """
         return self.header.timestamp
 
     @property
@@ -209,7 +208,7 @@ class Block(payloads.IInventory):
         return self.header.next_consensus
 
     @property
-    def witness(self) -> payloads.Witness:
+    def witness(self) -> verification.Witness:
         """ The witness of this block """
         return self.header.witness
 
@@ -224,11 +223,11 @@ class Block(payloads.IInventory):
         return self.header.get_script_hashes_for_verifying(snapshot)
 
     @property
-    def inventory_type(self) -> payloads.InventoryType:
+    def inventory_type(self) -> inventory.InventoryType:
         """
         Inventory type identifier.
         """
-        return payloads.InventoryType.BLOCK
+        return inventory.InventoryType.BLOCK
 
     def serialize(self, writer: serialization.BinaryWriter) -> None:
         """
@@ -260,10 +259,10 @@ class Block(payloads.IInventory):
 
         Raises:
             ValueError: if the content count of the block is zero, or if there is a duplicate transaction in the list,
-                or if the merkle root does not included the calculated root.
+                or if the merkle root does not include the calculated root.
         """
         self.header = reader.read_serializable(Header)
-        self.transactions = reader.read_serializable_list(payloads.Transaction, max=0xFFFF)
+        self.transactions = reader.read_serializable_list(transaction.Transaction, max=0xFFFF)
 
         if len(set(self.transactions)) != len(self.transactions):
             raise ValueError("Deserialization error - block contains duplicate transaction")
@@ -384,7 +383,7 @@ class MerkleBlockPayload(serialization.ISerializable):
 
     @classmethod
     def _serializable_init(cls):
-        block = payloads.Block._serializable_init()
+        block = Block._serializable_init()
         flags = bitarray()
         return cls(block, flags)
 

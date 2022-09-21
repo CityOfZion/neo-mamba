@@ -1,9 +1,7 @@
-# type: ignore
-
+import hashlib
 from enum import Enum
-from collections.abc import Iterable
-from neo3.core import serialization
-from neo3.core import Size
+from collections.abc import Sequence
+from neo3.core import serialization, Size, types
 
 
 def get_var_size(value: object) -> int:
@@ -36,7 +34,7 @@ def get_var_size(value: object) -> int:
             return Size.uint8 + Size.uint32
 
     # internal static int GetVarSize<T>(this T[] value)
-    elif isinstance(value, Iterable):
+    elif isinstance(value, Sequence):
         value_length = len(value)
         value_size = 0
 
@@ -58,3 +56,15 @@ def get_var_size(value: object) -> int:
         raise ValueError(f"[NOT SUPPORTED] Unexpected value type {type(value)} for get_var_size()")
 
     return get_var_size(value_length) + value_size
+
+
+def to_script_hash(data: bytes) -> types.UInt160:
+    """
+    Create a script hash based on the input data.
+
+    Args:
+        data: data to hash
+    """
+    intermediate_data = hashlib.sha256(data).digest()
+    data_ = hashlib.new('ripemd160', intermediate_data).digest()
+    return types.UInt160(data_)

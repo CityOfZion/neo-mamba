@@ -4,12 +4,11 @@ import abc
 import struct
 import base58  # type: ignore
 import base64
-from enum import Enum
+from enum import Enum, IntEnum
 from typing import Optional, Type, TypeVar
-from neo3.core import Size as s, serialization, utils, types, IJson
-from neo3.network import payloads
-from neo3.contracts import vm
-from neo3 import settings
+from neo3.core import Size as s, serialization, utils, types, interfaces
+from neo3 import settings, vm
+from neo3.network.payloads import inventory, verification
 
 
 class TransactionAttributeType(Enum):
@@ -39,7 +38,7 @@ class TransactionAttributeType(Enum):
 TransactionAttribute_T = TypeVar('TransactionAttribute_T', bound='TransactionAttribute')
 
 
-class TransactionAttribute(serialization.ISerializable, IJson):
+class TransactionAttribute(serialization.ISerializable, interfaces.IJson):
     """
     Attributes that can be attached to a Transaction.
     """
@@ -127,11 +126,73 @@ class HighPriorityAttribute(TransactionAttribute):
         pass
 
 
-class Transaction(payloads.IInventory, IJson):
+class OracleResponseCode(IntEnum):
+    SUCCESS = 0x00
+    PROTOCOL_NOT_SUPPORTED = 0x10
+    CONSENSUS_UNREACHABLE = 0x12
+    NOT_FOUND = 0x14
+    TIMEOUT = 0x16
+    FORBIDDEN = 0x18
+    RESPONSE_TOO_LARGE = 0x1a
+    INSUFFICIENT_FUNDS = 0x1c
+    CONTENT_TYPE_NOT_SUPPORTED = 0x1f
+    ERROR = 0xFF
+
+
+class OracleResponse(TransactionAttribute, interfaces.IJson):
+    _MAX_RESULT_SIZE = 0xFFFF
+
+    def __init__(self, id: int, code: OracleResponseCode, result: bytes):
+        super(OracleResponse, self).__init__()
+        self.type_ = TransactionAttributeType.ORACLE_RESPONSE
+        #: Only one OracleResponse attribute can be attached per transaction
+        self.allow_multiple = False
+        #: The OracleRequest id to which this is a response
+        self.id = id
+        #: The evaluation result code
+        self.code = code
+        #: The actual result
+        self.result = result
+
+    def __len__(self):
+        return super(OracleResponse, self).__len__() + s.uint64 + s.uint8 + utils.get_var_size(self.result)
+
+    def _deserialize_without_type(self, reader: serialization.BinaryReader) -> None:
+        self.id = reader.read_uint64()
+        self.code = OracleResponseCode(reader.read_uint8())
+        self.result = reader.read_var_bytes(self._MAX_RESULT_SIZE)
+        if self.code != OracleResponseCode.SUCCESS and len(self.result) > 0:
+            raise ValueError(f"Deserialization error - oracle response: {self.code}")
+
+    def _serialize_without_type(self, writer: serialization.BinaryWriter) -> None:
+        writer.write_uint64(self.id)
+        writer.write_uint8(self.code)
+        writer.write_var_bytes(self.result)
+
+    def to_json(self) -> dict:
+        """ Convert object into json """
+        json = super(OracleResponse, self).to_json()
+        json.update({"id": id,
+                     "code": self.code,
+                     "result": base64.b64encode(self.result)}
+                    )
+        return json
+
+    @classmethod
+    def from_json(cls, json: dict):
+        """ Create object from JSON """
+        return cls(json['id'], json['code'], base64.b64decode(json['result']))
+
+    @classmethod
+    def _serializable_init(cls):
+        return cls(0, OracleResponseCode.ERROR, b'')
+
+
+class Transaction(inventory.IInventory, interfaces.IJson):
     """
     Data to be executed by the NEO virtual machine.
     """
-    #: the maximum number of bytes a single transaction may consists of
+    #: the maximum number of bytes a single transaction may consist of
     MAX_TRANSACTION_SIZE = 102400
     #: the maximum time a transaction will be valid from height of creation plus this value. Default is 24h
     MAX_VALID_UNTIL_BLOCK_INCREMENT = 5760
@@ -151,9 +212,9 @@ class Transaction(payloads.IInventory, IJson):
                  network_fee: int,
                  valid_until_block: int,
                  attributes: list[TransactionAttribute] = None,
-                 signers: list[payloads.Signer] = None,
+                 signers: list[verification.Signer] = None,
                  script: bytes = None,
-                 witnesses: list[payloads.Witness] = None,
+                 witnesses: list[verification.Witness] = None,
                  protocol_magic: int = None):
         #: Transaction data structure version - for internal use
         self.version = version
@@ -186,12 +247,11 @@ class Transaction(payloads.IInventory, IJson):
         #: The block height in which the transaction is included.
         self.block_height = 0
         #: The network protocol magic number to use in the Transaction hash function. Defaults to 0x4F454E
-        #: Warning: changing this will change the TX hash which can result in dangling transactions in the database as
-        #: deletion and duplication checking will fail.
+        #: Warning: changing this will change the TX hash
         if protocol_magic:
             self.protocol_magic = protocol_magic
-        elif settings.network.magic is not None:
-            self.protocol_magic = settings.network.magic
+        elif settings.settings.network.magic is not None:
+            self.protocol_magic = settings.settings.network.magic
         else:
             self.protocol_magic = 0x4F454E
 
@@ -238,16 +298,16 @@ class Transaction(payloads.IInventory, IJson):
     @property
     def sender(self) -> types.UInt160:
         """
-        The hash of the account who has send the transaction to the network
+        The hash of the account who has sent the transaction to the network
         """
         return self.signers[0].account if len(self.signers) > 0 else types.UInt160.zero()
 
     @property
-    def inventory_type(self) -> payloads.InventoryType:
+    def inventory_type(self) -> inventory.InventoryType:
         """
         Inventory type identifier.
         """
-        return payloads.InventoryType.TX
+        return inventory.InventoryType.TX
 
     def serialize(self, writer: serialization.BinaryWriter) -> None:
         """
@@ -289,7 +349,7 @@ class Transaction(payloads.IInventory, IJson):
             reader: instance.
         """
         self.deserialize_unsigned(reader)
-        self.witnesses = reader.read_serializable_list(payloads.Witness, max=len(self.signers))
+        self.witnesses = reader.read_serializable_list(verification.Witness, max=len(self.signers))
         if len(self.witnesses) != len(self.signers):
             raise ValueError("Deserialization error - witness length does not match signers length")
 
@@ -374,16 +434,16 @@ class Transaction(payloads.IInventory, IJson):
         # ugh :-(
         for attribute in json['attributes']:
             try:
-                type_ = payloads.TransactionAttributeType.from_csharp_name(attribute['type'])
-                if type_ == payloads.TransactionAttributeType.HIGH_PRIORITY:
-                    attributes.append(payloads.HighPriorityAttribute())
-                elif type_ == payloads.TransactionAttributeType.ORACLE_RESPONSE:
-                    attributes.append(payloads.OracleResponse.from_json(attribute))
+                type_ = TransactionAttributeType.from_csharp_name(attribute['type'])
+                if type_ == TransactionAttributeType.HIGH_PRIORITY:
+                    attributes.append(HighPriorityAttribute())
+                elif type_ == TransactionAttributeType.ORACLE_RESPONSE:
+                    attributes.append(OracleResponse.from_json(attribute))
             except ValueError:
                 raise ValueError("Invalid transaction attribute")
-        signers = list(map(lambda s: payloads.Signer.from_json(s), json['signers']))
+        signers = list(map(lambda s: verification.Signer.from_json(s), json['signers']))
         script = base64.b64decode(json['script'].encode())
-        witnesses = list(map(lambda w: payloads.Witness.from_json(w), json['witnesses']))
+        witnesses = list(map(lambda w: verification.Witness.from_json(w), json['witnesses']))
         return cls(version,
                    nonce,
                    system_fee,
@@ -418,17 +478,15 @@ class Transaction(payloads.IInventory, IJson):
         else:
             return None
 
-    # TODO: implement Verify methods once we have Snapshot support
-
     @staticmethod
-    def _deserialize_signers(reader: serialization.BinaryReader, max_count: int) -> list[payloads.Signer]:
+    def _deserialize_signers(reader: serialization.BinaryReader, max_count: int) -> list[verification.Signer]:
         count = reader.read_var_int(max_count)
         if count == 0:
             raise ValueError("Deserialization error - signers can't be empty")
 
-        values: list[payloads.Signer] = []
+        values: list[verification.Signer] = []
         for i in range(0, count):
-            signer = reader.read_serializable(payloads.Signer)
+            signer = reader.read_serializable(verification.Signer)
             if signer in values:
                 raise ValueError("Deserialization error - duplicate signer")
             values.append(signer)

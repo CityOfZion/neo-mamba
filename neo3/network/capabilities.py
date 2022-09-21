@@ -54,6 +54,8 @@ class NodeCapability(serialization.ISerializable):
             capability = ServerCapability(capability_type)  # type: NodeCapability
         elif capability_type == NodeCapabilityType.FULLNODE:
             capability = FullNodeCapability()
+        else:
+            raise ValueError("Unreachable")  # instantiating NodeCapabilityType will raise an error on unknown type
 
         capability.deserialize_without_type(reader)
         return capability  # a type of NodeCapability or inherited

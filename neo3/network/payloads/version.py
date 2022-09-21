@@ -24,7 +24,7 @@ class VersionPayload(serialization.ISerializable):
         #: A network id. Differs for NEO's Mainnet (use 5195086) and Testnet (use 1951352142).
         #:
         #: Reference nodes will disconnect if the value doesn't match with their local settings.
-        self.magic = settings.network.magic
+        self.magic = settings.settings.network.magic
         #: Protocol version of the node
         self.version = 0
         #: The UTC time when the node connected

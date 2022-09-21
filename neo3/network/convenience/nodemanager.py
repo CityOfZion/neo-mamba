@@ -2,8 +2,10 @@ from __future__ import annotations
 import asyncio
 import aiodns  # type: ignore
 import ipaddress
-from neo3 import network_logger as logger, settings, _Singleton
-from neo3.network import node, payloads, convenience, message
+from neo3 import network_logger as logger, settings, singleton
+from neo3.network import node, message
+from neo3.network.convenience import requestinfo
+from neo3.network.payloads import address, ping
 from neo3.core import msgrouter
 from typing import Optional
 from contextlib import suppress
@@ -19,7 +21,7 @@ def is_ip_address(hostname: str) -> bool:
         return False
 
 
-class NodeManager(_Singleton):
+class NodeManager(singleton._Singleton):
     """
     This class is a convenience class that helps establish and maintain a pool of active connections to NEO nodes.
 
@@ -55,7 +57,7 @@ class NodeManager(_Singleton):
     def init(self):
         #: A list of nodes that we're actively using to request data from
         self.nodes: list[node.NeoNode] = []
-        #: A list of host:port addresses that have a task pending to to connect to, but are not fully processed
+        #: A list of host:port addresses that have a task pending to connect to, but are not fully processed
         self.queued_addresses = []
 
         self.tasks = []
@@ -121,13 +123,13 @@ class NodeManager(_Singleton):
         disconnect_tasks = []
         logger.debug("disconnecting nodes...")
         for n in to_disconnect:
-            disconnect_tasks.append(asyncio.create_task(n.disconnect(payloads.DisconnectReason.SHUTTING_DOWN)))
+            disconnect_tasks.append(asyncio.create_task(n.disconnect(address.DisconnectReason.SHUTTING_DOWN)))
         await asyncio.gather(*disconnect_tasks, return_exceptions=True)
 
     """
     Start utility functions
     """
-    def get_node_addresses(self) -> list[payloads.NetworkAddress]:
+    def get_node_addresses(self) -> list[address.NetworkAddress]:
         """
         Return the addresses of connected nodes.
         """
@@ -169,7 +171,7 @@ class NodeManager(_Singleton):
             # we could not find a node with the height we're looking for
             return None
 
-    def get_least_failed_node(self, ri: convenience.RequestInfo) -> Optional[node.NeoNode]:
+    def get_least_failed_node(self, ri: requestinfo.RequestInfo) -> Optional[node.NeoNode]:
         """
         Return the node with the least fail count for the target item as specified in the RequestInfo.
 
@@ -219,7 +221,7 @@ class NodeManager(_Singleton):
 
             if node.nodeweight.error_response_count > self.MAX_NODE_ERROR_COUNT:
                 logger.debug(f"Disconnecting node {node.nodeid} Reason: max error count threshold exceeded.")
-                asyncio.create_task(node.disconnect(reason=payloads.DisconnectReason.POOR_PERFORMANCE))
+                asyncio.create_task(node.disconnect(reason=address.DisconnectReason.POOR_PERFORMANCE))
 
     def increase_node_timeout_count(self, nodeid: int) -> None:
         """
@@ -235,7 +237,7 @@ class NodeManager(_Singleton):
 
             if node.nodeweight.timeout_count > self.MAX_NODE_TIMEOUT_COUNT:
                 logger.debug(f"Disconnecting node {node.nodeid_human} Reason: max timeout count threshold exceeded.")
-                asyncio.create_task(node.disconnect(reason=payloads.DisconnectReason.POOR_PERFORMANCE))
+                asyncio.create_task(node.disconnect(reason=address.DisconnectReason.POOR_PERFORMANCE))
 
     """
     End utility functions
@@ -253,7 +255,7 @@ class NodeManager(_Singleton):
         with suppress(ValueError):
             self.queued_addresses.remove(node.address)
 
-    def _handle_node_disconnected(self, node: node.NeoNode, reason: payloads.DisconnectReason) -> None:
+    def _handle_node_disconnected(self, node: node.NeoNode, reason: address.DisconnectReason) -> None:
         """ Handle node disconnection event."""
         with suppress(ValueError):
             self.nodes.remove(node)
@@ -275,10 +277,10 @@ class NodeManager(_Singleton):
                     host = result[0].host
                 except aiodns.error.DNSError as e:
                     logger.debug(f"Skipping {host}, address could not be resolved: {e}.")
-            node.NeoNode.addresses.append(payloads.NetworkAddress(address=f"{host}:{port}"))
+            node.NeoNode.addresses.append(address.NetworkAddress(address=f"{host}:{port}"))
 
         tasks = []
-        for seed in settings.network.seedlist:
+        for seed in settings.settings.network.seedlist:
             tasks.append(_process(seed))
         await asyncio.gather(*tasks)
 
@@ -287,7 +289,7 @@ class NodeManager(_Singleton):
         # failures here are hard failures from asyncio's loop.create_connection()
         if failure:
             logger.debug(f"Failed to connect to {failure[0]} reason: {failure[1]}.")
-            tmp_addr = payloads.NetworkAddress(address=failure[0])
+            tmp_addr = address.NetworkAddress(address=failure[0])
 
             with suppress(ValueError):
                 idx = node.NeoNode.addresses.index(tmp_addr)
@@ -365,12 +367,12 @@ class NodeManager(_Singleton):
         for node in self.nodes:
             if now - node.best_height_last_update > self.MAX_HEIGHT_UPDATE_DURATION:
                 logger.debug(f"Disconnecting node {node.nodeid} Reason: max height update threshold exceeded.")
-                asyncio.create_task(node.disconnect(reason=payloads.DisconnectReason.POOR_PERFORMANCE))
+                asyncio.create_task(node.disconnect(reason=address.DisconnectReason.POOR_PERFORMANCE))
             else:
                 logger.debug(f"Asking node {node.nodeid_human} to send us a height update (PING)")
                 # Request latest height from node
                 height = 0
-                m = message.Message(msg_type=message.MessageType.PING, payload=payloads.PingPayload(height=height))
+                m = message.Message(msg_type=message.MessageType.PING, payload=ping.PingPayload(height=height))
                 task = asyncio.create_task(node.send_message(m))
                 self.tasks.append(task)
                 task.add_done_callback(lambda fut: self.tasks.remove(fut))
