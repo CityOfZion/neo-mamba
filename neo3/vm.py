@@ -318,6 +318,13 @@ class ScriptBuilder:
                 self.emit_raw(len_value.to_bytes(4, "little"))
                 self.emit_raw(value)
             return self
+        elif isinstance(value, list):
+            self.emit(OpCode.NEWARRAY0)
+            for v in value:
+                self.emit(OpCode.DUP)
+                self.emit_push(v)
+                self.emit(OpCode.APPEND)
+            return self
         else:
             raise ValueError(f"Unsupported value type {type(value)}")
 
@@ -334,9 +341,9 @@ class ScriptBuilder:
             opcode = OpCode(opcode + 1)
 
         if opcode % 2 == 0:
-            return self.emit(opcode, offset.to_bytes(1, "little"))
+            return self.emit(opcode, offset.to_bytes(1, "little", signed=True))
         else:
-            return self.emit(opcode, offset.to_bytes(4, "little"))
+            return self.emit(opcode, offset.to_bytes(4, "little", signed=True))
 
     def emit_call(self, offset: int) -> ScriptBuilder:
         if offset < -128 or offset > 127:
