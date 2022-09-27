@@ -252,7 +252,7 @@ class Account:
 
         invocation_script = vm.ScriptBuilder().emit_push(signature).to_array()
         # mypy can't infer that the is_watchonly check ensures public_key has a value
-        verification_script = contracts.Contract.create_signature_redeemscript(self.public_key)  # type: ignore
+        verification_script = contractutils.create_signature_redeemscript(self.public_key)  # type: ignore
         tx.witnesses.insert(0, verification.Witness(invocation_script, verification_script))
 
     def sign_multisig_tx(self,
