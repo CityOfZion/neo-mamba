@@ -421,7 +421,7 @@ class ScriptBuilder:
     def _emit_contract_call_and_unwrap_iterator(self,
                                                 script_hash,
                                                 operation: str,
-                                                args: Optional[list],
+                                                args: Optional[list] = None,
                                                 call_flags: Optional[callflags.CallFlags] = None,
                                                 ) -> ScriptBuilder:
         # jump to local variables initialization code
@@ -439,10 +439,10 @@ class ScriptBuilder:
         self.emit(OpCode.NEWARRAY0)
         self.emit(OpCode.STLOC0)
 
-        if len(args) > 0:
-            self.emit_contract_call_with_args(script_hash, operation, args, call_flags)
-        else:
+        if args is None or len(args) == 0:
             self.emit_contract_call(script_hash, operation, call_flags)
+        else:
+            self.emit_contract_call_with_args(script_hash, operation, args, call_flags)
         # store iterator in pos 1
         self.emit(OpCode.STLOC1)
 
