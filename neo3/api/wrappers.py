@@ -7,14 +7,16 @@ Convenience wrappers for calling smart contracts via RPC.
 (`NEP11Contract`)
 * As last resort there is the `GenericContract` which can be used for calling arbitrary functions on arbitrary contracts
 
-Obtaining the results of the functions on the wrapped contracts is done through one of 3 methods
+Obtaining the execution results of the functions on the wrapped contracts is done through one of 3 methods on the
+ ChainFacade class
 1. test_invoke() - does not persist to chain. Costs no gas.
 2. invoke() - does persist to chain. Requires signing and costs gas.
 3. estimate_gas - does not persist to chain. Costs no gas.
 
 Example:
-    neo = NeoToken(Config.dummy_config())
-    result = await test_invoke(neo.candidates_registered())
+    facade = ChainFacade.node_provider_mainnet()
+    neo = NeoToken()
+    result = await facade.test_invoke(neo.candidates_registered())
 """
 
 from __future__ import annotations
@@ -35,7 +37,6 @@ from neo3.contracts import contract, callflags, utils as contractutils
 # class ContractMethodFuture(Generic[T]): pass
 ContractMethodFuture = asyncio.Future
 
-
 # result stack index
 ItemIndex = int
 ExecutionResultParser = Callable[[noderpc.ExecutionResult, ItemIndex], Any]
@@ -45,90 +46,123 @@ ReturnType = TypeVar('ReturnType')
 _DEFAULT_RPC = "http://seed1.neo.org:10332"
 
 
+class ChainFacade:
+    """
+    The gateway to the network.
+
+    Abstracts away the logic for talking to the data provider (NodeRPC only atm)
+    """
+
+    def __init__(self, config: Config):
+        self.config = config
+        self._signing_func = None
+
+    async def test_invoke(self,
+                          f: ContractMethodFuture[ReturnType],
+                          signers: Optional[list[verification.Signer]] = None) -> ReturnType:
+        """
+        Call the contract method in read-only mode
+
+        This does not persist any state on the actual chain and therefore does not require signing or paying GAS.
+
+        See Also: invoke()
+        """
+        return await self._test_invoke(f, signers)
+
+    async def test_invoke_raw(self,
+                              f: ContractMethodFuture[ReturnType],
+                              signers: Optional[list[verification.Signer]] = None) -> noderpc.ExecutionResult:
+        """
+        Call the contract method in read-only mode
+
+        This does not persist any state on the actual chain and therefore does not require signing or paying GAS.
+
+        See Also: invoke()
+        """
+        return await self._test_invoke(f, signers, return_raw=True)
+
+    async def _test_invoke(self,
+                           f: ContractMethodFuture[ReturnType],
+                           signers: Optional[list[verification.Signer]] = None,
+                           return_raw: Optional[bool] = False
+                           ):
+        """
+        Call the contract method in read-only mode
+
+        This does not persist any state on the actual chain and therefore does not require signing or paying GAS.
+
+        See Also: invoke()
+        """
+        # just grabbing the exception to avoid runtime warnings. We're not supposed to call this future
+        f.exception()
+
+        async with noderpc.NeoRpcClient(self.config.rpc_host) as client:
+            script = getattr(f, "script", None)
+            if script is None or not isinstance(script, bytes):
+                raise ValueError(f"invalid script: {script}")
+            res = await client.invoke_script(script, signers)
+
+            if (func := getattr(f, "func", None)) is None or not callable(func) or return_raw:
+                return res
+            return func(res)
+
+    async def invoke(self,
+                     f: ContractMethodFuture[ReturnType],
+                     signers: Optional[list[verification.Signer]] = None) -> types.UInt256:
+        raise NotImplementedError
+
+    async def invoke_raw(self,
+                         f: ContractMethodFuture[ReturnType],
+                         signers: Optional[list[verification.Signer]] = None) -> noderpc.ExecutionResult:
+        raise NotImplementedError
+
+    async def estimate_gas(self,
+                           f: ContractMethodFuture,
+                           signers: Optional[list[verification.Signer]] = None) -> int:
+        """
+        Estimates the gas price for calling the contract method
+        """
+        # just grabbing the exception to avoid runtime warnings as we're not supposed to use the actual future
+        f.exception()
+
+        async with noderpc.NeoRpcClient(self.config.rpc_host) as client:
+            script = getattr(f, "script", None)
+            if script is None or not isinstance(script, bytes):
+                raise ValueError(f"invalid script: {script}")
+
+            res = await client.invoke_script(script, signers)
+            return res.gas_consumed
+
+    @classmethod
+    def node_provider_mainnet(cls):
+        return cls(Config.standard_config())
+
+    @classmethod
+    def node_provider_testnet(cls):
+        c = Config.standard_config()
+        c.rpc_host = "http://seed1t5.neo.org:10332"
+        return cls(c)
+
+
 class Config:
-    # TODO: describe, organise
     def __init__(self,
-                 sender: verification.Signer,
                  rpc_host: str,
                  acc: account.Account = None
                  ):
-        self.sender = sender
         self.rpc_host = rpc_host
         self.account = acc
-        self.signers = [sender]
 
     @classmethod
-    def dummy_config(cls):
+    def standard_config(cls):
         acc = account.Account.watch_only_from_address("NU7nUXkVLybRA8Bt12dsLtZBrnfuirM57k")
-        sender = verification.Signer(acc.script_hash)
-        c = cls(sender, _DEFAULT_RPC, acc)
+        c = cls(_DEFAULT_RPC, acc)
         return c
-
-
-async def test_invoke(f: ContractMethodFuture[ReturnType],
-                      config: Config,
-                      signers: Optional[list[verification.Signer]] = None) -> ReturnType:
-    """
-    Call the contract method in read-only mode
-
-    This does not persist any state on the actual chain and therefore does not require signing or paying GAS.
-
-    See Also: invoke()
-    """
-    # just grabbing the exception to avoid runtime warnings. We're not supposed to call this future
-    f.exception()
-
-    async with noderpc.NeoRpcClient(config.rpc_host) as client:
-        script = getattr(f, "script", None)
-        if script is None or not isinstance(script, bytes):
-            raise ValueError(f"invalid script: {script}")
-        res = await client.invoke_script(script, signers)
-
-        if (func := getattr(f, "func", None)) is None or not callable(func):
-            return res
-        return func(res)
-
-
-async def invoke(f: ContractMethodFuture[ReturnType],
-                 config: Config,
-                 signers: Optional[list[verification.Signer]] = None) -> types.UInt256:
-    """
-    Call the contract method in write-only mode
-
-    This persists state on the actual chain and costs GAS
-
-    Args:
-        f:
-        config:
-        signers: override the list of signers
-
-    Returns: transaction id if successful.
-    """
-    pass
-
-
-async def estimate_gas(f: ContractMethodFuture,
-                       config: Config,
-                       signers: Optional[list[verification.Signer]] = None) -> int:
-    """
-    Estimates the gas price for calling the contract method
-    """
-    # just grabbing the exception to avoid runtime warnings as we're not supposed to use the actual future
-    f.exception()
-
-    async with noderpc.NeoRpcClient(config.rpc_host) as client:
-        script = getattr(f, "script", None)
-        if script is None or not isinstance(script, bytes):
-            raise ValueError(f"invalid script: {script}")
-
-        res = await client.invoke_script(script, signers)
-        return res.gas_consumed
 
 
 def future_contract_method_result(script: bytes,
                                   func: Optional[ExecutionResultParser] = None) -> ContractMethodFuture:
     """
-    Utility function to wrap a VM script into a format that can be consumed by testinvoke(), invoke() or estimate_gas()
+    Utility function to wrap a VM script into a format that can be consumed by test_invoke(), invoke() or estimate_gas()
 
     Args:
         script: VM opcodes as outputted by ScriptBuilder
@@ -138,7 +172,7 @@ def future_contract_method_result(script: bytes,
     fut = loop.create_future()
     setattr(fut, "script", script)
     setattr(fut, "func", func)
-    fut.set_exception(ValueError("Do not call directly. Use testinvoke(), invoke() or estimate_gas()"))
+    fut.set_exception(ValueError("Do not call directly. Use test_invoke(), invoke() or estimate_gas()"))
     return cast(ContractMethodFuture, fut)
 
 
@@ -146,6 +180,7 @@ class GenericContract:
     """
     Generic class to call arbitrary methods on a smart contract
     """
+
     def __init__(self, contract_hash):
         self.hash = contract_hash
 
@@ -161,6 +196,7 @@ class TokenContract:
     """
     Base class for Fungible and Non-Fungible tokens
     """
+
     def __init__(self, contract_hash: types.UInt160):
         self.hash = contract_hash
 
@@ -192,6 +228,7 @@ class NEP17Contract(TokenContract):
     """
     Base class for calling NEP-17 compliant smart contracts
     """
+
     def balance_of(self, account: types.UInt160) -> ContractMethodFuture[int]:
         """
         Get the balance for the given account
@@ -219,7 +256,8 @@ class NEP17Contract(TokenContract):
             if balance == 0:
                 return 0.0
             else:
-                return balance / (10**decimals)
+                return balance / (10 ** decimals)
+
         return future_contract_method_result(sb.to_array(), process)
 
     def transfer(self,
@@ -229,7 +267,7 @@ class NEP17Contract(TokenContract):
         """
         Transfer `amount` of tokens from `source` account to `destination` account.
 
-        For this to pass while using `testinvoke()`, make sure to add a Signer with a script hash equal to the source
+        For this to pass while using `test_invoke()`, make sure to add a Signer with a script hash equal to the source
         account. i.e.
 
             source = <source_script_hash>
@@ -292,6 +330,7 @@ class Candidate:
     """
     Container for holding consensus candidate voting results
     """
+
     def __init__(self, public_key: cryptography.ECPoint, votes: int):
         self.public_key = public_key
         self.votes = votes
