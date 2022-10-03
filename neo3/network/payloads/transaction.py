@@ -1,7 +1,6 @@
 from __future__ import annotations
 import hashlib
 import abc
-import struct
 import base58  # type: ignore
 import base64
 from enum import Enum, IntEnum
