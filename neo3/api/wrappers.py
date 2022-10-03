@@ -4,7 +4,7 @@ Convenience wrappers for calling smart contracts via RPC.
 * The most specific wrappers in this module are for NEOs native contracts
   * NeoToken, GasToken TODO: add remaining contracts
 * One step up are wrappers for contracts following the NEP-17 Token standard (`NEP17Contract`) and NEP-11 NFT standard
-(`NEP11Contract`)
+(`NEP11DivisibleContract` & `NEP11NonDivisibleContract`)
 * As last resort there is the `GenericContract` which can be used for calling arbitrary functions on arbitrary contracts
 
 Obtaining the execution results of the functions on the wrapped contracts is done through one of 3 methods on the
@@ -444,3 +444,110 @@ class NeoToken(NEP17Contract):
             return result
 
         return future_contract_method_result(script, process)
+
+
+class NEP11Contract(TokenContract):
+    """
+    Base class for calling NEP-11 compliant smart contracts
+
+    NFTs can be divisible or non-divisible which is determined by the value of `decimals()`
+    """
+    def decimals(self) -> ContractMethodFuture[int]:
+        """
+        Get the amount of decimals
+
+        A zero return value indicates a non-divisible NFT.
+        A bigger than zero return value indicates a divisible NFTs.
+        """
+        return super(NEP11Contract, self).decimals()
+
+    def total_owned_by(self, owner: types.UInt160) -> ContractMethodFuture[int]:
+        """
+        Get the total amount of NFTs owned for the given account.
+        """
+        script = vm.ScriptBuilder().emit_contract_call_with_args(self.hash, "balanceOf", [owner]).to_array()
+        return future_contract_method_result(script, unwrap.as_int)
+
+    def token_ids_owned_by(self, owner: types.UInt160) -> ContractMethodFuture[list[bytes]]:
+        """
+        Get an iterator containing all token ids owned by the specified address
+        """
+        sb = vm.ScriptBuilder()
+        sb.emit_contract_call_with_args_and_unwrap_iterator(self.hash, "tokensOf", [owner])
+
+        def process(res: noderpc.ExecutionResult, _: int = 0) -> list[bytes]:
+            raw_results: list[noderpc.StackItem] = unwrap.as_list(res)
+            return [si.value for si in raw_results]
+
+        return future_contract_method_result(sb.to_array(), process)
+
+    def tokens(self) -> ContractMethodFuture[list[bytes]]:
+        """
+        Get all tokens minted by the contract
+
+        Note: this is an optional method and may not exist on the contract
+        """
+        def process(res: noderpc.ExecutionResult, _: int = 0) -> list[bytes]:
+            raw_results: list[noderpc.StackItem] = unwrap.as_list(res)
+            return [si.value for si in raw_results]
+
+        sb = vm.ScriptBuilder().emit_contract_call_and_unwrap_iterator(self.hash, "tokens")
+        return future_contract_method_result(sb.to_array(), process)
+
+    def properties(self, token_id: bytes):
+        """
+        Get all properties for the given NFT
+
+        Note: this is an optional method and may not exist on the contract
+        """
+        # TODO: NEP-11 states that the return value must conform to "NEO NFT Metadata JSON Schema", but it is unknown
+        # where to find this schema
+
+        # sb = vm.ScriptBuilder().emit_contract_call_with_args(self.hash, "properties", [token_id])
+        # return future_contract_method_result(sb.to_array())
+        raise NotImplementedError
+
+
+class NEP11DivisibleContract(NEP11Contract):
+    """Base class for divisible NFTs"""
+    def transfer(self,
+                 source: types.UInt160,
+                 destination: types.UInt160,
+                 amount: int,
+                 token_id: bytes,
+                 data: Optional[list] = None) -> ContractMethodFuture[bool]:
+        sb = vm.ScriptBuilder()
+        sb.emit_contract_call_with_args(self.hash, "transfer", [source, destination, amount, token_id, data])
+        return future_contract_method_result(sb.to_array(), unwrap.as_bool)
+
+    def owners_of(self, token_id: bytes) -> ContractMethodFuture[list[types.UInt160]]:
+        """
+        Get a list of account script hashes that own a part of `token_id`
+        """
+        sb = vm.ScriptBuilder()
+        sb.emit_contract_call_with_args_and_unwrap_iterator(self.hash, "ownerOf", [token_id])
+
+        def process(res: noderpc.ExecutionResult, _: int = 0) -> list[types.UInt160]:
+            raw_results: list[noderpc.StackItem] = unwrap.as_list(res)
+            return [si.as_uint160() for si in raw_results]
+
+        return future_contract_method_result(sb.to_array(), process)
+
+    def balance_of(self, owner: types.UInt160, token_id: bytes) -> ContractMethodFuture[int]:
+        sb = vm.ScriptBuilder().emit_contract_call_with_args(self.hash, "balanceOf", [owner, token_id])
+        return future_contract_method_result(sb.to_array(), unwrap.as_int)
+
+
+class NEP11NonDivisibleContract(NEP11Contract):
+    """Base class for non-divisible NFTs"""
+    def transfer(self,
+                 destination: types.UInt160,
+                 token_id: str,
+                 data: Optional[list] = None) -> ContractMethodFuture[bool]:
+        sb = vm.ScriptBuilder().emit_contract_call_with_args(self.hash, "transfer", [destination, token_id, data])
+        return future_contract_method_result(sb.to_array(), unwrap.as_bool)
+
+    def owner_of(self, token_id: bytes) -> ContractMethodFuture[types.UInt160]:
+        """ only for non-divisible tokens"""
+        sb = vm.ScriptBuilder().emit_contract_call_with_args(self.hash, "ownerOf", [token_id])
+        return future_contract_method_result(sb.to_array(), unwrap.as_uint160)
