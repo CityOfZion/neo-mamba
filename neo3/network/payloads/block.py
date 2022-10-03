@@ -1,7 +1,5 @@
 from __future__ import annotations
 import hashlib
-import struct
-from neo3 import settings
 from neo3.core import Size as s, serialization, types, utils, cryptography as crypto
 from neo3.network.payloads import verification, transaction, inventory
 from bitarray import bitarray  # type: ignore
@@ -99,20 +97,16 @@ class Header(verification.IVerifiable):
         Raises:
             ValueError: if the primary_index field is greater than the configured consensus validator count.
         """
-        (self.version,
-         prev_hash,
-         merkleroot,
-         self.timestamp,
-         self.nonce,
-         self.index,
-         self.primary_index,
-         consensus) = struct.unpack("<I32s32sQQIB20s", reader._stream.read(109))
-        if self.primary_index >= len(settings.settings.standby_validators):
-            raise ValueError(f"Deserialization error - primary index {self.primary_index} exceeds validator count "
-                             f"{len(settings.settings.standby_validators)}")
-        self.prev_hash = types.UInt256(prev_hash)
-        self.merkle_root = types.UInt256(merkleroot)
-        self.next_consensus = types.UInt160(consensus)
+        self.version = reader.read_uint32()
+        if self.version > 0:
+            raise ValueError("Deserialization error - invalid version")
+        self.prev_hash = reader.read_serializable(types.UInt256)
+        self.merkle_root = reader.read_serializable(types.UInt256)
+        self.timestamp = reader.read_uint64()
+        self.nonce = reader.read_uint64()
+        self.index = reader.read_uint32()
+        self.primary_index = reader.read_uint8()
+        self.next_consensus = reader.read_serializable(types.UInt160)
 
     def get_script_hashes_for_verifying(self, snapshot) -> list[types.UInt160]:
         """
