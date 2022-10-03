@@ -531,8 +531,32 @@ class NEP11DivisibleContract(_NEP11Contract):
         return future_contract_method_result(sb.to_array(), process)
 
     def balance_of(self, owner: types.UInt160, token_id: bytes) -> ContractMethodFuture[int]:
+        """
+        Get the token balance for the given owner
+        """
         sb = vm.ScriptBuilder().emit_contract_call_with_args(self.hash, "balanceOf", [owner, token_id])
         return future_contract_method_result(sb.to_array(), unwrap.as_int)
+
+    def balance_of_friendly(self, owner: types.UInt160, token_id: bytes) -> ContractMethodFuture[float]:
+        """
+        Get the balance for the given account and convert the result into the user representation
+
+        Uses the token decimals to convert to the user end representation
+        """
+        sb = vm.ScriptBuilder()
+        sb.emit_contract_call_with_args(self.hash, "balanceOf", [owner, token_id])
+        sb.emit_contract_call(self.hash, "decimals")
+
+        def process(res: noderpc.ExecutionResult, _: int = 0) -> float:
+            unwrap.check_state_ok(res)
+            balance = unwrap.as_int(res, 0)
+            decimals = unwrap.as_int(res, 1)
+            if balance == 0:
+                return 0.0
+            else:
+                return balance / (10 ** decimals)
+
+        return future_contract_method_result(sb.to_array(), process)
 
 
 class NEP11NonDivisibleContract(_NEP11Contract):
@@ -545,6 +569,8 @@ class NEP11NonDivisibleContract(_NEP11Contract):
         return future_contract_method_result(sb.to_array(), unwrap.as_bool)
 
     def owner_of(self, token_id: bytes) -> ContractMethodFuture[types.UInt160]:
-        """ only for non-divisible tokens"""
+        """
+        Get the owner of the given token
+        """
         sb = vm.ScriptBuilder().emit_contract_call_with_args(self.hash, "ownerOf", [token_id])
         return future_contract_method_result(sb.to_array(), unwrap.as_uint160)
