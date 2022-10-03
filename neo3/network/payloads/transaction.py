@@ -365,18 +365,18 @@ class Transaction(inventory.IInventory, interfaces.IJson):
             ValueError: If the system of network fee is negative.
             ValueError: If there is no script
         """
-        (self.version,
-         self.nonce,
-         self.system_fee,
-         self.network_fee,
-         self.valid_until_block) = struct.unpack("<BIqqI", reader._stream.read(25))
+        self.version = reader.read_uint8()
         if self.version > 0:
             raise ValueError("Deserialization error - invalid version")
+        self.nonce = reader.read_uint32()
+        self.system_fee = reader.read_int64()
         if self.system_fee < 0:
             raise ValueError("Deserialization error - negative system fee")
+        self.network_fee = reader.read_int64()
         if self.network_fee < 0:
             raise ValueError("Deserialization error - negative network fee")
 
+        self.valid_until_block = reader.read_uint32()
         self.signers = Transaction._deserialize_signers(reader, self.MAX_TRANSACTION_ATTRIBUTES)
         self.attributes = Transaction._deserialize_attributes(reader,
                                                               self.MAX_TRANSACTION_ATTRIBUTES - len(self.signers))
