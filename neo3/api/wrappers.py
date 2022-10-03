@@ -157,9 +157,9 @@ class GenericContract:
         return future_contract_method_result(script)
 
 
-class NEP17Contract:
+class TokenContract:
     """
-    Base class for calling NEP-17 compliant smart contracts
+    Base class for Fungible and Non-Fungible tokens
     """
     def __init__(self, contract_hash: types.UInt160):
         self.hash = contract_hash
@@ -187,6 +187,11 @@ class NEP17Contract:
         script = vm.ScriptBuilder().emit_contract_call(self.hash, "totalSupply").to_array()
         return future_contract_method_result(script, unwrap.as_int)
 
+
+class NEP17Contract(TokenContract):
+    """
+    Base class for calling NEP-17 compliant smart contracts
+    """
     def balance_of(self, account: types.UInt160) -> ContractMethodFuture[int]:
         """
         Get the balance for the given account
