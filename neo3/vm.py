@@ -400,6 +400,79 @@ class ScriptBuilder:
         self.emit_syscall(Syscalls.SYSTEM_CONTRACT_CALL)
         return self
 
+    def emit_contract_call_and_unwrap_iterator(self,
+                                               script_hash,
+                                               operation: str,
+                                               call_flags: Optional[callflags.CallFlags] = None
+                                               ) -> ScriptBuilder:
+        return self._emit_contract_call_and_unwrap_iterator(script_hash, operation, None, call_flags)
+
+    def emit_contract_call_with_args_and_unwrap_iterator(self,
+                                                         script_hash,
+                                                         operation: str,
+                                                         args: list,
+                                                         call_flags: Optional[callflags.CallFlags] = None
+                                                         ) -> ScriptBuilder:
+        return self._emit_contract_call_and_unwrap_iterator(script_hash, operation, args, call_flags)
+
+    def to_array(self) -> bytes:
+        return bytes(self.data)
+
+    def _emit_contract_call_and_unwrap_iterator(self,
+                                                script_hash,
+                                                operation: str,
+                                                args: Optional[list],
+                                                call_flags: Optional[callflags.CallFlags] = None,
+                                                ) -> ScriptBuilder:
+        # jump to local variables initialization code
+        self.emit_jump(OpCode.JMP, 4)
+        # the following 2 instructions are for loading the result array and exiting the script
+        # it is at the beginning because it make it easy to calculate the offset
+        return_results = len(self.data)
+        self.emit(OpCode.LDLOC0)
+        self.emit(OpCode.RET)
+        # reserve 2 local variables for the `iterator` and `results` list
+        self.emit(OpCode.INITSLOT)
+        self.emit_raw(b'\x02')
+        self.emit_raw(b'\x00')
+        # store results list in pos 0
+        self.emit(OpCode.NEWARRAY0)
+        self.emit(OpCode.STLOC0)
+
+        if len(args) > 0:
+            self.emit_contract_call_with_args(script_hash, operation, args, call_flags)
+        else:
+            self.emit_contract_call(script_hash, operation, call_flags)
+        # store iterator in pos 1
+        self.emit(OpCode.STLOC1)
+
+        """
+        Next set of opcodes does the following
+
+        while iterator.next()
+          results.append(iterator.value)
+        return results
+        """
+        loop_start = len(self.data)
+        # load iterator as argument for iterator.next
+        self.emit(OpCode.LDLOC1)
+        # test if the iterator has a value
+        self.emit_syscall(Syscalls.SYSTEM_ITERATOR_NEXT)
+        # if not jump to exit routine
+        self.emit_jump(OpCode.JMPIFNOT, self._offset_to(return_results))
+        # load iterator as argument for iterator.value
+        self.emit(OpCode.LDLOC1)
+        # get result
+        self.emit_syscall(Syscalls.SYSTEM_ITERATOR_VALUE)
+        # load array
+        self.emit(OpCode.LDLOC0)
+        # fix argument order for APPEND
+        self.emit(OpCode.SWAP)
+        self.emit(OpCode.APPEND)
+        # jump back to start of `while` loop
+        self.emit_jump(OpCode.JMP, self._offset_to(loop_start))
+        return self
+
     def _pad_right(self, data: bytearray, length: int, is_negative: bool):
         if len(data) >= length:
             return
@@ -407,8 +480,8 @@ class ScriptBuilder:
         while len(data) != length:
             data.extend(pad)
 
-    def to_array(self) -> bytes:
-        return bytes(self.data)
+    def _offset_to(self, absolute_position: int):
+        return absolute_position - len(self.data)
 
 
 class VMState(IntEnum):
