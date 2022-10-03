@@ -192,13 +192,10 @@ class GenericContract:
         return future_contract_method_result(script)
 
 
-class TokenContract:
+class _TokenContract(GenericContract):
     """
     Base class for Fungible and Non-Fungible tokens
     """
-
-    def __init__(self, contract_hash: types.UInt160):
-        self.hash = contract_hash
 
     def symbol(self) -> ContractMethodFuture[str]:
         """
@@ -224,7 +221,7 @@ class TokenContract:
         return future_contract_method_result(script, unwrap.as_int)
 
 
-class NEP17Contract(TokenContract):
+class NEP17Contract(_TokenContract):
     """
     Base class for calling NEP-17 compliant smart contracts
     """
@@ -446,7 +443,7 @@ class NeoToken(NEP17Contract):
         return future_contract_method_result(script, process)
 
 
-class NEP11Contract(TokenContract):
+class _NEP11Contract(_TokenContract):
     """
     Base class for calling NEP-11 compliant smart contracts
 
@@ -459,7 +456,7 @@ class NEP11Contract(TokenContract):
         A zero return value indicates a non-divisible NFT.
         A bigger than zero return value indicates a divisible NFTs.
         """
-        return super(NEP11Contract, self).decimals()
+        return super(_NEP11Contract, self).decimals()
 
     def total_owned_by(self, owner: types.UInt160) -> ContractMethodFuture[int]:
         """
@@ -508,7 +505,7 @@ class NEP11Contract(TokenContract):
         raise NotImplementedError
 
 
-class NEP11DivisibleContract(NEP11Contract):
+class NEP11DivisibleContract(_NEP11Contract):
     """Base class for divisible NFTs"""
     def transfer(self,
                  source: types.UInt160,
@@ -538,7 +535,7 @@ class NEP11DivisibleContract(NEP11Contract):
         return future_contract_method_result(sb.to_array(), unwrap.as_int)
 
 
-class NEP11NonDivisibleContract(NEP11Contract):
+class NEP11NonDivisibleContract(_NEP11Contract):
     """Base class for non-divisible NFTs"""
     def transfer(self,
                  destination: types.UInt160,
