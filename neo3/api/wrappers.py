@@ -491,7 +491,7 @@ class _NEP11Contract(_TokenContract):
         sb = vm.ScriptBuilder().emit_contract_call_and_unwrap_iterator(self.hash, "tokens")
         return future_contract_method_result(sb.to_array(), process)
 
-    def properties(self, token_id: bytes):
+    def properties(self, token_id: bytes) -> ContractMethodFuture[dict]:
         """
         Get all properties for the given NFT
 
