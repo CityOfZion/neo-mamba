@@ -192,13 +192,6 @@ class _TokenContract(GenericContract):
         script = vm.ScriptBuilder().emit_contract_call(self.hash, "symbol").to_array()
         return ContractMethodResult(script, unwrap.as_str)
 
-    def symbol2(self) -> ContractMethodResult[str]:
-        """
-        User-friendly name of the token
-        """
-        script = vm.ScriptBuilder().emit_contract_call(self.hash, "symbol").to_array()
-        return ContractMethodResult(script, unwrap.as_str)
-
     def decimals(self) -> ContractMethodResult[int]:
         """
         Get the amount of decimals
