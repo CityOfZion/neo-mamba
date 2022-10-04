@@ -237,6 +237,12 @@ class StackItem:
             raise ValueError(f"item is not of type 'Array' but of type '{self.type}'")
         return cast(list, self.value)
 
+    def as_dict(self) -> dict:
+        if self.type != "Map":
+            raise ValueError(f"item is not of type 'Map' but of type '{self.type}'")
+        m = cast(MapStackItem, self)
+        return dict(m.items())
+
 
 class MapStackItem(StackItem):
     def items(self) -> Iterator:

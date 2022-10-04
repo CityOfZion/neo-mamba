@@ -131,9 +131,23 @@ def as_list(res: noderpc.ExecutionResult, idx: int = 0) -> list:
         idx: the index in the result stack to fetch the stack item from.
 
     Raises:
-        ValueError: if the index is out of range, or the value cannot be converted to a bool
+        ValueError: if the index is out of range, or the value cannot be converted to a list
     """
     return item(res, idx).as_list()
+
+
+def as_dict(res: noderpc.ExecutionResult, idx: int = 0) -> dict:
+    """
+    Convert the stack item at `idx` to a dictionary
+
+    Args:
+        res:
+        idx: idx: the index in the result stack to fetch the stack item from.
+
+    Returns:
+
+    """
+    return item(res, idx).as_dict()
 
 
 def item(res: noderpc.ExecutionResult, idx: int = 0) -> noderpc.StackItem:

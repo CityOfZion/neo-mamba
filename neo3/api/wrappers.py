@@ -497,12 +497,8 @@ class _NEP11Contract(_TokenContract):
 
         Note: this is an optional method and may not exist on the contract
         """
-        # TODO: NEP-11 states that the return value must conform to "NEO NFT Metadata JSON Schema", but it is unknown
-        # where to find this schema
-
-        # sb = vm.ScriptBuilder().emit_contract_call_with_args(self.hash, "properties", [token_id])
-        # return future_contract_method_result(sb.to_array())
-        raise NotImplementedError
+        sb = vm.ScriptBuilder().emit_contract_call_with_args(self.hash, "properties", [token_id])
+        return future_contract_method_result(sb.to_array(), unwrap.as_dict)
 
 
 class NEP11DivisibleContract(_NEP11Contract):
