@@ -488,7 +488,7 @@ class NeoToken(NEP17Contract):
             result = []
 
             for si in raw_results:
-                if si.type != "Struct":
+                if si.type != noderpc.StackItemType.STRUCT:
                     continue
                 v = cast(list[noderpc.StackItem], si.value)
                 result.append(Candidate(v[0].as_public_key(), v[1].as_int()))

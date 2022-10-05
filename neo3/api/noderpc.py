@@ -4,6 +4,7 @@ import base64
 import asyncio
 import datetime
 import time
+from enum import Enum
 from contextlib import suppress
 from dataclasses import dataclass
 from typing import Optional, TypedDict, Any, Protocol, Iterator, Union, cast
@@ -197,18 +198,31 @@ class MempoolResponse:
         return c
 
 
+class StackItemType(Enum):
+    ANY = "Any"
+    ARRAY = "Array"
+    BOOL = "Boolean"
+    BUFFER = "Buffer"
+    BYTE_STRING = "ByteString"
+    INTEGER = "Integer"
+    INTEROP_INTERFACE = "InteropInterface"
+    MAP = "Map"
+    POINTER = "Pointer"
+    STRUCT = "Struct"
+
+
 @dataclass
 class StackItem:
-    type: str
+    type: StackItemType
     value: Any
 
     def as_bool(self) -> bool:
-        if self.type != "Boolean":
+        if self.type != StackItemType.BOOL:
             raise ValueError(f"item is not of type 'Boolean' but of type '{self.type}'")
         return self.value
 
     def as_str(self) -> str:
-        if self.type != "ByteString":
+        if self.type != StackItemType.BYTE_STRING:
             raise ValueError(
                 f"item is not of type 'ByteString' but of type '{self.type}'"
             )
@@ -216,13 +230,13 @@ class StackItem:
         return v.decode()
 
     def as_int(self) -> int:
-        if self.type != "Integer":
+        if self.type != StackItemType.INTEGER:
             raise ValueError(f"item is not of type 'Integer' but of type '{self.type}'")
         v = cast(int, self.value)
         return v
 
     def as_uint160(self) -> types.UInt160:
-        if self.type not in ["ByteString", "Buffer"]:
+        if self.type not in (StackItemType.BYTE_STRING, StackItemType.BUFFER):
             raise ValueError(
                 f"item is not of type 'ByteString' or 'Buffer' but of type '{self.type}'"
             )
@@ -233,7 +247,7 @@ class StackItem:
         return types.UInt160(data)
 
     def as_uint256(self) -> types.UInt256:
-        if self.type not in ["ByteString", "Buffer"]:
+        if self.type not in (StackItemType.BYTE_STRING, StackItemType.BUFFER):
             raise ValueError(
                 f"item is not of type 'ByteString' or 'Buffer' but of type '{self.type}'"
             )
@@ -247,7 +261,7 @@ class StackItem:
         return walletutils.script_hash_to_address(self.as_uint160())
 
     def as_public_key(self) -> cryptography.ECPoint:
-        if self.type not in ["ByteString", "Buffer"]:
+        if self.type not in (StackItemType.BYTE_STRING, StackItemType.BUFFER):
             raise ValueError(
                 f"item is not of type 'ByteString' or 'Buffer' but of type '{self.type}'"
             )
@@ -258,12 +272,12 @@ class StackItem:
         return cryptography.ECPoint.deserialize_from_bytes(data, validate=True)
 
     def as_list(self) -> list:
-        if self.type != "Array":
+        if self.type != StackItemType.ARRAY:
             raise ValueError(f"item is not of type 'Array' but of type '{self.type}'")
         return cast(list, self.value)
 
     def as_dict(self) -> dict:
-        if self.type != "Map":
+        if self.type != StackItemType.MAP:
             raise ValueError(f"item is not of type 'Map' but of type '{self.type}'")
         m = cast(MapStackItem, self)
         return dict(m.items())
@@ -306,8 +320,12 @@ class ExecutionResult:
 
     @staticmethod
     def _parse_stack_item(item: _Item) -> StackItem:
-        type_ = item["type"]
-        if type_ in ("Array", "Struct"):
+        try:
+            type_ = StackItemType(item["type"])
+        except ValueError:
+            raise ValueError(f"Unknown stack item type: {item['type']}")
+
+        if type_ in (StackItemType.ARRAY, StackItemType.STRUCT):
             list_ = list(
                 map(
                     lambda element: ExecutionResult._parse_stack_item(element),
@@ -315,28 +333,28 @@ class ExecutionResult:
                 )
             )
             return StackItem(type_, list_)
-        elif type_ in ("Boolean", "Pointer"):
-            return StackItem(**item)
-        if type_ in ("Buffer", "ByteString"):
+        elif type_ in (StackItemType.BOOL, StackItemType.POINTER):
+            return StackItem(type_, item["value"])
+        if type_ in (StackItemType.BUFFER, StackItemType.BYTE_STRING):
             return StackItem(type_, base64.b64decode(item["value"]))
-        elif type_ == "Integer":
+        elif type_ == StackItemType.INTEGER:
             return StackItem(type_, int(item["value"]))
-        elif type_ == "Map":
+        elif type_ == StackItemType.MAP:
             map_ = []
             for stack_item in item["value"]:
 
                 key = ExecutionResult._parse_stack_item(stack_item["key"])
-                key_type = stack_item["key"]["type"]
-                if key_type == "ByteString":
+                key_type = StackItemType(stack_item["key"]["type"])
+                if key_type == StackItemType.BYTE_STRING:
                     key.value = key.value.decode()
                 else:
                     key.value = str(key.value)
                 value = ExecutionResult._parse_stack_item(stack_item["value"])
                 map_.append((key, value))
             return MapStackItem(type_, map_)
-        elif type_ == "Any":
+        elif type_ == StackItemType.ANY:
             return StackItem(type_, None)
-        elif type_ == "InteropInterface":
+        elif type_ == StackItemType.INTEROP_INTERFACE:
             if "iterator" not in item.keys():
                 raise ValueError(
                     f"Interop stack item only supports iterators, could not find 'iterator' key"
@@ -348,9 +366,7 @@ class ExecutionResult:
                 )
             )
             return StackItem(type_, values)
-        else:
-            raise ValueError(f"Unknown stack item type: {type_}")
-        assert False, "unreachable"  # just to help mypy
+        assert False, "unreachable"
 
     @classmethod
     def from_json(cls, json: dict):
