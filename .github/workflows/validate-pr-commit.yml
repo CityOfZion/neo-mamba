@@ -82,14 +82,14 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: setup-artifact-${{ matrix.os }}
-      - if: matrix.os == 'linux-latest'
+      - if: success() && matrix.os == 'linux-latest'
         name: extract and test
         run: |
           tar -xf mamba.tar.gz
           cd mamba
           source venv/bin/activate
           make test
-      - if: matrix.os == 'windows-latest'
+      - if: success() && matrix.os == 'windows-latest'
         name: extract and test
         run: |
           tar -xf mamba.tar.gz
