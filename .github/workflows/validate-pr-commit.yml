@@ -10,7 +10,7 @@ on:
 
 jobs:
   setup:
-    name: ${{ matrix.name }}
+    name: ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -77,7 +77,7 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: setup-artifact-${{ matrix.os }}
-      - if: success() && matrix.os == 'linux-latest'
+      - if: success() && matrix.os == 'ubuntu-latest'
         name: extract and test
         run: |
           tar -xf mamba.tar.gz
