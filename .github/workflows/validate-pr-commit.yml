@@ -46,7 +46,7 @@ jobs:
           venv\Scripts\activate
           pip install -e .[dev,docs]
       - name: prep for persist
-        run: tar -czf mamba.tar.gz mamba/
+        run: tar -czf mamba.tar.gz mamba
       - name: persist
         uses: actions/upload-artifact@v2
         with:
