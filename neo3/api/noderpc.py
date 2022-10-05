@@ -218,27 +218,31 @@ class StackItem:
 
     def as_bool(self) -> bool:
         if self.type != StackItemType.BOOL:
-            raise ValueError(f"item is not of type 'Boolean' but of type '{self.type}'")
+            raise ValueError(
+                f"item is not of type '{StackItemType.BOOL}' but of type '{self.type}'"
+            )
         return self.value
 
     def as_str(self) -> str:
         if self.type != StackItemType.BYTE_STRING:
             raise ValueError(
-                f"item is not of type 'ByteString' but of type '{self.type}'"
+                f"item is not of type '{StackItemType.BYTE_STRING}' but of type '{self.type}'"
             )
         v = cast(bytes, self.value)
         return v.decode()
 
     def as_int(self) -> int:
         if self.type != StackItemType.INTEGER:
-            raise ValueError(f"item is not of type 'Integer' but of type '{self.type}'")
+            raise ValueError(
+                f"item is not of type '{StackItemType.INTEGER}' but of type '{self.type}'"
+            )
         v = cast(int, self.value)
         return v
 
     def as_uint160(self) -> types.UInt160:
         if self.type not in (StackItemType.BYTE_STRING, StackItemType.BUFFER):
             raise ValueError(
-                f"item is not of type 'ByteString' or 'Buffer' but of type '{self.type}'"
+                f"item is not of type '{StackItemType.BYTE_STRING}' or '{StackItemType.BUFFER}' but of type '{self.type}'"
             )
         # we need to ensure the data is hex-escaped
         data = self.value
@@ -249,7 +253,7 @@ class StackItem:
     def as_uint256(self) -> types.UInt256:
         if self.type not in (StackItemType.BYTE_STRING, StackItemType.BUFFER):
             raise ValueError(
-                f"item is not of type 'ByteString' or 'Buffer' but of type '{self.type}'"
+                f"item is not of type '{StackItemType.BYTE_STRING}' or '{StackItemType.BUFFER}' but of type '{self.type}'"
             )
         # we need to ensure the data is hex-escaped
         data = self.value
@@ -263,7 +267,7 @@ class StackItem:
     def as_public_key(self) -> cryptography.ECPoint:
         if self.type not in (StackItemType.BYTE_STRING, StackItemType.BUFFER):
             raise ValueError(
-                f"item is not of type 'ByteString' or 'Buffer' but of type '{self.type}'"
+                f"item is not of type '{StackItemType.BYTE_STRING}' or '{StackItemType.BUFFER}' but of type '{self.type}'"
             )
         # we need to ensure the data is hex-escaped
         data = self.value
@@ -273,12 +277,16 @@ class StackItem:
 
     def as_list(self) -> list:
         if self.type != StackItemType.ARRAY:
-            raise ValueError(f"item is not of type 'Array' but of type '{self.type}'")
+            raise ValueError(
+                f"item is not of type '{StackItemType.ARRAY}' but of type '{self.type}'"
+            )
         return cast(list, self.value)
 
     def as_dict(self) -> dict:
         if self.type != StackItemType.MAP:
-            raise ValueError(f"item is not of type 'Map' but of type '{self.type}'")
+            raise ValueError(
+                f"item is not of type '{StackItemType.MAP}' but of type '{self.type}'"
+            )
         m = cast(MapStackItem, self)
         return dict(m.items())
 
