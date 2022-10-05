@@ -9,7 +9,6 @@ class DummyEnum(IntEnum):
 
 
 class DummySerializable(serialization.ISerializable):
-
     def serialize(self, writer: BinaryWriter) -> None:
         pass
 
@@ -29,7 +28,7 @@ class VarSizeTestCase(unittest.TestCase):
 
     def test_varsize_string(self):
         input = "abc"
-        self.assertEqual(1+len(input), utils.get_var_size(input))
+        self.assertEqual(1 + len(input), utils.get_var_size(input))
 
         input = "a" * 0xFC
         self.assertEqual(1 + len(input), utils.get_var_size(input))
@@ -48,7 +47,7 @@ class VarSizeTestCase(unittest.TestCase):
         iterable = []
         self.assertEqual(1, utils.get_var_size(iterable))
 
-        iterable = b'\x01\x02'
+        iterable = b"\x01\x02"
         self.assertEqual(1 + len(iterable), utils.get_var_size(iterable))
 
         iterable = [DummySerializable(), DummySerializable()]
@@ -63,7 +62,10 @@ class VarSizeTestCase(unittest.TestCase):
         iterable = [object()]
         with self.assertRaises(TypeError) as context:
             utils.get_var_size(iterable)
-        self.assertIn("Cannot accurately determine size of objects that do not", str(context.exception))
+        self.assertIn(
+            "Cannot accurately determine size of objects that do not",
+            str(context.exception),
+        )
 
     def test_not_supported_objects(self):
         with self.assertRaises(ValueError) as context:
@@ -74,7 +76,9 @@ class VarSizeTestCase(unittest.TestCase):
 class ScriptHashTestCase(unittest.TestCase):
     def test_to_script_hash(self):
         # from https://github.com/neo-project/neo/blob/8e68c3fabf8b7cad3bd27e0c556cbeda17c2b123/tests/Neo.UnitTests/UT_Helper.cs#L35
-        data = b'\x42' + b'\x20' * 63
-        expected = types.UInt160.from_string("0x2d3b96ae1bcc5a585e075e3b81920210dec16302")
+        data = b"\x42" + b"\x20" * 63
+        expected = types.UInt160.from_string(
+            "0x2d3b96ae1bcc5a585e075e3b81920210dec16302"
+        )
         actual = utils.to_script_hash(data)
         self.assertEqual(expected, actual)

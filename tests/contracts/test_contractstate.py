@@ -12,7 +12,9 @@ class ContractStateTestCase(unittest.TestCase):
         self.assertEqual(state, clone)
 
         nef2 = nef.NEF()
-        state2 = contract.ContractState(2, nef2, manifest_, 0, types.UInt160(b'\x01' * 20))
+        state2 = contract.ContractState(
+            2, nef2, manifest_, 0, types.UInt160(b"\x01" * 20)
+        )
         self.assertNotEqual(state, state2)
         self.assertNotEqual(state, None)
         self.assertNotEqual(state, object())

@@ -3,7 +3,15 @@ import binascii
 import lz4
 from unittest.mock import patch, call
 from neo3.network import message
-from neo3.network.payloads import inventory, empty, block, transaction, ping, address, version
+from neo3.network.payloads import (
+    inventory,
+    empty,
+    block,
+    transaction,
+    ping,
+    address,
+    version,
+)
 from neo3.core.types.uint import UInt256
 from neo3.core import serialization
 
@@ -41,14 +49,16 @@ class NetworkMessageTestCase(unittest.TestCase):
             }          
 
         """
-        expected_data = binascii.unhexlify(b'0027222C010000000000000000000000000000000000000000000000000000000000000000')
+        expected_data = binascii.unhexlify(
+            b"0027222C010000000000000000000000000000000000000000000000000000000000000000"
+        )
         self.assertEqual(expected_data, data)
 
     def test_create_compressed_inv_message(self):
         hashes = [UInt256.zero(), UInt256.zero(), UInt256.zero(), UInt256.zero()]
         inv_payload = inventory.InventoryPayload(inventory.InventoryType.BLOCK, hashes)
         m = message.Message(message.MessageType.INV, inv_payload)
-        data = m.to_array() # triggers payload compression
+        data = m.to_array()  # triggers payload compression
 
         self.assertEqual(message.MessageType.INV, m.type)
         self.assertEqual(message.MessageConfig.COMPRESSED, m.config)
@@ -59,12 +69,12 @@ class NetworkMessageTestCase(unittest.TestCase):
         The deviation is `hashes` now contains 4 x UInt256.zero()
         """
 
-        expected_data = binascii.unhexlify(b'012711820000003F2C0400010067500000000000')
+        expected_data = binascii.unhexlify(b"012711820000003F2C0400010067500000000000")
         self.assertEqual(expected_data, data)
 
     def test_inv_message_deserialization(self):
         # see test_create_compressed_inv_message() how it was obtained
-        raw_data = binascii.unhexlify(b'012711820000003F2C0400010067500000000000')
+        raw_data = binascii.unhexlify(b"012711820000003F2C0400010067500000000000")
         m = message.Message.deserialize_from_bytes(raw_data)
         self.assertIsInstance(m.payload, inventory.InventoryPayload)
         self.assertEqual(132, len(m))
@@ -72,7 +82,9 @@ class NetworkMessageTestCase(unittest.TestCase):
     def test_deserialization_with_not_enough_data(self):
         with self.assertRaises(ValueError) as context:
             m = message.Message.deserialize_from_bytes(bytearray(2))
-        self.assertEqual(str(context.exception), "Could not read byte from empty stream")
+        self.assertEqual(
+            str(context.exception), "Could not read byte from empty stream"
+        )
 
     def test_deserialization_without_payload(self):
         # some message types like PING/PONG have no payload
@@ -84,7 +96,7 @@ class NetworkMessageTestCase(unittest.TestCase):
 
     def test_deserialization_from_stream(self):
         # see test_create_compressed_inv_message() how it was obtained
-        raw_data = binascii.unhexlify(b'012711820000003F2C0400010067500000000000')
+        raw_data = binascii.unhexlify(b"012711820000003F2C0400010067500000000000")
         with serialization.BinaryReader(raw_data) as br:
             m = message.Message(message.MessageType.DEFAULT)
             m.deserialize(br)
@@ -101,27 +113,29 @@ class NetworkMessageTestCase(unittest.TestCase):
 
     def test_deserialization_erroneous_compressed_data(self):
         # see test_create_compressed_inv_message() how it was obtained
-        raw_data = binascii.unhexlify(b'01270D3F020400010067500000000000')
+        raw_data = binascii.unhexlify(b"01270D3F020400010067500000000000")
 
-        with patch('lz4.block.decompress') as lz4_mock:
+        with patch("lz4.block.decompress") as lz4_mock:
             with self.assertRaises(ValueError) as context:
                 lz4_mock.side_effect = lz4.block.LZ4BlockError()
                 m = message.Message.deserialize_from_bytes(raw_data)
-            self.assertEqual("Invalid payload data - decompress failed", str(context.exception))
+            self.assertEqual(
+                "Invalid payload data - decompress failed", str(context.exception)
+            )
 
     def test_payload_from_data(self):
-        with patch('neo3.core.serialization.BinaryReader') as br:
+        with patch("neo3.core.serialization.BinaryReader") as br:
             reader = br.return_value.__enter__.return_value
-            message.Message._payload_from_data(message.MessageType.INV, b'')
-            message.Message._payload_from_data(message.MessageType.GETBLOCKBYINDEX, b'')
-            message.Message._payload_from_data(message.MessageType.VERSION, b'')
-            message.Message._payload_from_data(message.MessageType.VERACK, b'')
-            message.Message._payload_from_data(message.MessageType.BLOCK, b'')
-            message.Message._payload_from_data(message.MessageType.HEADERS, b'')
-            message.Message._payload_from_data(message.MessageType.PING, b'')
-            message.Message._payload_from_data(message.MessageType.PONG, b'')
-            message.Message._payload_from_data(message.MessageType.ADDR, b'')
-            message.Message._payload_from_data(message.MessageType.TRANSACTION, b'')
+            message.Message._payload_from_data(message.MessageType.INV, b"")
+            message.Message._payload_from_data(message.MessageType.GETBLOCKBYINDEX, b"")
+            message.Message._payload_from_data(message.MessageType.VERSION, b"")
+            message.Message._payload_from_data(message.MessageType.VERACK, b"")
+            message.Message._payload_from_data(message.MessageType.BLOCK, b"")
+            message.Message._payload_from_data(message.MessageType.HEADERS, b"")
+            message.Message._payload_from_data(message.MessageType.PING, b"")
+            message.Message._payload_from_data(message.MessageType.PONG, b"")
+            message.Message._payload_from_data(message.MessageType.ADDR, b"")
+            message.Message._payload_from_data(message.MessageType.TRANSACTION, b"")
 
             calls = [
                 call(inventory.InventoryPayload),
@@ -133,6 +147,6 @@ class NetworkMessageTestCase(unittest.TestCase):
                 call(ping.PingPayload),
                 call(ping.PingPayload),
                 call(address.AddrPayload),
-                call(transaction.Transaction)
+                call(transaction.Transaction),
             ]
             reader.read_serializable.assert_has_calls(calls, any_order=False)
