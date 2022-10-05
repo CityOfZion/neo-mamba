@@ -78,7 +78,9 @@ class NodeWeight:
 
         # punish errors and timeouts harder than slower speeds and more recent access
         if self.error_response_count:
-            weight /= self.error_response_count + 1  # make sure we at least always divide by 2
+            weight /= (
+                self.error_response_count + 1
+            )  # make sure we at least always divide by 2
 
         if self.timeout_count:
             weight /= self.timeout_count + 1
@@ -88,4 +90,6 @@ class NodeWeight:
         return self.weight() < other.weight()
 
     def __repr__(self):
-        return f"<{self.__class__.__name__} at {hex(id(self))}> weight:{self.weight():.2f}"
+        return (
+            f"<{self.__class__.__name__} at {hex(id(self))}> weight:{self.weight():.2f}"
+        )

@@ -8,6 +8,7 @@ class FlightInfo:
     It is used as part of ``SyncManager`` for syncing the chain over the P2P network in combination with the global data
     tracking :class:`RequestInfo <neo3.network.convenience.requestinfo.RequestInfo>` class.
     """
+
     def __init__(self, node_id: int, height: int):
         """
         Args:
@@ -27,5 +28,5 @@ class FlightInfo:
         self.start_time: float = datetime.utcnow().timestamp()
 
     def reset_start_time(self) -> None:
-        """ Reset the flight start time."""
+        """Reset the flight start time."""
         self.start_time = datetime.utcnow().timestamp()

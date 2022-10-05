@@ -19,7 +19,9 @@ def check_state_ok(res: noderpc.ExecutionResult):
 
     """
     if vm.VMState.from_string(res.state) != vm.VMState.HALT:
-        raise ValueError(f"Transaction execution failed with state {res.state} and err: {res.exception}")
+        raise ValueError(
+            f"Transaction execution failed with state {res.state} and err: {res.exception}"
+        )
 
 
 def as_bool(res: noderpc.ExecutionResult, idx: int = 0) -> bool:

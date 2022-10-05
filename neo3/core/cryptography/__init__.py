@@ -4,19 +4,34 @@ from .bloomfilter import BloomFilter
 from .ecc import ECCCurve, ECPoint, KeyPair, ECCException, ecdsa_verify, ecdsa_sign
 import hashlib
 
-__all__ = ['MerkleTree', 'BloomFilter', 'ECCCurve', 'ECPoint', 'KeyPair', 'sign', 'verify_signature',
-           'ECCException']
+__all__ = [
+    "MerkleTree",
+    "BloomFilter",
+    "ECCCurve",
+    "ECPoint",
+    "KeyPair",
+    "sign",
+    "verify_signature",
+    "ECCException",
+]
 
 
-def sign(message: bytes, private_key: bytes, curve=ECCCurve.SECP256R1, hash_func=hashlib.sha256) -> bytes:
+def sign(
+    message: bytes,
+    private_key: bytes,
+    curve=ECCCurve.SECP256R1,
+    hash_func=hashlib.sha256,
+) -> bytes:
     return ecdsa_sign(private_key, message, curve, hash_func)
 
 
-def verify_signature(message: bytes,
-                     signature: bytes,
-                     public_key: bytes,
-                     curve: ECCCurve = ECCCurve.SECP256R1,
-                     hash_func=hashlib.sha256) -> bool:
+def verify_signature(
+    message: bytes,
+    signature: bytes,
+    public_key: bytes,
+    curve: ECCCurve = ECCCurve.SECP256R1,
+    hash_func=hashlib.sha256,
+) -> bool:
     """
     Test is the `signature` is signed by `public_key` valid for `message`.
 

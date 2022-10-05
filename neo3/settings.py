@@ -29,12 +29,14 @@ class Settings(IndexableNamespace):
     db = None
     _cached_standby_committee = None
     default_settings = {
-        'network': {
-            'magic': 5195086,
-            'account_version': 53,
-            'seedlist': [],
-            'validators_count': 1,
-            'standby_committee': ['02158c4a4810fa2a6a12f7d33d835680429e1a68ae61161c5b3fbc98c7f1f17765'],
+        "network": {
+            "magic": 5195086,
+            "account_version": 53,
+            "seedlist": [],
+            "validators_count": 1,
+            "standby_committee": [
+                "02158c4a4810fa2a6a12f7d33d835680429e1a68ae61161c5b3fbc98c7f1f17765"
+            ],
         },
     }
 
@@ -46,7 +48,7 @@ class Settings(IndexableNamespace):
 
     @classmethod
     def from_file(cls, path_to_json: str):
-        with open(path_to_json, 'r') as f:
+        with open(path_to_json, "r") as f:
             data = json.load(f)
         return cls.from_json(data)
 
@@ -73,13 +75,15 @@ class Settings(IndexableNamespace):
         if self._cached_standby_committee is None:
             points = []
             for p in self.network.standby_committee:
-                points.append(cryptography.ECPoint.deserialize_from_bytes(binascii.unhexlify(p)))
+                points.append(
+                    cryptography.ECPoint.deserialize_from_bytes(binascii.unhexlify(p))
+                )
             self._cached_standby_committee = points
         return self._cached_standby_committee
 
     @property
     def standby_validators(self) -> list[cryptography.ECPoint]:
-        return self.standby_committee[:self.network.validators_count]
+        return self.standby_committee[: self.network.validators_count]
 
     def reset_settings_to_default(self):
         self.__dict__.clear()

@@ -6,6 +6,7 @@ class BloomFilter:
     """
     BloomFilter implementation conforming to NEO's `implementation <https://github.com/neo-project/neo/blob/982e69090f27c1415872536ce39aea22f0873467/neo.UnitTests/Cryptography/UT_BloomFilter.cs>`_.  # noqa
     """
+
     def __init__(self, m: int, k: int, ntweak: int, elements: bytes = None):
         """
 
@@ -20,12 +21,12 @@ class BloomFilter:
         self.K = k
         self.seeds = [(p * 0xFBA4C795 + ntweak) % 4294967296 for p in range(0, k)]
         if elements:
-            tmp_bits = bitarray(endian='little')
+            tmp_bits = bitarray(endian="little")
             tmp_bits.frombytes(elements)
             # truncate to m bits
             self.bits = tmp_bits[:m]
         else:
-            self.bits = bitarray(m, endian='little')
+            self.bits = bitarray(m, endian="little")
             self.bits.setall(False)
         self.tweak = ntweak
 

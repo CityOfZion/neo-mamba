@@ -60,7 +60,7 @@ from copy import deepcopy
 
 class IPFilter:
 
-    default_config: dict = {'blacklist': [], 'whitelist': []}
+    default_config: dict = {"blacklist": [], "whitelist": []}
 
     def __init__(self):
         self._config = deepcopy(self.default_config)
@@ -76,7 +76,7 @@ class IPFilter:
 
         is_allowed = True
 
-        for ip in self._config['blacklist']:
+        for ip in self._config["blacklist"]:
             disallowed = IPv4Network(ip)
             if disallowed.overlaps(ipv4_address):
                 is_allowed = False
@@ -85,7 +85,7 @@ class IPFilter:
             return is_allowed
 
         # can override blacklist
-        for ip in self._config['whitelist']:
+        for ip in self._config["whitelist"]:
             allowed = IPv4Network(ip)
             if allowed.overlaps(ipv4_address):
                 is_allowed = True
@@ -99,7 +99,7 @@ class IPFilter:
         Args:
             address: an IPv4 address as defined in the :py:class:`standard library <python:ipaddress.IPv4Network>`.
         """
-        self._config['blacklist'].append(address)
+        self._config["blacklist"].append(address)
 
     def blacklist_remove(self, address: str) -> None:
         """
@@ -109,7 +109,7 @@ class IPFilter:
             address: an IPv4 address as defined in the :py:class:`standard library <python:ipaddress.IPv4Network>`.
         """
         with suppress(ValueError):
-            self._config['blacklist'].remove(address)
+            self._config["blacklist"].remove(address)
 
     def whitelist_add(self, address: str) -> None:
         """
@@ -118,7 +118,7 @@ class IPFilter:
         Args:
             address: an IPv4 address as defined in the :py:class:`standard library <python:ipaddress.IPv4Network>`.
         """
-        self._config['whitelist'].append(address)
+        self._config["whitelist"].append(address)
 
     def whitelist_remove(self, address: str) -> None:
         """
@@ -128,7 +128,7 @@ class IPFilter:
             address: an IPv4 address as defined in the :py:class:`standard library <python:ipaddress.IPv4Network>`.
         """
         with suppress(ValueError):
-            self._config['whitelist'].remove(address)
+            self._config["whitelist"].remove(address)
 
     def load_config(self, config: dict[str, list[str]]) -> None:
         """
@@ -142,9 +142,9 @@ class IPFilter:
         Raises:
             ValueError: if the required config keys are not found.
         """
-        if 'whitelist' not in config:
+        if "whitelist" not in config:
             raise ValueError("whitelist key not found")
-        if 'blacklist' not in config:
+        if "blacklist" not in config:
             raise ValueError("blacklist key not found")
         self._config = config
 

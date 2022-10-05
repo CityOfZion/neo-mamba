@@ -6,15 +6,16 @@ from io import BytesIO, SEEK_END
 from typing import Type, TypeVar, Optional
 
 
-ISerializable_T = TypeVar('ISerializable_T', bound='ISerializable')
+ISerializable_T = TypeVar("ISerializable_T", bound="ISerializable")
 
-__all__ = ['ISerializable', 'BinaryReader', 'BinaryWriter']
+__all__ = ["ISerializable", "BinaryReader", "BinaryWriter"]
 
 
 class ISerializable(abc.ABC):
     """
     An interface like class supporting NEO's network serialization protocol.
     """
+
     @abc.abstractmethod
     def serialize(self, writer: BinaryWriter) -> None:
         """
@@ -34,7 +35,9 @@ class ISerializable(abc.ABC):
         """
 
     @classmethod
-    def deserialize_from_bytes(cls: Type[ISerializable_T], data: bytes | bytearray) -> ISerializable_T:
+    def deserialize_from_bytes(
+        cls: Type[ISerializable_T], data: bytes | bytearray
+    ) -> ISerializable_T:
         """
         Parse data into an object instance.
 
@@ -50,14 +53,14 @@ class ISerializable(abc.ABC):
             return payload
 
     def to_array(self) -> bytes:
-        """ Serialize the object into a bytearray."""
+        """Serialize the object into a bytearray."""
         with BinaryWriter() as bw:
             self.serialize(bw)
             return bw._stream.getvalue()
 
     @abc.abstractmethod
     def __len__(self):
-        """ Return the length of the object in number of bytes."""
+        """Return the length of the object in number of bytes."""
 
     @classmethod
     def _serializable_init(cls):
@@ -153,7 +156,9 @@ class BinaryReader(object):
         """
         value = self._stream.read(length)
         if not _skip_length_check and len(value) != length:
-            raise ValueError(f"Could not read {length} bytes from stream. Only found {len(value)} bytes of data")
+            raise ValueError(
+                f"Could not read {length} bytes from stream. Only found {len(value)} bytes of data"
+            )
 
         return value
 
@@ -263,15 +268,15 @@ class BinaryReader(object):
         Raises:
             ValueError: if the return value exceeds the `max` argument.
         """
-        fb = int.from_bytes(self.read_byte(), 'little')
+        fb = int.from_bytes(self.read_byte(), "little")
         if fb == 0:
             return fb
 
-        if fb == 0xfd:
+        if fb == 0xFD:
             value = self.read_uint16()
-        elif fb == 0xfe:
+        elif fb == 0xFE:
             value = self.read_uint32()
-        elif fb == 0xff:
+        elif fb == 0xFF:
             value = self.read_uint64()
         else:
             value = fb
@@ -324,7 +329,7 @@ class BinaryReader(object):
         length = self.read_var_int(max)
         try:
             data = struct.unpack(f"{length}s", self._stream.read(length))[0]
-            return data.decode('utf-8')
+            return data.decode("utf-8")
         except Exception as e:
             raise ValueError(str(e))
 
@@ -339,7 +344,9 @@ class BinaryReader(object):
         obj.deserialize(self)
         return obj
 
-    def read_serializable_list(self, obj_type: Type[ISerializable_T], max: int = None) -> list[ISerializable_T]:
+    def read_serializable_list(
+        self, obj_type: Type[ISerializable_T], max: int = None
+    ) -> list[ISerializable_T]:
         """
         Read and deserialize a list of objects of `obj_type` from the stream.
 
@@ -456,7 +463,7 @@ class BinaryWriter(object):
         Returns:
             int: the number of bytes written.
         """
-        return self._pack('?', value)
+        return self._pack("?", value)
 
     def write_uint8(self, value) -> int:
         """
@@ -480,7 +487,7 @@ class BinaryWriter(object):
         Returns:
             int: the number of bytes written.
         """
-        return self._pack('%sH' % endian, value)
+        return self._pack("%sH" % endian, value)
 
     def write_uint32(self, value: int, endian: str = "<") -> int:
         """
@@ -493,7 +500,7 @@ class BinaryWriter(object):
         Returns:
             int: the number of bytes written.
         """
-        return self._pack('%sI' % endian, value)
+        return self._pack("%sI" % endian, value)
 
     def write_uint64(self, value: int, endian: str = "<") -> int:
         """
@@ -506,7 +513,7 @@ class BinaryWriter(object):
         Returns:
             int: the number of bytes written.
         """
-        return self._pack('%sQ' % endian, value)
+        return self._pack("%sQ" % endian, value)
 
     def write_int16(self, value: int, endian: str = "<") -> int:
         """
@@ -517,7 +524,7 @@ class BinaryWriter(object):
         Returns:
             int: the number of bytes written.
         """
-        return self._pack('%sh' % endian, value)
+        return self._pack("%sh" % endian, value)
 
     def write_int32(self, value: int, endian: str = "<") -> int:
         """
@@ -528,7 +535,7 @@ class BinaryWriter(object):
         Returns:
             int: the number of bytes written.
         """
-        return self._pack('%si' % endian, value)
+        return self._pack("%si" % endian, value)
 
     def write_int64(self, value: int, endian: str = "<") -> int:
         """
@@ -539,7 +546,7 @@ class BinaryWriter(object):
         Returns:
             int: the number of bytes written.
         """
-        return self._pack('%sq' % endian, value)
+        return self._pack("%sq" % endian, value)
 
     def write_var_string(self, value: str, encoding: str = "utf-8") -> int:
         """
@@ -589,24 +596,24 @@ class BinaryWriter(object):
             int: the number of bytes written.
         """
         if not isinstance(value, int):
-            raise TypeError('%s not int type.' % value)
+            raise TypeError("%s not int type." % value)
 
         if value < 0:
-            raise ValueError('%d too small.' % value)
+            raise ValueError("%d too small." % value)
 
-        elif value < 0xfd:
+        elif value < 0xFD:
             return self.write_bytes(bytes([value]))
 
-        elif value <= 0xffff:
-            self.write_bytes(bytes([0xfd]))
+        elif value <= 0xFFFF:
+            self.write_bytes(bytes([0xFD]))
             return self.write_uint16(value, endian)
 
         elif value <= 0xFFFFFFFF:
-            self.write_bytes(bytes([0xfe]))
+            self.write_bytes(bytes([0xFE]))
             return self.write_uint32(value, endian)
 
         else:
-            self.write_bytes(bytes([0xff]))
+            self.write_bytes(bytes([0xFF]))
             return self.write_uint64(value, endian)
 
     def write_var_bytes(self, value: bytes, endian: str = "<") -> int:

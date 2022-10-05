@@ -21,14 +21,14 @@ def get_var_size(value: object) -> int:
     """
     # public static int GetVarSize(this string value)
     if isinstance(value, str):
-        value_size = len(value.encode('utf-8'))
+        value_size = len(value.encode("utf-8"))
         return get_var_size(value_size) + value_size
 
     # internal static int GetVarSize(int value)
     elif isinstance(value, int):
-        if (value < 0xFD):
+        if value < 0xFD:
             return Size.uint8
-        elif (value <= 0xFFFF):
+        elif value <= 0xFFFF:
             return Size.uint8 + Size.uint16
         else:
             return Size.uint8 + Size.uint32
@@ -51,9 +51,12 @@ def get_var_size(value: object) -> int:
             else:
                 raise TypeError(
                     f"Cannot accurately determine size of objects that do not inherit from 'ISerializable', "
-                    f"'Enum' or 'bytes'. Found type: {type(value[0])}")
+                    f"'Enum' or 'bytes'. Found type: {type(value[0])}"
+                )
     else:
-        raise ValueError(f"[NOT SUPPORTED] Unexpected value type {type(value)} for get_var_size()")
+        raise ValueError(
+            f"[NOT SUPPORTED] Unexpected value type {type(value)} for get_var_size()"
+        )
 
     return get_var_size(value_length) + value_size
 
@@ -66,5 +69,5 @@ def to_script_hash(data: bytes) -> types.UInt160:
         data: data to hash
     """
     intermediate_data = hashlib.sha256(data).digest()
-    data_ = hashlib.new('ripemd160', intermediate_data).digest()
+    data_ = hashlib.new("ripemd160", intermediate_data).digest()
     return types.UInt160(data_)

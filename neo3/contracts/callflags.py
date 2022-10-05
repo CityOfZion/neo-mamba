@@ -5,7 +5,8 @@ class CallFlags(IntFlag):
     """
     Describes the required call permissions for contract functions.
     """
-    NONE = 0,
+
+    NONE = 0
     READ_STATES = 0x1
     WRITE_STATES = 0x02
     ALLOW_CALL = 0x04

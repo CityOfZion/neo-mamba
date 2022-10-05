@@ -14,7 +14,7 @@ class PingPayload(serialization.ISerializable):
         self.nonce = randint(100, 10000)
 
     def __len__(self) -> int:
-        """ Get the total size in bytes of the object. """
+        """Get the total size in bytes of the object."""
         return s.uint32 + s.uint32 + s.uint32
 
     def serialize(self, writer: serialization.BinaryWriter) -> None:

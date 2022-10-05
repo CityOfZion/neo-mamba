@@ -1,6 +1,6 @@
 import logging
 
-__version__ = '0.12.0'
+__version__ = "0.12.0"
 
-core_logger = logging.getLogger('neo3.core')
-network_logger = logging.getLogger('neo3.network')
+core_logger = logging.getLogger("neo3.core")
+network_logger = logging.getLogger("neo3.network")

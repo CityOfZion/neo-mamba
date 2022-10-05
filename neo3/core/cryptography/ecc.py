@@ -1,10 +1,12 @@
 from __future__ import annotations
 from neo3.core import serialization
-from neo3crypto import (ECPoint as _ECPointCpp,  # type: ignore
-                        ECCCurve,
-                        ECCException,
-                        sign as ecdsa_sign,
-                        verify as ecdsa_verify)
+from neo3crypto import (
+    ECPoint as _ECPointCpp,  # type: ignore
+    ECCCurve,
+    ECCException,
+    sign as ecdsa_sign,
+    verify as ecdsa_verify,
+)
 from typing import Type, Any
 import os
 import binascii
@@ -19,12 +21,14 @@ class SerializableECPointMeta(type_ECPoint, type_Serializable):
     pass
 
 
-class ECPoint(_ECPointCpp, serialization.ISerializable, metaclass=SerializableECPointMeta):
+class ECPoint(
+    _ECPointCpp, serialization.ISerializable, metaclass=SerializableECPointMeta
+):
     def __init__(self, *args, **kwargs):
         super(ECPoint, self).__init__(*args, **kwargs)
 
     def __str__(self):
-        return binascii.hexlify(self.encode_point(compressed=True)).decode('utf8')
+        return binascii.hexlify(self.encode_point(compressed=True)).decode("utf8")
 
     def __bool__(self):
         return True
@@ -40,22 +44,24 @@ class ECPoint(_ECPointCpp, serialization.ISerializable, metaclass=SerializableEC
 
     def serialize(self, writer: serialization.BinaryWriter, compress=True) -> None:
         if self.is_infinity:
-            writer.write_bytes(b'\x00')
+            writer.write_bytes(b"\x00")
         else:
             writer.write_bytes(self.encode_point(compress))
 
-    def deserialize(self, reader: serialization.BinaryReader, curve=ECCCurve.SECP256R1) -> None:
+    def deserialize(
+        self, reader: serialization.BinaryReader, curve=ECCCurve.SECP256R1
+    ) -> None:
         try:
             f0 = reader.read_byte()
         except ValueError:
             # infinity
-            self.from_bytes(b'\x00', curve, True)
+            self.from_bytes(b"\x00", curve, True)
             return
 
-        f1 = int.from_bytes(f0, 'little')
+        f1 = int.from_bytes(f0, "little")
         if f1 == 0:
             # infinity
-            self.from_bytes(b'\x00', curve, True)
+            self.from_bytes(b"\x00", curve, True)
             return
         elif f1 == 2 or f1 == 3:
             data = reader.read_bytes(32)
@@ -65,10 +71,12 @@ class ECPoint(_ECPointCpp, serialization.ISerializable, metaclass=SerializableEC
             raise ValueError(f"Unsupported point encoding: {str(f0)}")
 
     @classmethod
-    def deserialize_from_bytes(cls: Type[serialization.ISerializable_T],
-                               data: bytes | bytearray,
-                               curve: ECCCurve = ECCCurve.SECP256R1,
-                               validate: bool = True) -> serialization.ISerializable_T:
+    def deserialize_from_bytes(
+        cls: Type[serialization.ISerializable_T],
+        data: bytes | bytearray,
+        curve: ECCCurve = ECCCurve.SECP256R1,
+        validate: bool = True,
+    ) -> serialization.ISerializable_T:
         """
         Parse data into an object instance.
 
@@ -84,7 +92,7 @@ class ECPoint(_ECPointCpp, serialization.ISerializable, metaclass=SerializableEC
 
     @classmethod
     def _serializable_init(cls):
-        return cls(b'\x00', ECCCurve.SECP256R1, False)
+        return cls(b"\x00", ECCCurve.SECP256R1, False)
 
 
 class KeyPair:

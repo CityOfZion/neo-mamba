@@ -3,7 +3,9 @@ from neo3.core import types, utils as coreutils, cryptography
 from neo3 import vm
 
 
-def get_contract_hash(sender: types.UInt160, nef_checksum: int, contract_name: str) -> types.UInt160:
+def get_contract_hash(
+    sender: types.UInt160, nef_checksum: int, contract_name: str
+) -> types.UInt160:
     sb = vm.ScriptBuilder()
     sb.emit(vm.OpCode.ABORT)
     sb.emit_push(sender)
@@ -18,7 +20,9 @@ def validate_type(obj: object, type_: typing.Type):
     return obj
 
 
-def create_multisig_redeemscript(m: int, public_keys: list[cryptography.ECPoint]) -> bytes:
+def create_multisig_redeemscript(
+    m: int, public_keys: list[cryptography.ECPoint]
+) -> bytes:
     """
     Create a multi-signature redeem script requiring `m` signatures from the list `public_keys`.
 
@@ -37,11 +41,15 @@ def create_multisig_redeemscript(m: int, public_keys: list[cryptography.ECPoint]
         raise ValueError(f"Minimum required signature count is 1, specified {m}.")
 
     if m > len(public_keys):
-        raise ValueError("Invalid public key count. "
-                         "Minimum required signatures is bigger than supplied public keys count.")
+        raise ValueError(
+            "Invalid public key count. "
+            "Minimum required signatures is bigger than supplied public keys count."
+        )
 
     if len(public_keys) > 1024:
-        raise ValueError(f"Supplied public key count ({len(public_keys)}) exceeds maximum of 1024.")
+        raise ValueError(
+            f"Supplied public key count ({len(public_keys)}) exceeds maximum of 1024."
+        )
 
     sb = vm.ScriptBuilder()
     sb.emit_push(m)
@@ -80,10 +88,12 @@ def is_signature_contract(script: bytes) -> bool:
     if len(script) != 40:
         return False
 
-    if (script[0] != vm.OpCode.PUSHDATA1
-            or script[1] != 33
-            or script[35] != vm.OpCode.SYSCALL
-            or script[36:40] != vm.Syscalls.SYSTEM_CRYPTO_CHECK_STANDARD_ACCOUNT):
+    if (
+        script[0] != vm.OpCode.PUSHDATA1
+        or script[1] != 33
+        or script[35] != vm.OpCode.SYSCALL
+        or script[36:40] != vm.Syscalls.SYSTEM_CRYPTO_CHECK_STANDARD_ACCOUNT
+    ):
         return False
     return True
 
@@ -99,7 +109,9 @@ def is_multisig_contract(script: bytes) -> bool:
     return valid
 
 
-def parse_as_multisig_contract(script: bytes) -> tuple[bool, int, list[cryptography.ECPoint]]:
+def parse_as_multisig_contract(
+    script: bytes,
+) -> tuple[bool, int, list[cryptography.ECPoint]]:
     """
     Try to parse script as multisig contract and extract related data.
 
@@ -124,7 +136,7 @@ def parse_as_multisig_contract(script: bytes) -> tuple[bool, int, list[cryptogra
         signature_threshold = script[1]
         i = 2
     elif first_byte == int(vm.OpCode.PUSHINT16):
-        signature_threshold = int.from_bytes(script[1:3], 'little', signed=False)
+        signature_threshold = int.from_bytes(script[1:3], "little", signed=False)
         i = 3
     elif int(vm.OpCode.PUSH1) <= first_byte <= int(vm.OpCode.PUSH16):
         signature_threshold = first_byte - int(vm.OpCode.PUSH0)
@@ -143,7 +155,9 @@ def parse_as_multisig_contract(script: bytes) -> tuple[bool, int, list[cryptogra
             return VALIDATION_FAILURE
         if script[i + 1] != 33:
             return VALIDATION_FAILURE
-        public_keys.append(cryptography.ECPoint.deserialize_from_bytes(script[i + 2:i + 2 + 33]))
+        public_keys.append(
+            cryptography.ECPoint.deserialize_from_bytes(script[i + 2 : i + 2 + 33])
+        )
         i += 35
 
     public_key_count = len(public_keys)
@@ -157,7 +171,9 @@ def parse_as_multisig_contract(script: bytes) -> tuple[bool, int, list[cryptogra
             return VALIDATION_FAILURE
         i += 2
     elif value == int(vm.OpCode.PUSHINT16):
-        if len_script < i + 3 or public_key_count != int.from_bytes(script[i + 1:i + 3], 'little', signed=False):
+        if len_script < i + 3 or public_key_count != int.from_bytes(
+            script[i + 1 : i + 3], "little", signed=False
+        ):
             return VALIDATION_FAILURE
         i += 3
     elif int(vm.OpCode.PUSH1) <= value <= int(vm.OpCode.PUSH16):
@@ -174,7 +190,7 @@ def parse_as_multisig_contract(script: bytes) -> tuple[bool, int, list[cryptogra
         return VALIDATION_FAILURE
     i += 1
 
-    syscall_num = int.from_bytes(script[i:i + 4], 'little')
+    syscall_num = int.from_bytes(script[i : i + 4], "little")
     if syscall_num != vm.Syscalls.SYSTEM_CRYPTO_CHECK_MULTI_SIGNATURE_ACCOUNT:
         return VALIDATION_FAILURE
     return True, signature_threshold, public_keys
@@ -182,7 +198,6 @@ def parse_as_multisig_contract(script: bytes) -> tuple[bool, int, list[cryptogra
 
 def get_consensus_address(validators: list[cryptography.ECPoint]) -> types.UInt160:
     script = create_multisig_redeemscript(
-        len(validators) - (len(validators) - 1) // 3,
-        validators
+        len(validators) - (len(validators) - 1) // 3, validators
     )
     return coreutils.to_script_hash(script)

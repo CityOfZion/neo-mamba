@@ -13,7 +13,9 @@ class _ContractHashes:
     NEO_TOKEN = types.UInt160.from_string("0xef4073a0f2b305a38ec4050e4d3d28bc40ea63f5")
     ORACLE = types.UInt160.from_string("0xfe924b7cfe89ddd271abaf7210a80a7e11178758")
     POLICY = types.UInt160.from_string("0xcc5e4edd9f5f8dba8bb65734541df7a1c081c67b")
-    ROLE_MANAGEMENT = types.UInt160.from_string("0x49cf4e5378ffcd4dec034fd98a174c5491e395e2")
+    ROLE_MANAGEMENT = types.UInt160.from_string(
+        "0x49cf4e5378ffcd4dec034fd98a174c5491e395e2"
+    )
     STD_LIB = types.UInt160.from_string("0xacce6fd80d44e1796aa0c2c625e9e4e0ce39efc0")
 
 
@@ -37,7 +39,9 @@ class Contract:
         return self._script_hash
 
     @classmethod
-    def create_multisig_contract(cls, m: int, public_keys: list[cryptography.ECPoint]) -> Contract:
+    def create_multisig_contract(
+        cls, m: int, public_keys: list[cryptography.ECPoint]
+    ) -> Contract:
         """
         Create a multi-signature contract requiring `m` signatures from the list `public_keys`.
 
@@ -45,8 +49,10 @@ class Contract:
             m: minimum number of signature required for signing. Can't be lower than 2.
             public_keys: public keys to use during verification.
         """
-        return cls(script=utils.create_multisig_redeemscript(m, public_keys),
-                   parameter_list=[abi.ContractParameterType.SIGNATURE] * m)
+        return cls(
+            script=utils.create_multisig_redeemscript(m, public_keys),
+            parameter_list=[abi.ContractParameterType.SIGNATURE] * m,
+        )
 
     @classmethod
     def create_signature_contract(cls, public_key: cryptography.ECPoint) -> Contract:
@@ -59,16 +65,21 @@ class Contract:
         Returns:
 
         """
-        return cls(utils.create_signature_redeemscript(public_key), [abi.ContractParameterType.SIGNATURE])
+        return cls(
+            utils.create_signature_redeemscript(public_key),
+            [abi.ContractParameterType.SIGNATURE],
+        )
 
 
 class ContractState(serialization.ISerializable):
-    def __init__(self,
-                 id_: int,
-                 nef: nef.NEF,
-                 manifest_: manifest.ContractManifest,
-                 update_counter: int,
-                 hash_: types.UInt160):
+    def __init__(
+        self,
+        id_: int,
+        nef: nef.NEF,
+        manifest_: manifest.ContractManifest,
+        update_counter: int,
+        hash_: types.UInt160,
+    ):
         self.id = id_
         self.nef = nef
         self.manifest = manifest_
@@ -76,11 +87,13 @@ class ContractState(serialization.ISerializable):
         self.hash = hash_
 
     def __len__(self):
-        return (s.uint32  # id
-                + len(self.nef.to_array())
-                + len(self.manifest)
-                + s.uint16  # update counter
-                + len(self.hash))
+        return (
+            s.uint32  # id
+            + len(self.nef.to_array())
+            + len(self.manifest)
+            + s.uint16  # update counter
+            + len(self.hash)
+        )
 
     def __eq__(self, other):
         if other is None:
@@ -117,11 +130,22 @@ class ContractState(serialization.ISerializable):
         self.hash = reader.read_serializable(types.UInt160)
 
     def can_call(self, target_contract: ContractState, target_method: str) -> bool:
-        results = list(map(lambda p: p.is_allowed(target_contract.hash,
-                                                  target_contract.manifest,
-                                                  target_method), self.manifest.permissions))
+        results = list(
+            map(
+                lambda p: p.is_allowed(
+                    target_contract.hash, target_contract.manifest, target_method
+                ),
+                self.manifest.permissions,
+            )
+        )
         return any(results)
 
     @classmethod
     def _serializable_init(cls):
-        return cls(0, nef.NEF._serializable_init(), manifest.ContractManifest(), 0, types.UInt160.zero())
+        return cls(
+            0,
+            nef.NEF._serializable_init(),
+            manifest.ContractManifest(),
+            0,
+            types.UInt160.zero(),
+        )

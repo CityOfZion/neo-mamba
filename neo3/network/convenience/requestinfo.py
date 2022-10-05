@@ -9,6 +9,7 @@ class RequestInfo:
     For each header or block being requested from the network, 1 RequestInfo object is created. Each RequestInfo stores
     the data to track outstanding flights (=requests from connected nodes).
     """
+
     def __init__(self, height: int):
         """
         Args:

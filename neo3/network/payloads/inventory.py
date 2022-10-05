@@ -6,10 +6,10 @@ from neo3.network.payloads import verification
 
 
 class InventoryType(IntEnum):
-    TX = 0x2b
-    BLOCK = 0x2c
-    CONSENSUS = 0x2d
-    EXTENSIBLE = 0x2e
+    TX = 0x2B
+    BLOCK = 0x2C
+    CONSENSUS = 0x2D
+    EXTENSIBLE = 0x2E
 
 
 class InventoryPayload(serialization.ISerializable):
@@ -34,7 +34,7 @@ class InventoryPayload(serialization.ISerializable):
         self.hashes = hashes
 
     def __len__(self):
-        """ Get the total size in bytes of the object. """
+        """Get the total size in bytes of the object."""
         return s.uint8 + utils.get_var_size(self.hashes)
 
     def serialize(self, writer: serialization.BinaryWriter) -> None:
