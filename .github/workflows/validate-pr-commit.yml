@@ -67,7 +67,7 @@ jobs:
       - name: restore artifact
         uses: actions/download-artifact@v2
         with:
-          name: setup-artifact-${{ matrix.os }}
+          name: setup-artifact-ubuntu-latest
       - name: extract & type check
         run: |
           tar -xf mamba.tar.gz
@@ -105,7 +105,7 @@ jobs:
       - name: restore artifact
         uses: actions/download-artifact@v2
         with:
-          name: setup-artifact-${{ matrix.os }}
+          name: setup-artifact-ubuntu-latest
       - name: check coverage
         run: |
           tar -xf mamba.tar.gz
