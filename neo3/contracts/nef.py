@@ -6,12 +6,14 @@ from neo3.contracts import callflags
 
 
 class NEF(serialization.ISerializable, interfaces.IJson):
-    def __init__(self,
-                 compiler_name: str = None,
-                 script: bytes = None,
-                 tokens: list[MethodToken] = None,
-                 source: str = None,
-                 _magic: int = 0x3346454E):
+    def __init__(
+        self,
+        compiler_name: str = None,
+        script: bytes = None,
+        tokens: list[MethodToken] = None,
+        source: str = None,
+        _magic: int = 0x3346454E,
+    ):
         """
         Create a Neo Executable Format file.
 
@@ -24,11 +26,11 @@ class NEF(serialization.ISerializable, interfaces.IJson):
         """
         self.magic = _magic
         if compiler_name is None:
-            self.compiler = 'unknown'
+            self.compiler = "unknown"
         else:
             self.compiler = compiler_name[:64]
         self.source = source if source else ""
-        self.script = script if script else b''
+        self.script = script if script else b""
         self._checksum = 0
         self.tokens = [] if tokens is None else tokens
         # this is intentional, because NEO computes the initial checksum by serializing itself while checksum is 0
@@ -43,17 +45,20 @@ class NEF(serialization.ISerializable, interfaces.IJson):
             + coreutils.get_var_size(self.tokens)
             + 2  # reserved
             + s.uint32  # checksum
-            + coreutils.get_var_size(self.script))
+            + coreutils.get_var_size(self.script)
+        )
 
     def __eq__(self, other):
         if not isinstance(other, type(self)):
             return False
-        return (self.magic == other.magic
-                and self.compiler == other.compiler
-                and self.source == other.source
-                and self.script == other.script
-                and self.tokens == other.tokens
-                and self.checksum == other.checksum)
+        return (
+            self.magic == other.magic
+            and self.compiler == other.compiler
+            and self.source == other.source
+            and self.script == other.script
+            and self.tokens == other.tokens
+            and self.checksum == other.checksum
+        )
 
     @property
     def checksum(self) -> int:
@@ -69,11 +74,11 @@ class NEF(serialization.ISerializable, interfaces.IJson):
             writer: instance.
         """
         writer.write_uint32(self.magic)
-        writer.write_bytes(self.compiler.encode('utf-8').ljust(64, b'\x00'))
+        writer.write_bytes(self.compiler.encode("utf-8").ljust(64, b"\x00"))
         writer.write_var_string(self.source)
-        writer.write_bytes(b'\x00')
+        writer.write_bytes(b"\x00")
         writer.write_serializable_list(self.tokens)
-        writer.write_bytes(b'\x00\x00')
+        writer.write_bytes(b"\x00\x00")
         writer.write_var_bytes(self.script)
         writer.write_uint32(self._checksum)
 
@@ -86,7 +91,7 @@ class NEF(serialization.ISerializable, interfaces.IJson):
         """
         if reader.read_uint32() != self.magic:
             raise ValueError("Deserialization error - Incorrect magic")
-        self.compiler = reader.read_bytes(64).decode('utf-8').rstrip(b'\x00'.decode())
+        self.compiler = reader.read_bytes(64).decode("utf-8").rstrip(b"\x00".decode())
         self.source = reader.read_var_string(256)
         if reader.read_uint8() != 0:
             raise ValueError("Reserved bytes must be 0")
@@ -98,7 +103,7 @@ class NEF(serialization.ISerializable, interfaces.IJson):
         if len(self.script) == 0:
             raise ValueError("Deserialization error - Script can't be empty")
 
-        checksum = int.from_bytes(reader.read_bytes(4), 'little')
+        checksum = int.from_bytes(reader.read_bytes(4), "little")
         if checksum != self.compute_checksum():
             raise ValueError("Deserialization error - Invalid checksum")
         else:
@@ -108,20 +113,23 @@ class NEF(serialization.ISerializable, interfaces.IJson):
         """
         Compute the checksum of the NEF file.
         """
-        return int.from_bytes(hashlib.sha256(hashlib.sha256(self.to_array()[:-4]).digest()).digest()[:4], 'little')
+        return int.from_bytes(
+            hashlib.sha256(hashlib.sha256(self.to_array()[:-4]).digest()).digest()[:4],
+            "little",
+        )
 
     def to_json(self) -> dict:
-        """ convert object into json """
+        """convert object into json"""
         raise NotImplementedError
 
     @classmethod
     def from_json(cls, json: dict):
-        """ create object from JSON """
+        """create object from JSON"""
         tokens = []
-        for t in json['tokens']:
+        for t in json["tokens"]:
             tokens.append(MethodToken.from_json(t))
-        script = base64.b64decode(json['script'])
-        return cls(json['compiler'], script, tokens, _magic=json['magic'])
+        script = base64.b64decode(json["script"])
+        return cls(json["compiler"], script, tokens, _magic=json["magic"])
 
     @classmethod
     def _serializable_init(cls):
@@ -131,12 +139,14 @@ class NEF(serialization.ISerializable, interfaces.IJson):
 
 
 class MethodToken(serialization.ISerializable, interfaces.IJson):
-    def __init__(self,
-                 hash: types.UInt160,
-                 method: str,
-                 parameters_count: int,
-                 has_return_value: bool,
-                 call_flags: callflags.CallFlags):
+    def __init__(
+        self,
+        hash: types.UInt160,
+        method: str,
+        parameters_count: int,
+        has_return_value: bool,
+        call_flags: callflags.CallFlags,
+    ):
         self.hash = hash
         self.method = method
         self.parameters_count = parameters_count
@@ -144,7 +154,13 @@ class MethodToken(serialization.ISerializable, interfaces.IJson):
         self.call_flags = call_flags
 
     def __len__(self):
-        return s.uint160 + coreutils.get_var_size(self.method) + s.uint16 + s.uint8 + s.uint8
+        return (
+            s.uint160
+            + coreutils.get_var_size(self.method)
+            + s.uint16
+            + s.uint8
+            + s.uint8
+        )
 
     def serialize(self, writer: serialization.BinaryWriter) -> None:
         """
@@ -173,17 +189,17 @@ class MethodToken(serialization.ISerializable, interfaces.IJson):
         self.call_flags = callflags.CallFlags(reader.read_uint8())
 
     def to_json(self) -> dict:
-        """ convert object into json """
+        """convert object into json"""
         raise NotImplementedError
 
     @classmethod
     def from_json(cls, json: dict):
-        """ create object from JSON """
-        h = types.UInt160.from_string(json['hash'][2:])
-        m = json['method']
-        pc = json['paramcount']
-        rv = json['hasreturnvalue']
-        cf = callflags.CallFlags.from_csharp_name(json['callflags'])
+        """create object from JSON"""
+        h = types.UInt160.from_string(json["hash"][2:])
+        m = json["method"]
+        pc = json["paramcount"]
+        rv = json["hasreturnvalue"]
+        cf = callflags.CallFlags.from_csharp_name(json["callflags"])
         return cls(h, m, pc, rv, cf)
 
     @classmethod

@@ -36,7 +36,9 @@ class NeoProtocol(StreamReaderProtocol):
     def connection_lost(self, exc: Optional[Exception] = None) -> None:
         if self.client:
             task = asyncio.create_task(self.client.connection_lost(exc))
-            task.add_done_callback(lambda args: super(NeoProtocol, self).connection_lost(exc))
+            task.add_done_callback(
+                lambda args: super(NeoProtocol, self).connection_lost(exc)
+            )
         else:
             super().connection_lost(exc)
 
@@ -71,32 +73,38 @@ class NeoProtocol(StreamReaderProtocol):
 
                 if payload_length == 0xFD:
                     len_bytes = await self._stream_reader_orig.readexactly(2)
-                    payload_length, = struct.unpack("<H", len_bytes)
+                    (payload_length,) = struct.unpack("<H", len_bytes)
                 elif payload_length == 0xFE:
                     len_bytes = await self._stream_reader_orig.readexactly(4)
-                    payload_length, = struct.unpack("<I", len_bytes)
+                    (payload_length,) = struct.unpack("<I", len_bytes)
                 elif payload_length == 0xFE:
                     len_bytes = await self._stream_reader_orig.readexactly(8)
-                    payload_length, = struct.unpack("<Q", len_bytes)
+                    (payload_length,) = struct.unpack("<Q", len_bytes)
                 else:
-                    len_bytes = b''
+                    len_bytes = b""
 
                 if payload_length > Message.PAYLOAD_MAX_SIZE:
                     raise ValueError("Invalid format")
 
-                payload_data = await self._stream_reader_orig.readexactly(payload_length)
+                payload_data = await self._stream_reader_orig.readexactly(
+                    payload_length
+                )
                 raw = message_header + len_bytes + payload_data
 
                 try:
                     return Message.deserialize_from_bytes(raw)
                 except Exception:
-                    logger.debug(f"Failed to deserialize message: {traceback.format_exc()}")
+                    logger.debug(
+                        f"Failed to deserialize message: {traceback.format_exc()}"
+                    )
                     return None
 
             except (ConnectionResetError, ValueError) as e:
                 # ensures we break out of the main run() loop of Node, which triggers a disconnect callback to clean up
                 self.client.disconnecting = True
-                logger.debug(f"Failed to read message data for reason: {traceback.format_exc()}")
+                logger.debug(
+                    f"Failed to read message data for reason: {traceback.format_exc()}"
+                )
                 return None
             except (asyncio.CancelledError, asyncio.IncompleteReadError):
                 return None
@@ -104,6 +112,7 @@ class NeoProtocol(StreamReaderProtocol):
                 # ensures we break out of the main run() loop of Node, which triggers a disconnect callback to clean up
                 logger.debug(f"error read message 1 {traceback.format_exc()}")
                 return None
+
         try:
             # logger.debug("trying to read message")
             return await asyncio.wait_for(_read(), timeout)

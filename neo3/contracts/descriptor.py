@@ -9,8 +9,10 @@ class ContractPermissionDescriptor(interfaces.IJson):
 
     See Also: ContractManifest.
     """
-    def __init__(self, contract_hash: types.UInt160 = None,
-                 group: cryptography.ECPoint = None):
+
+    def __init__(
+        self, contract_hash: types.UInt160 = None, group: cryptography.ECPoint = None
+    ):
         """
         Create a contract hash or group based restriction. Mutually exclusive.
         Supply no arguments to create a wildcard permission descriptor.
@@ -58,7 +60,7 @@ class ContractPermissionDescriptor(interfaces.IJson):
             val = str(self.group)
         else:
             val = "*"
-        return {'contract': val}
+        return {"contract": val}
 
     @classmethod
     def from_json(cls, json: dict) -> ContractPermissionDescriptor:
@@ -73,24 +75,26 @@ class ContractPermissionDescriptor(interfaces.IJson):
             ValueError: if the data supplied cannot recreate a valid object.
         """
         # catches both missing key and None as value
-        value = json.get('contract', None)
+        value = json.get("contract", None)
         if value is None:
             raise ValueError(f"Invalid JSON - Cannot deduce permission type from None")
 
         if len(value) == 42:
             return cls(contract_hash=types.UInt160.from_string(value[2:]))
         if len(value) == 66:
-            ecpoint = cryptography.ECPoint.deserialize_from_bytes(binascii.unhexlify(value))
+            ecpoint = cryptography.ECPoint.deserialize_from_bytes(
+                binascii.unhexlify(value)
+            )
             return cls(group=ecpoint)
-        if value == '*':
+        if value == "*":
             return cls()  # no args == wildcard
         raise ValueError(f"Invalid JSON - Cannot deduce permission type from: {value}")
 
     def to_array(self) -> bytes:
-        """ Serialize the object """
+        """Serialize the object"""
         if self.is_hash:
             return self.contract_hash.to_array()  # type: ignore
         if self.is_group:
             return self.group.to_array()  # type: ignore
         # wildcard
-        return b''
+        return b""

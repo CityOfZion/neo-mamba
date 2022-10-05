@@ -13,6 +13,9 @@ neo-mamba
 .. image:: http://www.mypy-lang.org/static/mypy_badge.svg
   :target: http://mypy-lang.org/
 
+.. image:: https://img.shields.io/badge/code%20style-black-000000.svg
+   :target: https://github.com/psf/black
+
 This SDK intends to provide building blocks for Python developers to interact with the NEO blockchain without requiring to run a full node.
 In order to interact with the chain and obtain information it relies heavily on RPC nodes. You can find a list of public RPC nodes `here <https://dora.coz.io/monitor>`_.
 ::
@@ -44,6 +47,9 @@ Install the requirements, modify the code and PR :-)
 ::
 
    pip install -e .[dev]
+
+The project uses `Black <https://github.com/psf/black>`_ for code formatting. You might want to
+`integrate <https://black.readthedocs.io/en/stable/integrations/editors.html>`_ this into your editor.
 
 Documentation
 -------------

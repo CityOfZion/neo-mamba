@@ -3,15 +3,15 @@ from enum import IntEnum
 from neo3.core import Size as s, serialization
 from typing import TypeVar
 
-ConsensusMessage_t = TypeVar('ConsensusMessage_t', bound='ConsensusMessage')
+ConsensusMessage_t = TypeVar("ConsensusMessage_t", bound="ConsensusMessage")
 
 
 class ConsensusMessageType(IntEnum):
-    CHANGE_VIEW = 0x00,
-    PREPARE_REQUEST = 0x20,
-    PREPARE_RESPONSE = 0x21,
-    COMMIT = 0x30,
-    RECOVERY_REQUEST = 0x40,
+    CHANGE_VIEW = 0x00
+    PREPARE_REQUEST = 0x20
+    PREPARE_RESPONSE = 0x21
+    COMMIT = 0x30
+    RECOVERY_REQUEST = 0x40
     RECOVERY_MESSAGE = 0x41
 
 
@@ -19,6 +19,7 @@ class ConsensusMessage(serialization.ISerializable):
     """
     Base class for the various consensus messages
     """
+
     def __init__(self, type: ConsensusMessageType):
         self.type = type
         self.view_number: int = 0
@@ -46,7 +47,9 @@ class ConsensusMessage(serialization.ISerializable):
         self.type = ConsensusMessageType(reader.read_uint8())
         self.view_number = reader.read_uint8()
 
-    def deserialize_specialization_from_bytes(self, data: bytearray) -> ConsensusMessage:
+    def deserialize_specialization_from_bytes(
+        self, data: bytearray
+    ) -> ConsensusMessage:
         # TODO: not implemented. Requires all ConsensusMessage subclasses to be implemented. Low priority.
         pass
 

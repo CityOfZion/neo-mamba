@@ -14,9 +14,21 @@ class Header(verification.IVerifiable):
     See also:
         :class:`~neo3.network.payloads.block.TrimmedBlock`
     """
-    def __init__(self, version: int, prev_hash: types.UInt256, timestamp: int, nonce: int, index: int,
-                 primary_index: int, next_consensus: types.UInt160, witness: verification.Witness,
-                 merkle_root: types.UInt256 = None, *args, **kwargs):
+
+    def __init__(
+        self,
+        version: int,
+        prev_hash: types.UInt256,
+        timestamp: int,
+        nonce: int,
+        index: int,
+        primary_index: int,
+        next_consensus: types.UInt160,
+        witness: verification.Witness,
+        merkle_root: types.UInt256 = None,
+        *args,
+        **kwargs,
+    ):
         super().__init__(*args, **kwargs)
         self.version = version
         self.prev_hash = prev_hash
@@ -29,8 +41,18 @@ class Header(verification.IVerifiable):
         self.witness = witness
 
     def __len__(self):
-        return (s.uint32 + s.uint256 + s.uint256 + s.uint64 + s.uint64 + s.uint32 + s.uint8 + s.uint160 + 1
-                + len(self.witness))
+        return (
+            s.uint32
+            + s.uint256
+            + s.uint256
+            + s.uint64
+            + s.uint64
+            + s.uint32
+            + s.uint8
+            + s.uint160
+            + 1
+            + len(self.witness)
+        )
 
     def __eq__(self, other):
         if other is None:
@@ -84,7 +106,9 @@ class Header(verification.IVerifiable):
         self.deserialize_unsigned(reader)
         witnesses = reader.read_serializable_list(verification.Witness, max=1)
         if len(witnesses) != 1:
-            raise ValueError(f"Deserialization error - Witness object count is {len(witnesses)} must be 1")
+            raise ValueError(
+                f"Deserialization error - Witness object count is {len(witnesses)} must be 1"
+            )
         self.witness = witnesses[0]
 
     def deserialize_unsigned(self, reader: serialization.BinaryReader) -> None:
@@ -116,19 +140,23 @@ class Header(verification.IVerifiable):
             return [self.witness.script_hash()]
         prev_block = snapshot.blocks.try_get(self.prev_hash, read_only=True)
         if prev_block is None:
-            raise ValueError("Can't get next_consensus hash from previous block. Block does not exist")
+            raise ValueError(
+                "Can't get next_consensus hash from previous block. Block does not exist"
+            )
         return [prev_block.next_consensus]
 
     @classmethod
     def _serializable_init(cls):
-        return cls(0,
-                   types.UInt256.zero(),
-                   0,
-                   0,
-                   0,
-                   0,
-                   types.UInt160.zero(),
-                   verification.Witness(b'', b''))
+        return cls(
+            0,
+            types.UInt256.zero(),
+            0,
+            0,
+            0,
+            0,
+            types.UInt160.zero(),
+            verification.Witness(b"", b""),
+        )
 
 
 class Block(inventory.IInventory):
@@ -136,12 +164,13 @@ class Block(inventory.IInventory):
     The famous Block. I transfer chain state.
     """
 
-    def __init__(self,
-                 header: Header,
-                 transactions: list[transaction.Transaction] = None,
-                 *args,
-                 **kwargs
-                 ):
+    def __init__(
+        self,
+        header: Header,
+        transactions: list[transaction.Transaction] = None,
+        *args,
+        **kwargs,
+    ):
         super(Block, self).__init__(*args, **kwargs)
         self.header = header
         self.transactions = [] if transactions is None else transactions
@@ -163,51 +192,51 @@ class Block(inventory.IInventory):
 
     @property
     def version(self) -> int:
-        """ Block data structure version - for internal use """
+        """Block data structure version - for internal use"""
         return self.header.version
 
     @property
     def prev_hash(self) -> types.UInt256:
-        """ The hash of the previous block """
+        """The hash of the previous block"""
         return self.header.prev_hash
 
     @property
     def merkle_root(self) -> types.UInt256:
-        """ The merkle root of the transactions in the block """
+        """The merkle root of the transactions in the block"""
         return self.header.merkle_root
 
     @property
     def timestamp(self) -> int:
-        """ UTC timestamp in milliseconds """
+        """UTC timestamp in milliseconds"""
         return self.header.timestamp
 
     @property
     def nonce(self) -> int:
-        """ Random number """
+        """Random number"""
         return self.header.nonce
 
     @property
     def index(self) -> int:
-        """ The height of the block """
+        """The height of the block"""
         return self.header.index
 
     @property
     def primary_index(self) -> int:
-        """ The index into the consensus node list that was used to generate this block """
+        """The index into the consensus node list that was used to generate this block"""
         return self.header.primary_index
 
     @property
     def next_consensus(self) -> types.UInt160:
-        """ The hash of the consensus node that will generate the next block """
+        """The hash of the consensus node that will generate the next block"""
         return self.header.next_consensus
 
     @property
     def witness(self) -> verification.Witness:
-        """ The witness of this block """
+        """The witness of this block"""
         return self.header.witness
 
     def hash(self) -> types.UInt256:
-        """ A unique identifier based on the unsigned data portion of the object """
+        """A unique identifier based on the unsigned data portion of the object"""
         return self.header.hash()
 
     def get_script_hashes_for_verifying(self, snapshot) -> list[types.UInt160]:
@@ -256,24 +285,30 @@ class Block(inventory.IInventory):
                 or if the merkle root does not include the calculated root.
         """
         self.header = reader.read_serializable(Header)
-        self.transactions = reader.read_serializable_list(transaction.Transaction, max=0xFFFF)
+        self.transactions = reader.read_serializable_list(
+            transaction.Transaction, max=0xFFFF
+        )
 
         if len(set(self.transactions)) != len(self.transactions):
-            raise ValueError("Deserialization error - block contains duplicate transaction")
+            raise ValueError(
+                "Deserialization error - block contains duplicate transaction"
+            )
 
         hashes = [t.hash() for t in self.transactions]
         if crypto.MerkleTree.compute_root(hashes) != self.header.merkle_root:
             raise ValueError("Deserialization error - merkle root mismatch")
 
     def deserialize_unsigned(self, reader: serialization.BinaryReader) -> None:
-        """ Not supported """
+        """Not supported"""
         raise NotImplementedError
 
     def rebuild_merkle_root(self) -> None:
         """
         Recalculates the Merkle root.
         """
-        self.header.merkle_root = crypto.MerkleTree.compute_root([t.hash() for t in self.transactions])
+        self.header.merkle_root = crypto.MerkleTree.compute_root(
+            [t.hash() for t in self.transactions]
+        )
 
     def trim(self) -> TrimmedBlock:
         """
@@ -306,12 +341,12 @@ class TrimmedBlock(serialization.ISerializable):
         return self.__class__.deserialize_from_bytes(self.to_array())
 
     def hash(self):
-        """ A unique identifier based on the unsigned data portion of the object """
+        """A unique identifier based on the unsigned data portion of the object"""
         return self.header.hash()
 
     @property
     def index(self):
-        """ The height of the block """
+        """The height of the block"""
         return self.header.index
 
     def serialize(self, writer: serialization.BinaryWriter) -> None:
@@ -349,7 +384,12 @@ class MerkleBlockPayload(serialization.ISerializable):
         self.header = block.header
 
     def __len__(self):
-        return len(self.header) + s.uint32 + utils.get_var_size(self.hashes) + utils.get_var_size(self.flags)
+        return (
+            len(self.header)
+            + s.uint32
+            + utils.get_var_size(self.hashes)
+            + utils.get_var_size(self.flags)
+        )
 
     def serialize(self, writer: serialization.BinaryWriter) -> None:
         """
@@ -418,6 +458,7 @@ class GetBlocksPayload(serialization.ISerializable):
     Used to request an array block hashes that can be retrieved via a message with the
     :const:`~neo3.network.message.MessageType.GETDATA` type.
     """
+
     def __init__(self, hash_start: types.UInt256, count=-1):
         """
         Create payload.
@@ -508,7 +549,11 @@ class GetBlockByIndexPayload(serialization.ISerializable):
         """
         self.index_start = reader.read_uint32()
         self.count = reader.read_int16()
-        if self.count < 1 or self.count == 0 or self.count > HeadersPayload.MAX_HEADERS_COUNT:
+        if (
+            self.count < 1
+            or self.count == 0
+            or self.count > HeadersPayload.MAX_HEADERS_COUNT
+        ):
             raise ValueError("Deserialization error - invalid count")
 
     @classmethod

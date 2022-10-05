@@ -2,7 +2,9 @@ import base58
 from neo3.core import types
 
 
-def script_hash_to_address(script_hash: types.UInt160, address_version: int = 0x35) -> str:
+def script_hash_to_address(
+    script_hash: types.UInt160, address_version: int = 0x35
+) -> str:
     """
     Converts the specified script hash to an address.
 
@@ -11,8 +13,8 @@ def script_hash_to_address(script_hash: types.UInt160, address_version: int = 0x
         address_version: network protocol address version. Historically has been fixed to 0x35 for MainNet and TestNet.
          Can use the "getversion()" RPC method to query for its value
     """
-    data = address_version.to_bytes(1, 'little') + script_hash.to_array()
-    return base58.b58encode_check(data).decode('utf-8')
+    data = address_version.to_bytes(1, "little") + script_hash.to_array()
+    return base58.b58encode_check(data).decode("utf-8")
 
 
 def address_to_script_hash(address: str) -> types.UInt160:
@@ -60,7 +62,9 @@ def validate_address(address: str, address_version: int = 0x35) -> None:
     """
     data: bytes = base58.b58decode_check(address)
     if len(data) != len(types.UInt160.zero()) + 1:
-        raise ValueError(f"The address is wrong, because data (address value in bytes) length should be "
-                         f"{len(types.UInt160.zero()) + 1}")
+        raise ValueError(
+            f"The address is wrong, because data (address value in bytes) length should be "
+            f"{len(types.UInt160.zero()) + 1}"
+        )
     elif data[0] != address_version:
         raise ValueError(f"The account version is not {address_version}")

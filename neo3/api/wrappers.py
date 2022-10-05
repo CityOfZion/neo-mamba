@@ -32,12 +32,12 @@ from neo3.contracts import contract, callflags, utils as contractutils
 ItemIndex = int
 ExecutionResultParser = Callable[[noderpc.ExecutionResult, ItemIndex], Any]
 
-ReturnType = TypeVar('ReturnType')
+ReturnType = TypeVar("ReturnType")
 
 
 class ContractMethodResult(Generic[ReturnType]):
     """
-    A helper class around the script (VM opcodes) to be executed which allows to forward the annotated return type 
+    A helper class around the script (VM opcodes) to be executed which allows to forward the annotated return type
     (ContractMethodResult[T]) of the annotated function "f" to a consumer function, without having to actually return
      an instance of T in the implementation of "f".
 
@@ -53,6 +53,7 @@ class ContractMethodResult(Generic[ReturnType]):
         x = consumer(get_name())
         type(x) # str
     """
+
     def __init__(self, script: bytes, func: Optional[ExecutionResultParser] = None):
         super(ContractMethodResult, self).__init__()
         self.script = script
@@ -76,9 +77,11 @@ class ChainFacade:
         self.config = config
         self._signing_func = None
 
-    async def test_invoke(self,
-                          f: ContractMethodResult[ReturnType],
-                          signers: Optional[list[verification.Signer]] = None) -> ReturnType:
+    async def test_invoke(
+        self,
+        f: ContractMethodResult[ReturnType],
+        signers: Optional[list[verification.Signer]] = None,
+    ) -> ReturnType:
         """
         Call the contract method in read-only mode
 
@@ -88,9 +91,11 @@ class ChainFacade:
         """
         return await self._test_invoke(f, signers)
 
-    async def test_invoke_raw(self,
-                              f: ContractMethodResult[ReturnType],
-                              signers: Optional[list[verification.Signer]] = None) -> noderpc.ExecutionResult:
+    async def test_invoke_raw(
+        self,
+        f: ContractMethodResult[ReturnType],
+        signers: Optional[list[verification.Signer]] = None,
+    ) -> noderpc.ExecutionResult:
         """
         Call the contract method in read-only mode
 
@@ -100,11 +105,12 @@ class ChainFacade:
         """
         return await self._test_invoke(f, signers, return_raw=True)
 
-    async def _test_invoke(self,
-                           f: ContractMethodResult[ReturnType],
-                           signers: Optional[list[verification.Signer]] = None,
-                           return_raw: Optional[bool] = False
-                           ):
+    async def _test_invoke(
+        self,
+        f: ContractMethodResult[ReturnType],
+        signers: Optional[list[verification.Signer]] = None,
+        return_raw: Optional[bool] = False,
+    ):
         """
         Call the contract method in read-only mode
 
@@ -118,19 +124,25 @@ class ChainFacade:
                 return res
             return f.func(res, 0)
 
-    async def invoke(self,
-                     f: ContractMethodResult[ReturnType],
-                     signers: Optional[list[verification.Signer]] = None) -> types.UInt256:
+    async def invoke(
+        self,
+        f: ContractMethodResult[ReturnType],
+        signers: Optional[list[verification.Signer]] = None,
+    ) -> types.UInt256:
         raise NotImplementedError
 
-    async def invoke_raw(self,
-                         f: ContractMethodResult[ReturnType],
-                         signers: Optional[list[verification.Signer]] = None) -> noderpc.ExecutionResult:
+    async def invoke_raw(
+        self,
+        f: ContractMethodResult[ReturnType],
+        signers: Optional[list[verification.Signer]] = None,
+    ) -> noderpc.ExecutionResult:
         raise NotImplementedError
 
-    async def estimate_gas(self,
-                           f: ContractMethodResult,
-                           signers: Optional[list[verification.Signer]] = None) -> int:
+    async def estimate_gas(
+        self,
+        f: ContractMethodResult,
+        signers: Optional[list[verification.Signer]] = None,
+    ) -> int:
         """
         Estimates the gas price for calling the contract method
         """
@@ -150,16 +162,15 @@ class ChainFacade:
 
 
 class Config:
-    def __init__(self,
-                 rpc_host: str,
-                 acc: account.Account = None
-                 ):
+    def __init__(self, rpc_host: str, acc: account.Account = None):
         self.rpc_host = rpc_host
         self.account = acc
 
     @classmethod
     def standard_config(cls):
-        acc = account.Account.watch_only_from_address("NU7nUXkVLybRA8Bt12dsLtZBrnfuirM57k")
+        acc = account.Account.watch_only_from_address(
+            "NU7nUXkVLybRA8Bt12dsLtZBrnfuirM57k"
+        )
         c = cls(_DEFAULT_RPC, acc)
         return c
 
@@ -172,11 +183,17 @@ class GenericContract:
     def __init__(self, contract_hash):
         self.hash = contract_hash
 
-    def call_function(self, name, args=None) -> ContractMethodResult[noderpc.ExecutionResult]:
+    def call_function(
+        self, name, args=None
+    ) -> ContractMethodResult[noderpc.ExecutionResult]:
         if args is None:
             script = vm.ScriptBuilder().emit_contract_call(self.hash, name).to_array()
         else:
-            script = vm.ScriptBuilder().emit_contract_call_with_args(self.hash, name, args).to_array()
+            script = (
+                vm.ScriptBuilder()
+                .emit_contract_call_with_args(self.hash, name, args)
+                .to_array()
+            )
         return ContractMethodResult(script)
 
 
@@ -205,7 +222,9 @@ class _TokenContract(GenericContract):
         """
         Get the total token supply in the NEO system
         """
-        script = vm.ScriptBuilder().emit_contract_call(self.hash, "totalSupply").to_array()
+        script = (
+            vm.ScriptBuilder().emit_contract_call(self.hash, "totalSupply").to_array()
+        )
         return ContractMethodResult(script, unwrap.as_int)
 
 
@@ -221,10 +240,16 @@ class NEP17Contract(_TokenContract):
         Note: the returned value does not take the token decimals into account. e.g. for the GAS token you want to
         divide the result by 10**8 (as the Gas token has 8 decimals).
         """
-        script = vm.ScriptBuilder().emit_contract_call_with_args(self.hash, "balanceOf", [account]).to_array()
+        script = (
+            vm.ScriptBuilder()
+            .emit_contract_call_with_args(self.hash, "balanceOf", [account])
+            .to_array()
+        )
         return ContractMethodResult(script, unwrap.as_int)
 
-    def balance_of_friendly(self, account: types.UInt160) -> ContractMethodResult[float]:
+    def balance_of_friendly(
+        self, account: types.UInt160
+    ) -> ContractMethodResult[float]:
         """
         Get the balance for the given account and convert the result into the user representation
 
@@ -241,14 +266,13 @@ class NEP17Contract(_TokenContract):
             if balance == 0:
                 return 0.0
             else:
-                return balance / (10 ** decimals)
+                return balance / (10**decimals)
 
         return ContractMethodResult(sb.to_array(), process)
 
-    def transfer(self,
-                 source: types.UInt160,
-                 destination: types.UInt160,
-                 amount: int) -> ContractMethodResult[bool]:
+    def transfer(
+        self, source: types.UInt160, destination: types.UInt160, amount: int
+    ) -> ContractMethodResult[bool]:
         """
         Transfer `amount` of tokens from `source` account to `destination` account.
 
@@ -261,14 +285,18 @@ class NEP17Contract(_TokenContract):
 
         Returns: True if funds transferred successful. False otherwise.
         """
-        sb = vm.ScriptBuilder().emit_contract_call_with_args(self.hash, "transfer", [source, destination, amount, None])
+        sb = vm.ScriptBuilder().emit_contract_call_with_args(
+            self.hash, "transfer", [source, destination, amount, None]
+        )
         return ContractMethodResult(sb.to_array(), unwrap.as_bool)
 
-    def transfer_multi(self,
-                       source: types.UInt160,
-                       destinations: list[types.UInt160],
-                       amount: int,
-                       abort_on_failure: bool = False) -> ContractMethodResult[bool]:
+    def transfer_multi(
+        self,
+        source: types.UInt160,
+        destinations: list[types.UInt160],
+        amount: int,
+        abort_on_failure: bool = False,
+    ) -> ContractMethodResult[bool]:
         """
         Transfer `amount` of tokens from `source` to each account in `destinations`
 
@@ -282,7 +310,9 @@ class NEP17Contract(_TokenContract):
         """
         sb = vm.ScriptBuilder()
         for d in destinations:
-            sb.emit_contract_call_with_args(self.hash, "transfer", [source, d, amount, None])
+            sb.emit_contract_call_with_args(
+                self.hash, "transfer", [source, d, amount, None]
+            )
             if abort_on_failure:
                 sb.emit(vm.OpCode.ASSERT)
 
@@ -319,7 +349,9 @@ class Candidate:
     def __init__(self, public_key: cryptography.ECPoint, votes: int):
         self.public_key = public_key
         self.votes = votes
-        shash = coreutils.to_script_hash(contractutils.create_signature_redeemscript(self.public_key))
+        shash = coreutils.to_script_hash(
+            contractutils.create_signature_redeemscript(self.public_key)
+        )
         self.address = walletutils.script_hash_to_address(shash)
 
 
@@ -331,10 +363,16 @@ class NeoToken(NEP17Contract):
         """
         Get the amount of GAS generated in each block
         """
-        script = vm.ScriptBuilder().emit_contract_call(self.hash, "getGasPerBlock").to_array()
+        script = (
+            vm.ScriptBuilder()
+            .emit_contract_call(self.hash, "getGasPerBlock")
+            .to_array()
+        )
         return ContractMethodResult(script, unwrap.as_int)
 
-    def get_unclaimed_gas(self, account: types.UInt160, end: Optional[int] = None) -> ContractMethodResult[int]:
+    def get_unclaimed_gas(
+        self, account: types.UInt160, end: Optional[int] = None
+    ) -> ContractMethodResult[int]:
         """
         Get the amount of unclaimed GAS for `account`
 
@@ -343,7 +381,9 @@ class NeoToken(NEP17Contract):
         """
         sb = vm.ScriptBuilder()
         if end is not None:
-            sb.emit_contract_call_with_args(self.hash, "unclaimedGas", [account, end]).to_array()
+            sb.emit_contract_call_with_args(
+                self.hash, "unclaimedGas", [account, end]
+            ).to_array()
             return ContractMethodResult(sb.to_array(), unwrap.as_int)
         else:
             sb.emit_contract_call(contract.CONTRACT_HASHES.LEDGER, "currentIndex")
@@ -362,10 +402,16 @@ class NeoToken(NEP17Contract):
         """
         Get the amount of GAS to pay to register as consensus candidate
         """
-        script = vm.ScriptBuilder().emit_contract_call(self.hash, "getRegisterPrice").to_array()
+        script = (
+            vm.ScriptBuilder()
+            .emit_contract_call(self.hash, "getRegisterPrice")
+            .to_array()
+        )
         return ContractMethodResult(script, unwrap.as_int)
 
-    def candidate_register(self, public_key: cryptography.ECPoint) -> ContractMethodResult[bool]:
+    def candidate_register(
+        self, public_key: cryptography.ECPoint
+    ) -> ContractMethodResult[bool]:
         """
         Register as a consensus candidate
 
@@ -374,10 +420,14 @@ class NeoToken(NEP17Contract):
         Returns: True if successful. False otherwise.
         """
         sb = vm.ScriptBuilder()
-        sb.emit_contract_call_with_args(self.hash, "registerCandidate", [public_key]).to_array()
+        sb.emit_contract_call_with_args(
+            self.hash, "registerCandidate", [public_key]
+        ).to_array()
         return ContractMethodResult(sb.to_array(), unwrap.as_bool)
 
-    def candidate_unregister(self, public_key: cryptography.ECPoint) -> ContractMethodResult[bool]:
+    def candidate_unregister(
+        self, public_key: cryptography.ECPoint
+    ) -> ContractMethodResult[bool]:
         """
         Unregister as a consensus candidate
 
@@ -386,10 +436,14 @@ class NeoToken(NEP17Contract):
         Returns: True if successful. False otherwise.
         """
         sb = vm.ScriptBuilder()
-        sb.emit_contract_call_with_args(self.hash, "registerCandidate", [public_key]).to_array()
+        sb.emit_contract_call_with_args(
+            self.hash, "registerCandidate", [public_key]
+        ).to_array()
         return ContractMethodResult(sb.to_array(), unwrap.as_bool)
 
-    def candidate_vote(self, voter: types.UInt160, candidate: cryptography.ECPoint) -> ContractMethodResult[bool]:
+    def candidate_vote(
+        self, voter: types.UInt160, candidate: cryptography.ECPoint
+    ) -> ContractMethodResult[bool]:
         """
         Cast a vote for `candidate` to become a consensus node
 
@@ -399,14 +453,24 @@ class NeoToken(NEP17Contract):
 
         Returns: True if vote cast successful. False otherwise.
         """
-        script = vm.ScriptBuilder().emit_contract_call_with_args(self.hash, "vote", [voter, candidate]).to_array()
+        script = (
+            vm.ScriptBuilder()
+            .emit_contract_call_with_args(self.hash, "vote", [voter, candidate])
+            .to_array()
+        )
         return ContractMethodResult(script, unwrap.as_bool)
 
-    def candidate_votes(self, candidate: cryptography.ECPoint) -> ContractMethodResult[int]:
+    def candidate_votes(
+        self, candidate: cryptography.ECPoint
+    ) -> ContractMethodResult[int]:
         """
         Get the total vote count for `candidate`
         """
-        script = vm.ScriptBuilder().emit_contract_call_with_args(self.hash, "getCandidateVote", [candidate]).to_array()
+        script = (
+            vm.ScriptBuilder()
+            .emit_contract_call_with_args(self.hash, "getCandidateVote", [candidate])
+            .to_array()
+        )
         return ContractMethodResult(script, unwrap.as_int)
 
     def candidates_registered(self) -> ContractMethodResult[list[Candidate]]:
@@ -415,7 +479,9 @@ class NeoToken(NEP17Contract):
         Returns:
 
         """
-        script = vm.ScriptBuilder().emit_contract_call(self.hash, "getCandidates").to_array()
+        script = (
+            vm.ScriptBuilder().emit_contract_call(self.hash, "getCandidates").to_array()
+        )
 
         def process(res: noderpc.ExecutionResult, _: int = 1) -> list[Candidate]:
             raw_results: list[noderpc.StackItem] = unwrap.as_list(res)
@@ -437,6 +503,7 @@ class _NEP11Contract(_TokenContract):
 
     NFTs can be divisible or non-divisible which is determined by the value of `decimals()`
     """
+
     def decimals(self) -> ContractMethodResult[int]:
         """
         Get the amount of decimals
@@ -450,15 +517,23 @@ class _NEP11Contract(_TokenContract):
         """
         Get the total amount of NFTs owned for the given account.
         """
-        script = vm.ScriptBuilder().emit_contract_call_with_args(self.hash, "balanceOf", [owner]).to_array()
+        script = (
+            vm.ScriptBuilder()
+            .emit_contract_call_with_args(self.hash, "balanceOf", [owner])
+            .to_array()
+        )
         return ContractMethodResult(script, unwrap.as_int)
 
-    def token_ids_owned_by(self, owner: types.UInt160) -> ContractMethodResult[list[bytes]]:
+    def token_ids_owned_by(
+        self, owner: types.UInt160
+    ) -> ContractMethodResult[list[bytes]]:
         """
         Get an iterator containing all token ids owned by the specified address
         """
         sb = vm.ScriptBuilder()
-        sb.emit_contract_call_with_args_and_unwrap_iterator(self.hash, "tokensOf", [owner])
+        sb.emit_contract_call_with_args_and_unwrap_iterator(
+            self.hash, "tokensOf", [owner]
+        )
 
         def process(res: noderpc.ExecutionResult, _: int = 0) -> list[bytes]:
             raw_results: list[noderpc.StackItem] = unwrap.as_list(res)
@@ -472,11 +547,14 @@ class _NEP11Contract(_TokenContract):
 
         Note: this is an optional method and may not exist on the contract
         """
+
         def process(res: noderpc.ExecutionResult, _: int = 0) -> list[bytes]:
             raw_results: list[noderpc.StackItem] = unwrap.as_list(res)
             return [si.value for si in raw_results]
 
-        sb = vm.ScriptBuilder().emit_contract_call_and_unwrap_iterator(self.hash, "tokens")
+        sb = vm.ScriptBuilder().emit_contract_call_and_unwrap_iterator(
+            self.hash, "tokens"
+        )
         return ContractMethodResult(sb.to_array(), process)
 
     def properties(self, token_id: bytes) -> ContractMethodResult[dict]:
@@ -485,20 +563,27 @@ class _NEP11Contract(_TokenContract):
 
         Note: this is an optional method and may not exist on the contract
         """
-        sb = vm.ScriptBuilder().emit_contract_call_with_args(self.hash, "properties", [token_id])
+        sb = vm.ScriptBuilder().emit_contract_call_with_args(
+            self.hash, "properties", [token_id]
+        )
         return ContractMethodResult(sb.to_array(), unwrap.as_dict)
 
 
 class NEP11DivisibleContract(_NEP11Contract):
     """Base class for divisible NFTs"""
-    def transfer(self,
-                 source: types.UInt160,
-                 destination: types.UInt160,
-                 amount: int,
-                 token_id: bytes,
-                 data: Optional[list] = None) -> ContractMethodResult[bool]:
+
+    def transfer(
+        self,
+        source: types.UInt160,
+        destination: types.UInt160,
+        amount: int,
+        token_id: bytes,
+        data: Optional[list] = None,
+    ) -> ContractMethodResult[bool]:
         sb = vm.ScriptBuilder()
-        sb.emit_contract_call_with_args(self.hash, "transfer", [source, destination, amount, token_id, data])
+        sb.emit_contract_call_with_args(
+            self.hash, "transfer", [source, destination, amount, token_id, data]
+        )
         return ContractMethodResult(sb.to_array(), unwrap.as_bool)
 
     def owners_of(self, token_id: bytes) -> ContractMethodResult[list[types.UInt160]]:
@@ -506,7 +591,9 @@ class NEP11DivisibleContract(_NEP11Contract):
         Get a list of account script hashes that own a part of `token_id`
         """
         sb = vm.ScriptBuilder()
-        sb.emit_contract_call_with_args_and_unwrap_iterator(self.hash, "ownerOf", [token_id])
+        sb.emit_contract_call_with_args_and_unwrap_iterator(
+            self.hash, "ownerOf", [token_id]
+        )
 
         def process(res: noderpc.ExecutionResult, _: int = 0) -> list[types.UInt160]:
             raw_results: list[noderpc.StackItem] = unwrap.as_list(res)
@@ -514,14 +601,20 @@ class NEP11DivisibleContract(_NEP11Contract):
 
         return ContractMethodResult(sb.to_array(), process)
 
-    def balance_of(self, owner: types.UInt160, token_id: bytes) -> ContractMethodResult[int]:
+    def balance_of(
+        self, owner: types.UInt160, token_id: bytes
+    ) -> ContractMethodResult[int]:
         """
         Get the token balance for the given owner
         """
-        sb = vm.ScriptBuilder().emit_contract_call_with_args(self.hash, "balanceOf", [owner, token_id])
+        sb = vm.ScriptBuilder().emit_contract_call_with_args(
+            self.hash, "balanceOf", [owner, token_id]
+        )
         return ContractMethodResult(sb.to_array(), unwrap.as_int)
 
-    def balance_of_friendly(self, owner: types.UInt160, token_id: bytes) -> ContractMethodResult[float]:
+    def balance_of_friendly(
+        self, owner: types.UInt160, token_id: bytes
+    ) -> ContractMethodResult[float]:
         """
         Get the balance for the given account and convert the result into the user representation
 
@@ -538,23 +631,27 @@ class NEP11DivisibleContract(_NEP11Contract):
             if balance == 0:
                 return 0.0
             else:
-                return balance / (10 ** decimals)
+                return balance / (10**decimals)
 
         return ContractMethodResult(sb.to_array(), process)
 
 
 class NEP11NonDivisibleContract(_NEP11Contract):
     """Base class for non-divisible NFTs"""
-    def transfer(self,
-                 destination: types.UInt160,
-                 token_id: str,
-                 data: Optional[list] = None) -> ContractMethodResult[bool]:
-        sb = vm.ScriptBuilder().emit_contract_call_with_args(self.hash, "transfer", [destination, token_id, data])
+
+    def transfer(
+        self, destination: types.UInt160, token_id: str, data: Optional[list] = None
+    ) -> ContractMethodResult[bool]:
+        sb = vm.ScriptBuilder().emit_contract_call_with_args(
+            self.hash, "transfer", [destination, token_id, data]
+        )
         return ContractMethodResult(sb.to_array(), unwrap.as_bool)
 
     def owner_of(self, token_id: bytes) -> ContractMethodResult[types.UInt160]:
         """
         Get the owner of the given token
         """
-        sb = vm.ScriptBuilder().emit_contract_call_with_args(self.hash, "ownerOf", [token_id])
+        sb = vm.ScriptBuilder().emit_contract_call_with_args(
+            self.hash, "ownerOf", [token_id]
+        )
         return ContractMethodResult(sb.to_array(), unwrap.as_uint160)

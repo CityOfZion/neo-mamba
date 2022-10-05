@@ -2,11 +2,13 @@ from __future__ import annotations
 from neo3.core import serialization
 from typing import Type, Optional
 
-__all__ = ['UInt160', 'UInt256']
+__all__ = ["UInt160", "UInt256"]
 
 
 class _UIntBase(serialization.ISerializable):
-    def __init__(self, num_bytes: int, data: Optional[bytes | bytearray] = None) -> None:
+    def __init__(
+        self, num_bytes: int, data: Optional[bytes | bytearray] = None
+    ) -> None:
         """
 
         Args:
@@ -19,11 +21,13 @@ class _UIntBase(serialization.ISerializable):
             self._data = bytes(num_bytes)
         else:
             if len(data) < num_bytes:
-                raise ValueError(f"Invalid UInt: data length {len(data)} != specified num_bytes {num_bytes}")
+                raise ValueError(
+                    f"Invalid UInt: data length {len(data)} != specified num_bytes {num_bytes}"
+                )
             self._data = data[:num_bytes]
 
     def __len__(self) -> int:
-        """ Count of data bytes. """
+        """Count of data bytes."""
         return len(self._data)
 
     def __eq__(self, other) -> bool:
@@ -43,24 +47,28 @@ class _UIntBase(serialization.ISerializable):
 
     def __hash__(self):
         slice_length = 4 if len(self._data) >= 4 else len(self._data)
-        return int.from_bytes(self._data[:slice_length], 'little')
+        return int.from_bytes(self._data[:slice_length], "little")
 
     def __str__(self):
-        """ Convert the data to a human readable format (data is in reverse byte order). """
+        """Convert the data to a human readable format (data is in reverse byte order)."""
         db = bytearray(self._data)
         db.reverse()
         return db.hex()
 
     def _compare_to(self, other) -> int:
         if not isinstance(other, _UIntBase):
-            raise TypeError(f"Cannot compare {type(self).__name__} to type {type(other).__name__}")
+            raise TypeError(
+                f"Cannot compare {type(self).__name__} to type {type(other).__name__}"
+            )
 
         x = self._data
         y = other._data
 
         if len(x) != len(y):
-            raise ValueError(f"Cannot compare {type(self).__name__} with length {len(x)} to {type(other).__name__} with"
-                             f" length {len(y)}")
+            raise ValueError(
+                f"Cannot compare {type(self).__name__} with length {len(x)} to {type(other).__name__} with"
+                f" length {len(y)}"
+            )
 
         length = len(x)
 
@@ -94,7 +102,7 @@ class _UIntBase(serialization.ISerializable):
 
     @classmethod
     def _serializable_init(cls):
-        return cls(b'\x00' * cls._BYTE_LEN)
+        return cls(b"\x00" * cls._BYTE_LEN)
 
 
 class UInt160(_UIntBase):
@@ -121,8 +129,10 @@ class UInt160(_UIntBase):
             ValueError: if the length of the supplied bytearray is insufficient for the type.
         """
         if len(data) < cls._BYTE_LEN:
-            raise ValueError(f"Insufficient data {len(data)} bytes is less than the required {cls._BYTE_LEN}")
-        return cls(data[:cls._BYTE_LEN])
+            raise ValueError(
+                f"Insufficient data {len(data)} bytes is less than the required {cls._BYTE_LEN}"
+            )
+        return cls(data[: cls._BYTE_LEN])
 
     @classmethod
     def from_string(cls: Type[UInt160], value: str) -> UInt160:
@@ -142,7 +152,9 @@ class UInt160(_UIntBase):
         if value.startswith("0x"):
             value = value[2:]
         if len(value) != cls._BYTE_LEN * 2:
-            raise ValueError(f"Invalid {cls.__name__} Format: {len(value)} chars != {cls._BYTE_LEN * 2} chars")
+            raise ValueError(
+                f"Invalid {cls.__name__} Format: {len(value)} chars != {cls._BYTE_LEN * 2} chars"
+            )
         reversed_data = bytearray.fromhex(value)
         reversed_data.reverse()
         return cls(data=reversed_data)
@@ -198,8 +210,10 @@ class UInt256(_UIntBase):
             ValueError: if the length of the supplied bytearray is insufficient for the type.
         """
         if len(data) < cls._BYTE_LEN:
-            raise ValueError(f"Insufficient data {len(data)} bytes is less than the required {cls._BYTE_LEN}")
-        return cls(data[:cls._BYTE_LEN])
+            raise ValueError(
+                f"Insufficient data {len(data)} bytes is less than the required {cls._BYTE_LEN}"
+            )
+        return cls(data[: cls._BYTE_LEN])
 
     @classmethod
     def from_string(cls: Type[UInt256], value: str) -> UInt256:
@@ -219,7 +233,9 @@ class UInt256(_UIntBase):
         if value.startswith("0x"):
             value = value[2:]
         if len(value) != cls._BYTE_LEN * 2:
-            raise ValueError(f"Invalid {cls.__name__} Format: {len(value)} chars != {cls._BYTE_LEN * 2} chars")
+            raise ValueError(
+                f"Invalid {cls.__name__} Format: {len(value)} chars != {cls._BYTE_LEN * 2} chars"
+            )
         reversed_data = bytearray.fromhex(value)
         reversed_data.reverse()
         return cls(data=reversed_data)

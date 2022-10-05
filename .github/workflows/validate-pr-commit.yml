@@ -43,19 +43,12 @@ jobs:
           path: mamba.tar.gz
           retention-days: 1
   linting:
-    needs: setup
     runs-on: ubuntu-latest
     steps:
-      - name: restore artificat
-        uses: actions/download-artifact@v2
+      - uses: actions/checkout@v2
+      - uses: psf/black@stable
         with:
-          name: setup-artifact
-      - name: extract & lint
-        run: |
-          tar -xf mamba.tar.gz
-          cd mamba
-          source venv/bin/activate
-          make lint
+          src: "neo3/ examples/"
   type-checking:
     needs: setup
     runs-on: ubuntu-latest

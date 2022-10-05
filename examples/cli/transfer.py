@@ -17,11 +17,13 @@ from neo3.core import types
 from neo3.wallet import utils, wallet
 
 
-def create_transfer_script(contract_hash: types.UInt160,
-                           from_addr: str,
-                           to_addr: str,
-                           amount: float,
-                           contract_decimals: int) -> bytes:
+def create_transfer_script(
+    contract_hash: types.UInt160,
+    from_addr: str,
+    to_addr: str,
+    amount: float,
+    contract_decimals: int,
+) -> bytes:
     # Source account
     from_account = utils.address_to_script_hash(from_addr)
     # Destination account
@@ -32,18 +34,22 @@ def create_transfer_script(contract_hash: types.UInt160,
     data = None
 
     sb = vm.ScriptBuilder()
-    sb.emit_contract_call_with_args(contract_hash, "transfer", [from_account, to_account, amount_, data])
+    sb.emit_contract_call_with_args(
+        contract_hash, "transfer", [from_account, to_account, amount_, data]
+    )
     return sb.to_array()
 
 
-async def main(wallet_path,
-               wallet_pw,
-               contract_hash,
-               from_addr,
-               to_addr,
-               amount,
-               rpc_host,
-               poll_timeout: Optional[str] = None):
+async def main(
+    wallet_path,
+    wallet_pw,
+    contract_hash,
+    from_addr,
+    to_addr,
+    amount,
+    rpc_host,
+    poll_timeout: Optional[str] = None,
+):
     # some basic input validation
     utils.validate_address(from_addr)
     utils.validate_address(to_addr)
@@ -54,14 +60,16 @@ async def main(wallet_path,
         w = wallet.Wallet.from_json(data, password=wallet_pw)
         account = w.account_default
 
-    tx = transaction.Transaction(version=0,
-                                 nonce=123,
-                                 system_fee=0,
-                                 network_fee=0,
-                                 valid_until_block=0,
-                                 attributes=[],
-                                 signers=[],
-                                 script=b'')
+    tx = transaction.Transaction(
+        version=0,
+        nonce=123,
+        system_fee=0,
+        network_fee=0,
+        valid_until_block=0,
+        attributes=[],
+        signers=[],
+        script=b"",
+    )
 
     account.add_as_sender(tx)
 
@@ -78,7 +86,9 @@ async def main(wallet_path,
                 print(f"Failed to get contract decimals: {res.exception}")
             contract_decimals = res.stack[0].value
 
-            tx.script = create_transfer_script(contract_hash, from_addr, to_addr, amount, contract_decimals)
+            tx.script = create_transfer_script(
+                contract_hash, from_addr, to_addr, amount, contract_decimals
+            )
 
             tx.valid_until_block = await client.get_block_count() + 1500
 
@@ -89,7 +99,10 @@ async def main(wallet_path,
 
             # adding a witness so we can calculate the network fee
             tx.witnesses.append(
-                verification.Witness(invocation_script=b'', verification_script=account.contract.script))
+                verification.Witness(
+                    invocation_script=b"", verification_script=account.contract.script
+                )
+            )
             tx.network_fee = await client.calculate_network_fee(tx)
             # removing it here as it will be replaced by a proper one once we're signing
             tx.witnesses = []
@@ -113,18 +126,36 @@ async def main(wallet_path,
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Deploy contract')
-    parser.add_argument("-w", metavar='WALLET', required=True, help="wallet.json path")
-    parser.add_argument("-pw", metavar='PASSWORD', required=True, help="wallet password for signing")
-    parser.add_argument("-c", metavar='CONTRACT_HASH', required=True,
-                        help="contract hash e.g. 0xef4073a0f2b305a38ec4050e4d3d28bc40ea63f5")
-    parser.add_argument("-f", metavar='FROM_ADDR', required=True, help="from address")
-    parser.add_argument("-t", metavar='TO_ADDR', required=True, help="to address")
-    parser.add_argument("-a", metavar='TOKEN_AMOUNT', required=True, help="amount", type=float)
-    parser.add_argument("-s", metavar='RPC_SERVER', required=True,
-                        help="RPC server address e.g. https://mainnet1.neo.coz.io:443")
-    parser.add_argument("-p", metavar='TIMEOUT_IN_SECONDS', nargs='?', const=20, type=int,
-                        help="Poll for transaction status after deployment. Default timeout is 20 seconds")
+    parser = argparse.ArgumentParser(description="Deploy contract")
+    parser.add_argument("-w", metavar="WALLET", required=True, help="wallet.json path")
+    parser.add_argument(
+        "-pw", metavar="PASSWORD", required=True, help="wallet password for signing"
+    )
+    parser.add_argument(
+        "-c",
+        metavar="CONTRACT_HASH",
+        required=True,
+        help="contract hash e.g. 0xef4073a0f2b305a38ec4050e4d3d28bc40ea63f5",
+    )
+    parser.add_argument("-f", metavar="FROM_ADDR", required=True, help="from address")
+    parser.add_argument("-t", metavar="TO_ADDR", required=True, help="to address")
+    parser.add_argument(
+        "-a", metavar="TOKEN_AMOUNT", required=True, help="amount", type=float
+    )
+    parser.add_argument(
+        "-s",
+        metavar="RPC_SERVER",
+        required=True,
+        help="RPC server address e.g. https://mainnet1.neo.coz.io:443",
+    )
+    parser.add_argument(
+        "-p",
+        metavar="TIMEOUT_IN_SECONDS",
+        nargs="?",
+        const=20,
+        type=int,
+        help="Poll for transaction status after deployment. Default timeout is 20 seconds",
+    )
 
     args = parser.parse_args()
 

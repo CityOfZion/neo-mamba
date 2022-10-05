@@ -71,7 +71,7 @@ class MerkleTree:
     @staticmethod
     def _build(leaves: list[_MerkleTreeNode]) -> _MerkleTreeNode:
         if len(leaves) == 0:
-            raise ValueError('Leaves must have length')
+            raise ValueError("Leaves must have length")
         if len(leaves) == 1:
             return leaves[0]
 
@@ -82,7 +82,7 @@ class MerkleTree:
             node = parents[i]
             node.left_child = leaves[i * 2]
             leaves[i * 2].parent = node
-            if (i * 2 + 1 == len(leaves)):
+            if i * 2 + 1 == len(leaves):
                 node.right_child = node.left_child
             else:
                 node.right_child = leaves[i * 2 + 1]

@@ -15,11 +15,14 @@ class Signer(serialization.ISerializable, interfaces.IJson):
     #: Maximum number of allowed_contracts or allowed_groups
     MAX_SUB_ITEMS = 16
 
-    def __init__(self, account: types.UInt160,
-                 scope: WitnessScope = None,
-                 allowed_contracts: list[types.UInt160] = None,
-                 allowed_groups: list[cryptography.ECPoint] = None,
-                 rules: list[WitnessRule] = None):
+    def __init__(
+        self,
+        account: types.UInt160,
+        scope: WitnessScope = None,
+        allowed_contracts: list[types.UInt160] = None,
+        allowed_groups: list[cryptography.ECPoint] = None,
+        rules: list[WitnessRule] = None,
+    ):
         #: The TX sender.
         self.account = account
         #: WitnessScope: The configured validation scope.
@@ -88,17 +91,24 @@ class Signer(serialization.ISerializable, interfaces.IJson):
         self.scope = WitnessScope(reader.read_uint8())
 
         if WitnessScope.GLOBAL in self.scope and self.scope != WitnessScope.GLOBAL:
-            raise ValueError("Deserialization error - invalid scope. GLOBAL scope not allowed with other scope types")
+            raise ValueError(
+                "Deserialization error - invalid scope. GLOBAL scope not allowed with other scope types"
+            )
 
         if WitnessScope.CUSTOM_CONTRACTS in self.scope:
-            self.allowed_contracts = reader.read_serializable_list(types.UInt160, max=self.MAX_SUB_ITEMS)
+            self.allowed_contracts = reader.read_serializable_list(
+                types.UInt160, max=self.MAX_SUB_ITEMS
+            )
 
         if WitnessScope.CUSTOM_GROUPS in self.scope:
-            self.allowed_groups = reader.read_serializable_list(cryptography.ECPoint,  # type: ignore
-                                                                max=self.MAX_SUB_ITEMS)
+            self.allowed_groups = reader.read_serializable_list(
+                cryptography.ECPoint, max=self.MAX_SUB_ITEMS  # type: ignore
+            )
 
         if WitnessScope.WITNESS_RULES in self.scope:
-            self.rules = reader.read_serializable_list(WitnessRule, max=self.MAX_SUB_ITEMS)
+            self.rules = reader.read_serializable_list(
+                WitnessRule, max=self.MAX_SUB_ITEMS
+            )
 
     def get_all_rules(self) -> Iterator[WitnessRule]:
         if WitnessScope.GLOBAL in self.scope:
@@ -109,7 +119,9 @@ class Signer(serialization.ISerializable, interfaces.IJson):
 
             if WitnessScope.CUSTOM_CONTRACTS in self.scope:
                 for hash_ in self.allowed_contracts:
-                    yield WitnessRule(WitnessRuleAction.ALLOW, ConditionScriptHash(hash_))
+                    yield WitnessRule(
+                        WitnessRuleAction.ALLOW, ConditionScriptHash(hash_)
+                    )
 
             if WitnessScope.CUSTOM_GROUPS in self.scope:
                 for group in self.allowed_groups:
@@ -120,16 +132,24 @@ class Signer(serialization.ISerializable, interfaces.IJson):
                     yield rule
 
     def to_json(self) -> dict:
-        """ Convert object into json """
+        """Convert object into json"""
         json: dict[str, Any] = {
             "account": "0x" + str(self.account),
             "scopes": self.scope.to_csharp_name(),
         }
 
         if WitnessScope.CUSTOM_CONTRACTS in self.scope:
-            json.update({"allowedcontracts": list(map(lambda a: "0x" + str(a), self.allowed_contracts))})
+            json.update(
+                {
+                    "allowedcontracts": list(
+                        map(lambda a: "0x" + str(a), self.allowed_contracts)
+                    )
+                }
+            )
         if WitnessScope.CUSTOM_GROUPS in self.scope:
-            json.update({"allowedgroups": list(map(lambda g: str(g), self.allowed_groups))})
+            json.update(
+                {"allowedgroups": list(map(lambda g: str(g), self.allowed_groups))}
+            )
         if WitnessScope.WITNESS_RULES in self.scope:
             json.update({"rules": list(map(lambda r: r.to_json(), self.rules))})
 
@@ -137,19 +157,21 @@ class Signer(serialization.ISerializable, interfaces.IJson):
 
     @classmethod
     def from_json(cls, json: dict):
-        """ Create object from JSON """
-        account = types.UInt160.from_string(json['account'][2:])
-        scopes = WitnessScope.from_chsarp_name(json['scopes'])
+        """Create object from JSON"""
+        account = types.UInt160.from_string(json["account"][2:])
+        scopes = WitnessScope.from_chsarp_name(json["scopes"])
 
         allowed_contracts = []
         if "allowedcontracts" in json:
-            for contract in json['allowedcontracts']:
+            for contract in json["allowedcontracts"]:
                 allowed_contracts.append(types.UInt160.from_string(contract[2:]))
 
         allowed_groups = []
         if "allowedgroups" in json:
-            for group in json['allowedgroups']:
-                allowed_groups.append(cryptography.ECPoint.deserialize_from_bytes(bytes.fromhex(group)))
+            for group in json["allowedgroups"]:
+                allowed_groups.append(
+                    cryptography.ECPoint.deserialize_from_bytes(bytes.fromhex(group))
+                )
 
         return cls(account, scopes, allowed_contracts, allowed_groups)
 
@@ -162,6 +184,7 @@ class Witness(serialization.ISerializable, interfaces.IJson):
     """
     An executable verification script that validates a verifiable object like a transaction.
     """
+
     _MAX_INVOCATION_SCRIPT = 1024
     _MAX_VERIFICATION_SCRIPT = 1024
 
@@ -174,7 +197,9 @@ class Witness(serialization.ISerializable, interfaces.IJson):
         self._script_hash = None
 
     def __len__(self):
-        return utils.get_var_size(self.invocation_script) + utils.get_var_size(self.verification_script)
+        return utils.get_var_size(self.invocation_script) + utils.get_var_size(
+            self.verification_script
+        )
 
     def serialize(self, writer: serialization.BinaryWriter) -> None:
         """
@@ -194,35 +219,40 @@ class Witness(serialization.ISerializable, interfaces.IJson):
             reader: instance.
         """
         self.invocation_script = reader.read_var_bytes(max=self._MAX_INVOCATION_SCRIPT)
-        self.verification_script = reader.read_var_bytes(max=self._MAX_VERIFICATION_SCRIPT)
+        self.verification_script = reader.read_var_bytes(
+            max=self._MAX_VERIFICATION_SCRIPT
+        )
 
     def script_hash(self) -> types.UInt160:
-        """ Get the script hash based on the verification script."""
+        """Get the script hash based on the verification script."""
         intermediate_data = hashlib.sha256(self.verification_script).digest()
-        data = hashlib.new('ripemd160', intermediate_data).digest()
+        data = hashlib.new("ripemd160", intermediate_data).digest()
         return types.UInt160(data=data)
 
     def to_json(self) -> dict:
-        """ Convert object into json """
+        """Convert object into json"""
         return {
             "invocation": base64.b64encode(self.invocation_script).decode(),
-            "verification": base64.b64encode(self.verification_script).decode()
+            "verification": base64.b64encode(self.verification_script).decode(),
         }
 
     @classmethod
     def from_json(cls, json: dict):
-        """ Create object from JSON """
-        return cls(base64.b64decode(json['invocation']), base64.b64decode(json['verification']))
+        """Create object from JSON"""
+        return cls(
+            base64.b64decode(json["invocation"]), base64.b64decode(json["verification"])
+        )
 
     @classmethod
     def _serializable_init(cls):
-        return cls(b'', b'')
+        return cls(b"", b"")
 
 
 class WitnessScope(IntFlag):
     """
     Determine the rules for a smart contract :func:`CheckWitness()` sys call.
     """
+
     #: No Contract was witnessed. Only sign the transaction.
     NONE = 0x0
     #: Allow the witness if the current calling script hash equals the entry script hash into the virtual machine.
@@ -330,18 +360,26 @@ class WitnessCondition(serialization.ISerializable, interfaces.IJson):
         self._deserialize_without_type(reader, self.MAX_NESTING_DEPTH)
 
     @abc.abstractmethod
-    def _deserialize_without_type(self, reader: serialization.BinaryReader, max_nesting_depth: int) -> None:
-        """ Deserialize from a buffer without reading the `type` member. """
+    def _deserialize_without_type(
+        self, reader: serialization.BinaryReader, max_nesting_depth: int
+    ) -> None:
+        """Deserialize from a buffer without reading the `type` member."""
 
     @staticmethod
-    def _deserialize_conditions(reader: serialization.BinaryReader, max_nesting_depth: int) -> list[WitnessCondition]:
+    def _deserialize_conditions(
+        reader: serialization.BinaryReader, max_nesting_depth: int
+    ) -> list[WitnessCondition]:
         conditions = []
         for _ in range(reader.read_var_int(WitnessCondition.MAX_SUB_ITEMS)):
-            conditions.append(WitnessCondition._deserialize_from(reader, max_nesting_depth))
+            conditions.append(
+                WitnessCondition._deserialize_from(reader, max_nesting_depth)
+            )
         return conditions
 
     @staticmethod
-    def _deserialize_from(reader: serialization.BinaryReader, max_nesting_depth: int) -> WitnessCondition:
+    def _deserialize_from(
+        reader: serialization.BinaryReader, max_nesting_depth: int
+    ) -> WitnessCondition:
         condition_type = reader.read_uint8()
         for sub in WitnessCondition.__subclasses__():
             child = sub._serializable_init()  # type: ignore
@@ -349,15 +387,17 @@ class WitnessCondition(serialization.ISerializable, interfaces.IJson):
                 child._deserialize_without_type(reader, max_nesting_depth)
                 return child
         else:
-            raise ValueError(f"Deserialization error - unknown witness condition. Type: {condition_type}")
+            raise ValueError(
+                f"Deserialization error - unknown witness condition. Type: {condition_type}"
+            )
 
     def to_json(self) -> dict:
-        """ Convert object into json """
-        return {'type': self.type.to_csharp_string()}
+        """Convert object into json"""
+        return {"type": self.type.to_csharp_string()}
 
     @classmethod
     def from_json(cls, json: dict):
-        """ Create object from JSON """
+        """Create object from JSON"""
         raise NotImplementedError()
 
 
@@ -368,7 +408,9 @@ class ConditionAnd(WitnessCondition):
         self.expressions = expressions
 
     def __len__(self):
-        return super(ConditionAnd, self).__len__() + utils.get_var_size(self.expressions)
+        return super(ConditionAnd, self).__len__() + utils.get_var_size(
+            self.expressions
+        )
 
     def __eq__(self, other):
         if type(other) != type(self):
@@ -378,17 +420,21 @@ class ConditionAnd(WitnessCondition):
     def _serialize_without_type(self, writer: serialization.BinaryWriter) -> None:
         writer.write_serializable_list(self.expressions)
 
-    def _deserialize_without_type(self, reader: serialization.BinaryReader, max_nesting_depth: int) -> None:
+    def _deserialize_without_type(
+        self, reader: serialization.BinaryReader, max_nesting_depth: int
+    ) -> None:
         if max_nesting_depth <= 0:
             raise ValueError("Max nesting depth cannot be negative")
-        self.expressions = WitnessCondition._deserialize_conditions(reader, max_nesting_depth)
+        self.expressions = WitnessCondition._deserialize_conditions(
+            reader, max_nesting_depth
+        )
         if len(self.expressions) == 0:
             raise ValueError("Cannot have 0 expressions")
 
     def to_json(self) -> dict:
-        """ Convert object into json """
+        """Convert object into json"""
         json = super(ConditionAnd, self).to_json()
-        json['expressions'] = list(map(lambda exp: exp.to_json(), self.expressions))
+        json["expressions"] = list(map(lambda exp: exp.to_json(), self.expressions))
         return json
 
     @classmethod
@@ -413,13 +459,15 @@ class ConditionBool(WitnessCondition):
     def _serialize_without_type(self, writer: serialization.BinaryWriter) -> None:
         writer.write_bool(self.value)
 
-    def _deserialize_without_type(self, reader: serialization.BinaryReader, max_nesting_depth: int) -> None:
+    def _deserialize_without_type(
+        self, reader: serialization.BinaryReader, max_nesting_depth: int
+    ) -> None:
         self.value = reader.read_bool()
 
     def to_json(self) -> dict:
-        """ Convert object into json """
+        """Convert object into json"""
         json = super(ConditionBool, self).to_json()
-        json['expression'] = self.value
+        json["expression"] = self.value
         return json
 
     @classmethod
@@ -444,13 +492,17 @@ class ConditionNot(WitnessCondition):
     def _serialize_without_type(self, writer: serialization.BinaryWriter) -> None:
         writer.write_serializable(self.expression)
 
-    def _deserialize_without_type(self, reader: serialization.BinaryReader, max_nesting_depth: int) -> None:
+    def _deserialize_without_type(
+        self, reader: serialization.BinaryReader, max_nesting_depth: int
+    ) -> None:
         if max_nesting_depth <= 0:
             raise ValueError("Max nesting depth cannot be negative")
-        self.expression = WitnessCondition._deserialize_from(reader, max_nesting_depth - 1)
+        self.expression = WitnessCondition._deserialize_from(
+            reader, max_nesting_depth - 1
+        )
 
     def to_json(self) -> dict:
-        """ Convert object into json """
+        """Convert object into json"""
         json = super(ConditionNot, self).to_json()
         json["expression"] = self.expression.to_json()
         return json
@@ -477,17 +529,21 @@ class ConditionOr(WitnessCondition):
     def _serialize_without_type(self, writer: serialization.BinaryWriter) -> None:
         writer.write_serializable_list(self.expressions)
 
-    def _deserialize_without_type(self, reader: serialization.BinaryReader, max_nesting_depth: int) -> None:
+    def _deserialize_without_type(
+        self, reader: serialization.BinaryReader, max_nesting_depth: int
+    ) -> None:
         if max_nesting_depth <= 0:
             raise ValueError("Max nesting depth cannot be negative")
-        self.expressions = WitnessCondition._deserialize_conditions(reader, max_nesting_depth)
+        self.expressions = WitnessCondition._deserialize_conditions(
+            reader, max_nesting_depth
+        )
         if len(self.expressions) == 0:
             raise ValueError("Cannot have 0 expressions")
 
     def to_json(self) -> dict:
-        """ Convert object into json """
+        """Convert object into json"""
         json = super(ConditionOr, self).to_json()
-        json['expressions'] = list(map(lambda exp: exp.to_json(), self.expressions))
+        json["expressions"] = list(map(lambda exp: exp.to_json(), self.expressions))
         return json
 
     @classmethod
@@ -507,11 +563,13 @@ class ConditionCalledByContract(WitnessCondition):
     def _serialize_without_type(self, writer: serialization.BinaryWriter) -> None:
         writer.write_serializable(self.hash_)
 
-    def _deserialize_without_type(self, reader: serialization.BinaryReader, max_nesting_depth: int) -> None:
+    def _deserialize_without_type(
+        self, reader: serialization.BinaryReader, max_nesting_depth: int
+    ) -> None:
         self.hash_ = reader.read_serializable(types.UInt160)
 
     def to_json(self) -> dict:
-        """ Convert object into json """
+        """Convert object into json"""
         json = super(ConditionCalledByContract, self).to_json()
         json["hash"] = f"0x{self.hash_}"
         return json
@@ -532,7 +590,9 @@ class ConditionCalledByEntry(WitnessCondition):
     def _serialize_without_type(self, writer: serialization.BinaryWriter) -> None:
         pass
 
-    def _deserialize_without_type(self, reader: serialization.BinaryReader, max_nesting_depth: int) -> None:
+    def _deserialize_without_type(
+        self, reader: serialization.BinaryReader, max_nesting_depth: int
+    ) -> None:
         pass
 
 
@@ -554,18 +614,20 @@ class ConditionCalledByGroup(WitnessCondition):
     def _serialize_without_type(self, writer: serialization.BinaryWriter) -> None:
         writer.write_serializable(self.group)
 
-    def _deserialize_without_type(self, reader: serialization.BinaryReader, max_nesting_depth: int) -> None:
+    def _deserialize_without_type(
+        self, reader: serialization.BinaryReader, max_nesting_depth: int
+    ) -> None:
         self.group = reader.read_serializable(cryptography.ECPoint)  # type: ignore
 
     def to_json(self) -> dict:
-        """ Convert object into json """
+        """Convert object into json"""
         json = super(ConditionCalledByGroup, self).to_json()
         json["group"] = str(self.group)
         return json
 
     @classmethod
     def _serializable_init(cls):
-        return cls(cryptography.ECPoint.deserialize_from_bytes(b'\x00'))
+        return cls(cryptography.ECPoint.deserialize_from_bytes(b"\x00"))
 
 
 class ConditionGroup(ConditionCalledByGroup):
@@ -590,18 +652,20 @@ class WitnessRule(serialization.ISerializable, interfaces.IJson):
 
     def deserialize(self, reader: serialization.BinaryReader) -> None:
         self.action = WitnessRuleAction(reader.read_uint8())
-        self.condition = WitnessCondition._deserialize_from(reader, WitnessCondition.MAX_NESTING_DEPTH)
+        self.condition = WitnessCondition._deserialize_from(
+            reader, WitnessCondition.MAX_NESTING_DEPTH
+        )
 
     def to_json(self) -> dict:
-        """ Convert object into json """
+        """Convert object into json"""
         return {
-            'action': self.action.name.title(),
-            'condition': self.condition.to_json()
+            "action": self.action.name.title(),
+            "condition": self.condition.to_json(),
         }
 
     @classmethod
     def from_json(cls, json: dict):
-        """ Create object from JSON """
+        """Create object from JSON"""
         raise NotImplementedError()
 
     @classmethod
@@ -629,7 +693,7 @@ class IVerifiable(serialization.ISerializable):
         """
 
     def get_hash_data(self, protocol_magic: int) -> bytes:
-        """ Get the unsigned data
+        """Get the unsigned data
 
         Args:
             protocol_magic: network protocol number (NEO MainNet = 860833102, Testnet (T5) = 894710606, private net = ?)

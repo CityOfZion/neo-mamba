@@ -14,6 +14,7 @@ class AddressState(IntEnum):
 
     Used for tracking remote address state.
     """
+
     #: an address that has not been used before in the current connection cycle.
     NEW = 0x0
 
@@ -38,6 +39,7 @@ class DisconnectReason(IntEnum):
     Will also be broadcast back to the node when `this PR <https://github.com/neo-project/neo/pull/1154>`__ is merged.
     For now only used internally with logging.
     """
+
     UNKNOWN = 0x0
     MAX_CONNECTIONS_REACHED = 0x1
     POOR_PERFORMANCE = 0x2
@@ -48,19 +50,20 @@ class DisconnectReason(IntEnum):
 
 
 class NetworkAddress(serialization.ISerializable):
-
-    def __init__(self,
-                 address: str,
-                 capabilities: list[capabilities.NodeCapability] = None,
-                 timestamp: int = None,
-                 state: AddressState = AddressState.NEW):
-        """ Create an instance. """
+    def __init__(
+        self,
+        address: str,
+        capabilities: list[capabilities.NodeCapability] = None,
+        timestamp: int = None,
+        state: AddressState = AddressState.NEW,
+    ):
+        """Create an instance."""
         if timestamp is None:
             self.timestamp = int(datetime.utcnow().timestamp())
         else:
             self.timestamp = timestamp
 
-        self.address = address if address else '0.0.0.0:0'  # host:port
+        self.address = address if address else "0.0.0.0:0"  # host:port
         self.capabilities = capabilities if capabilities else []
 
         # none official properties
@@ -157,7 +160,7 @@ class NetworkAddress(serialization.ISerializable):
 
         full_address_bytes = bytearray(reader.read_bytes(16))
         ip_bytes = full_address_bytes[-4:]
-        host = '.'.join(map(lambda b: str(b), ip_bytes))
+        host = ".".join(map(lambda b: str(b), ip_bytes))
         port = 0
 
         capabilities_cnt = reader.read_var_int(version.VersionPayload.MAX_CAPABILITIES)

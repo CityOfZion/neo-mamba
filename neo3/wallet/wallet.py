@@ -10,7 +10,7 @@ from neo3.wallet import scrypt_parameters as scrypt
 
 
 class Wallet(interfaces.IJson):
-    _wallet_version = '1.0'
+    _wallet_version = "1.0"
 
     # Wallet JSON validation schema
     json_schema = {
@@ -24,21 +24,24 @@ class Wallet(interfaces.IJson):
                 "items": account.Account._json_schema,
                 "minItems": 0,
             },
-            "extra": {"type": ["object", "null"],
-                      "properties": {},
-                      "additionalProperties": True
-                      },
+            "extra": {
+                "type": ["object", "null"],
+                "properties": {},
+                "additionalProperties": True,
+            },
         },
-        "required": ["name", "version", "scrypt", "accounts", "extra"]
+        "required": ["name", "version", "scrypt", "accounts", "extra"],
     }
 
-    def __init__(self,
-                 name: Optional[str] = None,
-                 version: str = _wallet_version,
-                 scrypt_params: Optional[scrypt.ScryptParameters] = None,
-                 accounts: list[account.Account] = None,
-                 default_account: Optional[account.Account] = None,
-                 extra: Optional[dict[Any, Any]] = None):
+    def __init__(
+        self,
+        name: Optional[str] = None,
+        version: str = _wallet_version,
+        scrypt_params: Optional[scrypt.ScryptParameters] = None,
+        accounts: list[account.Account] = None,
+        default_account: Optional[account.Account] = None,
+        extra: Optional[dict[Any, Any]] = None,
+    ):
         """
         Args:
             name: a user defined label for the wallet
@@ -70,7 +73,9 @@ class Wallet(interfaces.IJson):
         self._default_account: Optional[account.Account] = default_account
         self.extra = extra if extra else {}
 
-    def account_new(self, password: str, label: str = None, is_default=False) -> account.Account:
+    def account_new(
+        self, password: str, label: str = None, is_default=False
+    ) -> account.Account:
         """
         Creates a new account and adds it in the wallet
 
@@ -79,11 +84,12 @@ class Wallet(interfaces.IJson):
             label: optional label to identify the account
             is_default: whether it should set the created account as the default
         """
-        account_ = account.Account(password=password,
-                                   watch_only=False,
-                                   label=label,
-                                   scrypt_parameters=self.scrypt
-                                   )
+        account_ = account.Account(
+            password=password,
+            watch_only=False,
+            label=label,
+            scrypt_parameters=self.scrypt,
+        )
 
         self.account_add(account_, is_default)
         return account_
@@ -95,18 +101,21 @@ class Wallet(interfaces.IJson):
         """
         return self._default_account
 
-    def import_multisig_address(self,
-                                signing_threshold: int,
-                                public_keys: list[cryptography.ECPoint]
-                                ) -> account.Account:
+    def import_multisig_address(
+        self, signing_threshold: int, public_keys: list[cryptography.ECPoint]
+    ) -> account.Account:
         if signing_threshold < 1 or signing_threshold > 1024:
             raise ValueError("Invalid signing threshold")
 
         if signing_threshold > len(public_keys):
-            raise ValueError(f"Minimum signing threshold is {signing_threshold}, "
-                             f"received only {len(public_keys)} public keys")
+            raise ValueError(
+                f"Minimum signing threshold is {signing_threshold}, "
+                f"received only {len(public_keys)} public keys"
+            )
 
-        multisig_contract = contract.Contract.create_multisig_contract(signing_threshold, public_keys)
+        multisig_contract = contract.Contract.create_multisig_contract(
+            signing_threshold, public_keys
+        )
         # we start with a watchonly as base
         account_ = account.Account.watch_only(multisig_contract.script_hash)
         account_.contract = account.AccountContract.from_contract(multisig_contract)
@@ -129,7 +138,9 @@ class Wallet(interfaces.IJson):
         if acc.contract is None:
             return
 
-        is_multisig, _, public_keys = contractutils.parse_as_multisig_contract(acc.contract.script)
+        is_multisig, _, public_keys = contractutils.parse_as_multisig_contract(
+            acc.contract.script
+        )
         if is_multisig:
             # scenario 1
             for account_ in self.accounts:
@@ -143,7 +154,9 @@ class Wallet(interfaces.IJson):
             for account_ in self.accounts:
                 # testing acc.contract to silence mypy
                 if account_.is_watchonly and account_.is_multisig and account_.contract:
-                    _, _, public_keys = contractutils.parse_as_multisig_contract(account_.contract.script)
+                    _, _, public_keys = contractutils.parse_as_multisig_contract(
+                        account_.contract.script
+                    )
                     if acc.public_key in public_keys:
                         account_.encrypted_key = acc.encrypted_key
                         account_.public_key = acc.public_key
@@ -236,17 +249,20 @@ class Wallet(interfaces.IJson):
         Convert object into JSON representation.
         """
         return {
-            'name': self.name,
-            'version': self.version,
-            'scrypt': self.scrypt.to_json(),
-            'accounts': [self._account_to_json(acc) for acc in self.accounts],
-            'extra': self.extra if len(self.extra) > 0 else None
+            "name": self.name,
+            "version": self.version,
+            "scrypt": self.scrypt.to_json(),
+            "accounts": [self._account_to_json(acc) for acc in self.accounts],
+            "extra": self.extra if len(self.extra) > 0 else None,
         }
 
     def _account_to_json(self, acc: account.Account) -> dict:
-        is_default = self._default_account is not None and self._default_account.address == acc.address
+        is_default = (
+            self._default_account is not None
+            and self._default_account.address == acc.address
+        )
         json_account = acc.to_json()
-        json_account['isDefault'] = is_default
+        json_account["isDefault"] = is_default
         return json_account
 
     @classmethod
@@ -264,31 +280,38 @@ class Wallet(interfaces.IJson):
         """
         validate(json, schema=cls.json_schema)
         try:
-            if float(json['version']) < 1.0:
+            if float(json["version"]) < 1.0:
                 raise ValueError("Format error - invalid 'version'")
         except ValueError:
             raise ValueError("Format error - invalid 'version'")
 
         accounts = []
         default_account = None
-        scryptp = scrypt.ScryptParameters.from_json(json['scrypt'])
-        if len(json['accounts']) > 0:
+        scryptp = scrypt.ScryptParameters.from_json(json["scrypt"])
+        if len(json["accounts"]) > 0:
             if password is None:
-                raise ValueError('Missing wallet password to decrypt account data')
+                raise ValueError("Missing wallet password to decrypt account data")
             else:
-                for json_account in json['accounts']:
-                    account_from_json = account.Account.from_json(json_account, password,
-                                                                  scrypt_parameters=scryptp)
+                for json_account in json["accounts"]:
+                    account_from_json = account.Account.from_json(
+                        json_account, password, scrypt_parameters=scryptp
+                    )
                     accounts.append(account_from_json)
-                    if default_account is None and hasattr(json, 'isDefault') and json['isDefault']:
+                    if (
+                        default_account is None
+                        and hasattr(json, "isDefault")
+                        and json["isDefault"]
+                    ):
                         default_account = account_from_json
 
-        return cls(name=json['name'],
-                   version=json['version'],
-                   scrypt_params=scryptp,
-                   accounts=accounts,
-                   default_account=default_account,
-                   extra=json['extra'])
+        return cls(
+            name=json["name"],
+            version=json["version"],
+            scrypt_params=scryptp,
+            accounts=accounts,
+            default_account=default_account,
+            extra=json["extra"],
+        )
 
     def __enter__(self) -> Wallet:
         return self
@@ -301,16 +324,19 @@ class NEP6DiskWallet(Wallet):
     """
     A specialised wallet for persisting wallets to media.
     """
-    _default_path = './wallet.json'
 
-    def __init__(self,
-                 path: str,
-                 name: Optional[str] = None,
-                 version: str = Wallet._wallet_version,
-                 scrypt_params: Optional[scrypt.ScryptParameters] = None,
-                 accounts: list[account.Account] = None,
-                 default_account: Optional[account.Account] = None,
-                 extra: Optional[dict] = None):
+    _default_path = "./wallet.json"
+
+    def __init__(
+        self,
+        path: str,
+        name: Optional[str] = None,
+        version: str = Wallet._wallet_version,
+        scrypt_params: Optional[scrypt.ScryptParameters] = None,
+        accounts: list[account.Account] = None,
+        default_account: Optional[account.Account] = None,
+        extra: Optional[dict] = None,
+    ):
         """
 
         Args:
@@ -326,7 +352,7 @@ class NEP6DiskWallet(Wallet):
         filepath, extension = os.path.splitext(path)
         if len(extension) == 0:
             # if the path doesn't have a file extension, sets it as a .json file
-            path += '.json'
+            path += ".json"
 
         if name is None:
             # sets the wallet name the same as the file name
@@ -334,22 +360,26 @@ class NEP6DiskWallet(Wallet):
             name, extension = os.path.splitext(name)
 
         self.path: str = path
-        super().__init__(name=name,
-                         version=version,
-                         scrypt_params=scrypt_params,
-                         accounts=accounts,
-                         default_account=default_account,
-                         extra=extra)
+        super().__init__(
+            name=name,
+            version=version,
+            scrypt_params=scrypt_params,
+            accounts=accounts,
+            default_account=default_account,
+            extra=extra,
+        )
 
     def save(self) -> None:
         """
         Persists the wallet
         """
-        with open(self.path, 'w') as json_file:
+        with open(self.path, "w") as json_file:
             json.dump(self.to_json(), json_file)
 
     @classmethod
-    def default(cls, path: str = _default_path, name: Optional[str] = 'wallet.json') -> NEP6DiskWallet:
+    def default(
+        cls, path: str = _default_path, name: Optional[str] = "wallet.json"
+    ) -> NEP6DiskWallet:
         """
         Create a new Wallet with the default settings.
 
@@ -357,9 +387,11 @@ class NEP6DiskWallet(Wallet):
             path: the JSON's path.
             name: the Wallet name.
         """
-        return cls(path=path,
-                   name=name,
-                   version=cls._wallet_version,
-                   scrypt_params=scrypt.ScryptParameters(),
-                   accounts=[],
-                   extra=None)
+        return cls(
+            path=path,
+            name=name,
+            version=cls._wallet_version,
+            scrypt_params=scrypt.ScryptParameters(),
+            accounts=[],
+            extra=None,
+        )
