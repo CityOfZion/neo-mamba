@@ -12,15 +12,17 @@ class CallFlagsTestCase(unittest.TestCase):
             ("AllowNotify", CallFlags.ALLOW_NOTIFY),
             ("States", CallFlags.STATES),
             ("ReadOnly", CallFlags.READ_ONLY),
-            ("All", CallFlags.ALL)
-         ]
+            ("All", CallFlags.ALL),
+        ]
         for input, expected in tests:
             self.assertEqual(expected, CallFlags.from_csharp_name(input))
 
     def test_parsing_invalid_input(self):
         with self.assertRaises(ValueError) as context:
             CallFlags.from_csharp_name("bla")
-        self.assertEqual("bla is not a valid member of CallFlags", str(context.exception))
+        self.assertEqual(
+            "bla is not a valid member of CallFlags", str(context.exception)
+        )
 
     def test_parsing_from_string_with_multiple_flags(self):
         input = "ReadStates, AllowCall"

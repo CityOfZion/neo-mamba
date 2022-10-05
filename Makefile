@@ -67,7 +67,7 @@ type: ## perform static type checking using mypy
 	mypy neo3/
 
 black: ## apply black formatting
-	black neo3/ examples/
+	black neo3/ examples/ tests/
 
 build: ## create source distribution and wheel
 	python -m build

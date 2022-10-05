@@ -75,7 +75,7 @@ class BigIntegerTestCase(TestCase):
 
         b1 = BigInteger(1)
         b2 = BigInteger(-2)
-        self.assertEqual(0, b1/b2)
+        self.assertEqual(0, b1 / b2)
 
     def test_big_integer_div_old_block1473972(self):
         b1 = BigInteger(-11001000000)
@@ -97,15 +97,15 @@ class BigIntegerTestCase(TestCase):
 
         b3 = BigInteger(128)
         b3ba = b3.to_array()
-        self.assertEqual(b'\x80\x00', b3ba)
+        self.assertEqual(b"\x80\x00", b3ba)
 
         b4 = BigInteger(0)
         b4ba = b4.to_array()
-        self.assertEqual(b'\x00', b4ba)
+        self.assertEqual(b"\x00", b4ba)
 
         b5 = BigInteger(-146)
         b5ba = b5.to_array()
-        self.assertEqual(b'\x6e\xff', b5ba)
+        self.assertEqual(b"\x6e\xff", b5ba)
 
         b6 = BigInteger(-48335248028225339427907476932896373492484053930)
         b6ba = b6.to_array()
@@ -113,11 +113,11 @@ class BigIntegerTestCase(TestCase):
 
         b7 = BigInteger(-399990000)
         b7ba = b7.to_array()
-        self.assertEqual(b'\x10\xa3\x28\xe8', b7ba)
+        self.assertEqual(b"\x10\xa3\x28\xe8", b7ba)
 
         b8 = BigInteger(-65023)
         b8ba = b8.to_array()
-        self.assertEqual(b'\x01\x02\xff', b8ba)
+        self.assertEqual(b"\x01\x02\xff", b8ba)
 
     def test_big_integer_frombytes(self):
         b1 = BigInteger(8972340892734890723)
@@ -144,11 +144,13 @@ class BigIntegerTestCase(TestCase):
         b2 = BigInteger(1048576)
         self.assertEqual(888269, b1 % b2)
 
-        b1 = BigInteger(-18224909727634776050312394179610579601844989529623334093909233530432892596607)
+        b1 = BigInteger(
+            -18224909727634776050312394179610579601844989529623334093909233530432892596607
+        )
         b2 = BigInteger(14954691977398614017)
         self.assertEqual(-3100049211437790421, b1 % b2)
 
-        b3 = BigInteger(b'+K\x05\xbe\xaai\xfa\xd4')
+        b3 = BigInteger(b"+K\x05\xbe\xaai\xfa\xd4")
         self.assertEqual(b3, b1 % b2)
 
     def test_dunder_methods(self):

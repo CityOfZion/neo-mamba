@@ -23,8 +23,10 @@ class ContractTestCase(unittest.TestCase):
         var c = Contract.CreateSignatureContract(kp1.PublicKey);
         Console.WriteLine(c.Script.ToHexString());
         """
-        expected = binascii.unhexlify(b'0c21026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca164156e7b327')
-        keypair = cryptography.KeyPair(private_key=b'\x01' * 32)
+        expected = binascii.unhexlify(
+            b"0c21026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca164156e7b327"
+        )
+        keypair = cryptography.KeyPair(private_key=b"\x01" * 32)
         contract_ = contract.Contract.create_signature_contract(keypair.public_key)
         self.assertEqual(expected, contract_.script)
 
@@ -50,26 +52,41 @@ class ContractTestCase(unittest.TestCase):
         Console.WriteLine(c.Script.ToHexString());
         Console.WriteLine(c.ScriptHash.ToArray().ToHexString());
         """
-        expected_script = binascii.unhexlify(b'110c2102550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e240c21026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca1612419ed0dc3a')
-        expected_script_hash = types.UInt160(binascii.unhexlify(b'a72d98260b3dd7d7dd4f733490b9c16b5c352644'))
-        keypair1 = cryptography.KeyPair(private_key=b'\x01' * 32)
-        keypair2 = cryptography.KeyPair(private_key=b'\x02' * 32)
-        contract_ = contract.Contract.create_multisig_contract(1, [keypair1.public_key, keypair2.public_key])
+        expected_script = binascii.unhexlify(
+            b"110c2102550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e240c21026ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca1612419ed0dc3a"
+        )
+        expected_script_hash = types.UInt160(
+            binascii.unhexlify(b"a72d98260b3dd7d7dd4f733490b9c16b5c352644")
+        )
+        keypair1 = cryptography.KeyPair(private_key=b"\x01" * 32)
+        keypair2 = cryptography.KeyPair(private_key=b"\x02" * 32)
+        contract_ = contract.Contract.create_multisig_contract(
+            1, [keypair1.public_key, keypair2.public_key]
+        )
         self.assertEqual(expected_script, contract_.script)
         self.assertEqual(str(expected_script_hash), str(contract_.script_hash))
 
     def test_create_multisignature_redeemscript_invalid_arguments(self):
         with self.assertRaises(ValueError) as context:
             utils.create_multisig_redeemscript(0, [])
-        self.assertEqual("Minimum required signature count is 1, specified 0.", str(context.exception))
+        self.assertEqual(
+            "Minimum required signature count is 1, specified 0.",
+            str(context.exception),
+        )
 
         with self.assertRaises(ValueError) as context:
             utils.create_multisig_redeemscript(1, [])
-        self.assertEqual("Invalid public key count. Minimum required signatures is bigger than supplied public keys count.", str(context.exception))
+        self.assertEqual(
+            "Invalid public key count. Minimum required signatures is bigger than supplied public keys count.",
+            str(context.exception),
+        )
 
         with self.assertRaises(ValueError) as context:
             utils.create_multisig_redeemscript(1, [object() for _ in range(0, 1025)])
-        self.assertEqual("Supplied public key count (1025) exceeds maximum of 1024.", str(context.exception))
+        self.assertEqual(
+            "Supplied public key count (1025) exceeds maximum of 1024.",
+            str(context.exception),
+        )
 
     def test_is_signature_contract(self):
         """
@@ -81,36 +98,38 @@ class ContractTestCase(unittest.TestCase):
         - "System.Crypto.CheckSig" identifier
         """
 
-        incorrect_script_len = b'\x01' * 10
+        incorrect_script_len = b"\x01" * 10
         self.assertFalse(utils.is_signature_contract(incorrect_script_len))
 
         # first byte should be PUSHDATA1 (0xC)
-        incorrect_script_start_byte = b'\x01' * 40
+        incorrect_script_start_byte = b"\x01" * 40
         self.assertFalse(utils.is_signature_contract(incorrect_script_start_byte))
 
         # second byte should be 33
-        incorrect_second_byte = bytearray(b'\x01' * 40)
+        incorrect_second_byte = bytearray(b"\x01" * 40)
         incorrect_second_byte[0] = int(vm.OpCode.PUSHDATA1)
         self.assertFalse(utils.is_signature_contract(incorrect_second_byte))
 
         # index 35 should be SYSCALL
-        incorrect_idx_35 = bytearray([0xc, 33]) + b'\01' * 38
+        incorrect_idx_35 = bytearray([0xC, 33]) + b"\01" * 38
         incorrect_idx_35[35] = int(vm.OpCode.PUSHNULL)
-        self.assertFalse(utils.is_signature_contract(incorrect_idx_35))  # index 35 should be SYSCALL
+        self.assertFalse(
+            utils.is_signature_contract(incorrect_idx_35)
+        )  # index 35 should be SYSCALL
 
         # the last 4 bytes should be the "System.Crypto.CheckSig" SYSCALL
-        incorrect_syscall_number = bytearray([0xc, 33]) + b'\01' * 38
+        incorrect_syscall_number = bytearray([0xC, 33]) + b"\01" * 38
         incorrect_syscall_number[35] = int(vm.OpCode.SYSCALL)
         self.assertFalse(utils.is_signature_contract(incorrect_syscall_number))
 
         # and finally a contract that matches the correct format
-        correct = bytearray([0xc, 33]) + b'\01' * 38
+        correct = bytearray([0xC, 33]) + b"\01" * 38
         correct[35] = int(vm.OpCode.SYSCALL)
         correct[36:40] = vm.Syscalls.SYSTEM_CRYPTO_CHECK_STANDARD_ACCOUNT.to_array()
         self.assertTrue(utils.is_signature_contract(correct))
 
     def test_is_multisig_contract_too_short(self):
-        script_too_short = b'\x00'
+        script_too_short = b"\x00"
         self.assertFalse(utils.is_multisig_contract(script_too_short))
 
     def test_is_multisig_contract_invalid_public_key(self):
@@ -124,29 +143,35 @@ class ContractTestCase(unittest.TestCase):
         """
         script = bytearray([int(vm.OpCode.PUSHINT8)])
         # signature count
-        script += b'\x02'
+        script += b"\x02"
         # public key 1
         script += bytearray([int(vm.OpCode.PUSHDATA1)])
         script += bytearray([33])
-        script += bytes.fromhex("03a60c1deaf147b10691c344c76e5f3dac83b555fdd5a3f8d9e2f623b3d1af8df6")
+        script += bytes.fromhex(
+            "03a60c1deaf147b10691c344c76e5f3dac83b555fdd5a3f8d9e2f623b3d1af8df6"
+        )
         # public key 2, but the key data is too short
         script += bytearray([int(vm.OpCode.PUSHDATA1)])
-        script += b'\xFF' * 10
+        script += b"\xFF" * 10
         self.assertFalse(utils.is_multisig_contract(script))
 
     def test_is_multisig_contract_invalid_public_key_2(self):
         script = bytearray([int(vm.OpCode.PUSHINT8)])
         # signature count
-        script += b'\x02'
+        script += b"\x02"
         # public key 1
         script += bytearray([int(vm.OpCode.PUSHDATA1)])
         script += bytearray([33])
-        script += bytes.fromhex("03a60c1deaf147b10691c344c76e5f3dac83b555fdd5a3f8d9e2f623b3d1af8df6")
+        script += bytes.fromhex(
+            "03a60c1deaf147b10691c344c76e5f3dac83b555fdd5a3f8d9e2f623b3d1af8df6"
+        )
         # public key 2, but the key data is too short
         script += bytearray([int(vm.OpCode.PUSHDATA1)])
         # public key 2 length should be 33, but we make it 00
-        script += b'\x00'
-        script += bytes.fromhex("03a60c1deaf147b10691c344c76e5f3dac83b555fdd5a3f8d9e2f623b3d1af8df6")
+        script += b"\x00"
+        script += bytes.fromhex(
+            "03a60c1deaf147b10691c344c76e5f3dac83b555fdd5a3f8d9e2f623b3d1af8df6"
+        )
 
         script += bytearray([int(vm.OpCode.PUSHINT8)])
         self.assertFalse(utils.is_multisig_contract(script))
@@ -155,9 +180,9 @@ class ContractTestCase(unittest.TestCase):
     def test_is_multisig_contract_public_key_count_lower_than_signature_count(self):
         script = bytearray([int(vm.OpCode.PUSHINT8)])
         # signature count
-        script += b'\x02'
+        script += b"\x02"
         # make sure it meets the minimum length
-        script += b'\x00' * 41
+        script += b"\x00" * 41
         # assert that 0 public keys does not meet the signature count of 2
         self.assertFalse(utils.is_multisig_contract(script))
 
@@ -175,12 +200,12 @@ class ContractTestCase(unittest.TestCase):
         script[-35] = 33
         # now we make sure the public key count matches
         script[-1] = int(vm.OpCode.PUSHINT8)
-        script += b'\x02'
+        script += b"\x02"
         # and assert we don't have enough data left for the remainder of the checks
         self.assertFalse(utils.is_multisig_contract(script))
 
         # now we extend with 5 bytes to give enough data
-        script += b'\x00' * 5
+        script += b"\x00" * 5
         # the first byte should be a SYSCALL, but it isn't
         self.assertFalse(utils.is_multisig_contract(script))
 
@@ -190,7 +215,7 @@ class ContractTestCase(unittest.TestCase):
         self.assertFalse(utils.is_multisig_contract(script))
 
     def test_is_multsig_contract_ok(self):
-        keypair = cryptography.KeyPair(private_key=b'\x01' * 32)
+        keypair = cryptography.KeyPair(private_key=b"\x01" * 32)
         contract_ = contract.Contract.create_multisig_contract(1, [keypair.public_key])
         self.assertTrue(utils.is_multisig_contract(contract_.script))
 
@@ -204,7 +229,9 @@ class ContractTestCase(unittest.TestCase):
         for _ in range(0, 2):
             script += bytearray([int(vm.OpCode.PUSHDATA1)])
             script += bytearray([33])
-            script += bytes.fromhex("03a60c1deaf147b10691c344c76e5f3dac83b555fdd5a3f8d9e2f623b3d1af8df6")
+            script += bytes.fromhex(
+                "03a60c1deaf147b10691c344c76e5f3dac83b555fdd5a3f8d9e2f623b3d1af8df6"
+            )
 
         # and now mismatch the public key count value we say is present (0 here)
         script += bytearray([int(vm.OpCode.PUSHINT16), 0, 0])
@@ -220,7 +247,7 @@ class ContractTestCase(unittest.TestCase):
         # this is another test where we check for a mismatch between processed public keys and the claimed present
         # amount but this time for a signature count between push0 <= cnt <= PUSH16
         # we re-use the standard create_multisignature_account call
-        keypair = cryptography.KeyPair(private_key=b'\x01' * 32)
+        keypair = cryptography.KeyPair(private_key=b"\x01" * 32)
         contract_ = contract.Contract.create_multisig_contract(1, [keypair.public_key])
         # and modify the claimed public key length from 1 to 255
         data = bytearray(contract_.script)
@@ -233,10 +260,10 @@ class ContractTestCase(unittest.TestCase):
 
     def test_is_multisig_contract_invalid_sig_counts(self):
         # no valid signature length byte
-        script = b'\xFF' * 43
+        script = b"\xFF" * 43
         self.assertFalse(utils.is_multisig_contract(script))
 
         # more than 1024 signatures
         sig_cnt = 1025
-        script = b'\x01' + sig_cnt.to_bytes(2, 'little') + b'\x01' * 40
+        script = b"\x01" + sig_cnt.to_bytes(2, "little") + b"\x01" * 40
         self.assertFalse(utils.is_multisig_contract(script))
