@@ -1,7 +1,7 @@
 from __future__ import annotations
 from neo3.core import serialization
-from neo3crypto import (
-    ECPoint as _ECPointCpp,  # type: ignore
+from neo3crypto import (  # type: ignore
+    ECPoint as _ECPointCpp,
     ECCCurve,
     ECCException,
     sign as ecdsa_sign,

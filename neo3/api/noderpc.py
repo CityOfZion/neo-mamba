@@ -344,9 +344,9 @@ class ExecutionResult:
             values = list(
                 map(
                     lambda element: ExecutionResult._parse_stack_item(element),
-                    item["iterator"],
+                    item["iterator"],  # type: ignore
                 )
-            )  # type: ignore
+            )
             return StackItem(type_, values)
         else:
             raise ValueError(f"Unknown stack item type: {type_}")
