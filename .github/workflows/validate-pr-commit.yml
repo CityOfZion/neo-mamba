@@ -15,8 +15,11 @@ jobs:
     strategy:
       matrix:
         include:
-        - name: Python 3.10
+        - name: Python 3.10 (Linux)
           os: ubuntu-latest
+          python-version: "3.10"
+        - name: Python 3.10 (Windows)
+          os: windows-latest
           python-version: "3.10"
     steps:
       - name: Checkout code
@@ -39,7 +42,7 @@ jobs:
       - name: persist
         uses: actions/upload-artifact@v2
         with:
-          name: setup-artifact
+          name: setup-artifact-${{ matrix.os }}
           path: mamba.tar.gz
           retention-days: 1
   linting:
@@ -53,10 +56,10 @@ jobs:
     needs: setup
     runs-on: ubuntu-latest
     steps:
-      - name: restore artificat
+      - name: restore artifact
         uses: actions/download-artifact@v2
         with:
-          name: setup-artifact
+          name: setup-artifact-${{ matrix.os }}
       - name: extract & type check
         run: |
           tar -xf mamba.tar.gz
@@ -65,12 +68,12 @@ jobs:
           make type
   unit-tests:
     needs: setup
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     steps:
-      - name: restore artificat
+      - name: restore artifact
         uses: actions/download-artifact@v2
         with:
-          name: setup-artifact
+          name: setup-artifact-${{ matrix.os }}
       - name: extract and test
         run: |
           tar -xf mamba.tar.gz
@@ -83,10 +86,10 @@ jobs:
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - name: restore artificat
+      - name: restore artifact
         uses: actions/download-artifact@v2
         with:
-          name: setup-artifact
+          name: setup-artifact-${{ matrix.os }}
       - name: check coverage
         run: |
           tar -xf mamba.tar.gz
