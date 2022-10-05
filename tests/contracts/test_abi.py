@@ -5,7 +5,7 @@ from neo3.contracts import abi
 class ContractParameterDefinitionTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        cls.expected = {'name': "Main", 'type': 'String'}
+        cls.expected = {"name": "Main", "type": "String"}
 
     def test_to_json(self):
         cpd = abi.ContractParameterDefinition("Main", abi.ContractParameterType.STRING)
@@ -17,14 +17,14 @@ class ContractParameterDefinitionTestCase(unittest.TestCase):
         self.assertEqual(abi.ContractParameterType.STRING, cpd.type)
 
         with self.assertRaises(KeyError) as context:
-            json_without_name = {'type': abi.ContractParameterType.ANY}
+            json_without_name = {"type": abi.ContractParameterType.ANY}
             abi.ContractParameterDefinition.from_json(json_without_name)
-        self.assertIn('name', str(context.exception))
+        self.assertIn("name", str(context.exception))
 
         with self.assertRaises(KeyError) as context:
-            json_without_type = {'name': "Main"}
+            json_without_type = {"name": "Main"}
             abi.ContractParameterDefinition.from_json(json_without_type)
-        self.assertIn('type', str(context.exception))
+        self.assertIn("type", str(context.exception))
 
     def test_eq(self):
         cpd = abi.ContractParameterDefinition.from_json(self.expected)
@@ -36,8 +36,13 @@ class ContractParameterDefinitionTestCase(unittest.TestCase):
 class ContractEventDescriptorTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        cls.expected = {"name": "MainEvent", "parameters": [{"name": "param", "type": "String"}]}
-        cls.parameters = [abi.ContractParameterDefinition("param", abi.ContractParameterType.STRING)]
+        cls.expected = {
+            "name": "MainEvent",
+            "parameters": [{"name": "param", "type": "String"}],
+        }
+        cls.parameters = [
+            abi.ContractParameterDefinition("param", abi.ContractParameterType.STRING)
+        ]
 
     def test_to_json(self):
         ced = abi.ContractEventDescriptor("MainEvent", self.parameters)
@@ -50,15 +55,15 @@ class ContractEventDescriptorTestCase(unittest.TestCase):
 
         with self.assertRaises(KeyError) as context:
             json_without_name = self.expected.copy()
-            json_without_name.pop('name')
+            json_without_name.pop("name")
             abi.ContractEventDescriptor.from_json(json_without_name)
-        self.assertIn('name', str(context.exception))
+        self.assertIn("name", str(context.exception))
 
         with self.assertRaises(KeyError) as context:
             json_without_param = self.expected.copy()
-            json_without_param.pop('parameters')
+            json_without_param.pop("parameters")
             abi.ContractEventDescriptor.from_json(json_without_param)
-        self.assertIn('parameters', str(context.exception))
+        self.assertIn("parameters", str(context.exception))
 
     def test_eq(self):
         ced = abi.ContractEventDescriptor.from_json(self.expected)
@@ -70,19 +75,21 @@ class ContractEventDescriptorTestCase(unittest.TestCase):
 class ContractMethodDescriptorTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        cls.parameters = [abi.ContractParameterDefinition("param", abi.ContractParameterType.STRING)]
-        cls.expected = {"name": "MainMethod",
-                        "offset": 0,
-                        "parameters": [cls.parameters[0].to_json()],
-                        "returntype": "Boolean",
-                        "safe": True}
+        cls.parameters = [
+            abi.ContractParameterDefinition("param", abi.ContractParameterType.STRING)
+        ]
+        cls.expected = {
+            "name": "MainMethod",
+            "offset": 0,
+            "parameters": [cls.parameters[0].to_json()],
+            "returntype": "Boolean",
+            "safe": True,
+        }
 
     def test_to_json(self):
-        cmd = abi.ContractMethodDescriptor("MainMethod",
-                                           0,
-                                           self.parameters, abi.ContractParameterType.BOOLEAN,
-                                           True
-                                           )
+        cmd = abi.ContractMethodDescriptor(
+            "MainMethod", 0, self.parameters, abi.ContractParameterType.BOOLEAN, True
+        )
         self.assertEqual(self.expected, cmd.to_json())
 
     def test_from_json(self):
@@ -95,9 +102,9 @@ class ContractMethodDescriptorTestCase(unittest.TestCase):
 
         with self.assertRaises(KeyError) as context:
             json_without_return_type = self.expected.copy()
-            json_without_return_type.pop('returntype')
+            json_without_return_type.pop("returntype")
             abi.ContractMethodDescriptor.from_json(json_without_return_type)
-        self.assertIn('returntype', str(context.exception))
+        self.assertIn("returntype", str(context.exception))
 
     def test_eq(self):
         cmd = abi.ContractMethodDescriptor.from_json(self.expected)
@@ -136,24 +143,27 @@ class AbiTestCase(unittest.TestCase):
             offset=0,
             parameters=[],
             return_type=abi.ContractParameterType.INTEGER,
-            safe=True
+            safe=True,
         )
         cls.methods = [cls.method1]
-        cls.event = abi.ContractEventDescriptor(
-            name="main_event",
-            parameters=[]
-        )
+        cls.event = abi.ContractEventDescriptor(name="main_event", parameters=[])
         cls.events = [cls.event]
         # captured from C#
         cls.expected_json = {
-            "methods": [{"name": "main_entry", "parameters": [], "returntype": "Integer", "offset": 0, "safe": True}],
-            "events": [{"name": "main_event", "parameters": []}]}
+            "methods": [
+                {
+                    "name": "main_entry",
+                    "parameters": [],
+                    "returntype": "Integer",
+                    "offset": 0,
+                    "safe": True,
+                }
+            ],
+            "events": [{"name": "main_event", "parameters": []}],
+        }
 
     def test_to_json(self):
-        abi_ = abi.ContractABI(
-            methods=self.methods,
-            events=self.events
-        )
+        abi_ = abi.ContractABI(methods=self.methods, events=self.events)
 
         self.assertEqual(self.expected_json, abi_.to_json())
 
