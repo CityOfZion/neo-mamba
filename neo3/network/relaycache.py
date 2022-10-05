@@ -12,6 +12,7 @@ class RelayCache(singleton._Singleton):
 
     Will be accessed in response to a GETDATA network payload.
     """
+
     def init(self):
         self.cache: dict[types.UInt256, inventory.IInventory] = dict()
         msgrouter.on_block_persisted += self.update_cache_for_block_persist
@@ -19,7 +20,9 @@ class RelayCache(singleton._Singleton):
     def add(self, inventory: inventory.IInventory) -> None:
         self.cache.update({inventory.hash(): inventory})
 
-    def get_and_remove(self, inventory_hash: types.UInt256) -> Optional[inventory.IInventory]:
+    def get_and_remove(
+        self, inventory_hash: types.UInt256
+    ) -> Optional[inventory.IInventory]:
         try:
             return self.cache.pop(inventory_hash)
         except KeyError:
@@ -32,7 +35,9 @@ class RelayCache(singleton._Singleton):
         for tx in block.transactions:
             with suppress(KeyError):
                 self.cache.pop(tx.hash())
-                logger.debug(f"Found {tx.hash()} in last persisted block. Removing from relay cache")
+                logger.debug(
+                    f"Found {tx.hash()} in last persisted block. Removing from relay cache"
+                )
 
     def reset(self) -> None:
         self.cache = dict()

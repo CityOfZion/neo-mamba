@@ -1,4 +1,4 @@
-.PHONY: build clean clean-test clean-pyc clean-build docs help test lint coverage version-major version-minor version-patch
+.PHONY: black build clean clean-test clean-pyc clean-build docs help test coverage version-major version-minor version-patch
 .DEFAULT_GOAL := help
 define BROWSER_PYSCRIPT
 import os, webbrowser, sys
@@ -46,9 +46,6 @@ clean-test: ## remove test and coverage artifacts
 	rm -f .coverage
 	rm -rf htmlcov/
 
-lint: ## check style with pycodestyle
-	pycodestyle --max-line-length=120 neo3 
-
 test: ## run tests quickly with the default Python
 	python -m unittest discover -v -s tests/
 
@@ -68,6 +65,9 @@ docs: ## generate Sphinx HTML documentation, including API docs
 
 type: ## perform static type checking using mypy
 	mypy neo3/
+
+black: ## apply black formatting
+	black neo3/ examples/
 
 build: ## create source distribution and wheel
 	python -m build

@@ -9,13 +9,15 @@ class ExtensiblePayload(inventory.IInventory):
     # despite not causing any circular imported errors yet
     PAYLOAD_MAX_SIZE = 0x2000000
 
-    def __init__(self,
-                 category: str,
-                 valid_block_start: int,
-                 valid_block_end: int,
-                 sender: types.UInt160,
-                 data: bytes,
-                 witness: verification.Witness):
+    def __init__(
+        self,
+        category: str,
+        valid_block_start: int,
+        valid_block_end: int,
+        sender: types.UInt160,
+        data: bytes,
+        witness: verification.Witness,
+    ):
         super(ExtensiblePayload, self).__init__()
         #: An identifier to which category the data belongs
         self.category = category
@@ -33,13 +35,15 @@ class ExtensiblePayload(inventory.IInventory):
         self.witnesses = [self.witness]  # for IVerifiable super
 
     def __len__(self):
-        return (utils.get_var_size(self.category)
-                + s.uint32
-                + s.uint32
-                + s.uint160
-                + utils.get_var_size(self.data)
-                + 1
-                + len(self.witness))
+        return (
+            utils.get_var_size(self.category)
+            + s.uint32
+            + s.uint32
+            + s.uint160
+            + utils.get_var_size(self.data)
+            + 1
+            + len(self.witness)
+        )
 
     def serialize(self, writer: serialization.BinaryWriter) -> None:
         """
@@ -94,7 +98,9 @@ class ExtensiblePayload(inventory.IInventory):
         self.valid_block_start = reader.read_uint32()
         self.valid_block_end = reader.read_uint32()
         if self.valid_block_start >= self.valid_block_end:
-            raise ValueError("Deserialization error - valid_block_start is bigger than valid_block_end")
+            raise ValueError(
+                "Deserialization error - valid_block_start is bigger than valid_block_end"
+            )
         self.sender = reader.read_serializable(types.UInt160)
         self.data = reader.read_var_bytes(self.PAYLOAD_MAX_SIZE)
 
@@ -123,4 +129,4 @@ class ExtensiblePayload(inventory.IInventory):
 
     @classmethod
     def _serializable_init(cls):
-        return cls('', 0, 0, types.UInt160.zero(), b'', verification.Witness(b'', b''))
+        return cls("", 0, 0, types.UInt160.zero(), b"", verification.Witness(b"", b""))

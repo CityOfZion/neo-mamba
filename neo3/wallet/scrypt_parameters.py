@@ -10,26 +10,19 @@ class ScryptParameters(interfaces.IJson):
         "properties": {
             "n": {"type": "integer"},
             "r": {"type": "integer"},
-            "p": {"type": "integer"}
+            "p": {"type": "integer"},
         },
-        "required": ["n", "r", "p"]
+        "required": ["n", "r", "p"],
     }
 
-    def __init__(self,
-                 n: int = 16384,
-                 r: int = 8,
-                 p: int = 8):
+    def __init__(self, n: int = 16384, r: int = 8, p: int = 8):
 
         self.n = n
         self.r = r
         self.p = p
 
     def to_json(self) -> dict:
-        return {
-            'n': self.n,
-            'r': self.r,
-            'p': self.p
-        }
+        return {"n": self.n, "r": self.r, "p": self.p}
 
     @classmethod
     def from_json(cls, json: dict) -> ScryptParameters:
@@ -44,6 +37,4 @@ class ScryptParameters(interfaces.IJson):
         """
         validate(json, schema=cls.json_schema)
 
-        return cls(n=json['n'],
-                   r=json['r'],
-                   p=json['p'])
+        return cls(n=json["n"], r=json["r"], p=json["p"])

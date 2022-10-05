@@ -17,4 +17,4 @@ class _Singleton(object):
         return it
 
     def init(self, *args, **kwds):
-        """ override this instead of implementing your own __init__ """
+        """override this instead of implementing your own __init__"""

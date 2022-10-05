@@ -36,7 +36,7 @@ class FilterAddPayload(serialization.ISerializable):
 
     @classmethod
     def _serializable_init(cls):
-        return cls(b'')
+        return cls(b"")
 
 
 class FilterLoadPayload(serialization.ISerializable):

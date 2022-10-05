@@ -46,6 +46,7 @@ class SyncManager(singleton._Singleton):
         Raises:
             Exception: if no started Nodemanager is found within `timeout` seconds.
         """
+
         async def wait_for_nodemanager():
             logger.debug("Waiting for nodemanager to start")
             while not self.nodemgr.is_running:
@@ -54,7 +55,9 @@ class SyncManager(singleton._Singleton):
         try:
             await asyncio.wait_for(wait_for_nodemanager(), timeout)
         except asyncio.TimeoutError:
-            error_msg = f"Nodemanager failed to start within specified timeout {timeout}"
+            error_msg = (
+                f"Nodemanager failed to start within specified timeout {timeout}"
+            )
             logger.debug(error_msg)
             await self.shutdown()
             raise Exception(error_msg)
@@ -138,7 +141,10 @@ class SyncManager(singleton._Singleton):
         # find outstanding requests that timed out
         for height, request_info in self.block_requests.items():
             flight_info = request_info.most_recent_flight()
-            if flight_info and now - flight_info.start_time > self.BLOCK_REQUEST_TIMEOUT:
+            if (
+                flight_info
+                and now - flight_info.start_time > self.BLOCK_REQUEST_TIMEOUT
+            ):
                 timedout_flights[height] = flight_info
 
         if len(timedout_flights) == 0:
@@ -188,13 +194,19 @@ class SyncManager(singleton._Singleton):
             # in the range that have been filled in the mean time by other nodes that timed out.
             # This leads to minimal (acceptable) additional traffic in certain scenarios.
             for request_info in remaining_requests:
-                request_info.add_new_flight(flightinfo.FlightInfo(node.nodeid, request_info.height))
+                request_info.add_new_flight(
+                    flightinfo.FlightInfo(node.nodeid, request_info.height)
+                )
 
             count = max(1, request_info_last.height - request_info_first.height)
-            logger.debug(f"Block timeout for blocks {request_info_first.height} - {request_info_last.height}. "
-                         f"Trying again using next available node {node.nodeid_human}. "
-                         f"start={request_info_first.height}, count={count}.")
-            await node.request_block_data(index_start=request_info_first.height, count=count)
+            logger.debug(
+                f"Block timeout for blocks {request_info_first.height} - {request_info_last.height}. "
+                f"Trying again using next available node {node.nodeid_human}. "
+                f"start={request_info_first.height}, count={count}."
+            )
+            await node.request_block_data(
+                index_start=request_info_first.height, count=count
+            )
             node.nodeweight.append_new_request_time()
 
         return 0
@@ -214,7 +226,9 @@ class SyncManager(singleton._Singleton):
                 msgrouter.on_block_persist(block)
                 await asyncio.sleep(0)
         except Exception as e:
-            logger.debug(f"Unexpected exception happened while processing the block cache: {traceback.format_exc()}")
+            logger.debug(
+                f"Unexpected exception happened while processing the block cache: {traceback.format_exc()}"
+            )
         finally:
             self._is_persisting_blocks = False
 
@@ -228,7 +242,9 @@ class SyncManager(singleton._Singleton):
             return -2
 
         try:
-            best_node_height = max(map(lambda node: node.best_height, self.nodemgr.nodes))
+            best_node_height = max(
+                map(lambda node: node.best_height, self.nodemgr.nodes)
+            )
         except ValueError:
             # if the node list is empty max() fails on an empty list
             return -3
@@ -254,8 +270,10 @@ class SyncManager(singleton._Singleton):
 
         if to_fetch_ctr > 0:
             index_start = best_block_height + 1
-            logger.debug(f"Asking for blocks {index_start} - {index_start + to_fetch_ctr - 1} from {node.nodeid_human} "
-                         f"(blocks in cache: {len(self.block_cache)}).")
+            logger.debug(
+                f"Asking for blocks {index_start} - {index_start + to_fetch_ctr - 1} from {node.nodeid_human} "
+                f"(blocks in cache: {len(self.block_cache)})."
+            )
             await node.request_block_data(index_start=index_start, count=to_fetch_ctr)
 
         return 0

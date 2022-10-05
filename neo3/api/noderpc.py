@@ -32,9 +32,11 @@ class NextBlockValidatorsResponse:
     def from_json(cls, json: dict):
         nvr = cls([])
         for validator in json:
-            pk = cryptography.ECPoint.deserialize_from_bytes(bytes.fromhex(validator['publickey']))
-            votes = int(validator['votes'])
-            nvr.validators.append(BlockValidator(pk, votes, validator['active']))
+            pk = cryptography.ECPoint.deserialize_from_bytes(
+                bytes.fromhex(validator["publickey"])
+            )
+            votes = int(validator["votes"])
+            nvr.validators.append(BlockValidator(pk, votes, validator["active"]))
         return nvr
 
 
@@ -61,7 +63,7 @@ class GetVersionResponse:
 
     @classmethod
     def from_json(cls, json: dict):
-        json['protocol'] = VersionProtocol(**json['protocol'])
+        json["protocol"] = VersionProtocol(**json["protocol"])
         return cls(**json)
 
 
@@ -80,11 +82,11 @@ class GetPeersResponse:
     @classmethod
     def from_json(cls, json: dict):
         c = cls([], [], [])
-        for p in json['connected']:
+        for p in json["connected"]:
             c.connected.append(Peer(**p))
-        for p in json['bad']:
+        for p in json["bad"]:
             c.bad.append(Peer(**p))
-        for p in json['unconnected']:
+        for p in json["unconnected"]:
             c.unconnected.append(Peer(**p))
         return c
 
@@ -96,8 +98,10 @@ class Nep17Balance:
     last_updated_block: int
 
     def __repr__(self):
-        return f"{self.__class__.__name__}(asset_hash={self.asset_hash}, amount={self.amount}, " \
-               f"last_updated_block={self.last_updated_block})"
+        return (
+            f"{self.__class__.__name__}(asset_hash={self.asset_hash}, amount={self.amount}, "
+            f"last_updated_block={self.last_updated_block})"
+        )
 
 
 @dataclass
@@ -107,11 +111,11 @@ class Nep17BalancesResponse:
 
     @classmethod
     def from_json(cls, json: dict):
-        c = cls([], json['address'])
-        for b in json['balance']:
-            h = types.UInt160.from_string(b['assethash'][2:])
-            a = int(b['amount'])
-            c.balances.append(Nep17Balance(h, a, b['lastupdatedblock']))
+        c = cls([], json["address"])
+        for b in json["balance"]:
+            h = types.UInt160.from_string(b["assethash"][2:])
+            a = int(b["amount"])
+            c.balances.append(Nep17Balance(h, a, b["lastupdatedblock"]))
         return c
 
 
@@ -127,17 +131,29 @@ class Nep17Transfer:
 
     @classmethod
     def from_json(cls, json: dict):
-        time = datetime.datetime.fromtimestamp(json['timestamp'] / 1000, datetime.timezone.utc)
-        hash_ = types.UInt160.from_string(json['assethash'][2:])
-        transfer_addr = json['transferaddress']
-        amount = int(json['amount'])
-        tx_hash = types.UInt256.from_string(json['txhash'][2:])
-        return cls(time, hash_, transfer_addr, amount, json['blockindex'], json['transfernotifyindex'], tx_hash)
+        time = datetime.datetime.fromtimestamp(
+            json["timestamp"] / 1000, datetime.timezone.utc
+        )
+        hash_ = types.UInt160.from_string(json["assethash"][2:])
+        transfer_addr = json["transferaddress"]
+        amount = int(json["amount"])
+        tx_hash = types.UInt256.from_string(json["txhash"][2:])
+        return cls(
+            time,
+            hash_,
+            transfer_addr,
+            amount,
+            json["blockindex"],
+            json["transfernotifyindex"],
+            tx_hash,
+        )
 
     def __repr__(self):
-        return f"{self.__class__.__name__}(time={self.time}, asset_hash={self.asset_hash}, " \
-               f"transfer_address={self.transfer_address}, amount={self.amount}, block_index={self.block_index}, " \
-               f"transfer_notify_index={self.transfer_notify_index}, tx_hash={self.tx_hash})"
+        return (
+            f"{self.__class__.__name__}(time={self.time}, asset_hash={self.asset_hash}, "
+            f"transfer_address={self.transfer_address}, amount={self.amount}, block_index={self.block_index}, "
+            f"transfer_notify_index={self.transfer_notify_index}, tx_hash={self.tx_hash})"
+        )
 
 
 @dataclass
@@ -148,10 +164,10 @@ class Nep17TransfersResponse:
 
     @classmethod
     def from_json(cls, json: dict):
-        c = cls([], [], json['address'])
-        for t in json['sent']:
+        c = cls([], [], json["address"])
+        for t in json["sent"]:
             c.sent.append(Nep17Transfer.from_json(t))
-        for t in json['received']:
+        for t in json["received"]:
             c.received.append(Nep17Transfer.from_json(t))
         return c
 
@@ -167,15 +183,16 @@ class MempoolResponse:
         - available balance vs network and system fees
         - etc
     """
+
     verified: list[types.UInt256]
     unverified: list[types.UInt256]
 
     @classmethod
     def from_json(cls, json: dict):
         c = cls([], [])
-        for tx in json['verified']:
+        for tx in json["verified"]:
             c.verified.append(types.UInt256.from_string(tx[2:]))
-        for tx in json['unverified']:
+        for tx in json["unverified"]:
             c.unverified.append(types.UInt256.from_string(tx[2:]))
         return c
 
@@ -192,7 +209,9 @@ class StackItem:
 
     def as_str(self) -> str:
         if self.type != "ByteString":
-            raise ValueError(f"item is not of type 'ByteString' but of type '{self.type}'")
+            raise ValueError(
+                f"item is not of type 'ByteString' but of type '{self.type}'"
+            )
         v = cast(bytes, self.value)
         return v.decode()
 
@@ -204,7 +223,9 @@ class StackItem:
 
     def as_uint160(self) -> types.UInt160:
         if self.type not in ["ByteString", "Buffer"]:
-            raise ValueError(f"item is not of type 'ByteString' or 'Buffer' but of type '{self.type}'")
+            raise ValueError(
+                f"item is not of type 'ByteString' or 'Buffer' but of type '{self.type}'"
+            )
         # we need to ensure the data is hex-escaped
         data = self.value
         with suppress(UnicodeDecodeError, ValueError):
@@ -213,7 +234,9 @@ class StackItem:
 
     def as_uint256(self) -> types.UInt256:
         if self.type not in ["ByteString", "Buffer"]:
-            raise ValueError(f"item is not of type 'ByteString' or 'Buffer' but of type '{self.type}'")
+            raise ValueError(
+                f"item is not of type 'ByteString' or 'Buffer' but of type '{self.type}'"
+            )
         # we need to ensure the data is hex-escaped
         data = self.value
         with suppress(UnicodeDecodeError, ValueError):
@@ -225,7 +248,9 @@ class StackItem:
 
     def as_public_key(self) -> cryptography.ECPoint:
         if self.type not in ["ByteString", "Buffer"]:
-            raise ValueError(f"item is not of type 'ByteString' or 'Buffer' but of type '{self.type}'")
+            raise ValueError(
+                f"item is not of type 'ByteString' or 'Buffer' but of type '{self.type}'"
+            )
         # we need to ensure the data is hex-escaped
         data = self.value
         with suppress(UnicodeDecodeError, ValueError):
@@ -281,36 +306,47 @@ class ExecutionResult:
 
     @staticmethod
     def _parse_stack_item(item: _Item) -> StackItem:
-        type_ = item['type']
+        type_ = item["type"]
         if type_ in ("Array", "Struct"):
-            list_ = list(map(lambda element: ExecutionResult._parse_stack_item(element), item['value']))
+            list_ = list(
+                map(
+                    lambda element: ExecutionResult._parse_stack_item(element),
+                    item["value"],
+                )
+            )
             return StackItem(type_, list_)
         elif type_ in ("Boolean", "Pointer"):
             return StackItem(**item)
         if type_ in ("Buffer", "ByteString"):
-            return StackItem(type_, base64.b64decode(item['value']))
+            return StackItem(type_, base64.b64decode(item["value"]))
         elif type_ == "Integer":
-            return StackItem(type_, int(item['value']))
+            return StackItem(type_, int(item["value"]))
         elif type_ == "Map":
             map_ = []
-            for stack_item in item['value']:
+            for stack_item in item["value"]:
 
-                key = ExecutionResult._parse_stack_item(stack_item['key'])
-                key_type = stack_item['key']['type']
+                key = ExecutionResult._parse_stack_item(stack_item["key"])
+                key_type = stack_item["key"]["type"]
                 if key_type == "ByteString":
                     key.value = key.value.decode()
                 else:
                     key.value = str(key.value)
-                value = ExecutionResult._parse_stack_item(stack_item['value'])
+                value = ExecutionResult._parse_stack_item(stack_item["value"])
                 map_.append((key, value))
             return MapStackItem(type_, map_)
         elif type_ == "Any":
             return StackItem(type_, None)
         elif type_ == "InteropInterface":
             if "iterator" not in item.keys():
-                raise ValueError(f"Interop stack item only supports iterators, could not find 'iterator' key")
-            values = list(map(lambda element: ExecutionResult._parse_stack_item(element),
-                              item['iterator']))  # type: ignore
+                raise ValueError(
+                    f"Interop stack item only supports iterators, could not find 'iterator' key"
+                )
+            values = list(
+                map(
+                    lambda element: ExecutionResult._parse_stack_item(element),
+                    item["iterator"],  # type: ignore
+                )
+            )
             return StackItem(type_, values)
         else:
             raise ValueError(f"Unknown stack item type: {type_}")
@@ -318,9 +354,11 @@ class ExecutionResult:
 
     @classmethod
     def from_json(cls, json: dict):
-        gc = int(json['gasconsumed'])
-        stack = list(map(lambda item: ExecutionResult._parse_stack_item(item), json['stack']))
-        return cls(json['state'], gc, json['exception'], stack)
+        gc = int(json["gasconsumed"])
+        stack = list(
+            map(lambda item: ExecutionResult._parse_stack_item(item), json["stack"])
+        )
+        return cls(json["state"], gc, json["exception"], stack)
 
 
 @dataclass
@@ -329,10 +367,12 @@ class ExecutionResultResponse(ExecutionResult):
 
     @classmethod
     def from_json(cls, json: dict):
-        script = base64.b64decode(json['script'])
-        gc = int(json['gasconsumed'])
-        stack = list(map(lambda item: ExecutionResult._parse_stack_item(item), json['stack']))
-        return cls(json['state'], gc, json['exception'], stack, script)
+        script = base64.b64decode(json["script"])
+        gc = int(json["gasconsumed"])
+        stack = list(
+            map(lambda item: ExecutionResult._parse_stack_item(item), json["stack"])
+        )
+        return cls(json["state"], gc, json["exception"], stack, script)
 
 
 @dataclass
@@ -343,14 +383,16 @@ class Notification:
 
     @classmethod
     def from_json(cls, json: dict):
-        c = types.UInt160.from_string(json['contract'][2:])
-        e = json['eventname']
-        s = ExecutionResult._parse_stack_item(json['state'])
+        c = types.UInt160.from_string(json["contract"][2:])
+        e = json["eventname"]
+        s = ExecutionResult._parse_stack_item(json["state"])
         return cls(c, e, s)
 
     def __repr__(self):
-        return f"{self.__class__.__name__}(contract={str(self.contract)}, " \
-               f"event_name={self.event_name}, state={self.state})"
+        return (
+            f"{self.__class__.__name__}(contract={str(self.contract)}, "
+            f"event_name={self.event_name}, state={self.state})"
+        )
 
 
 @dataclass
@@ -360,16 +402,24 @@ class ApplicationExecution(ExecutionResult):
 
     @classmethod
     def from_json(cls, json: dict):
-        gc = int(json['gasconsumed'])
-        stack = list(map(lambda item: ExecutionResult._parse_stack_item(item), json['stack']))
-        state = json['vmstate']
-        ex = json.get('exception', None)
+        gc = int(json["gasconsumed"])
+        stack = list(
+            map(lambda item: ExecutionResult._parse_stack_item(item), json["stack"])
+        )
+        state = json["vmstate"]
+        ex = json.get("exception", None)
         notifications = []
-        for n in json['notifications']:
+        for n in json["notifications"]:
             notifications.append(Notification.from_json(n))
 
-        return cls(trigger=json['trigger'], notifications=notifications, state=state, gas_consumed=gc, exception=ex,
-                   stack=stack)
+        return cls(
+            trigger=json["trigger"],
+            notifications=notifications,
+            state=state,
+            gas_consumed=gc,
+            exception=ex,
+            stack=stack,
+        )
 
 
 @dataclass
@@ -379,8 +429,8 @@ class TransactionApplicationLogResponse:
 
     @classmethod
     def from_json(cls, json: dict):
-        tx_id = types.UInt256.from_string(json['txid'])
-        execution = ApplicationExecution.from_json(json['executions'][0])
+        tx_id = types.UInt256.from_string(json["txid"])
+        execution = ApplicationExecution.from_json(json["executions"][0])
         return cls(tx_id, execution)
 
     def __repr__(self):
@@ -394,9 +444,9 @@ class BlockApplicationLogResponse:
 
     @classmethod
     def from_json(cls, json: dict):
-        block_hash = types.UInt256.from_string(json['blockhash'])
+        block_hash = types.UInt256.from_string(json["blockhash"])
         executions = []
-        for execution in json['executions']:
+        for execution in json["executions"]:
             executions.append(ApplicationExecution.from_json(execution))
         return cls(block_hash, executions)
 
@@ -404,33 +454,51 @@ class BlockApplicationLogResponse:
         return f"{self.__class__.__name__}(block_hash={str(self.block_hash)}, executions={self.executions})"
 
 
-ContractParameter = Union[bool, int, str, bytes, bytearray, types.UInt160, types.UInt256, cryptography.ECPoint,
-                          "ContractParameterArray", "ContractParameterDict"]
+ContractParameter = Union[
+    bool,
+    int,
+    str,
+    bytes,
+    bytearray,
+    types.UInt160,
+    types.UInt256,
+    cryptography.ECPoint,
+    "ContractParameterArray",
+    "ContractParameterDict",
+]
 
 
 class ContractParameterArray(Protocol):
-    def insert(self, index: int, value: ContractParameter) -> None: ...
+    def insert(self, index: int, value: ContractParameter) -> None:
+        ...
 
-    def __getitem__(self, i: int) -> ContractParameter: ...
+    def __getitem__(self, i: int) -> ContractParameter:
+        ...
 
-    def __setitem__(self, i: int, o: ContractParameter) -> None: ...
+    def __setitem__(self, i: int, o: ContractParameter) -> None:
+        ...
 
-    def __delitem__(self, i: int) -> None: ...
+    def __delitem__(self, i: int) -> None:
+        ...
 
 
 class ContractParameterDict(Protocol):
-    def __setitem__(self, k: ContractParameter, v: ContractParameter) -> None: ...
+    def __setitem__(self, k: ContractParameter, v: ContractParameter) -> None:
+        ...
 
-    def __delitem__(self, v: ContractParameter) -> None: ...
+    def __delitem__(self, v: ContractParameter) -> None:
+        ...
 
-    def __getitem__(self, k: ContractParameter) -> ContractParameter: ...
+    def __getitem__(self, k: ContractParameter) -> ContractParameter:
+        ...
 
-    def __iter__(self) -> Iterator[ContractParameter]: ...
+    def __iter__(self) -> Iterator[ContractParameter]:
+        ...
 
 
 class _ContractParameter(interfaces.IJson):
     def __init__(self, obj: ContractParameter):
-        self.value: ContractParameter = ''  # just to help mypy
+        self.value: ContractParameter = ""  # just to help mypy
         if isinstance(obj, bool):
             self.type = abi.ContractParameterType.BOOLEAN
             self.value = obj
@@ -459,7 +527,9 @@ class _ContractParameter(interfaces.IJson):
             self.type = abi.ContractParameterType.MAP
             pairs: list[dict] = []
             for k, v in obj.items():
-                pairs.append({"key": _ContractParameter(k), "value": _ContractParameter(v)})
+                pairs.append(
+                    {"key": _ContractParameter(k), "value": _ContractParameter(v)}
+                )
             # It seems like mypy can't follow that ContractParameter is also
             # a list[dict[ContractParameter, ContractParameter]]
             self.value = pairs  # type: ignore
@@ -468,7 +538,7 @@ class _ContractParameter(interfaces.IJson):
 
     @classmethod
     def from_json(cls, json: dict):
-        """ Not supported """
+        """Not supported"""
         raise NotImplementedError
 
     def to_json(self) -> dict:
@@ -484,7 +554,9 @@ class RPCClient:
         """
         self.url = url
         self.timeout = timeout
-        self.session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=self.timeout))
+        self.session = aiohttp.ClientSession(
+            timeout=aiohttp.ClientTimeout(total=self.timeout)
+        )
 
     async def _post(self, json: dict):
         """
@@ -535,13 +607,24 @@ class NeoRpcClient(RPCClient):
     def __init__(self, host: str, **kwargs):
         super(NeoRpcClient, self).__init__(host, **kwargs)
 
-    async def _do_post(self, method: str, params: list = None, id: int = 0, jsonrpc_version: str = "2.0"):
+    async def _do_post(
+        self,
+        method: str,
+        params: list = None,
+        id: int = 0,
+        jsonrpc_version: str = "2.0",
+    ):
         params = params if params else []
-        json = {'jsonrpc': jsonrpc_version, 'id': id, "method": method, "params": params}
+        json = {
+            "jsonrpc": jsonrpc_version,
+            "id": id,
+            "method": method,
+            "params": params,
+        }
         response = await super(NeoRpcClient, self)._post(json)
         if "error" in response:
-            raise JsonRpcError(**response['error'])
-        return response['result']
+            raise JsonRpcError(**response["error"])
+        return response["result"]
 
     async def calculate_network_fee(self, tx: bytes | transaction.Transaction) -> int:
         """
@@ -551,9 +634,11 @@ class NeoRpcClient(RPCClient):
             tx = tx.to_array()
         params = [base64.b64encode(tx).decode()]
         result = await self._do_post("calculatenetworkfee", params)
-        return int(result['networkfee'])
+        return int(result["networkfee"])
 
-    async def get_application_log_transaction(self, tx_hash: types.UInt256 | str) -> TransactionApplicationLogResponse:
+    async def get_application_log_transaction(
+        self, tx_hash: types.UInt256 | str
+    ) -> TransactionApplicationLogResponse:
         """
         Fetch the smart contract event logs for a given transaction.
 
@@ -567,7 +652,9 @@ class NeoRpcClient(RPCClient):
         result = await self._do_post("getapplicationlog", [tx_hash])
         return TransactionApplicationLogResponse.from_json(result)
 
-    async def get_application_log_block(self, block_hash: types.UInt256 | str) -> BlockApplicationLogResponse:
+    async def get_application_log_block(
+        self, block_hash: types.UInt256 | str
+    ) -> BlockApplicationLogResponse:
         """
         Fetch the system event logs for a given block.
 
@@ -611,7 +698,9 @@ class NeoRpcClient(RPCClient):
         response = await self._do_post("getblockhash", [index])
         return types.UInt256.from_string(response[2:])
 
-    async def get_block_header(self, index_or_hash: int | types.UInt256) -> block.Header:
+    async def get_block_header(
+        self, index_or_hash: int | types.UInt256
+    ) -> block.Header:
         """
         Fetch the block header by its index or block hash.
         """
@@ -638,7 +727,9 @@ class NeoRpcClient(RPCClient):
         """
         return await self._do_post("getconnectioncount")
 
-    async def get_contract_state(self, contract_hash_or_name: types.UInt160 | str) -> contract.ContractState:
+    async def get_contract_state(
+        self, contract_hash_or_name: types.UInt160 | str
+    ) -> contract.ContractState:
         """
         Fetch smart contract state information.
 
@@ -651,10 +742,12 @@ class NeoRpcClient(RPCClient):
             params = [contract_hash_or_name]
         result = await self._do_post("getcontractstate", params)
 
-        h = types.UInt160.from_string(result['hash'][2:])
-        nef_ = nef.NEF.from_json(result['nef'])
-        manifest_ = manifest.ContractManifest.from_json(result['manifest'])
-        return contract.ContractState(result['id'], nef_, manifest_, result['updatecounter'], h)
+        h = types.UInt160.from_string(result["hash"][2:])
+        nef_ = nef.NEF.from_json(result["nef"])
+        manifest_ = manifest.ContractManifest.from_json(result["manifest"])
+        return contract.ContractState(
+            result["id"], nef_, manifest_, result["updatecounter"], h
+        )
 
     async def get_nep17_balances(self, address: str) -> Nep17BalancesResponse:
         """
@@ -663,11 +756,12 @@ class NeoRpcClient(RPCClient):
         result = await self._do_post("getnep17balances", [address])
         return Nep17BalancesResponse.from_json(result)
 
-    async def get_nep17_transfers(self,
-                                  address: str,
-                                  start_time: Optional[datetime.datetime] = None,
-                                  end_time: Optional[datetime.datetime] = None,
-                                  ) -> Nep17TransfersResponse:
+    async def get_nep17_transfers(
+        self,
+        address: str,
+        start_time: Optional[datetime.datetime] = None,
+        end_time: Optional[datetime.datetime] = None,
+    ) -> Nep17TransfersResponse:
         """
         Obtain NEP17 transfers for a given address. Defaults to the last 7 days on the server side.
 
@@ -684,18 +778,22 @@ class NeoRpcClient(RPCClient):
         params = [address]
         if start_time is not None:
             if start_time.tzinfo is None:
-                raise ValueError("start_time is a naïve datetime object which can cause incorrect results. Make it "
-                                 "time aware by adding tzinfo. For more information see: "
-                                 "https://docs.python.org/3/library/datetime.html#datetime.datetime.tzinfo")
+                raise ValueError(
+                    "start_time is a naïve datetime object which can cause incorrect results. Make it "
+                    "time aware by adding tzinfo. For more information see: "
+                    "https://docs.python.org/3/library/datetime.html#datetime.datetime.tzinfo"
+                )
             # C# server side expects timestamp in milliseconds instead of seconds
             t = int(start_time.timestamp() * 1000)
             params.append(str(t))
 
         if end_time is not None:
             if end_time.tzinfo is None:
-                raise ValueError("end_time is a naïve object which can cause incorrect results. Make it time aware by "
-                                 "adding tzinfo. For more information see: "
-                                 "https://docs.python.org/3/library/datetime.html#datetime.datetime.tzinfo")
+                raise ValueError(
+                    "end_time is a naïve object which can cause incorrect results. Make it time aware by "
+                    "adding tzinfo. For more information see: "
+                    "https://docs.python.org/3/library/datetime.html#datetime.datetime.tzinfo"
+                )
             t = int(end_time.timestamp() * 1000)
             params.append(str(t))
 
@@ -741,7 +839,9 @@ class NeoRpcClient(RPCClient):
         result = await self._do_post("getstorage", params=[hash_, key_encoded])
         return base64.b64decode(result)
 
-    async def get_transaction(self, tx_hash: types.UInt256 | str) -> transaction.Transaction:
+    async def get_transaction(
+        self, tx_hash: types.UInt256 | str
+    ) -> transaction.Transaction:
         """
         Fetch a transaction by its hash.
 
@@ -772,7 +872,7 @@ class NeoRpcClient(RPCClient):
             address: a NEO address
         """
         result = await self._do_post("getunclaimedgas", [address])
-        return int(result['unclaimed'])
+        return int(result["unclaimed"])
 
     async def get_version(self) -> GetVersionResponse:
         """
@@ -780,11 +880,12 @@ class NeoRpcClient(RPCClient):
         """
         return GetVersionResponse.from_json(await self._do_post("getversion"))
 
-    async def invoke_contract_verify(self,
-                                     contract_hash: types.UInt160 | str,
-                                     function_params: Optional[list[ContractParameter]] = None,
-                                     signers: Optional[list[verification.Signer]] = None
-                                     ) -> ExecutionResultResponse:
+    async def invoke_contract_verify(
+        self,
+        contract_hash: types.UInt160 | str,
+        function_params: Optional[list[ContractParameter]] = None,
+        signers: Optional[list[verification.Signer]] = None,
+    ) -> ExecutionResultResponse:
         """
         Invoke the `verify` method on the contract.
 
@@ -803,7 +904,9 @@ class NeoRpcClient(RPCClient):
         contract_hash = f"0x{contract_hash}"
 
         function_params = [] if function_params is None else function_params
-        function_params = list(map(lambda fp: _ContractParameter(fp).to_json(), function_params))
+        function_params = list(
+            map(lambda fp: _ContractParameter(fp).to_json(), function_params)
+        )
 
         signers = [] if signers is None else signers
         signers = list(map(lambda s: s.to_json(), signers))  # type: ignore
@@ -812,12 +915,13 @@ class NeoRpcClient(RPCClient):
         result = await self._do_post("invokecontractverify", params)
         return ExecutionResultResponse.from_json(result)
 
-    async def invoke_function(self,
-                              contract_hash: types.UInt160 | str,
-                              name: str,
-                              function_params: Optional[list[ContractParameter]] = None,
-                              signers: Optional[list[verification.Signer]] = None
-                              ) -> ExecutionResultResponse:
+    async def invoke_function(
+        self,
+        contract_hash: types.UInt160 | str,
+        name: str,
+        function_params: Optional[list[ContractParameter]] = None,
+        signers: Optional[list[verification.Signer]] = None,
+    ) -> ExecutionResultResponse:
         """
         Invoke a smart contract function.
 
@@ -845,7 +949,9 @@ class NeoRpcClient(RPCClient):
         contract_hash = f"0x{contract_hash}"
 
         function_params = [] if function_params is None else function_params
-        function_params = list(map(lambda fp: _ContractParameter(fp).to_json(), function_params))
+        function_params = list(
+            map(lambda fp: _ContractParameter(fp).to_json(), function_params)
+        )
 
         signers = [] if signers is None else signers
         signers = list(map(lambda s: s.to_json(), signers))  # type: ignore
@@ -854,10 +960,9 @@ class NeoRpcClient(RPCClient):
         result = await self._do_post("invokefunction", params)
         return ExecutionResultResponse.from_json(result)
 
-    async def invoke_script(self,
-                            script: bytes,
-                            signers: Optional[list[verification.Signer]] = None
-                            ) -> ExecutionResultResponse:
+    async def invoke_script(
+        self, script: bytes, signers: Optional[list[verification.Signer]] = None
+    ) -> ExecutionResultResponse:
         """
         Executes a script in the virtual machine.
 
@@ -878,7 +983,9 @@ class NeoRpcClient(RPCClient):
         result = await self._do_post("invokescript", params)
         return ExecutionResultResponse.from_json(result)
 
-    async def send_transaction(self, tx: transaction.Transaction | bytes) -> types.UInt256:
+    async def send_transaction(
+        self, tx: transaction.Transaction | bytes
+    ) -> types.UInt256:
         """
         Broadcast a transaction to the network.
 
@@ -893,8 +1000,10 @@ class NeoRpcClient(RPCClient):
         """
         if isinstance(tx, transaction.Transaction):
             tx = tx.to_array()
-        result = await self._do_post("sendrawtransaction", [base64.b64encode(tx).decode()])
-        return types.UInt256.from_string(result['hash'][2:])
+        result = await self._do_post(
+            "sendrawtransaction", [base64.b64encode(tx).decode()]
+        )
+        return types.UInt256.from_string(result["hash"][2:])
 
     async def send_block(self, block_: block.Block | bytes) -> types.UInt256:
         """
@@ -909,7 +1018,7 @@ class NeoRpcClient(RPCClient):
         if isinstance(block_, block.Block):
             block_ = block_.to_array()
         result = await self._do_post("submitblock", [base64.b64encode(block_).decode()])
-        return types.UInt256.from_string(result['hash'][2:])
+        return types.UInt256.from_string(result["hash"][2:])
 
     async def validate_address(self, address: str) -> bool:
         """
@@ -919,9 +1028,11 @@ class NeoRpcClient(RPCClient):
             address: a NEO address
         """
         result = await self._do_post("validateaddress", [address])
-        return result['isvalid']
+        return result["isvalid"]
 
-    async def print_contract_methods(self, contract_hash_or_name: types.UInt160 | str) -> None:
+    async def print_contract_methods(
+        self, contract_hash_or_name: types.UInt160 | str
+    ) -> None:
         """
         Helper to fetch all public methods of a smart contract, print their signatures in Python syntax as
         to help determine the right native argument types.
@@ -934,8 +1045,11 @@ class NeoRpcClient(RPCClient):
         print(f"Contract: {state.manifest.name}")
         print((10 + len(state.manifest.name)) * "-")
         for method in state.manifest.abi.methods:
-            params = map(lambda p: f", {p.name}: {self._contract_param_to_native(p.type)}", method.parameters)
-            params = ''.join(params)  # type: ignore
+            params = map(
+                lambda p: f", {p.name}: {self._contract_param_to_native(p.type)}",
+                method.parameters,
+            )
+            params = "".join(params)  # type: ignore
 
             # return types are not included because ABI types like ARRAY cannot be properly translated e.g. the
             # following functions both have ARRAY as return type in the ABI but their actual response is very different
@@ -943,8 +1057,10 @@ class NeoRpcClient(RPCClient):
             # 2. ManagementContract.getContract a serialized ContractState (not even a list)
             print(f"def {method.name}(self{params})")
         print(" ")
-        print("ContractParam = Union[bool, int, str, bytes, UInt160, UInt256, ECPoint, list[ContractParam], "
-              "dict[ContractParam, ContractParam]")
+        print(
+            "ContractParam = Union[bool, int, str, bytes, UInt160, UInt256, ECPoint, list[ContractParam], "
+            "dict[ContractParam, ContractParam]"
+        )
 
     @staticmethod
     def _contract_param_to_native(p: abi.ContractParameterType) -> str:
@@ -974,7 +1090,9 @@ class NeoRpcClient(RPCClient):
             return f"Unknown({str(p)}"
 
 
-async def poll_tx_status(tx_id: types.UInt256, client: NeoRpcClient, timeout=20) -> vm.VMState:
+async def poll_tx_status(
+    tx_id: types.UInt256, client: NeoRpcClient, timeout=20
+) -> vm.VMState:
     """
     Poll the transaction execution state
 
@@ -998,5 +1116,7 @@ async def poll_tx_status(tx_id: types.UInt256, client: NeoRpcClient, timeout=20)
             else:
                 raise e
     else:
-        raise JsonRpcTimeoutError(f"Could not find transaction {tx_id} within specified timeout of {timeout} seconds")
+        raise JsonRpcTimeoutError(
+            f"Could not find transaction {tx_id} within specified timeout of {timeout} seconds"
+        )
     return vm.VMState.from_string(log.execution.state)

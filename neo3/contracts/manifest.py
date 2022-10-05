@@ -14,6 +14,7 @@ class ContractGroup(interfaces.IJson):
 
     See Also: ContractManifest.
     """
+
     def __init__(self, public_key: cryptography.ECPoint, signature: bytes):
         self.public_key = public_key
         self.signature = signature
@@ -30,18 +31,20 @@ class ContractGroup(interfaces.IJson):
         Args:
             contract_hash:
         """
-        return cryptography.verify_signature(contract_hash.to_array(),
-                                             self.signature,
-                                             self.public_key.encode_point(False),
-                                             cryptography.ECCCurve.SECP256R1)
+        return cryptography.verify_signature(
+            contract_hash.to_array(),
+            self.signature,
+            self.public_key.encode_point(False),
+            cryptography.ECCCurve.SECP256R1,
+        )
 
     def to_json(self) -> dict:
         """
         Convert object into JSON representation.
         """
         json = {
-            'pubkey': str(self.public_key),
-            'signature': base64.b64encode(self.signature).decode()
+            "pubkey": str(self.public_key),
+            "signature": base64.b64encode(self.signature).decode(),
         }
         return json
 
@@ -57,10 +60,14 @@ class ContractGroup(interfaces.IJson):
             KeyError: if the data supplied does not contain the necessary keys.
             ValueError: if the signature length is not 64.
         """
-        pubkey = contractutils.validate_type(json['pubkey'], str)
+        pubkey = contractutils.validate_type(json["pubkey"], str)
         c = cls(
-            public_key=cryptography.ECPoint.deserialize_from_bytes(binascii.unhexlify(pubkey)),
-            signature=base64.b64decode(contractutils.validate_type(json['signature'], str).encode('utf8'))
+            public_key=cryptography.ECPoint.deserialize_from_bytes(
+                binascii.unhexlify(pubkey)
+            ),
+            signature=base64.b64decode(
+                contractutils.validate_type(json["signature"], str).encode("utf8")
+            ),
         )
         if len(c.signature) != 64:
             raise ValueError("Format error - invalid signature length")
@@ -78,7 +85,12 @@ class ContractPermission(interfaces.IJson):
         of Contract A and ask if this is allowed. The Manifest will search through its permissions (a list of
         ContractPermission objects) and ask if it "is_allowed()".
     """
-    def __init__(self, contract: descriptor.ContractPermissionDescriptor, methods: WildcardContainer):
+
+    def __init__(
+        self,
+        contract: descriptor.ContractPermissionDescriptor,
+        methods: WildcardContainer,
+    ):
         self.contract = contract
         self.methods = methods
 
@@ -92,13 +104,17 @@ class ContractPermission(interfaces.IJson):
         """
         Construct a ContractPermission which allows any contract and any method to be called.
         """
-        return cls(descriptor.ContractPermissionDescriptor(),  # with no parameters equals to Wildcard
-                   WildcardContainer.create_wildcard())
+        return cls(
+            descriptor.ContractPermissionDescriptor(),  # with no parameters equals to Wildcard
+            WildcardContainer.create_wildcard(),
+        )
 
-    def is_allowed(self,
-                   target_contract_hash: types.UInt160,
-                   target_manifest: ContractManifest,
-                   target_method: str) -> bool:
+    def is_allowed(
+        self,
+        target_contract_hash: types.UInt160,
+        target_manifest: ContractManifest,
+        target_method: str,
+    ) -> bool:
         """
         Return if it is allowed to call `target_method` on the target contract.
 
@@ -111,7 +127,12 @@ class ContractPermission(interfaces.IJson):
             if not self.contract.contract_hash == target_contract_hash:
                 return False
         elif self.contract.is_group:
-            results = list(map(lambda p: p.public_key != self.contract.group, target_manifest.groups))
+            results = list(
+                map(
+                    lambda p: p.public_key != self.contract.group,
+                    target_manifest.groups,
+                )
+            )
             if all(results):
                 return False
         return self.methods.is_wildcard or target_method in self.methods
@@ -122,7 +143,7 @@ class ContractPermission(interfaces.IJson):
         """
         json = self.contract.to_json()
         # because NEO C# returns a string from "method" instead of sticking to a standard interface
-        json.update({'methods': self.methods.to_json()['wildcard']})
+        json.update({"methods": self.methods.to_json()["wildcard"]})
         return json
 
     @classmethod
@@ -138,7 +159,7 @@ class ContractPermission(interfaces.IJson):
             ValueError: if a method is zero length.
         """
         cpd = descriptor.ContractPermissionDescriptor.from_json(json)
-        json_wildcard = {'wildcard': json['methods']}
+        json_wildcard = {"wildcard": json["methods"]}
         methods = WildcardContainer.from_json(json_wildcard)
         for m in methods:
             if len(m) == 0:
@@ -150,6 +171,7 @@ class WildcardContainer(interfaces.IJson):
     """
     An internal helper class for ContractManifest attributes.
     """
+
     def __init__(self, data: list = None):
         self._is_wildcard = False
         self._data = data if data else []
@@ -189,8 +211,8 @@ class WildcardContainer(interfaces.IJson):
         Convert object into JSON representation.
         """
         if self.is_wildcard:
-            return {'wildcard': '*'}
-        return {'wildcard': list(map(lambda d: str(d), self._data))}
+            return {"wildcard": "*"}
+        return {"wildcard": list(map(lambda d: str(d), self._data))}
 
     @classmethod
     def from_json(cls, json: dict):
@@ -209,14 +231,16 @@ class WildcardContainer(interfaces.IJson):
             KeyError: if the data supplied does not contain the necessary key.
             ValueError: if the data supplied cannot recreate a valid object.
         """
-        value = json.get('wildcard', None)
+        value = json.get("wildcard", None)
         if value is None:
             raise ValueError(f"Invalid JSON - Cannot recreate wildcard from None")
-        if value == '*':
+        if value == "*":
             return WildcardContainer.create_wildcard()
         if isinstance(value, list):
             return WildcardContainer(data=list(map(lambda d: str(d), value)))
-        raise ValueError(f"Invalid JSON - Cannot deduce WildcardContainer type from: {value}")
+        raise ValueError(
+            f"Invalid JSON - Cannot deduce WildcardContainer type from: {value}"
+        )
 
     @classmethod
     def from_json_as_type(cls, json: dict, conversion_func: Callable):
@@ -241,14 +265,18 @@ class WildcardContainer(interfaces.IJson):
             KeyError: if the data supplied does not contain the necessary key.
             ValueError: if the data supplied cannot recreate a valid object.
         """
-        value = json.get('wildcard', None)
+        value = json.get("wildcard", None)
         if value is None:
             raise ValueError(f"Invalid JSON - Cannot recreate wildcard from None")
-        if value == '*':
+        if value == "*":
             return WildcardContainer.create_wildcard()
         if isinstance(value, list):
-            return WildcardContainer(data=list(map(lambda d: conversion_func(d), value)))
-        raise ValueError(f"Invalid JSON - Cannot deduce WildcardContainer type from: {value}")
+            return WildcardContainer(
+                data=list(map(lambda d: conversion_func(d), value))
+            )
+        raise ValueError(
+            f"Invalid JSON - Cannot deduce WildcardContainer type from: {value}"
+        )
 
 
 class ContractManifest(serialization.ISerializable, interfaces.IJson):
@@ -259,6 +287,7 @@ class ContractManifest(serialization.ISerializable, interfaces.IJson):
     For more information see:
     https://github.com/neo-project/proposals/blob/3e492ad05d9de97abb6524fb9a73714e2cdc5461/nep-15.mediawiki
     """
+
     #: The maximum byte size after serialization to be considered valid a valid contract.
     MAX_LENGTH = 0xFFFF
 
@@ -274,13 +303,12 @@ class ContractManifest(serialization.ISerializable, interfaces.IJson):
 
         #: For technical details of ABI, please refer to NEP-14: NeoContract ABI.
         #: https://github.com/neo-project/proposals/blob/d1f4e9e1a67d22a5755c45595121f80b0971ea64/nep-14.mediawiki
-        self.abi: abi.ContractABI = abi.ContractABI(
-            events=[],
-            methods=[]
-        )
+        self.abi: abi.ContractABI = abi.ContractABI(events=[], methods=[])
 
         #: Permissions describe what external contract(s) and what method(s) on these are allowed to be invoked.
-        self.permissions: list[ContractPermission] = [ContractPermission.default_permissions()]
+        self.permissions: list[ContractPermission] = [
+            ContractPermission.default_permissions()
+        ]
 
         # Update trusts/safe_methods with outcome of https://github.com/neo-project/neo/issues/1664
         # Unfortunately we have to add this nonsense logic or we get deviating VM results.
@@ -290,17 +318,19 @@ class ContractManifest(serialization.ISerializable, interfaces.IJson):
         self.extra: Optional[dict] = None
 
     def __len__(self):
-        return coreutils.get_var_size(str(self.to_json()).replace(' ', ''))
+        return coreutils.get_var_size(str(self.to_json()).replace(" ", ""))
 
     def __eq__(self, other):
         if not isinstance(other, type(self)):
             return False
-        return (self.name == other.name
-                and self.groups == other.groups
-                and self.abi == other.abi
-                and self.permissions == other.permissions
-                and self.trusts == other.trusts
-                and self.extra == other.extra)
+        return (
+            self.name == other.name
+            and self.groups == other.groups
+            and self.abi == other.abi
+            and self.permissions == other.permissions
+            and self.trusts == other.trusts
+            and self.extra == other.extra
+        )
 
     def __str__(self):
         return json.dumps(self.to_json()).decode()
@@ -324,39 +354,49 @@ class ContractManifest(serialization.ISerializable, interfaces.IJson):
         self._deserialize_from_json(json.loads(reader.read_var_string(self.MAX_LENGTH)))
 
     def _deserialize_from_json(self, json: dict) -> None:
-        if json['name'] is None:
+        if json["name"] is None:
             self.name = ""
         else:
-            self.name = contractutils.validate_type(json['name'], str)
-        self.abi = abi.ContractABI.from_json(json['abi'])
-        self.groups = list(map(lambda g: ContractGroup.from_json(g), json['groups']))
+            self.name = contractutils.validate_type(json["name"], str)
+        self.abi = abi.ContractABI.from_json(json["abi"])
+        self.groups = list(map(lambda g: ContractGroup.from_json(g), json["groups"]))
 
-        if len(json['features']) != 0:
-            raise ValueError("Manifest features is reserved and cannot have any content at this time")
+        if len(json["features"]) != 0:
+            raise ValueError(
+                "Manifest features is reserved and cannot have any content at this time"
+            )
 
         self.supported_standards = list(
-            map(lambda ss: contractutils.validate_type(ss, str), json['supportedstandards'])
+            map(
+                lambda ss: contractutils.validate_type(ss, str),
+                json["supportedstandards"],
+            )
         )
-        self.permissions = list(map(lambda p: ContractPermission.from_json(p), json['permissions']))
+        self.permissions = list(
+            map(lambda p: ContractPermission.from_json(p), json["permissions"])
+        )
 
-        if json['trusts'] == '*':
+        if json["trusts"] == "*":
             self.trusts = WildcardContainer.create_wildcard()
         else:
             self.trusts = WildcardContainer.from_json_as_type(
-                {'wildcard': json['trusts']},
-                lambda t: descriptor.ContractPermissionDescriptor.from_json({'contract': t}))
+                {"wildcard": json["trusts"]},
+                lambda t: descriptor.ContractPermissionDescriptor.from_json(
+                    {"contract": t}
+                ),
+            )
 
         # converting json key/value back to default WildcardContainer format
-        self.extra = json['extra']
+        self.extra = json["extra"]
 
     def to_json(self) -> dict:
         """
         Convert object into JSON representation.
         """
         if self.trusts.is_wildcard:
-            trusts = '*'
+            trusts = "*"
         else:
-            trusts = list(map(lambda m: m.to_json()['contract'], self.trusts))  # type: ignore
+            trusts = list(map(lambda m: m.to_json()["contract"], self.trusts))  # type: ignore
         json: dict[str, Any] = {
             "name": self.name if self.name else None,
             "groups": list(map(lambda g: g.to_json(), self.groups)),
@@ -365,7 +405,7 @@ class ContractManifest(serialization.ISerializable, interfaces.IJson):
             "abi": self.abi.to_json(),
             "permissions": list(map(lambda p: p.to_json(), self.permissions)),
             "trusts": trusts,
-            "extra": self.extra
+            "extra": self.extra,
         }
         return json
 
@@ -388,7 +428,9 @@ class ContractManifest(serialization.ISerializable, interfaces.IJson):
             raise ValueError("Format error - invalid 'name'")
         for s in manifest.supported_standards:
             if len(s) == 0:
-                raise ValueError("Format error - supported standards cannot be zero length")
+                raise ValueError(
+                    "Format error - supported standards cannot be zero length"
+                )
         return manifest
 
     def is_valid(self, contract_hash: types.UInt160) -> bool:
@@ -403,15 +445,22 @@ class ContractManifest(serialization.ISerializable, interfaces.IJson):
         result = list(map(lambda g: g.is_valid(contract_hash), self.groups))
         return all(result)
 
-    def can_call(self,
-                 target_contract_hash: types.UInt160,
-                 target_manifest: ContractManifest,
-                 target_method: str) -> bool:
+    def can_call(
+        self,
+        target_contract_hash: types.UInt160,
+        target_manifest: ContractManifest,
+        target_method: str,
+    ) -> bool:
         """
         Check if this contract is allowed to call `target_method` on `target_contract`.
         """
         results = list(
-            map(lambda p: p.is_allowed(target_contract_hash, target_manifest, target_method), self.permissions)
+            map(
+                lambda p: p.is_allowed(
+                    target_contract_hash, target_manifest, target_method
+                ),
+                self.permissions,
+            )
         )
         return any(results)
 

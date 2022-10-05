@@ -34,7 +34,7 @@ class TransactionAttributeType(Enum):
             return cls.ORACLE_RESPONSE
 
 
-TransactionAttribute_T = TypeVar('TransactionAttribute_T', bound='TransactionAttribute')
+TransactionAttribute_T = TypeVar("TransactionAttribute_T", bound="TransactionAttribute")
 
 
 class TransactionAttribute(serialization.ISerializable, interfaces.IJson):
@@ -68,7 +68,7 @@ class TransactionAttribute(serialization.ISerializable, interfaces.IJson):
 
     @abc.abstractmethod
     def _serialize_without_type(self, writer: serialization.BinaryWriter) -> None:
-        """ Serialize the remaining attributes"""
+        """Serialize the remaining attributes"""
 
     def deserialize(self, reader: serialization.BinaryReader) -> None:
         """
@@ -78,7 +78,9 @@ class TransactionAttribute(serialization.ISerializable, interfaces.IJson):
             reader: instance.
         """
         if reader.read_uint8() != self.type_.value:
-            raise ValueError("Deserialization error - transaction attribute type mismatch")
+            raise ValueError(
+                "Deserialization error - transaction attribute type mismatch"
+            )
         self._deserialize_without_type(reader)
 
     @staticmethod
@@ -93,22 +95,24 @@ class TransactionAttribute(serialization.ISerializable, interfaces.IJson):
                 child._deserialize_without_type(reader)
                 return child
         else:
-            raise ValueError("Deserialization error - unknown transaction attribute type")
+            raise ValueError(
+                "Deserialization error - unknown transaction attribute type"
+            )
 
     @abc.abstractmethod
     def _deserialize_without_type(self, reader: serialization.BinaryReader) -> None:
-        """ Deserialize the remaining attributes """
+        """Deserialize the remaining attributes"""
 
     def verify(self, snapshot, tx: Transaction) -> bool:
         return True
 
     def to_json(self) -> dict:
-        """ Convert object into json """
+        """Convert object into json"""
         return {"type": self.type_.to_csharp_name()}
 
     @classmethod
     def from_json(cls, json: dict):
-        """ Create object from JSON """
+        """Create object from JSON"""
         c = cls()
         c.type_ = TransactionAttributeType(json["type"])
 
@@ -132,9 +136,9 @@ class OracleResponseCode(IntEnum):
     NOT_FOUND = 0x14
     TIMEOUT = 0x16
     FORBIDDEN = 0x18
-    RESPONSE_TOO_LARGE = 0x1a
-    INSUFFICIENT_FUNDS = 0x1c
-    CONTENT_TYPE_NOT_SUPPORTED = 0x1f
+    RESPONSE_TOO_LARGE = 0x1A
+    INSUFFICIENT_FUNDS = 0x1C
+    CONTENT_TYPE_NOT_SUPPORTED = 0x1F
     ERROR = 0xFF
 
 
@@ -154,7 +158,12 @@ class OracleResponse(TransactionAttribute, interfaces.IJson):
         self.result = result
 
     def __len__(self):
-        return super(OracleResponse, self).__len__() + s.uint64 + s.uint8 + utils.get_var_size(self.result)
+        return (
+            super(OracleResponse, self).__len__()
+            + s.uint64
+            + s.uint8
+            + utils.get_var_size(self.result)
+        )
 
     def _deserialize_without_type(self, reader: serialization.BinaryReader) -> None:
         self.id = reader.read_uint64()
@@ -169,28 +178,28 @@ class OracleResponse(TransactionAttribute, interfaces.IJson):
         writer.write_var_bytes(self.result)
 
     def to_json(self) -> dict:
-        """ Convert object into json """
+        """Convert object into json"""
         json = super(OracleResponse, self).to_json()
-        json.update({"id": id,
-                     "code": self.code,
-                     "result": base64.b64encode(self.result)}
-                    )
+        json.update(
+            {"id": id, "code": self.code, "result": base64.b64encode(self.result)}
+        )
         return json
 
     @classmethod
     def from_json(cls, json: dict):
-        """ Create object from JSON """
-        return cls(json['id'], json['code'], base64.b64decode(json['result']))
+        """Create object from JSON"""
+        return cls(json["id"], json["code"], base64.b64decode(json["result"]))
 
     @classmethod
     def _serializable_init(cls):
-        return cls(0, OracleResponseCode.ERROR, b'')
+        return cls(0, OracleResponseCode.ERROR, b"")
 
 
 class Transaction(inventory.IInventory, interfaces.IJson):
     """
     Data to be executed by the NEO virtual machine.
     """
+
     #: the maximum number of bytes a single transaction may consist of
     MAX_TRANSACTION_SIZE = 102400
     #: the maximum time a transaction will be valid from height of creation plus this value. Default is 24h
@@ -198,23 +207,23 @@ class Transaction(inventory.IInventory, interfaces.IJson):
     #: the maximum number of transaction attributes for a single transaction
     MAX_TRANSACTION_ATTRIBUTES = 16
 
-    HEADER_SIZE = (1  # Version
-                   + 4  # NONCE
-                   + 8  # SYSTEM_FEE
-                   + 8  # NETWORK_FEE
-                   + 4)  # VALID_UNTIL_BLOCK
+    HEADER_SIZE = (
+        1 + 4 + 8 + 8 + 4  # Version  # NONCE  # SYSTEM_FEE  # NETWORK_FEE
+    )  # VALID_UNTIL_BLOCK
 
-    def __init__(self,
-                 version: int,
-                 nonce: int,
-                 system_fee: int,
-                 network_fee: int,
-                 valid_until_block: int,
-                 attributes: list[TransactionAttribute] = None,
-                 signers: list[verification.Signer] = None,
-                 script: bytes = None,
-                 witnesses: list[verification.Witness] = None,
-                 protocol_magic: int = None):
+    def __init__(
+        self,
+        version: int,
+        nonce: int,
+        system_fee: int,
+        network_fee: int,
+        valid_until_block: int,
+        attributes: list[TransactionAttribute] = None,
+        signers: list[verification.Signer] = None,
+        script: bytes = None,
+        witnesses: list[verification.Witness] = None,
+        protocol_magic: int = None,
+    ):
         #: Transaction data structure version - for internal use
         self.version = version
         #: Random number
@@ -236,7 +245,7 @@ class Transaction(inventory.IInventory, interfaces.IJson):
         #: A list of authorities used by the :func:`ChecKWitness` smart contract system call.
         self.signers = signers if signers else []
         #: The array of instructions to be executed on the chain by the virtual machine.
-        self.script = script if script else b''
+        self.script = script if script else b""
         #: A list of signing authorities used to validate the transaction.
         self.witnesses = witnesses if witnesses else []
 
@@ -255,11 +264,17 @@ class Transaction(inventory.IInventory, interfaces.IJson):
             self.protocol_magic = 0x4F454E
 
     def __len__(self):
-        return (s.uint8 + s.uint32 + s.uint64 + s.uint64 + s.uint32
-                + utils.get_var_size(self.attributes)
-                + utils.get_var_size(self.signers)
-                + utils.get_var_size(self.script)
-                + utils.get_var_size(self.witnesses))
+        return (
+            s.uint8
+            + s.uint32
+            + s.uint64
+            + s.uint64
+            + s.uint32
+            + utils.get_var_size(self.attributes)
+            + utils.get_var_size(self.signers)
+            + utils.get_var_size(self.script)
+            + utils.get_var_size(self.witnesses)
+        )
 
     def __eq__(self, other):
         if other is None:
@@ -299,7 +314,9 @@ class Transaction(inventory.IInventory, interfaces.IJson):
         """
         The hash of the account who has sent the transaction to the network
         """
-        return self.signers[0].account if len(self.signers) > 0 else types.UInt160.zero()
+        return (
+            self.signers[0].account if len(self.signers) > 0 else types.UInt160.zero()
+        )
 
     @property
     def inventory_type(self) -> inventory.InventoryType:
@@ -335,7 +352,7 @@ class Transaction(inventory.IInventory, interfaces.IJson):
         writer.write_var_bytes(self.script)
 
     def serialize_special(self, writer: serialization.BinaryWriter) -> None:
-        """ Internal use only - serialize the TX includes its unofficial fields """
+        """Internal use only - serialize the TX includes its unofficial fields"""
         self.serialize(writer)
         writer.write_uint8(int(self.vm_state))
         writer.write_uint32(self.block_height)
@@ -348,9 +365,13 @@ class Transaction(inventory.IInventory, interfaces.IJson):
             reader: instance.
         """
         self.deserialize_unsigned(reader)
-        self.witnesses = reader.read_serializable_list(verification.Witness, max=len(self.signers))
+        self.witnesses = reader.read_serializable_list(
+            verification.Witness, max=len(self.signers)
+        )
         if len(self.witnesses) != len(self.signers):
-            raise ValueError("Deserialization error - witness length does not match signers length")
+            raise ValueError(
+                "Deserialization error - witness length does not match signers length"
+            )
 
     def deserialize_unsigned(self, reader: serialization.BinaryReader) -> None:
         """
@@ -376,15 +397,18 @@ class Transaction(inventory.IInventory, interfaces.IJson):
             raise ValueError("Deserialization error - negative network fee")
 
         self.valid_until_block = reader.read_uint32()
-        self.signers = Transaction._deserialize_signers(reader, self.MAX_TRANSACTION_ATTRIBUTES)
-        self.attributes = Transaction._deserialize_attributes(reader,
-                                                              self.MAX_TRANSACTION_ATTRIBUTES - len(self.signers))
+        self.signers = Transaction._deserialize_signers(
+            reader, self.MAX_TRANSACTION_ATTRIBUTES
+        )
+        self.attributes = Transaction._deserialize_attributes(
+            reader, self.MAX_TRANSACTION_ATTRIBUTES - len(self.signers)
+        )
         self.script = reader.read_var_bytes(max=65535)
         if len(self.script) == 0:
             raise ValueError("Deserialization error - invalid script length 0")
 
     def deserialize_special(self, reader: serialization.BinaryReader) -> None:
-        """ Internal use only - deserialize the data from the stream into a TX that includes the unofficial fields """
+        """Internal use only - deserialize the data from the stream into a TX that includes the unofficial fields"""
         self.deserialize(reader)
         self.vm_state = vm.VMState(reader.read_uint8())
         self.block_height = reader.read_uint32()
@@ -401,8 +425,8 @@ class Transaction(inventory.IInventory, interfaces.IJson):
         return self.network_fee // len(self)
 
     def to_json(self) -> dict:
-        """ Convert object into json """
-        version = b'\x35'
+        """Convert object into json"""
+        version = b"\x35"
         # replace with to_address once the feature-wallet branch is merged
         x = version + self.sender.to_array()
         sender = base58.b58encode_check(x).decode()
@@ -418,41 +442,45 @@ class Transaction(inventory.IInventory, interfaces.IJson):
             "signers": list(map(lambda s: s.to_json(), self.signers)),
             "attributes": list(map(lambda a: a.to_json(), self.attributes)),
             "script": base64.b64encode(self.script).decode(),
-            "witnesses": list(map(lambda w: w.to_json(), self.witnesses))
+            "witnesses": list(map(lambda w: w.to_json(), self.witnesses)),
         }
 
     @classmethod
     def from_json(cls, json: dict, procotol_magic=None):
-        """ Create object from JSON """
-        version = json['version']
-        nonce = json['nonce']
-        system_fee = int(json['sysfee'])
-        network_fee = int(json['netfee'])
-        valid_until_block = json['validuntilblock']
+        """Create object from JSON"""
+        version = json["version"]
+        nonce = json["nonce"]
+        system_fee = int(json["sysfee"])
+        network_fee = int(json["netfee"])
+        valid_until_block = json["validuntilblock"]
         attributes: list[TransactionAttribute] = []
         # ugh :-(
-        for attribute in json['attributes']:
+        for attribute in json["attributes"]:
             try:
-                type_ = TransactionAttributeType.from_csharp_name(attribute['type'])
+                type_ = TransactionAttributeType.from_csharp_name(attribute["type"])
                 if type_ == TransactionAttributeType.HIGH_PRIORITY:
                     attributes.append(HighPriorityAttribute())
                 elif type_ == TransactionAttributeType.ORACLE_RESPONSE:
                     attributes.append(OracleResponse.from_json(attribute))
             except ValueError:
                 raise ValueError("Invalid transaction attribute")
-        signers = list(map(lambda s: verification.Signer.from_json(s), json['signers']))
-        script = base64.b64decode(json['script'].encode())
-        witnesses = list(map(lambda w: verification.Witness.from_json(w), json['witnesses']))
-        return cls(version,
-                   nonce,
-                   system_fee,
-                   network_fee,
-                   valid_until_block,
-                   attributes,
-                   signers,
-                   script,
-                   witnesses,
-                   procotol_magic)
+        signers = list(map(lambda s: verification.Signer.from_json(s), json["signers"]))
+        script = base64.b64decode(json["script"].encode())
+        witnesses = list(
+            map(lambda w: verification.Witness.from_json(w), json["witnesses"])
+        )
+        return cls(
+            version,
+            nonce,
+            system_fee,
+            network_fee,
+            valid_until_block,
+            attributes,
+            signers,
+            script,
+            witnesses,
+            procotol_magic,
+        )
 
     def get_script_hashes_for_verifying(self, _) -> list[types.UInt160]:
         """
@@ -460,8 +488,9 @@ class Transaction(inventory.IInventory, interfaces.IJson):
         """
         return list(map(lambda signer: signer.account, self.signers))
 
-    def try_get_attribute(self, needle: Type[TransactionAttribute_T]) -> \
-            Optional[TransactionAttribute_T]:
+    def try_get_attribute(
+        self, needle: Type[TransactionAttribute_T]
+    ) -> Optional[TransactionAttribute_T]:
         """
         Helper method for finding an attribute of a specific type.
 
@@ -478,7 +507,9 @@ class Transaction(inventory.IInventory, interfaces.IJson):
             return None
 
     @staticmethod
-    def _deserialize_signers(reader: serialization.BinaryReader, max_count: int) -> list[verification.Signer]:
+    def _deserialize_signers(
+        reader: serialization.BinaryReader, max_count: int
+    ) -> list[verification.Signer]:
         count = reader.read_var_int(max_count)
         if count == 0:
             raise ValueError("Deserialization error - signers can't be empty")
@@ -493,14 +524,18 @@ class Transaction(inventory.IInventory, interfaces.IJson):
         return values
 
     @staticmethod
-    def _deserialize_attributes(reader: serialization.BinaryReader, max_count: int) -> list[TransactionAttribute]:
+    def _deserialize_attributes(
+        reader: serialization.BinaryReader, max_count: int
+    ) -> list[TransactionAttribute]:
         count = reader.read_var_int(max_count)
         values: list[TransactionAttribute] = []
 
         for _ in range(0, count):
             attribute = TransactionAttribute.deserialize_from(reader)
             if not attribute.allow_multiple and attribute in values:
-                raise ValueError("Deserialization error - duplicate transaction attribute")
+                raise ValueError(
+                    "Deserialization error - duplicate transaction attribute"
+                )
             values.append(attribute)
         return values
 

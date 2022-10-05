@@ -12,6 +12,7 @@ class Size(IntEnum):
     """
     Explicit bytes of memory consumed
     """
+
     uint8 = 1
     uint16 = 2
     uint32 = 4

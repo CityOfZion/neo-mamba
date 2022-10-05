@@ -13,7 +13,7 @@ from datetime import datetime
 
 
 def is_ip_address(hostname: str) -> bool:
-    host = hostname.split(':')[0]
+    host = hostname.split(":")[0]
     try:
         ip = ipaddress.ip_address(host)
         return True
@@ -28,6 +28,7 @@ class NodeManager(singleton._Singleton):
     Attention:
         This class is singleton.
     """
+
     #: Time interval in seconds for asking nodes for their address list.
     ADDR_QUERY_INTERVAL = 15
     #: Time interval in seconds for calling the height monitoring check.
@@ -82,17 +83,22 @@ class NodeManager(singleton._Singleton):
         2. Try to maintain a pool of connected nodes according to the `min/max clients` configuration settings and
            monitor that they don't get stuck.
         """
+
         def _start_services():
             self.is_running = True
             # 2. connect to addresses
-            self._run_in_loop(self._fill_open_connection_spots, interval=self.POOL_CHECK_INTERVAL)
+            self._run_in_loop(
+                self._fill_open_connection_spots, interval=self.POOL_CHECK_INTERVAL
+            )
 
             # 3. keep trying to expand our address list with new addresses
             self._run_in_loop(self._query_addresses, interval=self.ADDR_QUERY_INTERVAL)
 
             # 4. monitor that connected nodes are not stuck
             self._run_in_loop(self._send_ping, interval=self.PING_INTERVAL)
-            self._run_in_loop(self._monitor_node_height, interval=self.MONITOR_HEIGHT_INTERVAL)
+            self._run_in_loop(
+                self._monitor_node_height, interval=self.MONITOR_HEIGHT_INTERVAL
+            )
 
         # 1. build an initial address list
         task = asyncio.create_task(self._process_seed_list_addresses())
@@ -123,12 +129,17 @@ class NodeManager(singleton._Singleton):
         disconnect_tasks = []
         logger.debug("disconnecting nodes...")
         for n in to_disconnect:
-            disconnect_tasks.append(asyncio.create_task(n.disconnect(address.DisconnectReason.SHUTTING_DOWN)))
+            disconnect_tasks.append(
+                asyncio.create_task(
+                    n.disconnect(address.DisconnectReason.SHUTTING_DOWN)
+                )
+            )
         await asyncio.gather(*disconnect_tasks, return_exceptions=True)
 
     """
     Start utility functions
     """
+
     def get_node_addresses(self) -> list[address.NetworkAddress]:
         """
         Return the addresses of connected nodes.
@@ -171,7 +182,9 @@ class NodeManager(singleton._Singleton):
             # we could not find a node with the height we're looking for
             return None
 
-    def get_least_failed_node(self, ri: requestinfo.RequestInfo) -> Optional[node.NeoNode]:
+    def get_least_failed_node(
+        self, ri: requestinfo.RequestInfo
+    ) -> Optional[node.NeoNode]:
         """
         Return the node with the least fail count for the target item as specified in the RequestInfo.
 
@@ -220,8 +233,12 @@ class NodeManager(singleton._Singleton):
             node.nodeweight.error_response_count += 1
 
             if node.nodeweight.error_response_count > self.MAX_NODE_ERROR_COUNT:
-                logger.debug(f"Disconnecting node {node.nodeid} Reason: max error count threshold exceeded.")
-                asyncio.create_task(node.disconnect(reason=address.DisconnectReason.POOR_PERFORMANCE))
+                logger.debug(
+                    f"Disconnecting node {node.nodeid} Reason: max error count threshold exceeded."
+                )
+                asyncio.create_task(
+                    node.disconnect(reason=address.DisconnectReason.POOR_PERFORMANCE)
+                )
 
     def increase_node_timeout_count(self, nodeid: int) -> None:
         """
@@ -236,8 +253,12 @@ class NodeManager(singleton._Singleton):
             node.nodeweight.timeout_count += 1
 
             if node.nodeweight.timeout_count > self.MAX_NODE_TIMEOUT_COUNT:
-                logger.debug(f"Disconnecting node {node.nodeid_human} Reason: max timeout count threshold exceeded.")
-                asyncio.create_task(node.disconnect(reason=address.DisconnectReason.POOR_PERFORMANCE))
+                logger.debug(
+                    f"Disconnecting node {node.nodeid_human} Reason: max timeout count threshold exceeded."
+                )
+                asyncio.create_task(
+                    node.disconnect(reason=address.DisconnectReason.POOR_PERFORMANCE)
+                )
 
     """
     End utility functions
@@ -248,15 +269,18 @@ class NodeManager(singleton._Singleton):
 
     This section contains the logic for establishing and maintaining node connections
     """
+
     def _handle_node_connected(self, node: node.NeoNode) -> None:
-        """ Handle node connection event."""
+        """Handle node connection event."""
         self.nodes.append(node)
 
         with suppress(ValueError):
             self.queued_addresses.remove(node.address)
 
-    def _handle_node_disconnected(self, node: node.NeoNode, reason: address.DisconnectReason) -> None:
-        """ Handle node disconnection event."""
+    def _handle_node_disconnected(
+        self, node: node.NeoNode, reason: address.DisconnectReason
+    ) -> None:
+        """Handle node disconnection event."""
         with suppress(ValueError):
             self.nodes.remove(node)
 
@@ -270,14 +294,18 @@ class NodeManager(singleton._Singleton):
         resolver = aiodns.DNSResolver(loop=asyncio.get_event_loop(), timeout=2)
 
         async def _process(seed):
-            host, port = seed.split(':')
+            host, port = seed.split(":")
             if not is_ip_address(host):
                 try:
-                    result = await resolver.query(host, 'A')
+                    result = await resolver.query(host, "A")
                     host = result[0].host
                 except aiodns.error.DNSError as e:
-                    logger.debug(f"Skipping {host}, address could not be resolved: {e}.")
-            node.NeoNode.addresses.append(address.NetworkAddress(address=f"{host}:{port}"))
+                    logger.debug(
+                        f"Skipping {host}, address could not be resolved: {e}."
+                    )
+            node.NeoNode.addresses.append(
+                address.NetworkAddress(address=f"{host}:{port}")
+            )
 
         tasks = []
         for seed in settings.settings.network.seedlist:
@@ -326,21 +354,29 @@ class NodeManager(singleton._Singleton):
                         self.queued_addresses.append(addr)
                         if self._test_client_provider:
                             socket_mock = next(self._test_client_provider())
-                            task = asyncio.create_task(node.NeoNode.connect_to(socket=socket_mock))
+                            task = asyncio.create_task(
+                                node.NeoNode.connect_to(socket=socket_mock)
+                            )
                         else:
-                            task = asyncio.create_task(node.NeoNode.connect_to(addr.ip, addr.port))
+                            task = asyncio.create_task(
+                                node.NeoNode.connect_to(addr.ip, addr.port)
+                            )
                         self.tasks.append(task)
                         task.add_done_callback(self._connect_done_cb)
                 else:
                     # oh no, we've exhausted our NEW addresses list
                     if len(self.nodes) >= self.min_clients:
-                        logger.debug(f"No addresses available to fill spots. However, minimum clients still satisfied.")
+                        logger.debug(
+                            f"No addresses available to fill spots. However, minimum clients still satisfied."
+                        )
                         break
                     else:
                         if self.MAX_NODE_POOL_ERROR_COUNT != self.MAX_NODE_POOL_ERROR:
                             # give our `_query_addresses` loop a chance to collect new addresses from connected nodes
                             self.MAX_NODE_POOL_ERROR_COUNT += 1
-                            logger.debug(f"Increasing pool spot error count to {self.MAX_NODE_POOL_ERROR_COUNT}.")
+                            logger.debug(
+                                f"Increasing pool spot error count to {self.MAX_NODE_POOL_ERROR_COUNT}."
+                            )
                             break
                         else:
                             # we have no other option then to retry any address we know
@@ -366,13 +402,22 @@ class NodeManager(singleton._Singleton):
         now = datetime.utcnow().timestamp()
         for node in self.nodes:
             if now - node.best_height_last_update > self.MAX_HEIGHT_UPDATE_DURATION:
-                logger.debug(f"Disconnecting node {node.nodeid} Reason: max height update threshold exceeded.")
-                asyncio.create_task(node.disconnect(reason=address.DisconnectReason.POOR_PERFORMANCE))
+                logger.debug(
+                    f"Disconnecting node {node.nodeid} Reason: max height update threshold exceeded."
+                )
+                asyncio.create_task(
+                    node.disconnect(reason=address.DisconnectReason.POOR_PERFORMANCE)
+                )
             else:
-                logger.debug(f"Asking node {node.nodeid_human} to send us a height update (PING)")
+                logger.debug(
+                    f"Asking node {node.nodeid_human} to send us a height update (PING)"
+                )
                 # Request latest height from node
                 height = 0
-                m = message.Message(msg_type=message.MessageType.PING, payload=ping.PingPayload(height=height))
+                m = message.Message(
+                    msg_type=message.MessageType.PING,
+                    payload=ping.PingPayload(height=height),
+                )
                 task = asyncio.create_task(node.send_message(m))
                 self.tasks.append(task)
                 task.add_done_callback(lambda fut: self.tasks.remove(fut))
@@ -399,6 +444,7 @@ class NodeManager(singleton._Singleton):
             coro:
             interval:
         """
+
         async def _t(coro_func, interval):
             while not self.shutting_down:
                 await coro_func()

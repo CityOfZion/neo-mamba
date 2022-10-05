@@ -9,9 +9,15 @@ class VersionPayload(serialization.ISerializable):
     """
     A payload carrying node handshake data.
     """
+
     MAX_CAPABILITIES = 32
 
-    def __init__(self, nonce: int, user_agent: str, capabilities: list[capabilities.NodeCapability]):
+    def __init__(
+        self,
+        nonce: int,
+        user_agent: str,
+        capabilities: list[capabilities.NodeCapability],
+    ):
         """
         Create payload.
 
@@ -37,9 +43,15 @@ class VersionPayload(serialization.ISerializable):
         self.capabilities = capabilities
 
     def __len__(self):
-        """ Get the total size in bytes of the object. """
-        return s.uint32 + s.uint32 + s.uint32 + s.uint32 + utils.get_var_size(self.user_agent) + \
-            utils.get_var_size(self.capabilities)
+        """Get the total size in bytes of the object."""
+        return (
+            s.uint32
+            + s.uint32
+            + s.uint32
+            + s.uint32
+            + utils.get_var_size(self.user_agent)
+            + utils.get_var_size(self.capabilities)
+        )
 
     def serialize(self, writer: serialization.BinaryWriter) -> None:
         """
@@ -71,7 +83,9 @@ class VersionPayload(serialization.ISerializable):
         capabilities_cnt = reader.read_var_int(self.MAX_CAPABILITIES)
         capabilities_list = []
         for _ in range(capabilities_cnt):
-            capabilities_list.append(capabilities.NodeCapability.deserialize_from(reader))
+            capabilities_list.append(
+                capabilities.NodeCapability.deserialize_from(reader)
+            )
         self.capabilities = capabilities_list
 
     @classmethod

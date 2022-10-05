@@ -1,7 +1,16 @@
 from __future__ import annotations
 import lz4.block  # type: ignore
 from enum import IntEnum, IntFlag
-from neo3.network.payloads import inventory, block, version, address, empty, extensible, ping, transaction
+from neo3.network.payloads import (
+    inventory,
+    block,
+    version,
+    address,
+    empty,
+    extensible,
+    ping,
+    transaction,
+)
 from neo3.core import Size as s, serialization
 from neo3 import network_logger as logger
 
@@ -22,12 +31,12 @@ class MessageType(IntEnum):
     INV = 0x27
     GETDATA = 0x28
     GETBLOCKBYINDEX = 0x29
-    NOTFOUND = 0x2a
-    TRANSACTION = 0x2b
-    BLOCK = 0x2c
-    CONSENSUS = 0x2d
-    EXTENSIBLE = 0x2e
-    REJECT = 0x2f
+    NOTFOUND = 0x2A
+    TRANSACTION = 0x2B
+    BLOCK = 0x2C
+    CONSENSUS = 0x2D
+    EXTENSIBLE = 0x2E
+    REJECT = 0x2F
 
     FILTERLOAD = 0x30
     FILTERADD = 0x31
@@ -51,14 +60,18 @@ class Message(serialization.ISerializable):
     COMPRESSION_MIN_SIZE = 128
     COMPRESSION_THRESHOLD = 64
 
-    def __init__(self, msg_type: MessageType, payload: serialization.ISerializable_T = None):
+    def __init__(
+        self, msg_type: MessageType, payload: serialization.ISerializable_T = None
+    ):
         """
 
         Args:
             msg_type: message object configuration.
             payload: an identifier specifying the purpose of the message.
         """
-        self.config = MessageConfig.NONE  #: MessageConfig: message object configuration.
+        self.config = (
+            MessageConfig.NONE
+        )  #: MessageConfig: message object configuration.
         #: MessageType: an identifier specifying the purpose of the message.
         self.type: MessageType = msg_type
         self.payload: serialization.ISerializable_T = empty.EmptyPayload()  # type: ignore
@@ -68,7 +81,7 @@ class Message(serialization.ISerializable):
             self.payload = payload
 
     def __len__(self):
-        """ Get the total size in bytes of the object. """
+        """Get the total size in bytes of the object."""
         return s.uint8 + s.uint8 + len(self.payload)
 
     def serialize(self, writer: serialization.BinaryWriter) -> None:
@@ -80,9 +93,12 @@ class Message(serialization.ISerializable):
         """
         payload = self.payload.to_array()
 
-        if len(self.payload) > self.COMPRESSION_MIN_SIZE and MessageConfig.COMPRESSED not in self.config:
+        if (
+            len(self.payload) > self.COMPRESSION_MIN_SIZE
+            and MessageConfig.COMPRESSED not in self.config
+        ):
             compressed_data = lz4.block.compress(self.payload.to_array(), store_size=False)  # type: ignore
-            compressed_data = len(payload).to_bytes(4, 'little') + compressed_data
+            compressed_data = len(payload).to_bytes(4, "little") + compressed_data
             if len(compressed_data) < len(self.payload) - self.COMPRESSION_THRESHOLD:
                 payload = compressed_data
                 self.config |= MessageConfig.COMPRESSED
@@ -110,8 +126,10 @@ class Message(serialization.ISerializable):
                 # "The uncompressed_size argument specifies an upper bound on the size of the uncompressed data size
                 # rather than an absolute value"
                 try:
-                    size = int.from_bytes(payload_data[:4], 'little')
-                    payload_data = lz4.block.decompress(payload_data[4:], uncompressed_size=size)
+                    size = int.from_bytes(payload_data[:4], "little")
+                    payload_data = lz4.block.decompress(
+                        payload_data[4:], uncompressed_size=size
+                    )
                 except lz4.block.LZ4BlockError:
                     raise ValueError("Invalid payload data - decompress failed")
 
