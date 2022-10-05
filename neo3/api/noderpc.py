@@ -43,29 +43,47 @@ class NextBlockValidatorsResponse:
 
 @dataclass
 class VersionProtocol:
-    addressversion: int
+    address_version: int
     network: int
-    validatorscount: int
-    msperblock: int
-    maxtraceableblocks: int
-    maxtransactionsperblock: int
-    maxvaliduntilblockincrement: int
-    memorypoolmaxtransactions: int
-    initialgasdistribution: int
+    validators_count: int
+    ms_per_block: int
+    max_traceable_blocks: int
+    max_transactions_per_block: int
+    max_valid_until_block_increment: int
+    memorypool_max_transactions: int
+    initial_gas_distribution: int
 
 
 @dataclass
 class GetVersionResponse:
-    tcpport: int
-    wsport: int
+    tcp_port: int
+    ws_port: Optional[int]
     nonce: int
-    useragent: str
+    user_agent: str
     protocol: VersionProtocol
 
     @classmethod
     def from_json(cls, json: dict):
-        json["protocol"] = VersionProtocol(**json["protocol"])
-        return cls(**json)
+        p = json["protocol"]
+        vp = VersionProtocol(
+            p["addressversion"],
+            p["network"],
+            p["validatorscount"],
+            p["msperblock"],
+            p["maxtraceableblocks"],
+            p["maxtransactionsperblock"],
+            p["maxvaliduntilblockincrement"],
+            p["memorypoolmaxtransactions"],
+            p["initialgasdistribution"],
+        )
+        wsport = json.get("wsport", None)
+        return cls(
+            json["tcpport"],
+            wsport,
+            json["nonce"],
+            json["useragent"],
+            vp,
+        )
 
 
 @dataclass
@@ -84,11 +102,11 @@ class GetPeersResponse:
     def from_json(cls, json: dict):
         c = cls([], [], [])
         for p in json["connected"]:
-            c.connected.append(Peer(**p))
+            c.connected.append(Peer(p["address"], p["port"]))
         for p in json["bad"]:
-            c.bad.append(Peer(**p))
+            c.bad.append(Peer(p["address"], p["port"]))
         for p in json["unconnected"]:
-            c.unconnected.append(Peer(**p))
+            c.unconnected.append(Peer(p["address"], p["port"]))
         return c
 
 

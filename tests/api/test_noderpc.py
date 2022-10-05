@@ -523,7 +523,9 @@ class TestNeoRpcClient(unittest.IsolatedAsyncioTestCase):
         }
         self.mock_response(captured)
         response = await self.client.get_version()
-        self.assertEqual(user_agent, response.useragent)
+        self.assertEqual(captured["tcpport"], response.tcp_port)
+        self.assertEqual(user_agent, response.user_agent)
+        self.assertEqual(captured["protocol"]["network"], response.protocol.network)
 
     async def test_invoke_contract_verify(self):
         captured = {
