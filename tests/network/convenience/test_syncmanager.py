@@ -1,5 +1,6 @@
 import asynctest
 import asyncio
+import time
 from neo3.network import node
 from neo3.network.convenience import syncmanager, nodemanager, requestinfo, flightinfo
 from neo3 import network_logger
@@ -288,6 +289,8 @@ class SyncManagerVarious(asynctest.TestCase):
         mocked_node.nodeweight.append_new_speed = asynctest.MagicMock()
         mocked_node.nodeid = 456
         self.nodemgr.nodes = [mocked_node]
+        # add a micro delay to ensure that delta_time in the next on_block_received call is bigger than 0. Only affects Windows
+        time.sleep(0.0001)
         self.syncmgr.on_block_received(from_nodeid=456, block=fake_block)
         mocked_node.nodeweight.append_new_speed.assert_called_once()
         self.assertIn(fake_block, self.syncmgr.block_cache)
