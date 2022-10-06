@@ -3,6 +3,7 @@ import socket
 import logging
 import asyncio
 import binascii
+import sys
 from neo3.network import node, message, capabilities, ipfilter, encode_base62
 from neo3.network.payloads import (
     version,
@@ -110,6 +111,7 @@ class NeoNodeTestCase(asynctest.TestCase):
             str(context.exception),
         )
 
+    @asynctest.skipIf(sys.platform == "win32", "Not supported on Windows")
     async def test_connect_to_with_socket(self):
         settings.network.magic = 769
 
@@ -172,6 +174,7 @@ class NeoNodeTestCase(asynctest.TestCase):
         addr = n._find_address_by_host_port("127.0.0.1:3333")
         self.assertEqual(None, addr)
 
+    @asynctest.skipIf(sys.platform == "win32", "Not supported on Windows")
     async def test_handshake_first_message_not_VERSION(self):
         settings.network.magic = 769
         socket_mock = NeoNodeSocketMock(self.loop, "127.0.0.1", 1111)
@@ -187,6 +190,7 @@ class NeoNodeTestCase(asynctest.TestCase):
             log_context.output[1],
         )
 
+    @asynctest.skipIf(sys.platform == "win32", "Not supported on Windows")
     async def test_handshake_version_validation_failed(self):
         # mock the version validation call result. The version_validation function is tested down below
         settings.network.magic = 769
@@ -202,6 +206,7 @@ class NeoNodeTestCase(asynctest.TestCase):
             log_context.output[1],
         )
 
+    @asynctest.skipIf(sys.platform == "win32", "Not supported on Windows")
     async def test_handshake_second_message_not_VERACK(self):
         settings.network.magic = 769
         socket_mock = NeoNodeSocketMock(self.loop, "127.0.0.1", 1111)
@@ -417,6 +422,7 @@ class NeoNodeTestCase(asynctest.TestCase):
         self.assertIsInstance(m.payload, inventory.InventoryPayload)
         self.assertEqual(tx.hash(), m.payload.hashes[0])
 
+    @asynctest.skipIf(sys.platform == "win32", "Not supported on Windows")
     async def test_processing_messages(self):
         settings.network.magic = 769
         socket_mock = NeoNodeSocketMock(self.loop, "127.0.0.1", 1111)

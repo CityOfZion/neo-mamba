@@ -3,6 +3,7 @@ import logging
 import asynctest
 import socket
 import asyncio
+import sys
 from unittest import mock
 from neo3.network import node, message, capabilities
 from neo3.network.convenience import nodemanager, requestinfo
@@ -222,6 +223,7 @@ class NodeManagerTestCase2(asynctest.TestCase):
         node.NeoNode._reset_for_test()
         settings.reset_settings_to_default()
 
+    @asynctest.skipIf(sys.platform == "win32", "Not supported on Windows")
     async def test_start_shutdown(self):
         settings.register({"network": {"seedlist": ["127.0.0.1:1111"], "magic": 769}})
 
