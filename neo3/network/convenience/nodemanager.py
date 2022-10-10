@@ -74,6 +74,7 @@ class NodeManager(singleton._Singleton):
         msgrouter.on_node_disconnected += self._handle_node_disconnected
 
         self._test_client_provider = None
+        self._test_data = None
 
     def start(self) -> None:
         """
@@ -353,9 +354,11 @@ class NodeManager(singleton._Singleton):
                         logger.debug(f"Adding {addr} to connection queue.")
                         self.queued_addresses.append(addr)
                         if self._test_client_provider:
-                            socket_mock = next(self._test_client_provider())
+                            r, w = next(self._test_client_provider())
                             task = asyncio.create_task(
-                                node.NeoNode.connect_to(socket=socket_mock)
+                                node.NeoNode.connect_to(
+                                    socket=r, _test_data=self._test_data
+                                )
                             )
                         else:
                             task = asyncio.create_task(
