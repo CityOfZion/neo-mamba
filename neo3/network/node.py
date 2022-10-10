@@ -1,8 +1,9 @@
 from __future__ import annotations
 import asyncio
 import traceback
+import struct
 from datetime import datetime
-from neo3.network import encode_base62, message, capabilities, protocol, relaycache
+from neo3.network import encode_base62, message, capabilities, relaycache
 from neo3.network.ipfilter import ipfilter
 from neo3.network.convenience import nodeweight
 from neo3.network.payloads import address, version, inventory, ping, block
@@ -11,27 +12,30 @@ from neo3.core import types, msgrouter
 from contextlib import suppress
 from socket import AF_INET as IP4_FAMILY
 from typing import Optional, Callable, cast
+from asyncio.streams import StreamWriter, StreamReader
+from neo3.network.message import Message
 
 
 class NeoNode:
     #: list[address.NetworkAddress]: a list of known network addresses (class attribute).
     addresses = []  # type: list[address.NetworkAddress]
 
-    def __init__(self, proto):
-        self.protocol = proto
+    def __init__(self, reader: StreamReader, writer: StreamWriter):
+        self.nodeid: int = id(self)  #: int: Unique identifier.
         #: address.NetworkAddress: Address of the remote endpoint.
+        # print(f"Testing peername: {writer.transport.get_extra_info('peername')}")
         self.address = address.NetworkAddress(
             "0.0.0.0:0", state=address.AddressState.DEAD
         )
-        self.nodeid: int = id(self)  #: int: Unique identifier.
         self.nodeid_human: str = encode_base62(self.nodeid)  #: str: Human readable id.
-        self.version = None
-        self.tasks = []
+        self.version: Optional[version.VersionPayload] = None
+        self.tasks: list[asyncio.Task] = []
         self.nodeweight = nodeweight.NodeWeight(self.nodeid)
         self.best_height: int = 0  #: int: Best block height of node.
         self.best_height_last_update = datetime.utcnow().timestamp()
 
-        self._read_task = None  # type: asyncio.Task
+        self._read_task: Optional[asyncio.Task] = None
+
         #: bool: Whether the node is in the process of disconnecting and shutting down its tasks.
         self.disconnecting: bool = False
 
@@ -61,12 +65,23 @@ class NeoNode:
             message.MessageType.EXTENSIBLE: self.handler_extensible,
         }
 
-    # connection setup and control functions
-    async def connection_made(self, transport) -> None:
+        self.reader = reader
+        self.writer = writer
+
+    def __eq__(self, other):
+        if type(other) is type(self):
+            return self.address == other.address and self.nodeid == other.nodeid
+        else:
+            return False
+
+    def __repr__(self):
+        return f"<{self.__class__.__name__} at {hex(id(self))}> {self.nodeid_human}"
+
+    def connection_made(self) -> None:
         """
-        Event called by the :meth:`base protocol <asyncio.BaseProtocol.connection_made>`.
+        Event called by the NeoNode.connect_to.
         """
-        addr_tuple = self.protocol._stream_writer.get_extra_info("peername")
+        addr_tuple = self.writer.get_extra_info("peername")
         addr = f"{addr_tuple[0]}:{addr_tuple[1]}"
 
         network_addr = self._find_address_by_host_port(addr)
@@ -78,43 +93,10 @@ class NeoNode:
 
         if not ipfilter.is_allowed(addr_tuple[0]):
             logger.debug(f"Blocked by ipfilter: {self.address.address}")
-            await self.disconnect(address.DisconnectReason.IPFILTER_NOT_ALLOWED)
+            self._create_task_with_cleanup(
+                self.disconnect(address.DisconnectReason.IPFILTER_NOT_ALLOWED)
+            )
             return
-
-    async def _do_handshake(self) -> tuple[bool, Optional[address.DisconnectReason]]:
-        caps: list[capabilities.NodeCapability] = [capabilities.FullNodeCapability(0)]
-        # TODO: fix nonce and port if a service is running
-        send_version = message.Message(
-            msg_type=message.MessageType.VERSION,
-            payload=version.VersionPayload(
-                nonce=123, user_agent="NEO-MAMBA", capabilities=caps
-            ),
-        )
-        await self.send_message(send_version)
-
-        m = await self.read_message(timeout=3)
-        if not m or m.type != message.MessageType.VERSION:
-            await self.disconnect(address.DisconnectReason.HANDSHAKE_VERSION_ERROR)
-            return False, address.DisconnectReason.HANDSHAKE_VERSION_ERROR
-
-        if not self._validate_version(m.payload):
-            await self.disconnect(address.DisconnectReason.HANDSHAKE_VERSION_ERROR)
-            return False, address.DisconnectReason.HANDSHAKE_VERSION_ERROR
-
-        m_verack = message.Message(msg_type=message.MessageType.VERACK)
-        await self.send_message(m_verack)
-
-        m = await self.read_message(timeout=3)
-        if not m or m.type != message.MessageType.VERACK:
-            await self.disconnect(address.DisconnectReason.HANDSHAKE_VERACK_ERROR)
-            return False, address.DisconnectReason.HANDSHAKE_VERACK_ERROR
-
-        logger.debug(
-            f"Connected to {self.version.user_agent} @ {self.address.address}: {self.best_height}."
-        )
-        msgrouter.on_node_connected(self)
-
-        return True, None
 
     async def disconnect(self, reason: address.DisconnectReason) -> None:
         """
@@ -144,59 +126,12 @@ class NeoNode:
         for t in self.tasks:
             t.cancel()
             with suppress(asyncio.CancelledError):
-                print(f"waiting for task to cancel {t}.")
+                logger.debug(f"waiting for task to cancel {t}.")
                 await t
-                print("done")
+                logger.debug("done")
         msgrouter.on_node_disconnected(self, reason)
-        self.protocol.disconnect()
-
-    async def connection_lost(self, exc) -> None:
-        """
-        Event called by the :meth:`base protocol <asyncio.BaseProtocol.connection_lost>`.
-        """
-        logger.debug(
-            f"{datetime.now()} Connection lost {self.address} exception: {exc}"
-        )
-
-        if self.address.is_state_connected:
-            await self.disconnect(address.DisconnectReason.UNKNOWN)
-
-    def _validate_version(self, version) -> bool:
-        if version.nonce == self.nodeid:
-            logger.debug("Client is self.")
-            return False
-
-        if version.magic != settings.settings.network.magic:
-            logger.debug(f"Wrong network id {version.magic}.")
-            return False
-
-        for c in version.capabilities:
-            if isinstance(c, capabilities.ServerCapability):
-                addr = self._find_address_by_host_port(self.address.address)
-
-                if addr:
-                    addr.set_state_connected()
-                    addr.capabilities = version.capabilities
-                else:
-                    logger.debug(f"Adding address from outside {self.address.address}.")
-                    # new connection initiated from outside
-                    addr = address.NetworkAddress(
-                        address=self.address.address,
-                        capabilities=version.capabilities,
-                        state=address.AddressState.CONNECTED,
-                    )
-                    self.addresses.append(addr)
-                break
-
-        for c in version.capabilities:
-            if isinstance(c, capabilities.FullNodeCapability):
-                # update nodes height indicator
-                self.best_height = c.start_height
-                self.best_height_last_update = datetime.utcnow().timestamp()
-                self.version = version
-                return True
-        else:
-            return False
+        self.writer.close()
+        await self.writer.wait_closed()
 
     def handler_addr(self, msg: message.Message) -> None:
         """
@@ -413,22 +348,82 @@ class NeoNode:
         """
         pass
 
-    async def _process_incoming_data(self) -> None:
+    def start_message_handler(self) -> None:
         """
-        Main loop
+        A convenience function to start a message reading loop and forward the messages to their respective handlers as
+        configured in :attr:`~neo3.network.node.NeoNode.dispatch_table`.
         """
-        logger.debug("Waiting for a message.")
-        while not self.disconnecting:
-            # we want to always listen for an incoming message
-            m = await self.read_message(timeout=1)
-            if m is None:
-                continue
+        # when we break out of the read/write loops, we should make sure we disconnect
+        self._read_task = asyncio.create_task(self._process_incoming_data())
+        self._read_task.add_done_callback(
+            lambda _: asyncio.create_task(
+                self.disconnect(address.DisconnectReason.UNKNOWN)
+            )
+        )
 
-            handler = self.dispatch_table.get(m.type, None)
-            if handler:
-                handler(m)
-            else:
-                logger.debug(f"Unknown message with type: {m.type.name}.")
+    async def send_message(self, msg: message.Message) -> None:
+        self.writer.write(msg.to_array())
+        await self.writer.drain()
+
+    async def read_message(self, timeout: Optional[int] = 30) -> Optional[Message]:
+        if timeout == 0:
+            # avoid memleak. See: https://bugs.python.org/issue37042
+            timeout = None
+
+        async def _read():
+            try:
+                # readexactly can throw ConnectionResetError
+                message_header = await self.reader.readexactly(3)
+                payload_length = message_header[2]
+
+                if payload_length == 0xFD:
+                    len_bytes = await self.reader.readexactly(2)
+                    (payload_length,) = struct.unpack("<H", len_bytes)
+                elif payload_length == 0xFE:
+                    len_bytes = await self.reader.readexactly(4)
+                    (payload_length,) = struct.unpack("<I", len_bytes)
+                elif payload_length == 0xFE:
+                    len_bytes = await self.reader.readexactly(8)
+                    (payload_length,) = struct.unpack("<Q", len_bytes)
+                else:
+                    len_bytes = b""
+
+                if payload_length > Message.PAYLOAD_MAX_SIZE:
+                    raise ValueError("Invalid format")
+
+                payload_data = await self.reader.readexactly(payload_length)
+                raw = message_header + len_bytes + payload_data
+
+                try:
+                    return Message.deserialize_from_bytes(raw)
+                except Exception:
+                    logger.debug(
+                        f"Failed to deserialize message: {traceback.format_exc()}"
+                    )
+                    return None
+
+            except (ConnectionResetError, ValueError) as e:
+                # ensures we break out of the main run() loop of Node, which triggers a disconnect callback to clean up
+                self.disconnecting = True
+                logger.debug(
+                    f"Failed to read message data for reason: {traceback.format_exc()}"
+                )
+                return None
+            except (asyncio.CancelledError, asyncio.IncompleteReadError):
+                return None
+            except Exception:
+                # ensures we break out of the main run() loop of Node, which triggers a disconnect callback to clean up
+                logger.debug(f"error read message 1 {traceback.format_exc()}")
+                return None
+
+        try:
+            return await asyncio.wait_for(_read(), timeout)
+        except (asyncio.TimeoutError, asyncio.CancelledError):
+            return None
+        except Exception:
+            logger.debug("error read message 2")
+            traceback.print_exc()
+            return None
 
     # raw network commands
     async def request_address_list(self) -> None:
@@ -586,61 +581,15 @@ class NeoNode:
         await self.send_inventory(inv.inventory_type, inv.hash())
         return True
 
-    # utility functions
-    async def send_message(self, msg: message.Message) -> None:
-        """
-        Send a Message over the wire.
-        """
-        await self.protocol.send_message(msg)
-
-    async def read_message(self, timeout: int = 30) -> Optional[message.Message]:
-        """
-        Read a Message from the wire.
-
-        Args:
-            timeout: maximum time to wait in trying to deserialize a message from the wire.
-
-        Returns:
-            Message, if enough data was found and successfully deserialized.
-            None otherwise.
-        """
-        return await self.protocol.read_message(timeout)
-
-    def __eq__(self, other):
-        if type(other) is type(self):
-            return self.address == other.address and self.nodeid == other.nodeid
-        else:
-            return False
-
-    def __repr__(self):
-        return f"<{self.__class__.__name__} at {hex(id(self))}> {self.nodeid_human}"
-
     @staticmethod
     async def connect_to(
-        host: str = None, port: int = None, timeout=3, loop=None, socket=None
+        host: str = None,
+        port: int = None,
+        timeout=3,
+        socket=None,
+        *,
+        _test_data: dict = None,
     ) -> tuple[Optional[NeoNode], Optional[tuple[str, str]]]:
-        """
-        Establish a connection to a Neo node
-
-        Note: performs the initial connection handshake and validation.
-
-        Args:
-            host: remote address in IPv4 format
-            port: remote port
-            timeout: maximum time establishing a connection may take
-            loop: custom loop
-
-        Raises:
-            ValueError: if host/port and the socket argument as specified as the same time or none are specified.
-
-        Returns:
-            Tuple:
-                - (Node instance, None) - if a connection was successfully established
-                - (None, (ip address, error reason)) - if a connection failed to establish . Reasons include connection timeout, connection full and handshake errors. # noqa
-        """
-        if loop is None:
-            loop = asyncio.get_event_loop()
-
         if host is not None or port is not None:
             if socket is not None:
                 raise ValueError(
@@ -652,21 +601,24 @@ class NeoNode:
         try:
             if socket:
                 logger.debug(f"Trying to connect to socket: {socket}.")
-                connect_coro = loop.create_connection(protocol.NeoProtocol, sock=socket)
+                open_conn_coro = asyncio.open_connection(sock=socket)
             else:
                 logger.debug(f"Trying to connect to: {host}:{port}.")
-                connect_coro = loop.create_connection(
-                    protocol.NeoProtocol, host, port, family=IP4_FAMILY
-                )
-            transport, node = await asyncio.wait_for(connect_coro, timeout)
+                open_conn_coro = asyncio.open_connection(host, port, family=IP4_FAMILY)
+            reader, writer = await asyncio.wait_for(open_conn_coro, timeout)
 
-            success, fail_reason = await node.client._do_handshake()
+            if _test_data and (peername := _test_data.get("peername")) is not None:
+                writer._transport._extra["peername"] = peername  # type: ignore
+            node = NeoNode(reader, writer)
+            node.connection_made()
+
+            success, fail_reason = await node._do_handshake()
             if success:
-                return node.client, None
+                return node, None
             else:
                 raise Exception(fail_reason)
         except asyncio.TimeoutError:
-            reason = f"Timed out"
+            reason = "Timed out"
         except OSError as e:
             reason = f"Failed to connect for reason {e}"
         except asyncio.CancelledError:
@@ -686,6 +638,64 @@ class NeoNode:
         # explicit return to silence mypy
         return None
 
+    async def _do_handshake(self) -> tuple[bool, Optional[address.DisconnectReason]]:
+        caps: list[capabilities.NodeCapability] = [capabilities.FullNodeCapability(0)]
+        # TODO: fix nonce and port if a service is running
+        send_version = message.Message(
+            msg_type=message.MessageType.VERSION,
+            payload=version.VersionPayload(
+                nonce=123, user_agent="NEO-MAMBA", capabilities=caps
+            ),
+        )
+        await self.send_message(send_version)
+
+        m = await self.read_message(timeout=3)
+        if not m or m.type != message.MessageType.VERSION:
+            await self.disconnect(address.DisconnectReason.HANDSHAKE_VERSION_ERROR)
+            return False, address.DisconnectReason.HANDSHAKE_VERSION_ERROR
+
+        if not self._validate_version(m.payload):
+            await self.disconnect(address.DisconnectReason.HANDSHAKE_VERSION_ERROR)
+            return False, address.DisconnectReason.HANDSHAKE_VERSION_ERROR
+
+        m_verack = message.Message(msg_type=message.MessageType.VERACK)
+        await self.send_message(m_verack)
+
+        m = await self.read_message(timeout=3)
+        if not m or m.type != message.MessageType.VERACK:
+            await self.disconnect(address.DisconnectReason.HANDSHAKE_VERACK_ERROR)
+            return False, address.DisconnectReason.HANDSHAKE_VERACK_ERROR
+
+        user_agent = self.version.user_agent if self.version else ""
+        logger.debug(
+            f"Connected to {user_agent} @ {self.address.address}: {self.best_height}."
+        )
+        msgrouter.on_node_connected(self)
+
+        return True, None
+
+    def _create_task_with_cleanup(self, coro):
+        task = asyncio.create_task(coro)
+        self.tasks.append(task)
+        task.add_done_callback(lambda fut: self.tasks.remove(fut))
+
+    async def _process_incoming_data(self) -> None:
+        """
+        Main loop
+        """
+        logger.debug("Waiting for a message.")
+        while not self.disconnecting:
+            # we want to always listen for an incoming message
+            m = await self.read_message(timeout=1)
+            if m is None:
+                continue
+
+            handler = self.dispatch_table.get(m.type, None)
+            if handler:
+                handler(m)
+            else:
+                logger.debug(f"Unknown message with type: {m.type.name}.")
+
     def _find_address_by_host_port(self, host_port) -> Optional[address.NetworkAddress]:
         addr = address.NetworkAddress(address=host_port)
         try:
@@ -694,23 +704,42 @@ class NeoNode:
         except ValueError:
             return None
 
-    def _create_task_with_cleanup(self, coro):
-        task = asyncio.create_task(coro)
-        self.tasks.append(task)
-        task.add_done_callback(lambda fut: self.tasks.remove(fut))
+    def _validate_version(self, version) -> bool:
+        if version.nonce == self.nodeid:
+            logger.debug("Client is self.")
+            return False
 
-    def start_message_handler(self) -> None:
-        """
-        A convenience function to start a message reading loop and forward the messages to their respective handlers as
-        configured in :attr:`~neo3.network.node.NeoNode.dispatch_table`.
-        """
-        # when we break out of the read/write loops, we should make sure we disconnect
-        self._read_task = asyncio.create_task(self._process_incoming_data())
-        self._read_task.add_done_callback(
-            lambda _: asyncio.create_task(
-                self.disconnect(address.DisconnectReason.UNKNOWN)
-            )
-        )
+        if version.magic != settings.settings.network.magic:
+            logger.debug(f"Wrong network id {version.magic}.")
+            return False
+
+        for c in version.capabilities:
+            if isinstance(c, capabilities.ServerCapability):
+                addr = self._find_address_by_host_port(self.address.address)
+
+                if addr:
+                    addr.set_state_connected()
+                    addr.capabilities = version.capabilities
+                else:
+                    logger.debug(f"Adding address from outside {self.address.address}.")
+                    # new connection initiated from outside
+                    addr = address.NetworkAddress(
+                        address=self.address.address,
+                        capabilities=version.capabilities,
+                        state=address.AddressState.CONNECTED,
+                    )
+                    self.addresses.append(addr)
+                break
+
+        for c in version.capabilities:
+            if isinstance(c, capabilities.FullNodeCapability):
+                # update nodes height indicator
+                self.best_height = c.start_height
+                self.best_height_last_update = datetime.utcnow().timestamp()
+                self.version = version
+                return True
+        else:
+            return False
 
     @classmethod
     def _reset_for_test(cls) -> None:

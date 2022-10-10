@@ -1,13 +1,13 @@
-import asynctest
 import asyncio
 import logging
 from neo3.network import node, message, capabilities
 from neo3.network.payloads import address, block
+import unittest
 
 
-class NetworkTestCase(asynctest.TestCase):
+class NetworkTestCase(unittest.IsolatedAsyncioTestCase):
     @classmethod
-    def setUpClass(cls) -> None:
+    async def setUpClass(cls) -> None:
         loop = asyncio.get_event_loop()
         loop.set_debug(True)
 
@@ -30,7 +30,7 @@ class NetworkTestCase(asynctest.TestCase):
         network_logger.addHandler(stdio_handler)
         network_logger.setLevel(logging.DEBUG)
 
-    @asynctest.SkipTest
+    @unittest.skip
     async def test_sending_addresses(self):
         n = await node.NeoNode.connect_to("127.0.0.1", 40333)
         await n.send_address_list(
@@ -44,7 +44,7 @@ class NetworkTestCase(asynctest.TestCase):
         )
         await asyncio.sleep(100)
 
-    @asynctest.SkipTest
+    @unittest.skip
     async def test_basic_setup(self):
         n = await node.NeoNode.connect_to("127.0.0.1", 40333)
         m = message.Message(

@@ -1,13 +1,13 @@
-import asynctest
 import asyncio
 import time
+from unittest import IsolatedAsyncioTestCase, mock
 from neo3.network import node
 from neo3.network.convenience import syncmanager, nodemanager, requestinfo, flightinfo
 from neo3 import network_logger
 from datetime import datetime
 
 
-class SyncManagerUtilitiesTestCase(asynctest.TestCase):
+class SyncManagerUtilitiesTestCase(IsolatedAsyncioTestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.syncmgr = syncmanager.SyncManager()
@@ -17,21 +17,21 @@ class SyncManagerUtilitiesTestCase(asynctest.TestCase):
 
     def test_get_best_stored_block_height_with_empty_cache(self):
         # should take the ledger height as highest value
-        with asynctest.patch.object(self.syncmgr, "ledger") as ledger_mock:
+        with mock.patch.object(self.syncmgr, "ledger") as ledger_mock:
             ledger_mock.height = 1
             best_height = self.syncmgr._get_best_stored_block_height()
             self.assertEqual(1, best_height)
 
     def test_get_best_stored_block_height_with_items_in_cache(self):
         # should take the cache height as highest value
-        block2 = asynctest.MagicMock()
+        block2 = mock.AsyncMock()
         block2.index = 2
-        block3 = asynctest.MagicMock()
+        block3 = mock.AsyncMock()
         block3.index = 3
 
         # intentionally putting blocks out of order, so also validate sorting
         self.syncmgr.block_cache = [block3, block2]
-        with asynctest.patch.object(self.syncmgr, "ledger") as ledger_mock:
+        with mock.patch.object(self.syncmgr, "ledger") as ledger_mock:
             ledger_mock.height = 1
             best_height = self.syncmgr._get_best_stored_block_height()
             self.assertEqual(3, best_height)
@@ -54,7 +54,7 @@ class SyncManagerUtilitiesTestCase(asynctest.TestCase):
         self.assertEqual(2, len(flights))
 
     def test_is_in_blockcache(self):
-        block = asynctest.MagicMock()
+        block = mock.AsyncMock()
         block.index = 2
         self.syncmgr.block_cache = [block]
 
@@ -64,7 +64,7 @@ class SyncManagerUtilitiesTestCase(asynctest.TestCase):
         self.assertTrue(found)
 
 
-class SyncManagerSyncBlocksTestCase(asynctest.TestCase):
+class SyncManagerSyncBlocksTestCase(IsolatedAsyncioTestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.syncmgr = syncmanager.SyncManager()
@@ -87,10 +87,10 @@ class SyncManagerSyncBlocksTestCase(asynctest.TestCase):
         self.assertEqual(-3, await self.syncmgr._sync_blocks())
 
     # async def test_sync_blocks_no_nodes_with_required_height(self):
-    #     mock_node = asynctest.MagicMock()
+    #     mock_node = mock.AsyncMock()
     #     mock_node.best_height = 1
     #     self.nodemgr.nodes = [mock_node]
-    #     with asynctest.patch.object(self.nodemgr, 'get_node_with_height', return_value=None):
+    #     with mock.patch.object(self.nodemgr, 'get_node_with_height', return_value=None):
     #         self.assertEqual(-4, await self.syncmgr._sync_blocks())
 
     async def test_sync_blocks_get_1_block(self):
@@ -100,16 +100,16 @@ class SyncManagerSyncBlocksTestCase(asynctest.TestCase):
         # expected result: 1 flight added
 
         self.syncmgr.block_cache = (self.syncmgr.BLOCK_MAX_CACHE_SIZE - 2) * [None]
-        mock_node = node.NeoNode(proto=object())
+        mock_node = node.NeoNode(object(), object())
         mock_node.best_height = 2
-        mock_node.request_block_data = asynctest.CoroutineMock()
+        mock_node.request_block_data = mock.AsyncMock()
         self.nodemgr.nodes = [mock_node]
 
         with self.assertLogs(network_logger, "DEBUG") as log_context:
-            with asynctest.patch.object(
+            with mock.patch.object(
                 self.syncmgr, "_get_best_stored_block_height", return_value=1
             ):
-                with asynctest.patch.object(
+                with mock.patch.object(
                     self.syncmgr, "_add_block_flight_info"
                 ) as mocked_add_flight_info:
                     await self.syncmgr._sync_blocks()
@@ -117,7 +117,7 @@ class SyncManagerSyncBlocksTestCase(asynctest.TestCase):
         self.assertIn("Asking for blocks 2 - 2", log_context.output[0])
 
 
-class SyncManagerCheckTimeoutTestCase(asynctest.TestCase):
+class SyncManagerCheckTimeoutTestCase(IsolatedAsyncioTestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.syncmgr = syncmanager.SyncManager()
@@ -151,7 +151,7 @@ class SyncManagerCheckTimeoutTestCase(asynctest.TestCase):
         target_height = 2
         node1_id = 123
         request_info = requestinfo.RequestInfo(target_height)
-        request_info.mark_failed_node = asynctest.MagicMock()
+        request_info.mark_failed_node = mock.AsyncMock()
         flight_info = flightinfo.FlightInfo(node_id=node1_id, height=target_height)
         # reduce start time to enforce exceeding timeout treshold
         flight_info.start_time -= self.syncmgr.BLOCK_REQUEST_TIMEOUT + 1
@@ -169,10 +169,10 @@ class SyncManagerCheckTimeoutTestCase(asynctest.TestCase):
 
         # we patch '_get_best_stored_block_height' to return `target_height2` as a way of saying;
         # either the chain or cache already has the data for this height
-        with asynctest.patch.object(
+        with mock.patch.object(
             self.syncmgr, "_get_best_stored_block_height", return_value=target_height2
         ):
-            with asynctest.patch.object(
+            with mock.patch.object(
                 self.nodemgr, "increase_node_timeout_count"
             ) as nodemgr_increase_timeout_count:
                 result = await self.syncmgr._check_timeout()
@@ -180,29 +180,27 @@ class SyncManagerCheckTimeoutTestCase(asynctest.TestCase):
         request_info.mark_failed_node.assert_called_with(node1_id)
         # both nodes had a flight that timed out
         nodemgr_increase_timeout_count.assert_has_calls(
-            [asynctest.mock.call(node1_id), asynctest.mock.call(node2_id)],
+            [mock.call(node1_id), mock.call(node2_id)],
             any_order=True,
         )
         # the first time we call it we no longer have any connected nodes, so we can't request from anyone anymore
         self.assertEqual(-3, result)
 
         # now we "connect" a new node
-        mock_node = node.NeoNode(proto=object())
+        mock_node = node.NeoNode(object(), object())
         mock_node.best_height = 10
         mock_node_id = 789
         mock_node.nodeid = mock_node_id
-        mock_node.request_block_data = asynctest.CoroutineMock()
+        mock_node.request_block_data = mock.AsyncMock()
         self.nodemgr.nodes = [mock_node]
         # and try again
         with self.assertLogs(network_logger, "DEBUG") as log_context:
-            with asynctest.patch.object(
+            with mock.patch.object(
                 self.syncmgr,
                 "_get_best_stored_block_height",
                 return_value=target_height2,
             ):
-                with asynctest.patch.object(
-                    self.nodemgr, "increase_node_timeout_count"
-                ):
+                with mock.patch.object(self.nodemgr, "increase_node_timeout_count"):
                     await self.syncmgr._check_timeout()
 
         # and validate that a new data request is sent
@@ -222,7 +220,7 @@ class DummyLedger:
         pass
 
 
-class SyncManagerVarious(asynctest.TestCase):
+class SyncManagerVarious(IsolatedAsyncioTestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.syncmgr = syncmanager.SyncManager()
@@ -247,8 +245,8 @@ class SyncManagerVarious(asynctest.TestCase):
         self.nodemgr.is_running = True
         # adding an item in the block cache to test that it also runs the `persist_blocks` coroutine
         self.syncmgr.block_cache = [object()]
-        with asynctest.patch.object(
-            self.syncmgr, "persist_blocks", return_value=asynctest.CoroutineMock()
+        with mock.patch.object(
+            self.syncmgr, "persist_blocks", return_value=mock.AsyncMock()
         ):
             with self.assertLogs(network_logger, "DEBUG") as log_context:
                 await self.syncmgr.start(timeout=2)
@@ -267,7 +265,7 @@ class SyncManagerVarious(asynctest.TestCase):
 
     def test_on_block_received(self):
         # first test receiving a block we have no outstanding request for
-        fake_block = asynctest.MagicMock()
+        fake_block = mock.AsyncMock()
         fake_block.index = 1
         fake_block.__len__.return_value = 50
         self.assertEqual(
@@ -285,8 +283,8 @@ class SyncManagerVarious(asynctest.TestCase):
         self.assertEqual(request_info, self.syncmgr.block_requests.get(1, None))
 
         # next test a valid scenario (outstanding request and receiving a block from the right node)
-        mocked_node = node.NeoNode(object())
-        mocked_node.nodeweight.append_new_speed = asynctest.MagicMock()
+        mocked_node = node.NeoNode(object(), object())
+        mocked_node.nodeweight.append_new_speed = mock.AsyncMock()
         mocked_node.nodeid = 456
         self.nodemgr.nodes = [mocked_node]
         # add a micro delay to ensure that delta_time in the next on_block_received call is bigger than 0. Only affects Windows
@@ -302,30 +300,30 @@ class SyncManagerVarious(asynctest.TestCase):
 
     async def test_persist_blocks(self):
 
-        fake_block1 = asynctest.MagicMock()
+        fake_block1 = mock.AsyncMock()
         fake_block1.index = 1
-        fake_block2 = asynctest.MagicMock()
+        fake_block2 = mock.AsyncMock()
         fake_block2.index = 2
 
         # inserting out of order on purpose to also validate sorting
         self.syncmgr.block_cache = [fake_block2, fake_block1]
 
-        mocked_result = asynctest.Mock()
-        with asynctest.patch.object(
+        mocked_result = mock.Mock()
+        with mock.patch.object(
             self.syncmgr.ledger, "persist", side_effect=mocked_result
         ):
             await self.syncmgr.persist_blocks()
 
         # test that we persisted the blocks in order
         mocked_result.assert_has_calls(
-            [asynctest.mock.call(fake_block1), asynctest.mock.call(fake_block2)],
+            [mock.call(fake_block1), mock.call(fake_block2)],
             any_order=False,
         )
 
         # now test with an exception happening during persist
         self.syncmgr.block_cache = [fake_block2, fake_block1]
         with self.assertLogs(network_logger, "DEBUG") as log_context:
-            with asynctest.patch.object(
+            with mock.patch.object(
                 self.syncmgr.ledger, "persist", side_effect=Exception
             ):
                 await self.syncmgr.persist_blocks()
@@ -337,35 +335,9 @@ class SyncManagerVarious(asynctest.TestCase):
 
         # test that we don't persist if we're starting to shutdown
         self.syncmgr.shutting_down = True
-        mocked_result = asynctest.Mock()
-        with asynctest.patch.object(
+        mocked_result = mock.Mock()
+        with mock.patch.object(
             self.syncmgr.ledger, "persist", side_effect=mocked_result
         ):
             await self.syncmgr.persist_blocks()
         mocked_result.assert_not_called()
-
-
-class SyncManagerTimedTestCase(asynctest.ClockedTestCase):
-    @classmethod
-    def setUpClass(cls) -> None:
-        cls.syncmgr = syncmanager.SyncManager()
-
-    def setUp(self) -> None:
-        self.syncmgr._reset_for_test()
-
-    async def test_utility_run_in_loop(self):
-        counter = 0
-
-        async def coro():
-            nonlocal counter
-            counter += 1
-
-        self.syncmgr._run_in_loop(coro, 1)
-        # trigger the task by ticking the loop once
-        await self.advance(0)
-        self.assertEqual(1, counter)
-        await self.advance(0.9)
-        self.assertEqual(1, counter)
-        await self.advance(0.1)
-        self.assertEqual(2, counter)
-        self.syncmgr._tasks[0].cancel()

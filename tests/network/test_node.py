@@ -1,9 +1,6 @@
-import asynctest
 import socket
 import logging
 import asyncio
-import binascii
-import sys
 from neo3.network import node, message, capabilities, ipfilter, encode_base62
 from neo3.network.payloads import (
     version,
@@ -14,82 +11,44 @@ from neo3.network.payloads import (
     ping,
     transaction,
 )
-
+from copy import deepcopy
 from neo3 import network_logger
 from neo3.settings import settings
 from neo3.core import types
-from unittest import mock
+from unittest import mock, IsolatedAsyncioTestCase
 from tests import helpers as test_helpers
 
 
-class NeoNodeSocketMock(asynctest.SocketMock):
-    def __init__(self, loop, hostaddr: str, port: int):
-        super(NeoNodeSocketMock, self).__init__()
-        self.type = socket.SOCK_STREAM
-        self.recv_buffer = bytearray()
-        self.loop = loop
-        self.hostaddr = hostaddr
-        self.port = port
-        self.recv_data = self._recv_data()
+class NeoNodeTestCase(IsolatedAsyncioTestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        # network_logger = logging.getLogger("neo3.network")
+        # network_logger.setLevel(logging.DEBUG)
+        # stdio_handler = logging.StreamHandler()
+        # network_logger.addHandler(stdio_handler)
+
         caps = [
             capabilities.FullNodeCapability(0),
             capabilities.ServerCapability(
                 n_type=capabilities.NodeCapabilityType.TCPSERVER, port=10333
             ),
         ]
-        self.m_send_version = message.Message(
+
+        cls.m_version = message.Message(
             msg_type=message.MessageType.VERSION,
-            payload=version.VersionPayload(
-                nonce=123, user_agent="NEO3-MOCK-CLIENT", capabilities=caps
-            ),
+            payload=version.VersionPayload(1, "NEO3-MOCK-CLIENT", caps),
         )
-        self.m_verack = message.Message(msg_type=message.MessageType.VERACK)
+        cls.m_verack = message.Message(msg_type=message.MessageType.VERACK)
 
-    def _recv_data(self):
-        yield self.m_send_version.to_array()
-        yield self.m_verack.to_array()
-        raise BlockingIOError
-        # while True:
-        #     yield message.Message(msg_type=message.MessageType.PING,
-        #                           payload=payloads.PingPayload(height=0)).to_array()
-
-    def recv(self, max_bytes):
-        if not self.recv_buffer:
-            try:
-                self.recv_buffer.extend(next(self.recv_data))
-                asynctest.set_read_ready(self, self.loop)
-            except StopIteration:
-                # nothing left
-                pass
-
-        data = self.recv_buffer[:max_bytes]
-        self.recv_buffer = self.recv_buffer[max_bytes:]
-
-        if self.recv_buffer:
-            # Some more data to read
-            asynctest.set_read_ready(self, self.loop)
-
-        return data
-
-    def send(self, data):
-        asynctest.set_read_ready(self, self.loop)
-        return len(data)
-
-    def getpeername(self):
-        return (self.hostaddr, self.port)
-
-
-class NeoNodeTestCase(asynctest.TestCase):
-    @classmethod
-    def setUpClass(cls) -> None:
-        network_logger = logging.getLogger("neo3.network")
-        network_logger.setLevel(logging.DEBUG)
-        stdio_handler = logging.StreamHandler()
-        network_logger.addHandler(stdio_handler)
+        host = "127.0.0.1"
+        port = 1111
+        cls.peername_data = {"peername": (host, port)}
 
     @classmethod
     def tearDownClass(cls) -> None:
         settings.reset_settings_to_default()
+        network_logger = logging.getLogger("neo3.network")
+        network_logger.handlers.clear()
 
     def setUp(self) -> None:
         settings.reset_settings_to_default()
@@ -111,17 +70,23 @@ class NeoNodeTestCase(asynctest.TestCase):
             str(context.exception),
         )
 
-    @asynctest.skipIf(sys.platform == "win32", "Not supported on Windows")
     async def test_connect_to_with_socket(self):
-        settings.network.magic = 769
+        r, w = socket.socketpair()
+        loop = asyncio.get_running_loop()
 
-        socket_mock = NeoNodeSocketMock(self.loop, "127.0.0.1", 1111)
+        host = "127.0.0.1"
+        port = 1111
+        test_data = {"peername": (host, port)}
 
         with self.assertLogs(network_logger, "DEBUG") as log_context:
-            n, _ = await node.NeoNode.connect_to(socket=socket_mock)
+            # hand-shake data
+            loop.call_soon(w.send, self.m_version.to_array())
+            loop.call_soon(w.send, self.m_verack.to_array())
+            n, _ = await node.NeoNode.connect_to(socket=r, _test_data=test_data)
+        w.close()
         self.assertIn("Trying to connect to socket", log_context.output[0])
         self.assertIn(
-            "Connected to NEO3-MOCK-CLIENT @ 127.0.0.1:1111", log_context.output[2]
+            f"Connected to NEO3-MOCK-CLIENT @ {host}:{port}: 0", log_context.output[2]
         )
         self.assertIsInstance(n, node.NeoNode)
         await n.disconnect(address.DisconnectReason.SHUTTING_DOWN)
@@ -132,33 +97,28 @@ class NeoNodeTestCase(asynctest.TestCase):
         port = 1111
 
         with self.assertLogs(network_logger, "DEBUG") as log_context:
-            with asynctest.patch.object(self.loop, "create_connection"):
+            with mock.patch.object(asyncio, "open_connection"):
                 _, _ = await node.NeoNode.connect_to(host, port)
         self.assertIn(f"Trying to connect to: {host}:{port}", log_context.output[0])
 
     async def test_connect_to_exceptions(self):
-        loop = asynctest.MagicMock()
+        with mock.patch.object(asyncio, "open_connection") as mocked_open_conn:
+            mocked_open_conn.side_effect = asyncio.TimeoutError
+            node_instance, failure = await node.NeoNode.connect_to(socket=object())
+            self.assertIsNone(node_instance)
+            self.assertEqual("Timed out", failure[1])
 
-        loop.create_connection.side_effect = asyncio.TimeoutError
-        node_instance, failure = await node.NeoNode.connect_to(
-            socket=object(), loop=loop
-        )
-        self.assertIsNone(node_instance)
-        self.assertEqual("Timed out", failure[1])
+        with mock.patch.object(asyncio, "open_connection") as mocked_open_conn:
+            mocked_open_conn.side_effect = OSError("unreachable")
+            node_instance, failure = await node.NeoNode.connect_to(socket=object())
+            self.assertIsNone(node_instance)
+            self.assertEqual("Failed to connect for reason unreachable", failure[1])
 
-        loop.create_connection.side_effect = OSError("unreachable")
-        node_instance, failure = await node.NeoNode.connect_to(
-            socket=object(), loop=loop
-        )
-        self.assertIsNone(node_instance)
-        self.assertEqual("Failed to connect for reason unreachable", failure[1])
-
-        loop.create_connection.side_effect = asyncio.CancelledError
-        node_instance, failure = await node.NeoNode.connect_to(
-            socket=object(), loop=loop
-        )
-        self.assertIsNone(node_instance)
-        self.assertEqual("Cancelled", failure[1])
+        with mock.patch.object(asyncio, "open_connection") as mocked_open_conn:
+            mocked_open_conn.side_effect = asyncio.CancelledError
+            node_instance, failure = await node.NeoNode.connect_to(socket=object())
+            self.assertIsNone(node_instance)
+            self.assertEqual("Cancelled", failure[1])
 
     def test_helpers(self):
         addr1 = address.NetworkAddress(address="127.0.0.1:1111")
@@ -168,57 +128,55 @@ class NeoNodeTestCase(asynctest.TestCase):
         result = node.NeoNode.get_address_new()
         self.assertEqual(addr2, result)
 
-        n = node.NeoNode(object())
+        n = node.NeoNode(object(), object())
         addr = n._find_address_by_host_port("127.0.0.1:1111")
         self.assertEqual(addr1, addr)
         addr = n._find_address_by_host_port("127.0.0.1:3333")
         self.assertEqual(None, addr)
 
-    @asynctest.skipIf(sys.platform == "win32", "Not supported on Windows")
     async def test_handshake_first_message_not_VERSION(self):
-        settings.network.magic = 769
-        socket_mock = NeoNodeSocketMock(self.loop, "127.0.0.1", 1111)
 
-        def _recv_data2(self):
-            yield self.m_verack.to_array()
+        r, w = socket.socketpair()
+        loop = asyncio.get_running_loop()
 
-        socket_mock.recv_data = _recv_data2(socket_mock)
         with self.assertLogs(network_logger, "DEBUG") as log_context:
-            await node.NeoNode.connect_to(socket=socket_mock)
+            loop.call_soon(w.send, self.m_verack.to_array())
+            await node.NeoNode.connect_to(socket=r, _test_data=self.peername_data)
+        w.close()
         self.assertIn(
             "Disconnect called with reason=HANDSHAKE_VERSION_ERROR",
             log_context.output[1],
         )
 
-    @asynctest.skipIf(sys.platform == "win32", "Not supported on Windows")
     async def test_handshake_version_validation_failed(self):
         # mock the version validation call result. The version_validation function is tested down below
         settings.network.magic = 769
-        socket_mock = NeoNodeSocketMock(self.loop, "127.0.0.1", 1111)
+        r, w = socket.socketpair()
+        loop = asyncio.get_running_loop()
+        version = deepcopy(self.m_version)
+        # ensure the network magic read from the stream is different
+        version.payload.magic = 123
         with self.assertLogs(network_logger, "DEBUG") as log_context:
-            with asynctest.patch(
-                "neo3.network.node.NeoNode._validate_version", return_value=False
-            ):
-                await node.NeoNode.connect_to(socket=socket_mock)
-
+            loop.call_soon(w.send, version.to_array())
+            await node.NeoNode.connect_to(socket=r, _test_data=self.peername_data)
+        w.close()
         self.assertIn(
             "Disconnect called with reason=HANDSHAKE_VERSION_ERROR",
-            log_context.output[1],
+            log_context.output[2],
         )
 
-    @asynctest.skipIf(sys.platform == "win32", "Not supported on Windows")
     async def test_handshake_second_message_not_VERACK(self):
-        settings.network.magic = 769
-        socket_mock = NeoNodeSocketMock(self.loop, "127.0.0.1", 1111)
+        # ensure we have the same magic
+        settings.network.magic = self.m_version.payload.magic
 
-        def _recv_data2(self):
-            yield self.m_send_version.to_array()
-            yield self.m_send_version.to_array()
-
-        socket_mock.recv_data = _recv_data2(socket_mock)
+        r, w = socket.socketpair()
+        loop = asyncio.get_running_loop()
 
         with self.assertLogs(network_logger, "DEBUG") as log_context:
-            await node.NeoNode.connect_to(socket=socket_mock)
+            loop.call_soon(w.send, self.m_version.to_array())
+            loop.call_soon(w.send, self.m_version.to_array())
+            await node.NeoNode.connect_to(socket=r, _test_data=self.peername_data)
+        w.close()
         self.assertIn(
             "Disconnect called with reason=HANDSHAKE_VERACK_ERROR",
             log_context.output[2],
@@ -237,7 +195,7 @@ class NeoNodeTestCase(asynctest.TestCase):
         )
 
     def test_version_validation_client_is_self(self):
-        n = node.NeoNode(object())
+        n = node.NeoNode(object(), object())
 
         # test for client is self
         version = self._new_version()
@@ -248,7 +206,7 @@ class NeoNodeTestCase(asynctest.TestCase):
         self.assertIn("Client is self", log_context.output[0])
 
     def test_version_validation_wrong_network(self):
-        n = node.NeoNode(object())
+        n = node.NeoNode(object(), object())
 
         # test for wrong network
         settings.network.magic = 769
@@ -260,7 +218,7 @@ class NeoNodeTestCase(asynctest.TestCase):
         self.assertIn("Wrong network id", log_context.output[0])
 
     def test_version_validation_should_updating_address_to_connected_state(self):
-        n = node.NeoNode(object())
+        n = node.NeoNode(object(), object())
 
         # test updating address state to CONNECTED
         # this is relevant for addresses that have been added through the nodemanager based on the seedlist
@@ -277,7 +235,7 @@ class NeoNodeTestCase(asynctest.TestCase):
     def test_version_validation_should_add_new_address(self):
         # when using the `connect_to` method or when a server is hosted accepting incoming clients
         # we should add the address to our know addresses list
-        n = node.NeoNode(object())
+        n = node.NeoNode(object(), object())
         # normally this is updated by `connection_made()`, since we skip that in this test we set it manually
         n.address.address = "127.0.0.1:1111"
         self.assertEqual(0, len(node.NeoNode.addresses))
@@ -291,7 +249,7 @@ class NeoNodeTestCase(asynctest.TestCase):
         )
 
     def test_version_validation_fail_if_no_full_node_capabilities(self):
-        n = node.NeoNode(object())
+        n = node.NeoNode(object(), object())
 
         version = self._new_version()
         # remove the full node capability
@@ -300,17 +258,19 @@ class NeoNodeTestCase(asynctest.TestCase):
         self.assertFalse(result)
 
     async def test_connect_blocked_by_ipfilter(self):
-        settings.network.magic = 769
-        socket_mock = NeoNodeSocketMock(self.loop, "127.0.0.1", 1111)
         ipfilter.ipfilter.blacklist_add("127.0.0.1")
-
+        r, w = socket.socketpair()
+        loop = asyncio.get_running_loop()
         with self.assertLogs(network_logger, "DEBUG") as log_context:
-            await node.NeoNode.connect_to(socket=socket_mock)
+            loop.call_soon(w.send, self.m_version.to_array())
+            loop.call_soon(w.send, self.m_verack.to_array())
+            await node.NeoNode.connect_to(socket=r, _test_data=self.peername_data)
+        w.close()
         self.assertIn("Blocked by ipfilter: 127.0.0.1:1111", log_context.output[1])
 
     async def test_req_addr_list(self):
-        n = node.NeoNode(object())
-        n.send_message = asynctest.CoroutineMock()
+        n = node.NeoNode(object(), object())
+        n.send_message = mock.AsyncMock()
         await n.request_address_list()
 
         self.assertIsNotNone(n.send_message.call_args)
@@ -319,8 +279,8 @@ class NeoNodeTestCase(asynctest.TestCase):
         self.assertIsInstance(m.payload, empty.EmptyPayload)
 
     async def test_send_addr_list(self):
-        n = node.NeoNode(object())
-        n.send_message = asynctest.CoroutineMock()
+        n = node.NeoNode(object(), object())
+        n.send_message = mock.AsyncMock()
         n.addresses = [address.NetworkAddress(address="127.0.0.1:1111")]
         await n.send_address_list(n.addresses)
 
@@ -331,8 +291,8 @@ class NeoNodeTestCase(asynctest.TestCase):
         self.assertEqual(n.addresses, m.payload.addresses)
 
     async def test_req_headers(self):
-        n = node.NeoNode(object())
-        n.send_message = asynctest.CoroutineMock()
+        n = node.NeoNode(object(), object())
+        n.send_message = mock.AsyncMock()
         index_start = 0
         count = 10
 
@@ -345,8 +305,8 @@ class NeoNodeTestCase(asynctest.TestCase):
         self.assertEqual(count, m.payload.count)
 
     async def test_send_headers(self):
-        n = node.NeoNode(object())
-        n.send_message = asynctest.CoroutineMock()
+        n = node.NeoNode(object(), object())
+        n.send_message = mock.AsyncMock()
         headers = 2001 * [test_helpers.SerializableObject()]
 
         await n.send_headers(headers)
@@ -358,8 +318,8 @@ class NeoNodeTestCase(asynctest.TestCase):
         self.assertEqual(2000, len(m.payload.headers))
 
     async def test_req_blocks(self):
-        n = node.NeoNode(object())
-        n.send_message = asynctest.CoroutineMock()
+        n = node.NeoNode(object(), object())
+        n.send_message = mock.AsyncMock()
         hash_start = types.UInt256.from_string(
             "65793a030c0dcd4fff4da8a6a6d5daa8b570750da4fdeea1bbc43bdf124aedc9"
         )
@@ -374,8 +334,8 @@ class NeoNodeTestCase(asynctest.TestCase):
         self.assertEqual(count, m.payload.count)
 
     async def test_req_block_data(self):
-        n = node.NeoNode(object())
-        n.send_message = asynctest.CoroutineMock()
+        n = node.NeoNode(object(), object())
+        n.send_message = mock.AsyncMock()
         index_start = 1
         count = 2
 
@@ -388,8 +348,8 @@ class NeoNodeTestCase(asynctest.TestCase):
         self.assertEqual(count, m.payload.count)
 
     async def test_request_data(self):
-        n = node.NeoNode(object())
-        n.send_message = asynctest.CoroutineMock()
+        n = node.NeoNode(object(), object())
+        n.send_message = mock.AsyncMock()
         hash1 = types.UInt256.from_string(
             "65793a030c0dcd4fff4da8a6a6d5daa8b570750da4fdeea1bbc43bdf124aedc9"
         )
@@ -408,13 +368,13 @@ class NeoNodeTestCase(asynctest.TestCase):
     async def test_send_inventory_and_relay(self):
         # test 2 in 1
         # taken from the Transaction testcase in `test_payloads.py`
-        raw_tx = binascii.unhexlify(
-            b"007B000000C8010000000000001503000000000000010000000154A64CAC1B1073E662933EF3E30B007CD98D67D7000002010201000155"
+        raw_tx = bytes.fromhex(
+            "007B000000C8010000000000001503000000000000010000000154A64CAC1B1073E662933EF3E30B007CD98D67D7000002010201000155"
         )
         tx = transaction.Transaction.deserialize_from_bytes(raw_tx)
 
-        n = node.NeoNode(object())
-        n.send_message = asynctest.CoroutineMock()
+        n = node.NeoNode(object(), object())
+        n.send_message = mock.AsyncMock()
 
         await n.relay(tx)
         m = n.send_message.call_args[0][0]  # type: message.Message
@@ -422,11 +382,7 @@ class NeoNodeTestCase(asynctest.TestCase):
         self.assertIsInstance(m.payload, inventory.InventoryPayload)
         self.assertEqual(tx.hash(), m.payload.hashes[0])
 
-    @asynctest.skipIf(sys.platform == "win32", "Not supported on Windows")
     async def test_processing_messages(self):
-        settings.network.magic = 769
-        socket_mock = NeoNodeSocketMock(self.loop, "127.0.0.1", 1111)
-
         m_addr = message.Message(
             msg_type=message.MessageType.ADDR, payload=address.AddrPayload([])
         )
@@ -456,8 +412,8 @@ class NeoNodeTestCase(asynctest.TestCase):
         )
 
         # taken from the Headers testcase in `test_payloads`
-        raw_headers_payload = binascii.unhexlify(
-            b"0000000001FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A402FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A400000000000000007B00000000F7B4D00143932F3B6243CFC06CB4A68F22C739E201020102020304"
+        raw_headers_payload = bytes.fromhex(
+            "0000000001FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A402FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00A400000000000000007B00000000F7B4D00143932F3B6243CFC06CB4A68F22C739E201020102020304"
         )
         m_headers = message.Message(
             msg_type=message.MessageType.HEADERS,
@@ -473,9 +429,9 @@ class NeoNodeTestCase(asynctest.TestCase):
             msg_type=message.MessageType.REJECT, payload=empty.EmptyPayload()
         )
 
-        def _recv_data2(self):
+        def _mock_data(self):
             # first do handshake
-            yield self.m_send_version.to_array()
+            yield self.m_version.to_array()
             yield self.m_verack.to_array()
             # next send all types of messages we handle
             yield m_addr.to_array()
@@ -489,72 +445,24 @@ class NeoNodeTestCase(asynctest.TestCase):
             yield m_pong.to_array()
             yield m_reject.to_array()
 
-        socket_mock.recv_data = _recv_data2(socket_mock)
+        loop = asyncio.get_running_loop()
+        r, w = socket.socketpair()
+
+        data = b"".join(list(_mock_data(self)))
         with self.assertLogs(network_logger, "DEBUG") as log_context:
             try:
-                n, _ = await node.NeoNode.connect_to(socket=socket_mock)
+
+                loop.call_soon(w.send, data)
+                n, _ = await node.NeoNode.connect_to(
+                    socket=r, _test_data=self.peername_data
+                )
+                n.start_message_handler()
             except Exception as e:
-                print(f"GVD {e}")
+                print(f"Unexpected: {e}")
 
             await asyncio.sleep(0.5)
             await n.disconnect(address.DisconnectReason.SHUTTING_DOWN)
-
-    @asynctest.SkipTest
-    async def test_processing_messages3(self):
-        # we got 2 cases for which we need to test without using a backend
-        settings.network.magic = 769
-        socket_mock = NeoNodeSocketMock(self.loop, "127.0.0.1", 1111)
-
-        m_inv1 = message.Message(
-            msg_type=message.MessageType.INV,
-            payload=inventory.InventoryPayload(
-                inventory.InventoryType.BLOCK,
-                hashes=[
-                    types.UInt256.from_string(
-                        "65793a030c0dcd4fff4da8a6a6d5daa8b570750da4fdeea1bbc43bdf124aedc9"
-                    )
-                ],
-            ),
-        )
-        m_ping = message.Message(
-            msg_type=message.MessageType.PING, payload=ping.PingPayload(0)
-        )
-
-        def _recv_data2(self):
-            print("my recv data 2 called ")
-            # first do handshake
-            yield self.m_send_version.to_array()
-            yield self.m_verack.to_array()
-            yield m_inv1.to_array()
-            yield m_ping.to_array()
-
-        socket_mock.recv_data = _recv_data2(socket_mock)
-        with self.assertLogs(network_logger, "DEBUG") as log_context:
-            with mock.patch(
-                "neo3.network.node.NeoNode.send_message",
-                new_callable=asynctest.CoroutineMock,
-            ):
-                # with asynctest.patch('neo3.network.node.NeoNode.send_message', return_value=asynctest.CoroutineMock()):
-                n, _ = await node.NeoNode.connect_to(socket=socket_mock)
-                await asyncio.sleep(0.1)
-                await n.disconnect(address.DisconnectReason.SHUTTING_DOWN)
-        # print(n.send_message.call_args)
-
-    # async def test_wtf(self):
-    #     protocol = asynctest.MagicMock()
-    #     protocol.send_message = asynctest.CoroutineMock()
-    #     nn = node.NeoNode(protocol)
-    #     mock_read_message = asynctest.CoroutineMock()
-    #     nn.read_message = mock_read_message
-    #
-    #     m_inv1 = message.Message(msg_type=message.MessageType.INV, payload=payloads.InventoryPayload(
-    #         payloads.InventoryType.BLOCK,
-    #         hashes=[types.UInt256.from_string("65793a030c0dcd4fff4da8a6a6d5daa8b570750da4fdeea1bbc43bdf124aedc9")]
-    #     ))
-    #     m_ping = message.Message(msg_type=message.MessageType.PING, payload=payloads.PingPayload(0))
-    #
-    #     mock_read_message.side_effect = [m_inv1, m_ping]
-    #     await nn._process_incoming_data()
+        w.close()
 
     def test_utility_function(self):
         with self.assertRaises(ValueError) as context:

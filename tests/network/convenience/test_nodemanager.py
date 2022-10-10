@@ -1,20 +1,19 @@
 import aiodns
 import logging
-import asynctest
 import socket
 import asyncio
-import sys
-from unittest import mock
+from unittest import mock, IsolatedAsyncioTestCase, TestCase, skip
 from neo3.network import node, message, capabilities
 from neo3.network.convenience import nodemanager, requestinfo
-from neo3.network.payloads import address, version
+from neo3.network.payloads import address, version, ping
 from neo3 import network_logger
 from neo3.settings import settings
 from datetime import datetime
+from copy import deepcopy
 from neo3.core import msgrouter
 
 
-class NodeManagerTestCase(asynctest.TestCase):
+class NodeManagerTestCase(TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.nodemgr = nodemanager.NodeManager()
@@ -24,9 +23,8 @@ class NodeManagerTestCase(asynctest.TestCase):
         node.NeoNode._reset_for_test()
         settings.reset_settings_to_default()
 
-        fake_protocol = object()
-        self.node1 = node.NeoNode(fake_protocol)
-        self.node2 = node.NeoNode(fake_protocol)
+        self.node1 = node.NeoNode(object(), object())
+        self.node2 = node.NeoNode(object(), object())
 
         self.addr1 = address.NetworkAddress(address="127.0.0.1:10333")
         self.addr2 = address.NetworkAddress(address="127.0.0.2:20333")
@@ -115,12 +113,12 @@ class NodeManagerTestCase(asynctest.TestCase):
 
     def test_increase_node_error_count2(self):
         self.nodemgr.nodes = [self.node1, self.node2]
-        # set a current value that certainly will exceeds whatever the user configuration will say
+        # set a current value that certainly will exceed whatever the user configuration will say
         self.node1.nodeweight.error_response_count += 999
 
         with self.assertLogs(network_logger, "DEBUG") as context:
             with mock.patch.object(self.node1, "disconnect"):
-                with mock.patch("asyncio.create_task"):
+                with mock.patch("asyncio.create_task") as mocked_create_task:
                     self.nodemgr.increase_node_error_count(self.node1.nodeid)
         self.assertEqual(1000, self.node1.nodeweight.error_response_count)
         self.assertIn("max error count threshold exceeded", context.output[0])
@@ -134,7 +132,7 @@ class NodeManagerTestCase(asynctest.TestCase):
     def test_increase_node_timeout_count2(self):
         # test we detect max count threshold exceeding and schedule a disconnect task
         self.nodemgr.nodes = [self.node1, self.node2]
-        # set a current value that certainly will exceeds whatever the user configuration will say
+        # set a current value that certainly will exceed whatever the user configuration will say
         self.node1.nodeweight.timeout_count += 999
 
         with self.assertLogs(network_logger, "DEBUG") as context:
@@ -145,64 +143,21 @@ class NodeManagerTestCase(asynctest.TestCase):
         self.assertIn("max timeout count threshold exceeded", context.output[0])
 
 
-class AsyncMock(mock.MagicMock):
-    async def __call__(self, *args, **kwargs):
-        return super(AsyncMock, self).__call__(*args, **kwargs)
+caps = [capabilities.FullNodeCapability(0)]
+m_version = message.Message(
+    msg_type=message.MessageType.VERSION,
+    payload=version.VersionPayload(
+        nonce=123, user_agent="NEO3-MOCK-CLIENT", capabilities=caps
+    ),
+)
+m_verack = message.Message(msg_type=message.MessageType.VERACK)
+
+m_ping = message.Message(
+    msg_type=message.MessageType.PING, payload=ping.PingPayload(height=0)
+).to_array()
 
 
-class NeoNodeSocketMock(asynctest.SocketMock):
-    def __init__(self, loop, hostaddr: str, port: int):
-        super(NeoNodeSocketMock, self).__init__()
-        self.type = socket.SOCK_STREAM
-        self.recv_buffer = bytearray()
-        self.loop = loop
-        self.hostaddr = hostaddr
-        self.port = port
-        self.recv_data = self._recv_data()
-
-    def _recv_data(self):
-        caps = [capabilities.FullNodeCapability(0)]
-        m_send_version = message.Message(
-            msg_type=message.MessageType.VERSION,
-            payload=version.VersionPayload(
-                nonce=123, user_agent="NEO3-MOCK-CLIENT", capabilities=caps
-            ),
-        )
-        m_verack = message.Message(msg_type=message.MessageType.VERACK)
-
-        yield m_send_version.to_array()
-        yield m_verack.to_array()
-        # while True:
-        #     yield message.Message(msg_type=message.MessageType.PING,
-        #                           payload=payloads.PingPayload(height=0)).to_array()
-
-    def recv(self, max_bytes):
-        if not self.recv_buffer:
-            try:
-                self.recv_buffer.extend(next(self.recv_data))
-                asynctest.set_read_ready(self, self.loop)
-            except StopIteration:
-                # nothing left
-                pass
-
-        data = self.recv_buffer[:max_bytes]
-        self.recv_buffer = self.recv_buffer[max_bytes:]
-
-        if self.recv_buffer:
-            # Some more data to read
-            asynctest.set_read_ready(self, self.loop)
-
-        return data
-
-    def send(self, data):
-        asynctest.set_read_ready(self, self.loop)
-        return len(data)
-
-    def getpeername(self):
-        return (self.hostaddr, self.port)
-
-
-class NodeManagerTestCase2(asynctest.TestCase):
+class NodeManagerTestCase2(IsolatedAsyncioTestCase):
     @classmethod
     def setUpClass(cls) -> None:
         # stdio_handler = logging.StreamHandler()
@@ -223,19 +178,24 @@ class NodeManagerTestCase2(asynctest.TestCase):
         node.NeoNode._reset_for_test()
         settings.reset_settings_to_default()
 
-    @asynctest.skipIf(sys.platform == "win32", "Not supported on Windows")
     async def test_start_shutdown(self):
         settings.register({"network": {"seedlist": ["127.0.0.1:1111"], "magic": 769}})
 
         self.nodemgr.start()
+        # need to keep this outside or it will go out of scope and close the socket
+        r, w = socket.socketpair()
 
         def client_provider():
-            addresses = [("127.0.0.1", 1111)]
-            for pair in addresses:
-                yield NeoNodeSocketMock(self.loop, pair[0], pair[1])
+            loop = asyncio.get_running_loop()
+            v = deepcopy(m_version)
+            v.payload.magic = 769
+            loop.call_soon(w.send, v.to_array())
+            loop.call_soon(w.send, m_verack.to_array())
+            yield r, w
 
         # configure nodemanager to use a mock client
         self.nodemgr._test_client_provider = client_provider
+        self.nodemgr._test_data = {"peername": ("127.0.0.1", 1111)}
 
         call_back_result = None
 
@@ -273,8 +233,7 @@ class NodeManagerTestCase2(asynctest.TestCase):
     async def test_fill_open_connection_spots_dont_queue_addr_that_is_already_queued(
         self,
     ):
-        fake_protocol = object()
-        self.node1 = node.NeoNode(fake_protocol)
+        self.node1 = node.NeoNode(object(), object())
 
         # ensure we have an address that can be connected to
         addr = address.NetworkAddress(address="127.0.0.1:1111")
@@ -296,7 +255,7 @@ class NodeManagerTestCase2(asynctest.TestCase):
         # this should not cause any error count increases
         self.nodemgr.min_clients = 1
         self.nodemgr.max_clients = 2
-        # just a place holder to have a count matching min_clients
+        # just a placeholder to have a count matching min_clients
         self.nodemgr.nodes = [object()]
         node.NeoNode.addresses = []
 
@@ -327,7 +286,7 @@ class NodeManagerTestCase2(asynctest.TestCase):
         self.assertIn("Increasing pool spot error count to 2", context.output[1])
 
         # 3rd time we reached our threshold
-        # let's also setup an address in POOR state that should be reset to NEW
+        # let's also set up an address in POOR state that should be reset to NEW
         addr = address.NetworkAddress(address="127.0.0.1:1111")
         addr.set_state_poor()
         node.NeoNode.addresses = [addr]
@@ -343,6 +302,7 @@ class NodeManagerTestCase2(asynctest.TestCase):
     async def test_fill_open_connection_spots_node_timeout_error(self):
         self.nodemgr.min_clients = 1
         self.nodemgr.max_clients = 2
+
         addr = address.NetworkAddress(address="127.0.0.1:1111")
         node.NeoNode.addresses = [addr]
 
@@ -356,9 +316,12 @@ class NodeManagerTestCase2(asynctest.TestCase):
         msgrouter.on_client_connect_done += client_connect_done
 
         with self.assertLogs(network_logger, "DEBUG") as context:
-            self.loop.create_connection = AsyncMock()
-            self.loop.create_connection.side_effect = asyncio.TimeoutError()
-            await self.nodemgr._fill_open_connection_spots()
+            # for some reason patching asyncio.open_connection just doesn't work in this test
+            # working around it like this
+            with mock.patch.object(
+                node.NeoNode, "connect_to", return_value=(None, (f"...", "Timed out"))
+            ):
+                await self.nodemgr._fill_open_connection_spots()
 
         # advance loop
         await asyncio.sleep(0.1)
@@ -368,7 +331,7 @@ class NodeManagerTestCase2(asynctest.TestCase):
         )
 
 
-class NodeManagerTimedTestCase(asynctest.ClockedTestCase):
+class NodeManagerTimedTestCase(IsolatedAsyncioTestCase):  # asynctest.ClockedTestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.nodemgr = nodemanager.NodeManager()
@@ -378,16 +341,16 @@ class NodeManagerTimedTestCase(asynctest.ClockedTestCase):
         node.NeoNode._reset_for_test()
         settings.reset_settings_to_default()
 
-        fake_protocol = object()
-        self.node1 = node.NeoNode(fake_protocol)
-        self.node2 = node.NeoNode(fake_protocol)
+        fake_reader, fake_writer = object(), object()
+        self.node1 = node.NeoNode(fake_reader, fake_writer)
+        self.node2 = node.NeoNode(fake_reader, fake_writer)
 
         self.addr1 = address.NetworkAddress(address="127.0.0.1:10333")
         self.addr2 = address.NetworkAddress(address="127.0.0.2:20333")
         self.node1.address = self.addr1
         self.node2.address = self.addr2
 
-    @asynctest.SkipTest
+    @skip("Only worked with asynctest.ClockedTestCase, no replacement yet")
     async def test_utility_run_in_loop(self):
         counter = 0
 
@@ -420,13 +383,17 @@ class NodeManagerTimedTestCase(asynctest.ClockedTestCase):
             reason=address.DisconnectReason.POOR_PERFORMANCE
         )
 
+    @skip("too slow, need pytest + looptime to enable")
     async def test_monitor_node_height_within_limits(self):
+        # Note https://github.com/nolar/looptime/tree/main/looptime could solve this
+        # if we were using pytest instead of unittest
+
         # test that if the last height update timestamp of a node is within the treshold
         # that we only ask for another update
         self.nodemgr.nodes = [self.node1]
         with self.assertLogs(network_logger, "DEBUG") as context:
             with mock.patch.object(
-                self.node1, "send_message", side_effect=AsyncMock()
+                self.node1, "send_message", side_effect=mock.AsyncMock()
             ) as patched_node_send_msg:
                 await self.nodemgr._monitor_node_height()
         self.assertIn(" to send us a height update (PING)", context.output[0])
@@ -435,15 +402,16 @@ class NodeManagerTimedTestCase(asynctest.ClockedTestCase):
         self.assertEqual(message.MessageType.PING, msg.type)
         # finally test that our tasks is created
         self.assertEqual(1, len(self.nodemgr.tasks))
-        await self.advance(1)
+        await asyncio.sleep(1)
         # and the call back called once done.
         self.assertEqual(0, len(self.nodemgr.tasks))
 
+    @skip("too slow, need pytest + looptime to enable")
     async def test_query_addresses(self):
         self.nodemgr.nodes = [self.node1]
         with self.assertLogs(network_logger, "DEBUG") as context:
             with mock.patch.object(
-                self.node1, "request_address_list", side_effect=AsyncMock()
+                self.node1, "request_address_list", side_effect=mock.AsyncMock()
             ) as patched_node_req_addr:
                 await self.nodemgr._query_addresses()
         self.assertIn("Asking node ", context.output[1])
@@ -451,7 +419,7 @@ class NodeManagerTimedTestCase(asynctest.ClockedTestCase):
         patched_node_req_addr.assert_called_once()
         # finally test that our tasks is created
         self.assertEqual(1, len(self.nodemgr.tasks))
-        await self.advance(1)
+        await asyncio.sleep(1)
         # and the call back called once done.
         self.assertEqual(0, len(self.nodemgr.tasks))
 
@@ -467,7 +435,7 @@ class NodeManagerTimedTestCase(asynctest.ClockedTestCase):
         result = [wtf()]
         with mock.patch(
             "aiodns.DNSResolver.query",
-            side_effect=asynctest.CoroutineMock(return_value=result),
+            side_effect=mock.AsyncMock(return_value=result),
         ) as query_result:
             await self.nodemgr._process_seed_list_addresses()
         self.assertEqual(1, len(node.NeoNode.addresses))
