@@ -1,10 +1,11 @@
 import base58
 from neo3.core import types
+from neo3.wallet.types import NeoAddress
 
 
 def script_hash_to_address(
     script_hash: types.UInt160, address_version: int = 0x35
-) -> str:
+) -> NeoAddress:
     """
     Converts the specified script hash to an address.
 
@@ -17,7 +18,7 @@ def script_hash_to_address(
     return base58.b58encode_check(data).decode("utf-8")
 
 
-def address_to_script_hash(address: str) -> types.UInt160:
+def address_to_script_hash(address: NeoAddress) -> types.UInt160:
     """
     Converts the specified address to a script hash.
 
@@ -33,7 +34,7 @@ def address_to_script_hash(address: str) -> types.UInt160:
     return types.UInt160(data[1:])
 
 
-def is_valid_address(address: str) -> bool:
+def is_valid_address(address: NeoAddress) -> bool:
     """
     Test if the provided address is a valid address.
 
@@ -47,7 +48,7 @@ def is_valid_address(address: str) -> bool:
     return True
 
 
-def validate_address(address: str, address_version: int = 0x35) -> None:
+def validate_address(address: NeoAddress, address_version: int = 0x35) -> None:
     """
     Validate a given address. If address is not valid an exception will be raised.
 
