@@ -14,6 +14,7 @@ from socket import AF_INET as IP4_FAMILY
 from typing import Optional, Callable, cast
 from asyncio.streams import StreamWriter, StreamReader
 from neo3.network.message import Message
+from collections.abc import Sequence
 
 
 class NeoNode:
@@ -434,7 +435,7 @@ class NeoNode:
         await self.send_message(m)
 
     async def send_address_list(
-        self, network_addresses: list[address.NetworkAddress]
+        self, network_addresses: Sequence[address.NetworkAddress]
     ) -> None:
         """
         Send network addresses.
@@ -466,7 +467,7 @@ class NeoNode:
         )
         await self.send_message(m)
 
-    async def send_headers(self, headers: list[block.Header]) -> None:
+    async def send_headers(self, headers: Sequence[block.Header]) -> None:
         """
         Send a list of Header objects.
 
@@ -528,7 +529,7 @@ class NeoNode:
         await self.send_message(m)
 
     async def request_data(
-        self, type: inventory.InventoryType, hashes: list[types.UInt256]
+        self, type: inventory.InventoryType, hashes: Sequence[types.UInt256]
     ) -> None:
         """
         Send a request for receiving the specified inventory data.

@@ -8,6 +8,7 @@ from typing import Optional, Type, TypeVar
 from neo3.core import Size as s, serialization, utils, types, interfaces
 from neo3 import settings, vm
 from neo3.network.payloads import inventory, verification
+from collections.abc import Sequence
 
 
 class TransactionAttributeType(Enum):
@@ -219,7 +220,7 @@ class Transaction(inventory.IInventory, interfaces.IJson):
         network_fee: int,
         valid_until_block: int,
         attributes: list[TransactionAttribute] = None,
-        signers: list[verification.Signer] = None,
+        signers: Sequence[verification.Signer] = None,
         script: bytes = None,
         witnesses: list[verification.Witness] = None,
         protocol_magic: int = None,
@@ -243,7 +244,7 @@ class Transaction(inventory.IInventory, interfaces.IJson):
         """
         self.attributes = attributes if attributes else []
         #: A list of authorities used by the :func:`ChecKWitness` smart contract system call.
-        self.signers = signers if signers else []
+        self.signers = list(signers) if signers else []
         #: The array of instructions to be executed on the chain by the virtual machine.
         self.script = script if script else b""
         #: A list of signing authorities used to validate the transaction.

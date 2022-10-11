@@ -3,6 +3,7 @@ import abc
 from enum import IntEnum
 from neo3.core import types, Size as s, utils, serialization
 from neo3.network.payloads import verification
+from collections.abc import Sequence
 
 
 class InventoryType(IntEnum):
@@ -22,7 +23,7 @@ class InventoryPayload(serialization.ISerializable):
         - :ref:`mempool <message-usage-mempool>`
     """
 
-    def __init__(self, type: InventoryType, hashes: list[types.UInt256]):
+    def __init__(self, type: InventoryType, hashes: Sequence[types.UInt256]):
         """
         Create payload.
 

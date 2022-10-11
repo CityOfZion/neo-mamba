@@ -8,6 +8,7 @@ from enum import Enum
 from contextlib import suppress
 from dataclasses import dataclass
 from typing import Optional, TypedDict, Any, Protocol, Iterator, Union, cast
+from collections.abc import Sequence
 from neo3 import vm
 from neo3.core import types, cryptography, interfaces
 from neo3.contracts import manifest, nef, contract, abi
@@ -562,7 +563,7 @@ class _ContractParameter(interfaces.IJson):
         elif isinstance(obj, cryptography.ECPoint):
             self.type = abi.ContractParameterType.PUBLICKEY
             self.value = obj.to_array().hex()
-        elif isinstance(obj, list):
+        elif isinstance(obj, (list, tuple)):
             self.type = abi.ContractParameterType.ARRAY
             self.value = list(map(lambda element: _ContractParameter(element), obj))
         elif isinstance(obj, dict):
@@ -753,15 +754,19 @@ class NeoRpcClient(RPCClient):
         response = await self._do_post("getblockheader", params)
         return block.Header.deserialize_from_bytes(base64.b64decode(response))
 
-    async def get_committee(self) -> list[cryptography.ECPoint]:
+    async def get_committee(self) -> tuple[cryptography.ECPoint, ...]:
         """
         Fetch the public keys of the current NEO committee.
         """
         response = await self._do_post("getcommittee")
-        keys = []
-        for pk in response:
-            keys.append(cryptography.ECPoint.deserialize_from_bytes(bytes.fromhex(pk)))
-        return keys
+        return tuple(
+            map(
+                lambda pk: cryptography.ECPoint.deserialize_from_bytes(
+                    bytes.fromhex(pk)
+                ),
+                response,
+            )
+        )
 
     async def get_connection_count(self) -> int:
         """
@@ -925,8 +930,8 @@ class NeoRpcClient(RPCClient):
     async def invoke_contract_verify(
         self,
         contract_hash: types.UInt160 | str,
-        function_params: Optional[list[ContractParameter]] = None,
-        signers: Optional[list[verification.Signer]] = None,
+        function_params: Optional[Sequence[ContractParameter]] = None,
+        signers: Optional[Sequence[verification.Signer]] = None,
     ) -> ExecutionResultResponse:
         """
         Invoke the `verify` method on the contract.
@@ -961,8 +966,8 @@ class NeoRpcClient(RPCClient):
         self,
         contract_hash: types.UInt160 | str,
         name: str,
-        function_params: Optional[list[ContractParameter]] = None,
-        signers: Optional[list[verification.Signer]] = None,
+        function_params: Optional[Sequence[ContractParameter]] = None,
+        signers: Optional[Sequence[verification.Signer]] = None,
     ) -> ExecutionResultResponse:
         """
         Invoke a smart contract function.
@@ -1003,7 +1008,7 @@ class NeoRpcClient(RPCClient):
         return ExecutionResultResponse.from_json(result)
 
     async def invoke_script(
-        self, script: bytes, signers: Optional[list[verification.Signer]] = None
+        self, script: bytes, signers: Optional[Sequence[verification.Signer]] = None
     ) -> ExecutionResultResponse:
         """
         Executes a script in the virtual machine.

@@ -3,6 +3,7 @@ import datetime
 from neo3.core import Size as s, serialization, utils
 from neo3.network import capabilities
 from neo3 import settings
+from collections.abc import Sequence
 
 
 class VersionPayload(serialization.ISerializable):
@@ -16,7 +17,7 @@ class VersionPayload(serialization.ISerializable):
         self,
         nonce: int,
         user_agent: str,
-        capabilities: list[capabilities.NodeCapability],
+        capabilities: Sequence[capabilities.NodeCapability],
     ):
         """
         Create payload.

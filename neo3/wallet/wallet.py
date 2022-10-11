@@ -2,6 +2,7 @@ from __future__ import annotations
 import os.path
 import json
 from typing import Any, Optional
+from collections.abc import Sequence
 from jsonschema import validate  # type: ignore
 from neo3.core import interfaces, cryptography
 from neo3.contracts import contract, utils as contractutils
@@ -38,7 +39,7 @@ class Wallet(interfaces.IJson):
         name: Optional[str] = None,
         version: str = _wallet_version,
         scrypt_params: Optional[scrypt.ScryptParameters] = None,
-        accounts: list[account.Account] = None,
+        accounts: Sequence[account.Account] = None,
         default_account: Optional[account.Account] = None,
         extra: Optional[dict[Any, Any]] = None,
     ):
@@ -61,6 +62,8 @@ class Wallet(interfaces.IJson):
 
         if accounts is None:
             accounts = []
+        else:
+            accounts = list(accounts)
 
         if default_account is not None and default_account not in accounts:
             # default account must be in the account list
@@ -102,7 +105,7 @@ class Wallet(interfaces.IJson):
         return self._default_account
 
     def import_multisig_address(
-        self, signing_threshold: int, public_keys: list[cryptography.ECPoint]
+        self, signing_threshold: int, public_keys: Sequence[cryptography.ECPoint]
     ) -> account.Account:
         if signing_threshold < 1 or signing_threshold > 1024:
             raise ValueError("Invalid signing threshold")
@@ -333,7 +336,7 @@ class NEP6DiskWallet(Wallet):
         name: Optional[str] = None,
         version: str = Wallet._wallet_version,
         scrypt_params: Optional[scrypt.ScryptParameters] = None,
-        accounts: list[account.Account] = None,
+        accounts: Sequence[account.Account] = None,
         default_account: Optional[account.Account] = None,
         extra: Optional[dict] = None,
     ):

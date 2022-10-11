@@ -1,6 +1,7 @@
 from __future__ import annotations
 import base64
 import hashlib
+from collections.abc import Sequence
 from neo3.core import serialization, types, Size as s, utils as coreutils, interfaces
 from neo3.contracts import callflags
 
@@ -10,7 +11,7 @@ class NEF(serialization.ISerializable, interfaces.IJson):
         self,
         compiler_name: str = None,
         script: bytes = None,
-        tokens: list[MethodToken] = None,
+        tokens: Sequence[MethodToken] = None,
         source: str = None,
         _magic: int = 0x3346454E,
     ):
@@ -32,7 +33,7 @@ class NEF(serialization.ISerializable, interfaces.IJson):
         self.source = source if source else ""
         self.script = script if script else b""
         self._checksum = 0
-        self.tokens = [] if tokens is None else tokens
+        self.tokens = [] if tokens is None else list(tokens)
         # this is intentional, because NEO computes the initial checksum by serializing itself while checksum is 0
         self._checksum = self.compute_checksum()
 
