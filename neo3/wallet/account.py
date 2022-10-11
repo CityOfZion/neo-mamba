@@ -11,6 +11,7 @@ from neo3.contracts import abi, utils as contractutils, contract
 from neo3.network.payloads import transaction, verification
 from neo3.core import types, utils as coreutils, cryptography
 from neo3.wallet import utils, scrypt_parameters as scrypt
+from neo3.wallet.types import NeoAddress
 
 # both constants below are used to encrypt/decrypt a private key to/from a nep2 key
 NEP_HEADER = bytes([0x01, 0x42])
@@ -150,7 +151,7 @@ class Account:
         password: str,
         private_key: Optional[bytes] = None,
         watch_only: bool = False,
-        address: Optional[str] = None,
+        address: Optional[NeoAddress] = None,
         label: Optional[str] = None,
         lock: bool = False,
         contract_: Optional[contract.Contract] = None,
@@ -190,7 +191,7 @@ class Account:
             public_key = key_pair.public_key
 
         self.label: Optional[str] = label
-        self.address: str = address
+        self.address: NeoAddress = address
         self.public_key = public_key
         self.encrypted_key = encrypted_key
         self.lock = lock
@@ -471,7 +472,7 @@ class Account:
         )
 
     @classmethod
-    def watch_only_from_address(cls, address: str) -> Account:
+    def watch_only_from_address(cls, address: NeoAddress) -> Account:
         """
         Instantiate and returns a watch-only account from a given address.
 

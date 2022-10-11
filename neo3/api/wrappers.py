@@ -20,16 +20,18 @@ Example:
 """
 
 from __future__ import annotations
-from typing import Callable, Any, TypeVar, Optional, cast, Generic
+from typing import Callable, Any, TypeVar, Optional, cast, Generic, TypeAlias
 from neo3.api import noderpc, unwrap
 from neo3.network.payloads import verification
 from neo3.wallet import account, utils as walletutils
+from neo3.wallet.types import NeoAddress
 from neo3.core import types, cryptography, utils as coreutils
 from neo3 import vm
 from neo3.contracts import contract, callflags, utils as contractutils
 
+
 # result stack index
-ItemIndex = int
+ItemIndex: TypeAlias = int
 ExecutionResultParser = Callable[[noderpc.ExecutionResult, ItemIndex], Any]
 
 ReturnType = TypeVar("ReturnType")
@@ -233,13 +235,19 @@ class NEP17Contract(_TokenContract):
     Base class for calling NEP-17 compliant smart contracts
     """
 
-    def balance_of(self, account: types.UInt160) -> ContractMethodResult[int]:
+    def balance_of(
+        self, account: types.UInt160 | NeoAddress
+    ) -> ContractMethodResult[int]:
         """
         Get the balance for the given account
 
         Note: the returned value does not take the token decimals into account. e.g. for the GAS token you want to
         divide the result by 10**8 (as the Gas token has 8 decimals).
+
+        Raises:
+            ValueError if `account` is an invalid NeoAddress format
         """
+        account = _check_address_and_convert(account)
         script = (
             vm.ScriptBuilder()
             .emit_contract_call_with_args(self.hash, "balanceOf", [account])
@@ -248,13 +256,18 @@ class NEP17Contract(_TokenContract):
         return ContractMethodResult(script, unwrap.as_int)
 
     def balance_of_friendly(
-        self, account: types.UInt160
+        self, account: types.UInt160 | NeoAddress
     ) -> ContractMethodResult[float]:
         """
         Get the balance for the given account and convert the result into the user representation
 
         Uses the token decimals to convert to the user end representation
+
+        Raises:
+            ValueError if `account` is an invalid NeoAddress format
         """
+        account = _check_address_and_convert(account)
+
         sb = vm.ScriptBuilder()
         sb.emit_contract_call_with_args(self.hash, "balanceOf", [account])
         sb.emit_contract_call(self.hash, "decimals")
@@ -271,7 +284,10 @@ class NEP17Contract(_TokenContract):
         return ContractMethodResult(sb.to_array(), process)
 
     def transfer(
-        self, source: types.UInt160, destination: types.UInt160, amount: int
+        self,
+        source: types.UInt160 | NeoAddress,
+        destination: types.UInt160 | NeoAddress,
+        amount: int,
     ) -> ContractMethodResult[bool]:
         """
         Transfer `amount` of tokens from `source` account to `destination` account.
@@ -281,10 +297,16 @@ class NEP17Contract(_TokenContract):
 
             source = <source_script_hash>
             signer = verification.Signer(source, payloads.WitnessScope.CALLED_BY_ENTRY)
-            await testinvoke(token.transfer(source, destination, 10), signers=[signer]))
+            await facade.test_invoke(token.transfer(source, destination, 10), signers=[signer]))
+
+        Raises:
+            ValueError if `source` or `destination` is an invalid NeoAddress format
 
         Returns: True if funds transferred successful. False otherwise.
         """
+        source = _check_address_and_convert(source)
+        destination = _check_address_and_convert(destination)
+
         sb = vm.ScriptBuilder().emit_contract_call_with_args(
             self.hash, "transfer", [source, destination, amount, None]
         )
@@ -292,8 +314,8 @@ class NEP17Contract(_TokenContract):
 
     def transfer_multi(
         self,
-        source: types.UInt160,
-        destinations: list[types.UInt160],
+        source: types.UInt160 | NeoAddress,
+        destinations: list[types.UInt160 | NeoAddress],
         amount: int,
         abort_on_failure: bool = False,
     ) -> ContractMethodResult[bool]:
@@ -306,10 +328,14 @@ class NEP17Contract(_TokenContract):
             amount: how much to transfer
             abort_on_failure: if True aborts the whole transaction if any of the transfers fails.
 
+        Raises:
+            ValueError if any of the destinations is supplied as NeoAddress but is an invalid address format
+
         Returns: True if all transfers are successful. False otherwise.
         """
         sb = vm.ScriptBuilder()
         for d in destinations:
+            d = _check_address_and_convert(d)
             sb.emit_contract_call_with_args(
                 self.hash, "transfer", [source, d, amount, None]
             )
@@ -371,14 +397,21 @@ class NeoToken(NEP17Contract):
         return ContractMethodResult(script, unwrap.as_int)
 
     def get_unclaimed_gas(
-        self, account: types.UInt160, end: Optional[int] = None
+        self, account: types.UInt160 | NeoAddress, end: Optional[int] = None
     ) -> ContractMethodResult[int]:
         """
         Get the amount of unclaimed GAS for `account`
 
         Args:
             end: up to which block height to calculate the GAS bonus. Omit to calculate to the current chain height
+
+        Raises:
+            ValueError if `account` is an invalid NeoAddress format
         """
+        if not isinstance(account, types.UInt160):
+            walletutils.validate_address(account)
+            account = walletutils.address_to_script_hash(account)
+
         sb = vm.ScriptBuilder()
         if end is not None:
             sb.emit_contract_call_with_args(
@@ -442,7 +475,7 @@ class NeoToken(NEP17Contract):
         return ContractMethodResult(sb.to_array(), unwrap.as_bool)
 
     def candidate_vote(
-        self, voter: types.UInt160, candidate: cryptography.ECPoint
+        self, voter: types.UInt160 | NeoAddress, candidate: cryptography.ECPoint
     ) -> ContractMethodResult[bool]:
         """
         Cast a vote for `candidate` to become a consensus node
@@ -451,8 +484,12 @@ class NeoToken(NEP17Contract):
             voter: the account to vote from
             candidate: who to vote on
 
+        Raises:
+            ValueError if `voter` is an invalid NeoAddress format
+
         Returns: True if vote cast successful. False otherwise.
         """
+        voter = _check_address_and_convert(voter)
         script = (
             vm.ScriptBuilder()
             .emit_contract_call_with_args(self.hash, "vote", [voter, candidate])
@@ -476,8 +513,6 @@ class NeoToken(NEP17Contract):
     def candidates_registered(self) -> ContractMethodResult[list[Candidate]]:
         """
         Get the first 256 registered candidates
-        Returns:
-
         """
         script = (
             vm.ScriptBuilder().emit_contract_call(self.hash, "getCandidates").to_array()
@@ -518,10 +553,16 @@ class _NEP11Contract(_TokenContract):
         """
         return super(_NEP11Contract, self).decimals()
 
-    def total_owned_by(self, owner: types.UInt160) -> ContractMethodResult[int]:
+    def total_owned_by(
+        self, owner: types.UInt160 | NeoAddress
+    ) -> ContractMethodResult[int]:
         """
         Get the total amount of NFTs owned for the given account.
+
+        Raises:
+            ValueError if `owner` is an invalid NeoAddress format
         """
+        owner = _check_address_and_convert(owner)
         script = (
             vm.ScriptBuilder()
             .emit_contract_call_with_args(self.hash, "balanceOf", [owner])
@@ -530,11 +571,15 @@ class _NEP11Contract(_TokenContract):
         return ContractMethodResult(script, unwrap.as_int)
 
     def token_ids_owned_by(
-        self, owner: types.UInt160
+        self, owner: types.UInt160 | NeoAddress
     ) -> ContractMethodResult[list[bytes]]:
         """
         Get an iterator containing all token ids owned by the specified address
+
+        Raises:
+            ValueError if `owner` is an invalid NeoAddress format
         """
+        owner = _check_address_and_convert(owner)
         sb = vm.ScriptBuilder()
         sb.emit_contract_call_with_args_and_unwrap_iterator(
             self.hash, "tokensOf", [owner]
@@ -583,12 +628,29 @@ class NEP11DivisibleContract(_NEP11Contract):
 
     def transfer(
         self,
-        source: types.UInt160,
-        destination: types.UInt160,
+        source: types.UInt160 | NeoAddress,
+        destination: types.UInt160 | NeoAddress,
         amount: int,
         token_id: bytes,
         data: Optional[list] = None,
     ) -> ContractMethodResult[bool]:
+        """
+        Transfer `amount` of `token_id` from `source` account to `destination` account.
+
+        For this to pass while using `test_invoke()`, make sure to add a Signer with a script hash equal to the source
+        account. i.e.
+
+            source = <source_script_hash>
+            signer = verification.Signer(source, payloads.WitnessScope.CALLED_BY_ENTRY)
+            await facade.test_invoke(token.transfer(source, destination, 10), signers=[signer]))
+
+        Raises:
+            ValueError if `source` or `destination` is an invalid NeoAddress format
+
+        Returns: True if token fractions transferred successful. False otherwise.
+        """
+        source = _check_address_and_convert(source)
+        destination = _check_address_and_convert(destination)
         sb = vm.ScriptBuilder()
         sb.emit_contract_call_with_args(
             self.hash, "transfer", [source, destination, amount, token_id, data]
@@ -611,24 +673,32 @@ class NEP11DivisibleContract(_NEP11Contract):
         return ContractMethodResult(sb.to_array(), process)
 
     def balance_of(
-        self, owner: types.UInt160, token_id: bytes
+        self, owner: types.UInt160 | NeoAddress, token_id: bytes
     ) -> ContractMethodResult[int]:
         """
         Get the token balance for the given owner
+
+        Raises:
+            ValueError if `owner` is an invalid NeoAddress format
         """
+        owner = _check_address_and_convert(owner)
         sb = vm.ScriptBuilder().emit_contract_call_with_args(
             self.hash, "balanceOf", [owner, token_id]
         )
         return ContractMethodResult(sb.to_array(), unwrap.as_int)
 
     def balance_of_friendly(
-        self, owner: types.UInt160, token_id: bytes
+        self, owner: types.UInt160 | NeoAddress, token_id: bytes
     ) -> ContractMethodResult[float]:
         """
         Get the balance for the given account and convert the result into the user representation
 
         Uses the token decimals to convert to the user end representation
+
+        Raises:
+            ValueError if `owner` is an invalid NeoAddress format
         """
+        owner = _check_address_and_convert(owner)
         sb = vm.ScriptBuilder()
         sb.emit_contract_call_with_args(self.hash, "balanceOf", [owner, token_id])
         sb.emit_contract_call(self.hash, "decimals")
@@ -649,8 +719,27 @@ class NEP11NonDivisibleContract(_NEP11Contract):
     """Base class for non-divisible NFTs"""
 
     def transfer(
-        self, destination: types.UInt160, token_id: str, data: Optional[list] = None
+        self,
+        destination: types.UInt160 | NeoAddress,
+        token_id: str,
+        data: Optional[list] = None,
     ) -> ContractMethodResult[bool]:
+        """
+        Transfer `token_id` to `destination` account.
+        The source account will be the account that pays for the fees (a.k.a the transaction.sender)
+
+        For this to pass while using `test_invoke()`, make sure to add a Signer with a script hash equal to the source
+        account. i.e.
+
+            signer = verification.Signer(source_account, payloads.WitnessScope.CALLED_BY_ENTRY)
+            await facade.test_invoke(token.transfer(destination, token_id, 10), signers=[signer]))
+
+        Raises:
+            ValueError if `destination` is an invalid NeoAddress format
+
+        Returns: True if the token transferred successful. False otherwise.
+        """
+        destination = _check_address_and_convert(destination)
         sb = vm.ScriptBuilder().emit_contract_call_with_args(
             self.hash, "transfer", [destination, token_id, data]
         )
@@ -664,3 +753,10 @@ class NEP11NonDivisibleContract(_NEP11Contract):
             self.hash, "ownerOf", [token_id]
         )
         return ContractMethodResult(sb.to_array(), unwrap.as_uint160)
+
+
+def _check_address_and_convert(value: types.UInt160 | NeoAddress) -> types.UInt160:
+    if isinstance(value, types.UInt160):
+        return value
+    walletutils.validate_address(value)
+    return walletutils.address_to_script_hash(value)
