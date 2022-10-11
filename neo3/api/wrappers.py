@@ -20,7 +20,16 @@ Example:
 """
 
 from __future__ import annotations
-from typing import Callable, Any, TypeVar, Optional, cast, Generic, TypeAlias
+from typing import (
+    Callable,
+    Any,
+    TypeVar,
+    Optional,
+    cast,
+    Generic,
+    TypeAlias,
+)
+import asyncio
 from neo3.api import noderpc, unwrap
 from neo3.network.payloads import verification
 from neo3.wallet import account, utils as walletutils
@@ -56,7 +65,17 @@ class ContractMethodResult(Generic[ReturnType]):
         type(x) # str
     """
 
-    def __init__(self, script: bytes, func: Optional[ExecutionResultParser] = None):
+    def __init__(
+        self,
+        script: bytes,
+        func: Optional[ExecutionResultParser] = None,
+    ):
+        """
+
+        Args:
+            script: VM opcodes to be executed
+            func: post processor function
+        """
         super(ContractMethodResult, self).__init__()
         self.script = script
         self.func = func
@@ -92,6 +111,16 @@ class ChainFacade:
         See Also: invoke()
         """
         return await self._test_invoke(f, signers)
+
+    async def test_invoke_multi(
+        self,
+        f: list[ContractMethodResult],
+        signers: Optional[list[verification.Signer]] = None,
+    ) -> tuple:
+        """
+        Call all contract methods in one go (concurrently) and return the list of results
+        """
+        return await asyncio.gather(*map(lambda c: self.test_invoke(c, signers), f))
 
     async def test_invoke_raw(
         self,
