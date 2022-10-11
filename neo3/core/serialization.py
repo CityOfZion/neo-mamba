@@ -4,6 +4,7 @@ import abc
 import struct
 from io import BytesIO, SEEK_END
 from typing import Type, TypeVar, Optional
+from collections.abc import Sequence
 
 
 ISerializable_T = TypeVar("ISerializable_T", bound="ISerializable")
@@ -647,7 +648,7 @@ class BinaryWriter(object):
         """
         obj_instance.serialize(self)
 
-    def write_serializable_list(self, objects: list[ISerializable_T]) -> None:
+    def write_serializable_list(self, objects: Sequence[ISerializable_T]) -> None:
         """
         Serialize a list of objects and write them to the stream.
 

@@ -4,6 +4,7 @@ from enum import IntEnum
 from neo3.contracts import callflags
 from neo3.core import types, serialization
 from typing import Optional, Iterator
+from collections.abc import Sequence
 
 
 def _syscall_name_to_int(name: str) -> int:
@@ -324,7 +325,7 @@ class ScriptBuilder:
                 self.emit_raw(len_value.to_bytes(4, "little"))
                 self.emit_raw(value)
             return self
-        elif isinstance(value, list):
+        elif isinstance(value, Sequence):
             self.emit(OpCode.NEWARRAY0)
             for v in value:
                 self.emit(OpCode.DUP)
