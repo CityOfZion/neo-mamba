@@ -502,6 +502,11 @@ class _NEP11Contract(_TokenContract):
     Base class for calling NEP-11 compliant smart contracts
 
     NFTs can be divisible or non-divisible which is determined by the value of `decimals()`
+
+    Note: the following 2 common methods defined in the NEP-11 standard have different names to improve discoverability
+         NEP-11 standard    This wrapper
+      1. balanceOf       -> total_owned_by
+      2. tokensOf        -> token_ids_owned_by
     """
 
     def decimals(self) -> ContractMethodResult[int]:
@@ -570,7 +575,11 @@ class _NEP11Contract(_TokenContract):
 
 
 class NEP11DivisibleContract(_NEP11Contract):
-    """Base class for divisible NFTs"""
+    """
+    Base class for divisible NFTs
+
+    The NEP-11 `ownerOf` method is named `owners_of` in this wrapper
+    """
 
     def transfer(
         self,
