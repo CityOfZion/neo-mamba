@@ -1,6 +1,7 @@
 import hashlib
 from neo3.core import types
 from typing import Optional
+from collections.abc import Sequence
 
 
 class _MerkleTreeNode:
@@ -24,7 +25,7 @@ class _MerkleTreeNode:
 
 
 class MerkleTree:
-    def __init__(self, hashes: list[types.UInt256]):
+    def __init__(self, hashes: Sequence[types.UInt256]):
         """
 
         Args:
@@ -69,7 +70,7 @@ class MerkleTree:
             MerkleTree._depth_first_search(node.right_child, hashes)
 
     @staticmethod
-    def _build(leaves: list[_MerkleTreeNode]) -> _MerkleTreeNode:
+    def _build(leaves: Sequence[_MerkleTreeNode]) -> _MerkleTreeNode:
         if len(leaves) == 0:
             raise ValueError("Leaves must have length")
         if len(leaves) == 1:
@@ -95,7 +96,7 @@ class MerkleTree:
         return MerkleTree._build(parents)
 
     @staticmethod
-    def compute_root(hashes: list[types.UInt256]) -> types.UInt256:
+    def compute_root(hashes: Sequence[types.UInt256]) -> types.UInt256:
         """
         Compute the Merkle root hash from a list of hashes.
 

@@ -173,7 +173,7 @@ class TestNeoRpcClient(unittest.IsolatedAsyncioTestCase):
             "0239a37436652f41b3b802ca44cbcb7d65d3aa0b88c9a0380243bdbe1aaa5cb35b",
         ]
         self.mock_response(points)
-        expected = list(
+        expected = tuple(
             map(
                 lambda p: cryptography.ECPoint.deserialize_from_bytes(bytes.fromhex(p)),
                 points,

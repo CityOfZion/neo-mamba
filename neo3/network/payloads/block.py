@@ -3,6 +3,7 @@ import hashlib
 from neo3.core import Size as s, serialization, types, utils, cryptography as crypto
 from neo3.network.payloads import verification, transaction, inventory
 from bitarray import bitarray  # type: ignore
+from collections.abc import Sequence
 
 
 class Header(verification.IVerifiable):
@@ -167,7 +168,7 @@ class Block(inventory.IInventory):
     def __init__(
         self,
         header: Header,
-        transactions: list[transaction.Transaction] = None,
+        transactions: Sequence[transaction.Transaction] = None,
         *args,
         **kwargs,
     ):
@@ -328,7 +329,7 @@ class TrimmedBlock(serialization.ISerializable):
     Contains consensus data and transactions hashes instead of their full objects.
     """
 
-    def __init__(self, header: Header, hashes: list[types.UInt256]):
+    def __init__(self, header: Header, hashes: Sequence[types.UInt256]):
         super(TrimmedBlock, self).__init__()
         self.header = header
         self.hashes = hashes
@@ -357,7 +358,7 @@ class TrimmedBlock(serialization.ISerializable):
             writer: instance.
         """
         writer.write_serializable(self.header)
-        writer.write_serializable_list(self.hashes)
+        writer.write_serializable_list(list(self.hashes))
 
     def deserialize(self, reader: serialization.BinaryReader) -> None:
         """
@@ -425,11 +426,11 @@ class MerkleBlockPayload(serialization.ISerializable):
 class HeadersPayload(serialization.ISerializable):
     MAX_HEADERS_COUNT = 2000
 
-    def __init__(self, headers: list[Header] = None):
+    def __init__(self, headers: Sequence[Header] = None):
         """
         Should not be called directly. Use create() instead.
         """
-        self.headers = headers if headers else []
+        self.headers = list(headers) if headers else []
 
     def __len__(self):
         return utils.get_var_size(self.headers)

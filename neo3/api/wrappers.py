@@ -20,15 +20,8 @@ Example:
 """
 
 from __future__ import annotations
-from typing import (
-    Callable,
-    Any,
-    TypeVar,
-    Optional,
-    cast,
-    Generic,
-    TypeAlias,
-)
+from typing import Callable, Any, TypeVar, Optional, cast, Generic, TypeAlias
+from collections.abc import Sequence
 import asyncio
 from neo3.api import noderpc, unwrap
 from neo3.network.payloads import verification
@@ -101,7 +94,7 @@ class ChainFacade:
     async def test_invoke(
         self,
         f: ContractMethodResult[ReturnType],
-        signers: Optional[list[verification.Signer]] = None,
+        signers: Optional[Sequence[verification.Signer]] = None,
     ) -> ReturnType:
         """
         Call the contract method in read-only mode
@@ -115,7 +108,7 @@ class ChainFacade:
     async def test_invoke_multi(
         self,
         f: list[ContractMethodResult],
-        signers: Optional[list[verification.Signer]] = None,
+        signers: Optional[Sequence[verification.Signer]] = None,
     ) -> tuple:
         """
         Call all contract methods in one go (concurrently) and return the list of results
@@ -125,7 +118,7 @@ class ChainFacade:
     async def test_invoke_raw(
         self,
         f: ContractMethodResult[ReturnType],
-        signers: Optional[list[verification.Signer]] = None,
+        signers: Optional[Sequence[verification.Signer]] = None,
     ) -> noderpc.ExecutionResult:
         """
         Call the contract method in read-only mode
@@ -139,7 +132,7 @@ class ChainFacade:
     async def _test_invoke(
         self,
         f: ContractMethodResult[ReturnType],
-        signers: Optional[list[verification.Signer]] = None,
+        signers: Optional[Sequence[verification.Signer]] = None,
         return_raw: Optional[bool] = False,
     ):
         """
@@ -158,21 +151,21 @@ class ChainFacade:
     async def invoke(
         self,
         f: ContractMethodResult[ReturnType],
-        signers: Optional[list[verification.Signer]] = None,
+        signers: Optional[Sequence[verification.Signer]] = None,
     ) -> types.UInt256:
         raise NotImplementedError
 
     async def invoke_raw(
         self,
         f: ContractMethodResult[ReturnType],
-        signers: Optional[list[verification.Signer]] = None,
+        signers: Optional[Sequence[verification.Signer]] = None,
     ) -> noderpc.ExecutionResult:
         raise NotImplementedError
 
     async def estimate_gas(
         self,
         f: ContractMethodResult,
-        signers: Optional[list[verification.Signer]] = None,
+        signers: Optional[Sequence[verification.Signer]] = None,
     ) -> int:
         """
         Estimates the gas price for calling the contract method
@@ -344,7 +337,7 @@ class NEP17Contract(_TokenContract):
     def transfer_multi(
         self,
         source: types.UInt160 | NeoAddress,
-        destinations: list[types.UInt160 | NeoAddress],
+        destinations: Sequence[types.UInt160 | NeoAddress],
         amount: int,
         abort_on_failure: bool = False,
     ) -> ContractMethodResult[bool]:

@@ -6,6 +6,7 @@ from enum import IntEnum
 from neo3.core import serialization, Size as s, utils
 from neo3.network.payloads import version
 from neo3.network import capabilities
+from collections.abc import Sequence
 
 
 class AddressState(IntEnum):
@@ -179,8 +180,8 @@ class NetworkAddress(serialization.ISerializable):
 
 
 class AddrPayload(serialization.ISerializable):
-    def __init__(self, addresses: list[NetworkAddress]):
-        self.addresses = addresses
+    def __init__(self, addresses: Sequence[NetworkAddress]):
+        self.addresses = list(addresses)
 
     def __len__(self):
         return utils.get_var_size(self.addresses)

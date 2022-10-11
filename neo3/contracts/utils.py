@@ -1,4 +1,5 @@
-import typing
+from typing import Type
+from collections.abc import Sequence
 from neo3.core import types, utils as coreutils, cryptography
 from neo3 import vm
 
@@ -14,14 +15,14 @@ def get_contract_hash(
     return coreutils.to_script_hash(sb.to_array())
 
 
-def validate_type(obj: object, type_: typing.Type):
+def validate_type(obj: object, type_: Type):
     if type(obj) != type_:
         raise ValueError(f"Expected type '{type_}' , got '{type(obj)}' instead")
     return obj
 
 
 def create_multisig_redeemscript(
-    m: int, public_keys: list[cryptography.ECPoint]
+    m: int, public_keys: Sequence[cryptography.ECPoint]
 ) -> bytes:
     """
     Create a multi-signature redeem script requiring `m` signatures from the list `public_keys`.
@@ -53,6 +54,7 @@ def create_multisig_redeemscript(
 
     sb = vm.ScriptBuilder()
     sb.emit_push(m)
+    public_keys = list(public_keys)
     public_keys.sort()
 
     for key in public_keys:
@@ -196,7 +198,7 @@ def parse_as_multisig_contract(
     return True, signature_threshold, public_keys
 
 
-def get_consensus_address(validators: list[cryptography.ECPoint]) -> types.UInt160:
+def get_consensus_address(validators: Sequence[cryptography.ECPoint]) -> types.UInt160:
     script = create_multisig_redeemscript(
         len(validators) - (len(validators) - 1) // 3, validators
     )

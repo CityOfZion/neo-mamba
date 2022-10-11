@@ -1,4 +1,5 @@
 from __future__ import annotations
+from collections.abc import Sequence
 from dataclasses import dataclass
 from neo3.contracts import abi, utils, nef, manifest
 from neo3.core import cryptography, utils as coreutils, types, serialization, Size as s
@@ -24,7 +25,9 @@ CONTRACT_HASHES = _ContractHashes()
 
 
 class Contract:
-    def __init__(self, script: bytes, parameter_list: list[abi.ContractParameterType]):
+    def __init__(
+        self, script: bytes, parameter_list: Sequence[abi.ContractParameterType]
+    ):
         #: The contract instructions (OpCodes)
         self.script = script
         self.parameter_list = parameter_list
@@ -40,7 +43,7 @@ class Contract:
 
     @classmethod
     def create_multisig_contract(
-        cls, m: int, public_keys: list[cryptography.ECPoint]
+        cls, m: int, public_keys: Sequence[cryptography.ECPoint]
     ) -> Contract:
         """
         Create a multi-signature contract requiring `m` signatures from the list `public_keys`.
