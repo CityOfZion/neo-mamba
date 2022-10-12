@@ -8,6 +8,63 @@ from typing import Any, no_type_check, Iterator
 from collections.abc import Sequence
 
 
+class WitnessScope(IntFlag):
+    """
+    Determine the rules for a smart contract :func:`CheckWitness()` sys call.
+    """
+
+    #: No Contract was witnessed. Only sign the transaction.
+    NONE = 0x0
+    #: Allow the witness if the current calling script hash equals the entry script hash into the virtual machine.
+    #: Using this prevents passing :func:`CheckWitness()` in a smart contract called via another smart contract.
+    CALLED_BY_ENTRY = 0x01
+    #: Allow the witness if called from a smart contract that is whitelisted in the signer
+    #: :attr:`~neo3.network.payloads.verification.Signer.allowed_contracts` attribute.
+    CUSTOM_CONTRACTS = 0x10
+    #: Allow the witness if any public key is in the signer
+    #: :attr:`~neo3.network.payloads.verification.Signer.allowed_groups` attribute is whitelisted in the contracts
+    #: manifest.groups array.
+    CUSTOM_GROUPS = 0x20
+    #: Allow the witness if the specified :attr:`~neo3.network.payloads.verification.Signer.rules` are satisfied
+    WITNESS_RULES = 0x40
+    #: Allow the witness in all context. Equal to NEO 2.x's default behaviour.
+    GLOBAL = 0x80
+
+    @no_type_check
+    def to_csharp_name(self) -> str:
+        """
+        Internal helper to match C# convention
+        """
+        if self == 0:
+            return "None"
+        flags = []
+        if self.CALLED_BY_ENTRY in self:
+            flags.append("CalledByEntry")
+        if self.CUSTOM_CONTRACTS in self:
+            flags.append("CustomContracts")
+        if self.CUSTOM_GROUPS in self:
+            flags.append("CustomGroups")
+        if self.GLOBAL in self:
+            flags.append("Global")
+        return ", ".join(flags)
+
+    @classmethod
+    def from_chsarp_name(cls, csharp_name):
+        """
+        Internal helper to parse from C# convention
+        """
+        c = cls(cls.NONE)
+        if "CalledByEntry" in csharp_name:
+            c |= c.CALLED_BY_ENTRY
+        if "CustomContracts" in csharp_name:
+            c |= c.CUSTOM_CONTRACTS
+        if "CustomGroups" in csharp_name:
+            c |= c.CUSTOM_GROUPS
+        if "Global" in csharp_name:
+            c |= c.GLOBAL
+        return c
+
+
 class Signer(serialization.ISerializable, interfaces.IJson):
     """
     A class that specifies who can pass CheckWitness() verifications in a smart contract.
@@ -19,7 +76,7 @@ class Signer(serialization.ISerializable, interfaces.IJson):
     def __init__(
         self,
         account: types.UInt160,
-        scope: WitnessScope = None,
+        scope: WitnessScope = WitnessScope.CALLED_BY_ENTRY,
         allowed_contracts: Sequence[types.UInt160] = None,
         allowed_groups: Sequence[cryptography.ECPoint] = None,
         rules: Sequence[WitnessRule] = None,
@@ -27,7 +84,7 @@ class Signer(serialization.ISerializable, interfaces.IJson):
         #: The TX sender.
         self.account = account
         #: WitnessScope: The configured validation scope.
-        self.scope = scope if scope else WitnessScope.NONE
+        self.scope = scope
         #: list[types.UInt160]: Whitelist of contract script hashes if used with
         #: :const:`~neo3.network.payloads.verification.WitnessScope.CUSTOM_CONTRACTS`.
         self.allowed_contracts = allowed_contracts if allowed_contracts else []
@@ -247,63 +304,6 @@ class Witness(serialization.ISerializable, interfaces.IJson):
     @classmethod
     def _serializable_init(cls):
         return cls(b"", b"")
-
-
-class WitnessScope(IntFlag):
-    """
-    Determine the rules for a smart contract :func:`CheckWitness()` sys call.
-    """
-
-    #: No Contract was witnessed. Only sign the transaction.
-    NONE = 0x0
-    #: Allow the witness if the current calling script hash equals the entry script hash into the virtual machine.
-    #: Using this prevents passing :func:`CheckWitness()` in a smart contract called via another smart contract.
-    CALLED_BY_ENTRY = 0x01
-    #: Allow the witness if called from a smart contract that is whitelisted in the signer
-    #: :attr:`~neo3.network.payloads.verification.Signer.allowed_contracts` attribute.
-    CUSTOM_CONTRACTS = 0x10
-    #: Allow the witness if any public key is in the signer
-    #: :attr:`~neo3.network.payloads.verification.Signer.allowed_groups` attribute is whitelisted in the contracts
-    #: manifest.groups array.
-    CUSTOM_GROUPS = 0x20
-    #: Allow the witness if the specified :attr:`~neo3.network.payloads.verification.Signer.rules` are satisfied
-    WITNESS_RULES = 0x40
-    #: Allow the witness in all context. Equal to NEO 2.x's default behaviour.
-    GLOBAL = 0x80
-
-    @no_type_check
-    def to_csharp_name(self) -> str:
-        """
-        Internal helper to match C# convention
-        """
-        if self == 0:
-            return "None"
-        flags = []
-        if self.CALLED_BY_ENTRY in self:
-            flags.append("CalledByEntry")
-        if self.CUSTOM_CONTRACTS in self:
-            flags.append("CustomContracts")
-        if self.CUSTOM_GROUPS in self:
-            flags.append("CustomGroups")
-        if self.GLOBAL in self:
-            flags.append("Global")
-        return ", ".join(flags)
-
-    @classmethod
-    def from_chsarp_name(cls, csharp_name):
-        """
-        Internal helper to parse from C# convention
-        """
-        c = cls(cls.NONE)
-        if "CalledByEntry" in csharp_name:
-            c |= c.CALLED_BY_ENTRY
-        if "CustomContracts" in csharp_name:
-            c |= c.CUSTOM_CONTRACTS
-        if "CustomGroups" in csharp_name:
-            c |= c.CUSTOM_GROUPS
-        if "Global" in csharp_name:
-            c |= c.GLOBAL
-        return c
 
 
 class WitnessRuleAction(IntEnum):

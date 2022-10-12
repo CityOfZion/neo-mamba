@@ -197,17 +197,15 @@ class Account:
         self.lock = lock
         self.scrypt_parameters = scrypt_parameters
 
-        if not isinstance(contract_, AccountContract):
-            if contract_ is not None:
-                contract_ = AccountContract.from_contract(contract_)
-            elif contract_script is not None:
-                default_parameters_list = [
-                    abi.ContractParameterDefinition(
-                        name="signature", type=abi.ContractParameterType.SIGNATURE
-                    )
-                ]
-                contract_ = AccountContract(contract_script, default_parameters_list)
-
+        if isinstance(contract_, contract.Contract):
+            contract_ = AccountContract.from_contract(contract_)
+        elif contract_script is not None:
+            default_parameters_list = [
+                abi.ContractParameterDefinition(
+                    name="signature", type=abi.ContractParameterType.SIGNATURE
+                )
+            ]
+            contract_ = AccountContract(contract_script, default_parameters_list)
         self.contract: Optional[AccountContract] = contract_
         self.extra = extra if extra else {}
 
@@ -280,8 +278,8 @@ class Account:
         invocation_script = vm.ScriptBuilder().emit_push(signature).to_array()
         # mypy can't infer that the is_watchonly check ensures public_key has a value
         verification_script = contractutils.create_signature_redeemscript(self.public_key)  # type: ignore
-        tx.witnesses.insert(
-            0, verification.Witness(invocation_script, verification_script)
+        tx.witnesses.append(
+            verification.Witness(invocation_script, verification_script)
         )
 
     def sign_multisig_tx(
@@ -349,8 +347,8 @@ class Account:
                 context.signing_threshold, context.expected_public_keys
             )
 
-            tx.witnesses.insert(
-                0, verification.Witness(invocation_script, verification_script)
+            tx.witnesses.append(
+                verification.Witness(invocation_script, verification_script)
             )
 
     def sign(self, data: bytes, password: str) -> bytes:

@@ -24,8 +24,9 @@ from typing import Callable, Any, TypeVar, Optional, cast, Generic, TypeAlias
 from collections.abc import Sequence
 import asyncio
 from neo3.api import noderpc, unwrap
+from neo3.api.helpers import signing, txbuilder
 from neo3.network.payloads import verification
-from neo3.wallet import account, utils as walletutils
+from neo3.wallet import utils as walletutils
 from neo3.wallet.types import NeoAddress
 from neo3.core import types, cryptography, utils as coreutils
 from neo3 import vm
@@ -79,6 +80,8 @@ class ContractMethodResult(Generic[ReturnType]):
 
 _DEFAULT_RPC = "http://seed1.neo.org:10332"
 
+SigningPair: TypeAlias = tuple[signing.SigningFunction, verification.Signer]
+
 
 class ChainFacade:
     """
@@ -90,6 +93,14 @@ class ChainFacade:
     def __init__(self, config: Config):
         self.config = config
         self._signing_func = None
+        self.network = -1
+        self.address_version = -1
+
+    async def init(self) -> None:
+        async with noderpc.NeoRpcClient(self.config.rpc_host) as client:
+            res = await client.get_version()
+            self.network = res.protocol.network
+            self.address_version = res.protocol.address_version
 
     async def test_invoke(
         self,
@@ -151,9 +162,42 @@ class ChainFacade:
     async def invoke(
         self,
         f: ContractMethodResult[ReturnType],
-        signers: Optional[Sequence[verification.Signer]] = None,
+        *,
+        signers: Optional[Sequence[SigningPair]] = None,
+        override_network_fee: int = 0,
+        override_system_fee: int = 0,
+        append_network_fee: int = 0,
+        append_system_fee: int = 0,
     ) -> types.UInt256:
-        raise NotImplementedError
+        async with noderpc.NeoRpcClient(self.config.rpc_host) as client:
+            builder = txbuilder.TxBuilder(client, f.script)
+            await builder.init()
+
+            if signers:
+                for func, signer in signers:
+                    builder.add_signer(func, signer)
+            else:
+                for func, signer in zip(
+                    self.config._signing_funcs, self.config.signers
+                ):
+                    builder.add_signer(func, signer)
+
+            await builder.set_valid_until_block()
+
+            if override_system_fee:
+                builder.tx.system_fee = override_system_fee
+            else:
+                await builder.calculate_system_fee()
+                builder.tx.system_fee += append_system_fee
+
+            if override_network_fee:
+                builder.tx.network_fee = override_network_fee
+            else:
+                await builder.calculate_network_fee()
+                builder.tx.network_fee += append_network_fee
+
+            tx = await builder.build_and_sign()
+            return await client.send_transaction(tx)
 
     async def invoke_raw(
         self,
@@ -186,17 +230,25 @@ class ChainFacade:
 
 
 class Config:
-    def __init__(self, rpc_host: str, acc: account.Account = None):
+    def __init__(self, rpc_host: str):
         self.rpc_host = rpc_host
-        self.account = acc
+        self.signers: list[verification.Signer] = []
+        self._signing_funcs: list[signing.SigningFunction] = []
+        self._test_invoke_signers: list[verification.Signer] = []
 
     @classmethod
     def standard_config(cls):
-        acc = account.Account.watch_only_from_address(
-            "NU7nUXkVLybRA8Bt12dsLtZBrnfuirM57k"
-        )
-        c = cls(_DEFAULT_RPC, acc)
-        return c
+        return cls(_DEFAULT_RPC)
+
+    def add_signer(self, func: signing.SigningFunction, signer: verification.Signer):
+        self._signing_funcs.append(func)
+        self.signers.append(signer)
+
+    def add_test_invoke_signer(self, signer: verification.Signer):
+        """
+        These signers will be used with `test_invoke`
+        """
+        self._test_invoke_signers.append(signer)
 
 
 class GenericContract:
