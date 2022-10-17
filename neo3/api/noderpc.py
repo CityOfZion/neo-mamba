@@ -1024,7 +1024,6 @@ class NeoRpcClient(RPCClient):
         signers = list(map(lambda s: s.to_json(), signers))  # type: ignore
 
         params = [base64.b64encode(script).decode(), signers]
-        print(params[0])
         result = await self._do_post("invokescript", params)
         return ExecutionResultResponse.from_json(result)
 
