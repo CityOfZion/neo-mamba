@@ -235,6 +235,9 @@ class StackItem:
     type: StackItemType
     value: Any
 
+    def __repr__(self):
+        return f"{self.__class__.__name__}(type={self.type.name}, value={self.value})"
+
     def as_bool(self) -> bool:
         if self.type != StackItemType.BOOL:
             raise ValueError(
@@ -891,9 +894,6 @@ class NeoRpcClient(RPCClient):
     ) -> transaction.Transaction:
         """
         Fetch a transaction by its hash.
-
-        Args:
-            tx_hash: as string without "0x" prefix!
         """
         if isinstance(tx_hash, str):
             tx_hash = types.UInt256.from_string(tx_hash)
@@ -903,9 +903,6 @@ class NeoRpcClient(RPCClient):
     async def get_transaction_height(self, tx_hash: types.UInt256 | str) -> int:
         """
         Fetch the height of the block the transaction is included in.
-
-        Args:
-            tx_hash: as string without "0x" prefix!
         """
         if isinstance(tx_hash, str):
             tx_hash = types.UInt256.from_string(tx_hash)
@@ -1027,6 +1024,7 @@ class NeoRpcClient(RPCClient):
         signers = list(map(lambda s: s.to_json(), signers))  # type: ignore
 
         params = [base64.b64encode(script).decode(), signers]
+        print(params[0])
         result = await self._do_post("invokescript", params)
         return ExecutionResultResponse.from_json(result)
 
@@ -1136,9 +1134,33 @@ class NeoRpcClient(RPCClient):
         else:
             return f"Unknown({str(p)}"
 
+    async def get_tx_receipt(self, tx_id: types.UInt256) -> Receipt:
+        log = await self.get_application_log_transaction(tx_id)
+        included_in = await self.get_transaction_height(tx_id)
+        confirmations = await self.get_block_count() - included_in
+
+        return Receipt(tx_id, included_in, confirmations, log.execution)
+
+    async def wait_for_tx_receipt(
+        self, tx_id: types.UInt256, timeout=20, retry_delay=5
+    ) -> Receipt:
+        start = time.time()
+        while time.time() - start < timeout:
+            try:
+                return await self.get_tx_receipt(tx_id)
+            except JsonRpcError as e:
+                if e.message == "Unknown transaction/blockhash":
+                    await asyncio.sleep(retry_delay)
+                else:
+                    raise e
+        else:
+            raise JsonRpcTimeoutError(
+                f"Could not find receipt for {tx_id} within specified timeout of {timeout} seconds"
+            )
+
 
 async def poll_tx_status(
-    tx_id: types.UInt256, client: NeoRpcClient, timeout=20
+    tx_id: types.UInt256, client: NeoRpcClient, timeout=20, retry_delay=5
 ) -> vm.VMState:
     """
     Poll the transaction execution state
@@ -1146,7 +1168,8 @@ async def poll_tx_status(
     Args:
         tx_id: transaction hash to poll the execution status for
         client: an initialized instance
-        timeout: maximum time to poll for status before assuming the transaction failed
+        timeout: maximum time in seconds to poll for status before assuming the transaction failed
+        retry_delay: time in seconds before checking for the state again
 
     Raises:
         JsonRpcTimeoutError: if the timeout threshold is reached
@@ -1159,7 +1182,7 @@ async def poll_tx_status(
             break
         except JsonRpcError as e:
             if e.message == "Unknown transaction/blockhash":
-                await asyncio.sleep(5)
+                await asyncio.sleep(retry_delay)
             else:
                 raise e
     else:
@@ -1167,3 +1190,11 @@ async def poll_tx_status(
             f"Could not find transaction {tx_id} within specified timeout of {timeout} seconds"
         )
     return vm.VMState.from_string(log.execution.state)
+
+
+@dataclass
+class Receipt:
+    tx_hash: types.UInt256
+    included_in_block: int
+    confirmations: int
+    execution: ApplicationExecution
