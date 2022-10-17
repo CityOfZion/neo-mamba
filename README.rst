@@ -1,5 +1,24 @@
-.. image:: https://raw.githubusercontent.com/CityOfZion/visual-identity/develop/_CoZ%20Branding/_Logo/_Logo%20icon/_PNG%20200x178px/CoZ_Icon_DARKBLUE_200x178px.png
-    :alt: CoZ logo
+.. image:: https://www.freepnglogos.com/uploads/under-construction-png/under-construction-sutton-group-heritage-realty-brokerage-durham-region-real-estate-16.png
+    :height: 200px
+    :width: 400 px
+    :alt: under construction
+    :align: center
+
+
+
+The project has pivoted direction to focus on being a light SDK (=not requiring a full chain locally).
+It is nearing the late stages of development before its first release in the new form. Given the large changes there are
+still some important areas that are to be redone completely such as documentation and examples.
+
+Follow the project and check back soon if you're looking to use Python to
+
+* Deploy smart contracts
+* Transfer NEP-11 and NEP-17 tokens
+* Vote for your favourite consensus node
+* Interact with on-chain smart contracts
+* Manage wallets
+* Build and sign specialized transactions
+* and more..
 
 neo-mamba
 -----------
@@ -16,7 +35,7 @@ neo-mamba
 .. image:: https://img.shields.io/badge/code%20style-black-000000.svg
    :target: https://github.com/psf/black
 
-This SDK intends to provide building blocks for Python developers to interact with the NEO blockchain without requiring to run a full node.
+This SDK provides building blocks for Python developers to interact with the NEO blockchain without requiring to run a full node.
 In order to interact with the chain and obtain information it relies heavily on RPC nodes. You can find a list of public RPC nodes `here <https://dora.coz.io/monitor>`_.
 ::
 
@@ -53,13 +72,4 @@ The project uses `Black <https://github.com/psf/black>`_ for code formatting. Yo
 
 Documentation
 -------------
-Install the requirements and build them
-::
-
-   pip install -e .[docs]
-   make docs
-
-FAQ
----
-1. ``make docs`` fails with ``no theme named 'neo3' found (missing theme.conf?)``. -> ``pip install .``.
-Try again.
+External documentation is outdated. Docstrings in source are up to date.
