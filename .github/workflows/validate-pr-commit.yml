@@ -43,7 +43,7 @@ jobs:
       - name: prep for persist
         run: tar -czf mamba.tar.gz mamba
       - name: persist
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: setup-artifact-${{ matrix.os }}
           path: mamba.tar.gz
@@ -51,7 +51,7 @@ jobs:
   linting:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: psf/black@stable
         with:
           src: "neo3/ examples/ tests/"
@@ -60,7 +60,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: restore artifact
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: setup-artifact-ubuntu-latest
       - name: extract & type check
@@ -77,7 +77,7 @@ jobs:
         os: [ ubuntu-latest, windows-latest ]
     steps:
       - name: restore artifact
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: setup-artifact-${{ matrix.os }}
       - if: success() && matrix.os == 'ubuntu-latest'
@@ -101,7 +101,7 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: restore artifact
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: setup-artifact-ubuntu-latest
       - name: check coverage
