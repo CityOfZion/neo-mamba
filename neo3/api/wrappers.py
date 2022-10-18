@@ -23,9 +23,11 @@ from __future__ import annotations
 from typing import Callable, Any, TypeVar, Optional, cast, Generic, TypeAlias
 from collections.abc import Sequence
 import asyncio
+from dataclasses import dataclass
 from neo3.api import noderpc, unwrap
+from neo3.api.helpers import signing, txbuilder
 from neo3.network.payloads import verification
-from neo3.wallet import account, utils as walletutils
+from neo3.wallet import utils as walletutils
 from neo3.wallet.types import NeoAddress
 from neo3.core import types, cryptography, utils as coreutils
 from neo3 import vm
@@ -52,7 +54,7 @@ class ContractMethodResult(Generic[ReturnType]):
 
         def consumer(f: ContractMethodResult[ReturnType]) -> ReturnType:
             res = rpc.invoke_script(f.script)
-            return f.func(res) # unwraps the result as a string
+            return f.execution_processor(res) # unwraps the result as a string
 
         x = consumer(get_name())
         type(x) # str
@@ -61,23 +63,47 @@ class ContractMethodResult(Generic[ReturnType]):
     def __init__(
         self,
         script: bytes,
-        func: Optional[ExecutionResultParser] = None,
+        execution_processor: Optional[ExecutionResultParser] = None,
     ):
         """
 
         Args:
             script: VM opcodes to be executed
-            func: post processor function
+            execution_processor: post processor function
         """
         super(ContractMethodResult, self).__init__()
         self.script = script
-        self.func = func
+        self.execution_processor = execution_processor
+        # TODO: add support for post processing notifications for functions that know will emit notifications
+        self.notification_processor = None
 
     def __call__(self, *args, **kwargs):
         pass
 
 
 _DEFAULT_RPC = "http://seed1.neo.org:10332"
+
+SigningPair: TypeAlias = tuple[signing.SigningFunction, verification.Signer]
+
+
+@dataclass
+class InvokeReceipt(Generic[ReturnType]):
+    tx_hash: types.UInt256
+    included_in_block: int
+    confirmations: int
+    gas_consumed: int
+    #: HALT = SUCCESS, Others = FAILURE
+    state: vm.VMState
+    exception: Optional[str]
+    notifications: list[noderpc.Notification]
+    result: ReturnType
+
+    def __repr__(self):
+        return (
+            f"{self.__class__.__name__}(tx_hash={str(self.tx_hash)}, included_in_block={self.included_in_block}, "
+            f"confirmations={self.confirmations}, gas_consumed={self.gas_consumed}, state={self.state}, "
+            f"exception={self.exception}, notifications={self.notifications}, result={self.result})"
+        )
 
 
 class ChainFacade:
@@ -90,81 +116,283 @@ class ChainFacade:
     def __init__(self, config: Config):
         self.config = config
         self._signing_func = None
+        self.network = -1
+        self.address_version = -1
 
     async def test_invoke(
         self,
         f: ContractMethodResult[ReturnType],
+        *,
         signers: Optional[Sequence[verification.Signer]] = None,
     ) -> ReturnType:
         """
-        Call the contract method in read-only mode
+        Call a contract method in read-only mode
 
         This does not persist any state on the actual chain and therefore does not require signing or paying GAS.
 
-        See Also: invoke()
+        Args:
+            f: function to call
+            signers: manually set the list of signers
+
+        See Also: invoke() - persists state
         """
-        return await self._test_invoke(f, signers)
+        return await self._test_invoke(f, signers=signers)
 
     async def test_invoke_multi(
         self,
         f: list[ContractMethodResult],
+        *,
         signers: Optional[Sequence[verification.Signer]] = None,
     ) -> tuple:
         """
         Call all contract methods in one go (concurrently) and return the list of results
+
+        Args:
+            f: list of functions to call
+            signers: manually set the list of signers
+
+        See Also: invoke_multi() - persists state
         """
-        return await asyncio.gather(*map(lambda c: self.test_invoke(c, signers), f))
+        return await asyncio.gather(
+            *map(lambda c: self.test_invoke(c, signers=signers), f)
+        )
 
     async def test_invoke_raw(
         self,
         f: ContractMethodResult[ReturnType],
+        *,
         signers: Optional[Sequence[verification.Signer]] = None,
     ) -> noderpc.ExecutionResult:
         """
-        Call the contract method in read-only mode
+        Call a contract method in read-only mode
 
         This does not persist any state on the actual chain and therefore does not require signing or paying GAS.
+        Does not post process the execution results.
 
-        See Also: invoke()
+        Args:
+            f: function to call
+            signers: manually set the list of signers
+
+        See Also: invoke_raw() - persists state
         """
-        return await self._test_invoke(f, signers, return_raw=True)
+        return await self._test_invoke(f, signers=signers, return_raw=True)
 
     async def _test_invoke(
         self,
         f: ContractMethodResult[ReturnType],
+        *,
         signers: Optional[Sequence[verification.Signer]] = None,
         return_raw: Optional[bool] = False,
     ):
         """
-        Call the contract method in read-only mode
-
-        This does not persist any state on the actual chain and therefore does not require signing or paying GAS.
-
-        See Also: invoke()
+        return_raw - whether to post process the execution result or not
         """
         async with noderpc.NeoRpcClient(self.config.rpc_host) as client:
             res = await client.invoke_script(f.script, signers)
-            if f.func is None or return_raw:
+            if f.execution_processor is None or return_raw:
                 return res
-            return f.func(res, 0)
+            return f.execution_processor(res, 0)
 
     async def invoke(
         self,
         f: ContractMethodResult[ReturnType],
-        signers: Optional[Sequence[verification.Signer]] = None,
+        *,
+        signers: Optional[Sequence[SigningPair]] = None,
+        network_fee: int = 0,
+        system_fee: int = 0,
+        append_network_fee: int = 0,
+        append_system_fee: int = 0,
+        receipt_time_out: int = 20,
+        receipt_retry_delay: int = 5,
+    ) -> InvokeReceipt[ReturnType]:
+        """
+        Call a contract method and persist results on the chain. Costs GAS.
+        Waits for tx to be included in a block. Automatically post processes the execution results according to the
+        post-processing function of `f` if present.
+
+        Args:
+            f: function to call
+            signers: manually set the list of signers
+            network_fee: manually set the network fee
+            system_fee: manually set the system fee
+            append_network_fee: increase the calculated network fee with this amount
+            append_system_fee: increase the calculated system fee with this amount
+            receipt_time_out: maximum time in seconds to wait for a receipt
+            receipt_retry_delay: time to wait in seconds between attempts to find the transaction on the chain
+
+        Returns:
+            A transaction receipt. The `state` field of the receipt indicates if the transaction script executed
+            successfully. The remaining fields provide additional information such as notifications that happened
+            in the contract
+
+        See Also:
+            invoke_fast() - does not wait for a receipt
+            invoke_raw() - does not wait for a transaction receipt, does not perform post-processing of the execution
+                           results
+        """
+        async with noderpc.NeoRpcClient(self.config.rpc_host) as client:
+            tx_id = await self.invoke_fast(
+                f,
+                signers=signers,
+                network_fee=network_fee,
+                system_fee=system_fee,
+                append_network_fee=append_network_fee,
+                append_system_fee=append_system_fee,
+            )
+            receipt = await client.wait_for_tx_receipt(
+                tx_id, timeout=receipt_time_out, retry_delay=receipt_retry_delay
+            )
+            if f.execution_processor is not None:
+                result = f.execution_processor(receipt.execution, 0)
+            else:
+                # TODO: made this branch to satisfy mypy, but should it really be possible?
+                # this should not every satisfy the return type??
+                # this result should be for `invoke_raw()`
+                # result = receipt.execution
+                raise ValueError("Wait a minute? How did we get here?!")
+            return InvokeReceipt[ReturnType](
+                receipt.tx_hash,
+                receipt.included_in_block,
+                receipt.confirmations,
+                receipt.execution.gas_consumed,
+                receipt.execution.state,
+                receipt.execution.exception,
+                receipt.execution.notifications,
+                result,
+            )
+
+    async def invoke_fast(
+        self,
+        f: ContractMethodResult[ReturnType],
+        *,
+        signers: Optional[Sequence[SigningPair]] = None,
+        network_fee: int = 0,
+        system_fee: int = 0,
+        append_network_fee: int = 0,
+        append_system_fee: int = 0,
     ) -> types.UInt256:
-        raise NotImplementedError
+        """
+        Call a contract method and persist results on the chain. Costs GAS.
+
+        Args:
+            f: function to call
+            signers: manually set the list of signers
+            network_fee: manually set the network fee
+            system_fee: manually set the system fee
+            append_network_fee: increase the calculated network fee with this amount
+            append_system_fee: increase the calculated system fee with this amount
+
+        Returns:
+            a transaction ID if accepted by the network. Acceptance is does not guarantee successful execution.
+            Acceptance means there are no transaction format errors. Use `invoke()` to wait for a receipt. The `state`
+            field of the receipt indicates if the transaction script executed successfully.
+
+        See Also:
+            invoke() - waits for a transaction receipt, performs post-processing of the execution results
+            invoke_raw() - does not wait for a transaction receipt, does not perform post-processing of the execution
+                           results
+        """
+        if network_fee > 0 and append_network_fee > 0:
+            raise ValueError(
+                "network_fee and append_network_fee are mutually exclusive"
+            )
+
+        if system_fee > 0 and append_system_fee > 0:
+            raise ValueError("system_fee and append_system_fee are mutually exclusive")
+
+        async with noderpc.NeoRpcClient(self.config.rpc_host) as client:
+            builder = txbuilder.TxBuilder(client, f.script)
+            await builder.init()
+
+            if signers:
+                for func, signer in signers:
+                    builder.add_signer(func, signer)
+            else:
+                for func, signer in zip(
+                    self.config._signing_funcs, self.config.signers
+                ):
+                    builder.add_signer(func, signer)
+
+            await builder.set_valid_until_block()
+
+            if system_fee > 0:
+                builder.tx.system_fee = system_fee
+            else:
+                await builder.calculate_system_fee()
+                builder.tx.system_fee += append_system_fee
+
+            if network_fee > 0:
+                builder.tx.network_fee = network_fee
+            else:
+                await builder.calculate_network_fee()
+                builder.tx.network_fee += append_network_fee
+
+            tx = await builder.build_and_sign()
+            return await client.send_transaction(tx)
 
     async def invoke_raw(
         self,
         f: ContractMethodResult[ReturnType],
-        signers: Optional[Sequence[verification.Signer]] = None,
-    ) -> noderpc.ExecutionResult:
-        raise NotImplementedError
+        *,
+        signers: Optional[Sequence[SigningPair]] = None,
+        network_fee: int = 0,
+        system_fee: int = 0,
+        append_network_fee: int = 0,
+        append_system_fee: int = 0,
+        receipt_time_out: int = 20,
+        receipt_retry_delay: int = 5,
+    ) -> InvokeReceipt[noderpc.ExecutionResult]:
+        """
+        Call a contract method and persist results on the chain. Costs GAS.
+        Waits for tx to be included in a block. Does not post processes the execution results.
+
+        Args:
+            f: function to call
+            signers: manually set the list of signers
+            network_fee: manually set the network fee
+            system_fee: manually set the system fee
+            append_network_fee: increase the calculated network fee with this amount
+            append_system_fee: increase the calculated system fee with this amount
+            receipt_time_out: maximum time in seconds to wait for a receipt
+            receipt_retry_delay: time to wait in seconds between attempts to find the transaction on the chain
+
+        Returns:
+            A transaction receipt. The `state` field of the receipt indicates if the transaction script executed
+            successfully. The remaining fields provide additional information such as notifications that happened
+            in the contract.
+
+        See Also:
+            invoke() - waits for a transaction receipt, performs post-processing of the execution results
+            invoke_fast() - does not wait for a receipt
+        """
+        async with noderpc.NeoRpcClient(self.config.rpc_host) as client:
+            tx_id = await self.invoke_fast(
+                f,
+                signers=signers,
+                network_fee=network_fee,
+                system_fee=system_fee,
+                append_network_fee=append_network_fee,
+                append_system_fee=append_system_fee,
+            )
+            receipt = await client.wait_for_tx_receipt(
+                tx_id, timeout=receipt_time_out, retry_delay=receipt_retry_delay
+            )
+
+            return InvokeReceipt[noderpc.ExecutionResult](
+                receipt.tx_hash,
+                receipt.included_in_block,
+                receipt.confirmations,
+                receipt.execution.gas_consumed,
+                receipt.execution.state,
+                receipt.execution.exception,
+                receipt.execution.notifications,
+                receipt.execution.stack,
+            )
 
     async def estimate_gas(
         self,
         f: ContractMethodResult,
+        *,
         signers: Optional[Sequence[verification.Signer]] = None,
     ) -> int:
         """
@@ -186,17 +414,25 @@ class ChainFacade:
 
 
 class Config:
-    def __init__(self, rpc_host: str, acc: account.Account = None):
+    def __init__(self, rpc_host: str):
         self.rpc_host = rpc_host
-        self.account = acc
+        self.signers: list[verification.Signer] = []
+        self._signing_funcs: list[signing.SigningFunction] = []
+        self._test_invoke_signers: list[verification.Signer] = []
 
     @classmethod
     def standard_config(cls):
-        acc = account.Account.watch_only_from_address(
-            "NU7nUXkVLybRA8Bt12dsLtZBrnfuirM57k"
-        )
-        c = cls(_DEFAULT_RPC, acc)
-        return c
+        return cls(_DEFAULT_RPC)
+
+    def add_signer(self, func: signing.SigningFunction, signer: verification.Signer):
+        self._signing_funcs.append(func)
+        self.signers.append(signer)
+
+    def add_test_invoke_signer(self, signer: verification.Signer):
+        """
+        These signers will be used with `test_invoke`
+        """
+        self._test_invoke_signers.append(signer)
 
 
 class GenericContract:
@@ -422,9 +658,10 @@ class NeoToken(NEP17Contract):
         self, account: types.UInt160 | NeoAddress, end: Optional[int] = None
     ) -> ContractMethodResult[int]:
         """
-        Get the amount of unclaimed GAS for `account`
+        Get the amount of unclaimed GAS
 
         Args:
+            account: for whom
             end: up to which block height to calculate the GAS bonus. Omit to calculate to the current chain height
 
         Raises:
@@ -743,12 +980,12 @@ class NEP11NonDivisibleContract(_NEP11Contract):
     def transfer(
         self,
         destination: types.UInt160 | NeoAddress,
-        token_id: str,
+        token_id: bytes,
         data: Optional[list] = None,
     ) -> ContractMethodResult[bool]:
         """
         Transfer `token_id` to `destination` account.
-        The source account will be the account that pays for the fees (a.k.a the transaction.sender)
+        The source account will be the account that pays for the fees (a.k.a. the transaction.sender)
 
         For this to pass while using `test_invoke()`, make sure to add a Signer with a script hash equal to the source
         account. i.e.
