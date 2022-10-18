@@ -14,7 +14,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest]
         python-version: ["3.10"]
     steps:
       - name: Checkout code
@@ -63,52 +63,15 @@ jobs:
         uses: jsoref/actions-download-artifact@e8e28081281db717c387052cf471367873957e46
         with:
           name: setup-artifact-ubuntu-latest
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v4.2.0
+        with:
+          python-version: "3.10"
+          check-latest: true
       - name: extract & type check
         run: |
           tar -xf mamba.tar.gz
           cd mamba
           source venv/bin/activate
           make type
-  unit-tests:
-    needs: setup
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ ubuntu-latest, windows-latest ]
-    steps:
-      - name: restore artifact
-        uses: jsoref/actions-download-artifact@e8e28081281db717c387052cf471367873957e46
-        with:
-          name: setup-artifact-${{ matrix.os }}
-      - if: success() && matrix.os == 'ubuntu-latest'
-        name: extract and test
-        run: |
-          tar -xf mamba.tar.gz
-          cd mamba
-          source venv/bin/activate
-          make test
-      - if: success() && matrix.os == 'windows-latest'
-        name: extract and test
-        run: |
-          tar -xf mamba.tar.gz
-          cd mamba
-          venv\Scripts\activate
-          make test
-  coverage:
-    needs: setup
-    runs-on: ubuntu-latest
-    env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    steps:
-      - name: restore artifact
-        uses: jsoref/actions-download-artifact@e8e28081281db717c387052cf471367873957e46
-        with:
-          name: setup-artifact-ubuntu-latest
-      - name: check coverage
-        run: |
-          tar -xf mamba.tar.gz
-          cd mamba
-          source venv/bin/activate
-          coverage run -m unittest discover -v -s tests/
-          pip install coveralls
-          coveralls --service=github
+  
