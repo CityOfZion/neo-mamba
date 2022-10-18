@@ -269,7 +269,7 @@ class Wallet(interfaces.IJson):
         return json_account
 
     @classmethod
-    def from_json(cls, json: dict, password: str = None) -> Wallet:
+    def from_json(cls, json: dict, password: str = None):
         """
         Parse object out of JSON data.
 
@@ -315,6 +315,11 @@ class Wallet(interfaces.IJson):
             default_account=default_account,
             extra=json["extra"],
         )
+
+    @classmethod
+    def from_file(cls, path: str, password: str = None):
+        with open(path, "r") as f:
+            return cls.from_json(json.load(f), password)
 
     def __enter__(self) -> Wallet:
         return self
@@ -363,7 +368,7 @@ class NEP6DiskWallet(Wallet):
             name, extension = os.path.splitext(name)
 
         self.path: str = path
-        super().__init__(
+        super(NEP6DiskWallet, self).__init__(
             name=name,
             version=version,
             scrypt_params=scrypt_params,
@@ -398,3 +403,18 @@ class NEP6DiskWallet(Wallet):
             accounts=[],
             extra=None,
         )
+
+    @classmethod
+    def from_json(cls, json: dict, password: str = None):
+        w = Wallet.from_json(json, password)
+        path = ""
+        return cls(
+            path, w.name, w.version, w.scrypt, w.accounts, w.account_default, w.extra
+        )
+
+    @classmethod
+    def from_file(cls, path: str, password: str = None):
+        with open(path, "r") as f:
+            w = cls.from_json(json.load(f), password)
+            w.path = path
+            return w
