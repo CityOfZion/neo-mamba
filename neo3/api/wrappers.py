@@ -1023,5 +1023,9 @@ class NEP11NonDivisibleContract(_NEP11Contract):
 def _check_address_and_convert(value: types.UInt160 | NeoAddress) -> types.UInt160:
     if isinstance(value, types.UInt160):
         return value
+    if not isinstance(value, str):
+        raise ValueError(
+            f"Input is of type {type(value)} expected UInt160 or NeoAddress(str)"
+        )
     walletutils.validate_address(value)
     return walletutils.address_to_script_hash(value)
