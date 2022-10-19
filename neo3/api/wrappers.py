@@ -136,7 +136,9 @@ class ChainFacade:
 
         See Also: invoke() - persists state
         """
-        return await self._test_invoke(f, signers=signers)
+        if signers is not None:
+            return await self._test_invoke(f, signers=signers)
+        return await self._test_invoke(f, signers=self.config.signers)
 
     async def test_invoke_multi(
         self,
