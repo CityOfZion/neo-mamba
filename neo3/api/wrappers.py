@@ -598,6 +598,7 @@ class NEP17Contract(_TokenContract):
         Returns: True if all transfers are successful. False otherwise.
         """
         sb = vm.ScriptBuilder()
+        source = _check_address_and_convert(source)
         for d in destinations:
             d = _check_address_and_convert(d)
             sb.emit_contract_call_with_args(
