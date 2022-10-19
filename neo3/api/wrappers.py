@@ -136,6 +136,8 @@ class ChainFacade:
 
         See Also: invoke() - persists state
         """
+        if signers is None:
+            signers = self.config.signers
         return await self._test_invoke(f, signers=signers)
 
     async def test_invoke_multi(
@@ -153,6 +155,8 @@ class ChainFacade:
 
         See Also: invoke_multi() - persists state
         """
+        if signers is None:
+            signers = self.config.signers
         return await asyncio.gather(
             *map(lambda c: self.test_invoke(c, signers=signers), f)
         )
@@ -175,6 +179,8 @@ class ChainFacade:
 
         See Also: invoke_raw() - persists state
         """
+        if signers is None:
+            signers = self.config.signers
         return await self._test_invoke(f, signers=signers, return_raw=True)
 
     async def _test_invoke(
