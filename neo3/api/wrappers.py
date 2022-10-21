@@ -31,7 +31,7 @@ from neo3.wallet import utils as walletutils
 from neo3.wallet.types import NeoAddress
 from neo3.core import types, cryptography, utils as coreutils
 from neo3 import vm
-from neo3.contracts import contract, callflags, utils as contractutils
+from neo3.contracts import contract, callflags, utils as contractutils, nef, manifest
 
 
 # result stack index
@@ -251,11 +251,7 @@ class ChainFacade:
             if f.execution_processor is not None:
                 result = f.execution_processor(receipt.execution, 0)
             else:
-                # TODO: made this branch to satisfy mypy, but should it really be possible?
-                # this should not every satisfy the return type??
-                # this result should be for `invoke_raw()`
-                # result = receipt.execution
-                raise ValueError("Wait a minute? How did we get here?!")
+                result = receipt.execution
             return InvokeReceipt[ReturnType](
                 receipt.tx_hash,
                 receipt.included_in_block,
@@ -455,12 +451,82 @@ class GenericContract:
         if args is None:
             script = vm.ScriptBuilder().emit_contract_call(self.hash, name).to_array()
         else:
-            script = (
-                vm.ScriptBuilder()
-                .emit_contract_call_with_args(self.hash, name, args)
-                .to_array()
-            )
+            sb = vm.ScriptBuilder()
+            sb.emit_contract_call_with_args(self.hash, name, args)
+            script = sb.to_array()
         return ContractMethodResult(script)
+
+    def update(
+        self,
+        update_method: str = "update",
+        nef: Optional[nef.NEF] = None,
+        manifest: Optional[manifest.ContractManifest] = None,
+        data: Optional[list] = None,
+    ) -> ContractMethodResult[None]:
+        """
+        Update this contract on chain with a new manifest and/or contract (NEF).
+
+        Assumes the update method on the contract uses the standard arguments; nef, manifest and (optional) data
+        If it uses custom arguments use `call_function` instead.
+
+        Args:
+            update_method: override with name of the update function on the contract
+            nef: compiled contract
+            manifest: contract manifest
+            data: data that is passed to the `_deploy` method of the smart contract (if the method exists)
+        """
+        if nef is None and manifest is None:
+            raise ValueError("NEF and manifest are both None. Nothing to update")
+
+        m: Optional[str] = None
+        if manifest is not None:
+            # convert to the right format as expected by the management contract
+            m = str(manifest)
+
+        sb = vm.ScriptBuilder()
+        sb.emit_contract_call_with_args(self.hash, update_method, [nef, m, data])
+
+        return ContractMethodResult(sb.to_array(), unwrap.as_none)
+
+    def destroy(self, destroy_method: str = "destroy") -> ContractMethodResult[None]:
+        """
+        Destroy the contract on chain.
+
+        This will permanently block the contract hash.
+
+        Args:
+            destroy_method: override with name of the destroy function on the contract
+        """
+        sb = vm.ScriptBuilder().emit_contract_call(self.hash, destroy_method)
+        return ContractMethodResult(sb.to_array(), unwrap.as_none)
+
+    @staticmethod
+    def deploy(
+        nef: nef.NEF,
+        manifest: manifest.ContractManifest,
+        data: Optional[list] = None,
+    ) -> ContractMethodResult[types.UInt160]:
+        """
+        Deploy a smart contract to the chain
+
+        Args:
+            nef: compiled contract
+            manifest: contract manifest file
+            data: data that is passed to the `_deploy` method of the smart contract (if the method exists)
+
+        Returns:
+            contract hash
+        """
+        sb = vm.ScriptBuilder()
+        sb.emit_contract_call_with_args(
+            contract.CONTRACT_HASHES.MANAGEMENT, "deploy", [nef, str(manifest), data]
+        )
+
+        def process(res, _):
+            arr = unwrap.as_list(res)
+            return arr[2].as_uint160()
+
+        return ContractMethodResult(sb.to_array(), process)
 
 
 class _TokenContract(GenericContract):
