@@ -91,7 +91,6 @@ def as_uint256(res: noderpc.ExecutionResult, idx: int = 0) -> types.UInt256:
     Raises:
         ValueError: if the index is out of range, or the value cannot be converted to an UInt256
     """
-
     return item(res, idx).as_uint256()
 
 
@@ -124,7 +123,7 @@ def as_public_key(res: noderpc.ExecutionResult, idx: int = 0) -> cryptography.EC
     return item(res, idx).as_public_key()
 
 
-def as_list(res: noderpc.ExecutionResult, idx: int = 0) -> list:
+def as_list(res: noderpc.ExecutionResult, idx: int = 0) -> list[noderpc.StackItem]:
     """
     Convert the stack item at `idx` to a list
 
@@ -150,6 +149,20 @@ def as_dict(res: noderpc.ExecutionResult, idx: int = 0) -> dict:
 
     """
     return item(res, idx).as_dict()
+
+
+def as_none(res: noderpc.ExecutionResult, idx: int = 0) -> None:
+    """
+    Convert the stack item at `idx` to None
+
+    Args:
+        res:
+        idx: the index in the result stack to fetch the stack item from.
+
+    Raises:
+        ValueError: if the index is out of range, or the value is not None
+    """
+    return item(res, idx).as_none()
 
 
 def item(res: noderpc.ExecutionResult, idx: int = 0) -> noderpc.StackItem:
