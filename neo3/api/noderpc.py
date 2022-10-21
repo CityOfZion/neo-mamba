@@ -297,7 +297,7 @@ class StackItem:
             data = bytes.fromhex(data.decode())
         return cryptography.ECPoint.deserialize_from_bytes(data, validate=True)
 
-    def as_list(self) -> list:
+    def as_list(self) -> list[StackItem]:
         if self.type != StackItemType.ARRAY:
             raise ValueError(
                 f"item is not of type '{StackItemType.ARRAY}' but of type '{self.type}'"
@@ -311,6 +311,15 @@ class StackItem:
             )
         m = cast(MapStackItem, self)
         return dict(m.items())
+
+    def as_none(self) -> None:
+        if self.type != StackItemType.ANY:
+            raise ValueError(
+                f"item is not of type '{StackItemType.ANY}' but of type '{self.type}'"
+            )
+        if self.value is not None:
+            raise ValueError(f"value is not None but of type '{type(self.value)}")
+        return self.value
 
 
 class MapStackItem(StackItem):
