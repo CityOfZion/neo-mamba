@@ -471,5 +471,24 @@ class ContractManifest(serialization.ISerializable, interfaces.IJson):
         return False
 
     @classmethod
+    def from_file(cls, path: str):
+        """
+        create object from a file
+        Args:
+            path: location of the file
+
+        Raises:
+            FileNotFoundError: if the path is invalid
+            ValueError: if the file is not a valid ContractManifest
+        """
+        with open(path, "rb") as f:
+            manifest_bytes = f.read()
+            manifest_json = json.loads(manifest_bytes.decode("utf-8"))
+            try:
+                return cls.from_json(manifest_json)
+            except ValueError as e:
+                raise ValueError(f"Failed manifest validation with: {e}")
+
+    @classmethod
     def _serializable_init(cls):
         return cls()
