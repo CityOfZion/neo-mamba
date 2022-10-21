@@ -133,6 +133,23 @@ class NEF(serialization.ISerializable, interfaces.IJson):
         return cls(json["compiler"], script, tokens, _magic=json["magic"])
 
     @classmethod
+    def from_file(cls, path: str):
+        """
+        create object from a file
+        Args:
+            path: location of the file
+
+        Raises:
+            FileNotFoundError: if the path is invalid
+            ValueError: if the file is not a valid NEF
+        """
+        with open(path, "rb") as f:
+            try:
+                return cls.deserialize_from_bytes(f.read())
+            except ValueError as e:
+                raise ValueError(f"Failed NEF file validation with: {e}")
+
+    @classmethod
     def _serializable_init(cls):
         c = cls()
         c._checksum = 0
