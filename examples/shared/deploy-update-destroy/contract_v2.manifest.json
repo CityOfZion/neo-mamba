@@ -1,0 +1,58 @@
+{
+    "name": "Example Contract",
+    "groups": [],
+    "abi": {
+        "methods": [
+            {
+                "name": "update",
+                "offset": 0,
+                "parameters": [
+                    {
+                        "name": "nef_file",
+                        "type": "ByteArray"
+                    },
+                    {
+                        "name": "manifest",
+                        "type": "ByteArray"
+                    },
+                    {
+                        "name": "data",
+                        "type": "Any"
+                    }
+                ],
+                "returntype": "Void",
+                "safe": false
+            },
+            {
+                "name": "add",
+                "offset": 48,
+                "parameters": [
+                    {
+                        "name": "number",
+                        "type": "Integer"
+                    }
+                ],
+                "returntype": "Integer",
+                "safe": false
+            },
+            {
+                "name": "destroy",
+                "offset": 55,
+                "parameters": [],
+                "returntype": "Void",
+                "safe": false
+            }
+        ],
+        "events": []
+    },
+    "permissions": [
+        {
+            "contract": "*",
+            "methods": "*"
+        }
+    ],
+    "trusts": [],
+    "features": {},
+    "supportedstandards": [],
+    "extra": null
+}

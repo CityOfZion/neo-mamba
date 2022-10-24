@@ -1,3 +1,8 @@
+"""
+This files has 2 examples that show how to transfer NEP-17 tokens for a contract that
+has an existing wrapper (like NEO) and how to transfer for any arbitrary contract that
+implements the NEP-17 standard
+"""
 import asyncio
 from neo3.api.wrappers import Config, ChainFacade, NeoToken, NEP17Contract
 from neo3.api.helpers.signing import sign_insecure_with_account
@@ -23,7 +28,11 @@ async def example_transfer_neo(neoxp: shared.NeoExpress):
     # Dedicated Neo native contract wrapper
     neo = NeoToken()
     print("Calling transfer and waiting for receipt...")
-    print(await facade.invoke(neo.transfer(source, destination, 10)))
+    print(
+        await facade.invoke(
+            neo.transfer(source, destination, 10), receipt_retry_delay=1
+        )
+    )
 
 
 async def example_transfer_other(neoxp: shared.NeoExpress):
@@ -45,11 +54,17 @@ async def example_transfer_other(neoxp: shared.NeoExpress):
 
     # Use the generic NEP17 class to wrap the token and create a similar interface as before
     # The contract hash is that of our sample Nep17 token which is deployed in our neoxpress setup
-    contract_hash = types.UInt160.from_string("0xb31569ff17cde6a3935592608b606ac3cdd591df")
+    contract_hash = types.UInt160.from_string(
+        "0xb31569ff17cde6a3935592608b606ac3cdd591df"
+    )
     token = NEP17Contract(contract_hash)
     # Now call it in the same fashion as before with the NEoToken
     print("Calling transfer and waiting for receipt...")
-    print(await facade.invoke(token.transfer(source, destination, 10)))
+    print(
+        await facade.invoke(
+            token.transfer(source, destination, 10), receipt_retry_delay=1
+        )
+    )
 
 
 if __name__ == "__main__":

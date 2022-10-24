@@ -446,8 +446,17 @@ class GenericContract:
         self.hash = contract_hash
 
     def call_function(
-        self, name, args=None
+        self,
+        name,
+        args: Optional[Sequence] = None,
     ) -> ContractMethodResult[noderpc.ExecutionResult]:
+        """
+        Call a method on the contract
+
+        Args:
+            name: the method name to call as defined in the manifest
+            args: optional list of arguments the function expects
+        """
         if args is None:
             script = vm.ScriptBuilder().emit_contract_call(self.hash, name).to_array()
         else:
