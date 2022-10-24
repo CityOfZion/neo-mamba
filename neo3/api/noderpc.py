@@ -1157,7 +1157,7 @@ class NeoRpcClient(RPCClient):
             try:
                 return await self.get_tx_receipt(tx_id)
             except JsonRpcError as e:
-                if e.message == "Unknown transaction/blockhash":
+                if "Unknown transaction" in e.message:
                     await asyncio.sleep(retry_delay)
                 else:
                     raise e

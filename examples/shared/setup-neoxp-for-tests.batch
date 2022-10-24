@@ -7,3 +7,5 @@ transfer 26000000 gas genesis user
 contract deploy nep17token.nef coz
 transfer 100 neo user NgJ6aLeAi3wJAQ3JbgcWsHGwUT76bvcWMM
 contract invoke ./register-candidate.invoke coz
+
+contract deploy nep11-token/nep11-token.nef coz

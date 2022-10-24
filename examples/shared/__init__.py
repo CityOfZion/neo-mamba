@@ -17,6 +17,10 @@ coz_wallet = Wallet.from_file(f"{shared_dir}/coz-wallet.json", password="123")
 neoxpress_config_path = f"{shared_dir}/default.neo-express"
 neoxpress_batch_path = f"{shared_dir}/setup-neoxp-for-tests.batch"
 coz_token_hash = types.UInt160.from_string("0xb31569ff17cde6a3935592608b606ac3cdd591df")
+# corresponds to the nep-11 token in the `/nep1-token` dir and deployed with the `coz` account
+nep11_token_hash = types.UInt160.from_string(
+    "0x35de2913c480c19a7667da1cc3b2fe3e4c9de761"
+)
 
 
 class NeoExpress:
@@ -67,13 +71,16 @@ class NeoExpress:
             raise ValueError(f"Invalid executable: {full_path}")
 
     def initialize_with(self, batch_path: str):
+        print("executing neo-express batch...", end="")
         cmd = f"neoxp batch -r {batch_path}"
         if sys.platform == "darwin":
             subprocess.run(["bash", "-c", cmd], check=True, stdout=subprocess.DEVNULL)
         else:
             subprocess.run(cmd.split(" "), check=True, stdout=subprocess.DEVNULL)
+        print("done")
 
     def run(self, return_delay=None):
+        print("starting neo-express...", end="")
         cmd = f"neoxp run -i {self.config_path}"
         kwargs = {"check": True}
         if self.debug is False:
@@ -87,13 +94,16 @@ class NeoExpress:
         )
         thread.start()
         time.sleep(return_delay if return_delay else self.return_delay)
+        print("done")
 
     def stop(self):
+        print("stopping neo-express...", end="")
         cmd = f"neoxp stop -a -i {self.config_path}"
         if sys.platform == "darwin":
             subprocess.run(["bash", "-c", cmd], check=True, stdout=subprocess.DEVNULL)
         else:
             subprocess.run(cmd.split(" "), check=True, stdout=subprocess.DEVNULL)
+        print("done")
 
     def __enter__(self):
         if self.batch_path is not None:
