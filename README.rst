@@ -8,7 +8,7 @@
 
 The project has pivoted direction to focus on being a light SDK (=not requiring a full chain locally).
 It is nearing the late stages of development before its first release in the new form. Given the large changes there are
-still some important areas that are to be redone completely such as documentation and examples.
+still some important areas that are to be redone completely such as documentation.
 
 Follow the project and check back soon if you're looking to use Python to
 
