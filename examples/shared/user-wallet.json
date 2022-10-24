@@ -1,0 +1,30 @@
+{
+  "name": "user",
+  "version": "1.0",
+  "scrypt": {
+    "n": 16384,
+    "r": 8,
+    "p": 8
+  },
+  "accounts": [
+    {
+      "address": "Nh5bER811LF2XYBKVkw1YDQmk8pSp15B2U",
+      "label": null,
+      "isDefault": false,
+      "lock": false,
+      "key": "6PYPZFtVe7RcCgxwBQ7q15FSBSVYiTz3RfYW1ri31ey8ckxAmJA6m3tMta",
+      "contract": {
+        "script": "DCECeImeFFgJrHqTjm3/MFlx8F/RSQDX91E24ilhj5EtBdhBVuezJw==",
+        "parameters": [
+          {
+            "name": "parameter0",
+            "type": "Signature"
+          }
+        ],
+        "deployed": false
+      },
+      "extra": {"password_to_unlock":  "123"}
+    }
+  ],
+  "extra": null
+}
