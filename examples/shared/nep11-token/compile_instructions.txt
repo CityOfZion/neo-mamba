@@ -1,0 +1,1 @@
+neo-go contract compile -i nft.go -c nft.yml -m nep11-token.manifest.json -o nep11-token
