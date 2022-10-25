@@ -10,19 +10,13 @@ with
 
 ```python
 if __name__ == "__main__":
-   with shared.NeoExpress(
-        shared.neoxpress_config_path, shared.neoxpress_batch_path
-    ) as neoxp:
-
+   with shared.NeoExpress() as neoxp:
+        asyncio.run(example_airdrop(neoxp))
 ```
 
 update this to include the neoxp executable path
 ```python
 if __name__ == "__main__":
-    with shared.NeoExpress(
-        shared.neoxpress_config_path,
-        shared.neoxpress_batch_path,
-        "path_to_neoxp_executable",
-    ) as neoxp:
-        asyncio.run(main(neoxp))
+    with shared.NeoExpress.at("path_to_neoxp_executable") as neoxp:
+        asyncio.run(example_airdrop(neoxp))
 ```

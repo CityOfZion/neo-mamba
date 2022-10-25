@@ -28,15 +28,17 @@ class NeoExpress:
 
     def __init__(
         self,
-        config_path: str,
+        config_path: Optional[str] = None,
         batch_path: Optional[str] = None,
         executable_path: Optional[str] = None,
         return_delay: int = 1,
         debug: bool = False,
     ):
         self.prog = "neoxp"
-        self.config_path = config_path
-        self.batch_path = batch_path
+        self.config_path = (
+            config_path if config_path is not None else neoxpress_config_path
+        )
+        self.batch_path = batch_path if batch_path is not None else neoxpress_batch_path
         self.return_delay = return_delay
         self.debug = debug
 
@@ -104,6 +106,17 @@ class NeoExpress:
         else:
             subprocess.run(cmd.split(" "), check=True, stdout=subprocess.DEVNULL)
         print("done")
+
+    @classmethod
+    def at(
+        cls,
+        executable_path: str,
+        config_path: Optional[str] = None,
+        batch_path: Optional[str] = None,
+        return_delay: int = 1,
+        debug: bool = False,
+    ):
+        return cls(config_path, batch_path, executable_path, return_delay, debug)
 
     def __enter__(self):
         if self.batch_path is not None:

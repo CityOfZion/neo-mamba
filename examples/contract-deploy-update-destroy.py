@@ -67,9 +67,5 @@ async def main(neoxp: shared.NeoExpress):
 
 
 if __name__ == "__main__":
-    with shared.NeoExpress(
-        shared.neoxpress_config_path,
-        shared.neoxpress_batch_path,
-        "path_to_neoxp_executable",
-    ) as neoxp:
+    with shared.NeoExpress() as neoxp:
         asyncio.run(main(neoxp))

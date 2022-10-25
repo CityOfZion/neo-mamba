@@ -70,7 +70,5 @@ async def example_airdrop(neoxp: shared.NeoExpress):
 
 
 if __name__ == "__main__":
-    with shared.NeoExpress(
-        shared.neoxpress_config_path, shared.neoxpress_batch_path
-    ) as neoxp:
+    with shared.NeoExpress() as neoxp:
         asyncio.run(example_airdrop(neoxp))
