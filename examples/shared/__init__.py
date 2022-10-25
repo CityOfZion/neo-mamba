@@ -16,8 +16,8 @@ user_wallet = Wallet.from_file(f"{shared_dir}/user-wallet.json", password="123")
 coz_wallet = Wallet.from_file(f"{shared_dir}/coz-wallet.json", password="123")
 neoxpress_config_path = f"{shared_dir}/default.neo-express"
 neoxpress_batch_path = f"{shared_dir}/setup-neoxp-for-tests.batch"
-coz_token_hash = types.UInt160.from_string("0xb31569ff17cde6a3935592608b606ac3cdd591df")
-# corresponds to the nep-11 token in the `/nep1-token` dir and deployed with the `coz` account
+coz_token_hash = types.UInt160.from_string("0x41ee5befd936c90f15893261abbd681f20ed0429")
+# corresponds to the nep-11 token in the `/nep11-token/` dir and deployed with the `coz` account
 nep11_token_hash = types.UInt160.from_string(
     "0x35de2913c480c19a7667da1cc3b2fe3e4c9de761"
 )

@@ -30,23 +30,23 @@ async def example_airdrop(neoxp: shared.NeoExpress):
     # We do this by sending NEO to the contract
     # We increase the retry delay to match our local chain block production time
     neo = NeoToken()
-    print("Minting..", end="")
-    print(
-        await facade.invoke(
-            neo.transfer(
-                source=account.address, destination=shared.coz_token_hash, amount=100
-            ),
-            receipt_retry_delay=1,
-        )
+    print("Minting once...", end="")
+    receipt = await facade.invoke(
+        neo.transfer(
+            source=account.address, destination=shared.coz_token_hash, amount=100
+        ),
+        receipt_retry_delay=1,
     )
-    print(
-        await facade.invoke(
-            neo.transfer(
-                source=account.address, destination=shared.coz_token_hash, amount=100
-            ),
-            receipt_retry_delay=1,
-        )
+    print(receipt.result)
+    print("Minting twice...", end="")
+    receipt = await facade.invoke(
+        neo.transfer(
+            source=account.address, destination=shared.coz_token_hash, amount=100
+        ),
+        receipt_retry_delay=1,
     )
+
+    print(receipt.result)
 
     balance = await facade.test_invoke(token.balance_of(account.address))
     print(f"New COZ token balance: {balance}")
@@ -73,4 +73,3 @@ if __name__ == "__main__":
         shared.neoxpress_config_path, shared.neoxpress_batch_path
     ) as neoxp:
         asyncio.run(example_airdrop(neoxp))
-    # asyncio.run(example_airdrop(shared.NeoExpress(shared.neoxpress_config_path)))

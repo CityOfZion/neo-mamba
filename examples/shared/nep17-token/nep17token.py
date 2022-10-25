@@ -1,4 +1,4 @@
-from typing import Any, Union
+from typing import Any, Union, cast
 
 from boa3.builtin import NeoMetadata, metadata, public
 from boa3.builtin.contract import Nep17TransferEvent, abort
@@ -258,7 +258,7 @@ def _deploy(data: Any, update: bool):
 
 
 @public
-def onNEP17Payment(from_address: UInt160, amount: int, data: Any):
+def onNEP17Payment(from_address: Union[UInt160, None], amount: int, data: Any):
     """
     NEP-17 affirms :"if the receiver is a deployed contract, the function MUST call onPayment method on receiver
     contract with the data parameter from transfer AFTER firing the Transfer event. If the receiver doesn't want to
@@ -276,12 +276,16 @@ def onNEP17Payment(from_address: UInt160, amount: int, data: Any):
     :param data: any pertinent data that might validate the transaction
     :type data: Any
     """
+    # can happen when minting (e.g. GAS rewards for holding NEO)
+    if from_address is None:
+        return
+    from_addr = cast(UInt160, from_address)
     # Use calling_script_hash to identify if the incoming token is NEO or GAS
     if runtime.calling_script_hash == NEO_SCRIPT:
         corresponding_amount = amount * AMOUNT_PER_NEO
-        mint(from_address, corresponding_amount)
+        mint(from_addr, corresponding_amount)
     elif runtime.calling_script_hash == GAS_SCRIPT:
         corresponding_amount = amount * AMOUNT_PER_GAS
-        mint(from_address, corresponding_amount)
+        mint(from_addr, corresponding_amount)
     else:
         abort()
