@@ -1,5 +1,5 @@
 """
-This example shows how to send NFTs to multiple accounts in one go.
+This example shows how to send NFTs to multiple accounts in one go (airdrop).
 """
 import asyncio
 from neo3.api.wrappers import Config, ChainFacade, GasToken, NEP11NonDivisibleContract
@@ -9,7 +9,6 @@ from examples import shared
 
 
 async def example_airdrop(neoxp: shared.NeoExpress):
-    # This example shows how to airdrop NEP-11 tokens
     wallet = shared.user_wallet
     account = wallet.account_default
 
@@ -20,17 +19,17 @@ async def example_airdrop(neoxp: shared.NeoExpress):
     )
     facade = ChainFacade(config)
 
-    # Use the generic NEP17 class to wrap the token
-    token = NEP11NonDivisibleContract(shared.nep11_token_hash)
-    balance = len(await facade.test_invoke(token.token_ids_owned_by(account.address)))
+    # Wrap the NFT contract
+    ntf = NEP11NonDivisibleContract(shared.nep11_token_hash)
+    balance = len(await facade.test_invoke(ntf.token_ids_owned_by(account.address)))
     print(f"Current NFT balance: {balance}")
 
-    # First we have to mint the tokens to our own wallet
+    # First we have to mint the NFTs to our own wallet
     # We do this by sending 10 GAS to the contract. We do this in 2 separate transactions because the NFT is
     # in part generated based on the transaction hash
     # We increase the retry delay to match our local chain block production time
     gas = GasToken()
-    print("Minting token 1..", end="")
+    print("Minting NFT 1..", end="")
     receipt = await facade.invoke(
         gas.transfer(
             source=account.address,
@@ -40,7 +39,7 @@ async def example_airdrop(neoxp: shared.NeoExpress):
         receipt_retry_delay=1,
     )
     print(receipt.result)
-    print("Minting token 2..", end="")
+    print("Minting NFT 2..", end="")
     receipt = await facade.invoke(
         gas.transfer(
             source=account.address,
@@ -50,23 +49,23 @@ async def example_airdrop(neoxp: shared.NeoExpress):
         receipt_retry_delay=1,
     )
     print(receipt.result)
-    token_ids = await facade.test_invoke(token.token_ids_owned_by(account.address))
+    token_ids = await facade.test_invoke(ntf.token_ids_owned_by(account.address))
     print(f"New NFT token balance: {len(token_ids)}, ids: {token_ids}")
 
-    # Now let's airdrop the tokens
+    # Now let's airdrop the NFTs
     destination_addresses = [
         "NWuHQdxabXPdC6vVwJhxjYELDQPqc1d4TG",
         "NhVnpBxSRjkScZKHGzsEreYAMS1qRrNdaH",
     ]
     print("Airdropping 1 NFT to each address and waiting for receipt...", end="")
     receipt = await facade.invoke(
-        token.transfer_multi(destination_addresses, token_ids),
+        ntf.transfer_multi(destination_addresses, token_ids),
         receipt_retry_delay=1,
     )
     print(receipt.result)
 
     for d in destination_addresses:
-        nft = await facade.test_invoke(token.token_ids_owned_by(d))
+        nft = await facade.test_invoke(ntf.token_ids_owned_by(d))
         print(f"Address: {d} owns NFT: {nft}")
 
 
