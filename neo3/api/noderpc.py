@@ -1145,20 +1145,20 @@ class NeoRpcClient(RPCClient):
         else:
             return f"Unknown({str(p)}"
 
-    async def get_tx_receipt(self, tx_id: types.UInt256) -> Receipt:
+    async def get_transaction_receipt(self, tx_id: types.UInt256) -> Receipt:
         log = await self.get_application_log_transaction(tx_id)
         included_in = await self.get_transaction_height(tx_id)
         confirmations = await self.get_block_count() - included_in
 
         return Receipt(tx_id, included_in, confirmations, log.execution)
 
-    async def wait_for_tx_receipt(
+    async def wait_for_transaction_receipt(
         self, tx_id: types.UInt256, timeout=20, retry_delay=5
     ) -> Receipt:
         start = time.time()
         while time.time() - start < timeout:
             try:
-                return await self.get_tx_receipt(tx_id)
+                return await self.get_transaction_receipt(tx_id)
             except JsonRpcError as e:
                 if e.message == "Unknown transaction/blockhash":
                     await asyncio.sleep(retry_delay)

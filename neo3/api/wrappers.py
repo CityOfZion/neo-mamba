@@ -248,7 +248,7 @@ class ChainFacade:
                 append_network_fee=append_network_fee,
                 append_system_fee=append_system_fee,
             )
-            receipt = await client.wait_for_tx_receipt(
+            receipt = await client.wait_for_transaction_receipt(
                 tx_id, timeout=receipt_time_out, retry_delay=receipt_retry_delay
             )
             if f.execution_processor is not None:
@@ -379,7 +379,7 @@ class ChainFacade:
                 append_network_fee=append_network_fee,
                 append_system_fee=append_system_fee,
             )
-            receipt = await client.wait_for_tx_receipt(
+            receipt = await client.wait_for_transaction_receipt(
                 tx_id, timeout=receipt_time_out, retry_delay=receipt_retry_delay
             )
 
