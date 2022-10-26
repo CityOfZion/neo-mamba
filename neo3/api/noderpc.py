@@ -4,7 +4,7 @@ import base64
 import asyncio
 import datetime
 import time
-from enum import Enum
+from enum import Enum, IntEnum
 from contextlib import suppress
 from dataclasses import dataclass
 from typing import Optional, TypedDict, Any, Protocol, Iterator, Union, cast
@@ -557,6 +557,9 @@ class _ContractParameter(interfaces.IJson):
         if isinstance(obj, bool):
             self.type = abi.ContractParameterType.BOOLEAN
             self.value = obj
+        elif isinstance(obj, IntEnum):
+            self.type = abi.ContractParameterType.INTEGER
+            self.value = str(obj.value)
         elif isinstance(obj, int):
             self.type = abi.ContractParameterType.INTEGER
             self.value = str(obj)
