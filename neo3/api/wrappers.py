@@ -2,7 +2,9 @@
 Convenience wrappers for calling smart contracts via RPC.
 
 * The most specific wrappers in this module are for NEOs native contracts
-  * NeoToken, GasToken TODO: add remaining contracts
+  * NeoToken, GasToken, PolicyContract and RoleManagement
+  * The ContractManagement and Ledger contracts are not wrapped. See the FAQ for the reasons
+
 * One step up are wrappers for contracts following the NEP-17 Token standard (`NEP17Contract`) and NEP-11 NFT standard
 (`NEP11DivisibleContract` & `NEP11NonDivisibleContract`)
 * As last resort there is the `GenericContract` which can be used for calling arbitrary functions on arbitrary contracts
@@ -23,6 +25,7 @@ from __future__ import annotations
 from typing import Callable, Any, TypeVar, Optional, cast, Generic, TypeAlias
 from collections.abc import Sequence
 import asyncio
+from enum import IntEnum
 from dataclasses import dataclass
 from neo3.api import noderpc
 from neo3.api.helpers import signing, txbuilder, unwrap
@@ -1136,3 +1139,35 @@ class PolicyContract(GenericContract):
         sb = vm.ScriptBuilder()
         sb.emit_contract_call_with_args(self.hash, "isBlocked", [script_hash])
         return ContractMethodResult(sb.to_array(), unwrap.as_bool)
+
+
+class DesignateRole(IntEnum):
+    STATE_VALIDATOR = 4
+    ORACLE = 8
+    NEO_FS_ALPHABET_NODE = 16
+
+
+class RoleContract(GenericContract):
+    """
+    Wrapper around the native Role management contract
+    """
+
+    def __init__(self):
+        super(RoleContract, self).__init__(contract.CONTRACT_HASHES.ROLE_MANAGEMENT)
+
+    def get_designated_by_role(
+        self, role: DesignateRole, block_index: int
+    ) -> ContractMethodResult[list[cryptography.ECPoint]]:
+        """
+        Gets the public keys registered for a given role at a given height.
+        """
+        sb = vm.ScriptBuilder()
+        sb.emit_contract_call_with_args(
+            self.hash, "getDesignatedByRole", [role, block_index]
+        )
+
+        def process(res: noderpc.ExecutionResult, _: int):
+            arr = unwrap.as_list(res)
+            return list(map(lambda x: x.as_public_key(), arr))
+
+        return ContractMethodResult(sb.to_array(), process)
