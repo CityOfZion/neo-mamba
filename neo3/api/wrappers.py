@@ -1096,3 +1096,43 @@ def _check_address_and_convert(value: types.UInt160 | NeoAddress) -> types.UInt1
         )
     walletutils.validate_address(value)
     return walletutils.address_to_script_hash(value)
+
+
+class PolicyContract(GenericContract):
+    """
+    Wrapper around the native contract that manages system policies
+
+    Note: functions that only consensus committee members can use are not implemented
+    """
+
+    def __init__(self):
+        super(PolicyContract, self).__init__(contract.CONTRACT_HASHES.POLICY)
+
+    def fee_per_byte(self) -> ContractMethodResult[int]:
+        """
+        The fee per transaction byte
+        """
+        sb = vm.ScriptBuilder().emit_contract_call(self.hash, "getFeePerByte")
+        return ContractMethodResult(sb.to_array(), unwrap.as_int)
+
+    def exec_fee_factor(self) -> ContractMethodResult[int]:
+        """
+        The system fee multiplier for transactions
+        """
+        sb = vm.ScriptBuilder().emit_contract_call(self.hash, "getExecFeeFactor")
+        return ContractMethodResult(sb.to_array(), unwrap.as_int)
+
+    def storage_price(self) -> ContractMethodResult[int]:
+        """
+        The price per byte of smart contract storage
+        """
+        sb = vm.ScriptBuilder().emit_contract_call(self.hash, "getStoragePrice")
+        return ContractMethodResult(sb.to_array(), unwrap.as_int)
+
+    def is_blocked(self, script_hash: types.UInt160) -> ContractMethodResult[bool]:
+        """
+        Check if an account or contract is blocked on the network
+        """
+        sb = vm.ScriptBuilder()
+        sb.emit_contract_call_with_args(self.hash, "isBlocked", [script_hash])
+        return ContractMethodResult(sb.to_array(), unwrap.as_bool)
