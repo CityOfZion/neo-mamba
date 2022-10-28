@@ -1,4 +1,5 @@
-This directory contains examples how to perform common actions on the NEO blockchain. 
+The modules in the root of this directory contain examples how to perform common actions on the NEO blockchain. 
+The `shared` package contains all the test data and wallets to setup the private network and can be ignored.
 
 **Requirements**
 
