@@ -1,7 +1,6 @@
 from .noderpc import (
     NeoRpcClient,
     JsonRpcError,
-    poll_tx_status,
     StackItem,
     StackItemType,
 )
@@ -9,7 +8,6 @@ from .noderpc import (
 __all__ = [
     "NeoRpcClient",
     "JsonRpcError",
-    "poll_tx_status",
     "StackItem",
     "StackItemType",
 ]

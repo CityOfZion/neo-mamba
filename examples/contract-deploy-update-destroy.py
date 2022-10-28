@@ -32,9 +32,7 @@ async def main(neoxp: shared.NeoExpress):
         files_path + "contract_v1.manifest.json"
     )
     print("Deploying contract v1...", end="")
-    receipt = await facade.invoke(
-        GenericContract.deploy(nef_v1, manifest_v1), receipt_retry_delay=1
-    )
+    receipt = await facade.invoke(GenericContract.deploy(nef_v1, manifest_v1))
     contract_hash = receipt.result
     print(f"contract hash = {contract_hash}")
 
@@ -50,9 +48,7 @@ async def main(neoxp: shared.NeoExpress):
         files_path + "contract_v2.manifest.json"
     )
     # updating doesn't give any return value. So if it doens't fail then it means success
-    await facade.invoke(
-        contract.update(nef=nef_v2, manifest=manifest_v2), receipt_retry_delay=1
-    )
+    await facade.invoke(contract.update(nef=nef_v2, manifest=manifest_v2))
     print("done")
 
     print("Calling `add` with input 1, result is: ", end="")
@@ -62,7 +58,7 @@ async def main(neoxp: shared.NeoExpress):
 
     print("Destroying contract...", end="")
     # destroy also doesn't give any return value. So if it doens't fail then it means success
-    await facade.invoke(contract.destroy(), receipt_retry_delay=1)
+    await facade.invoke(contract.destroy())
     print("done")
 
 
