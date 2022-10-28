@@ -1170,39 +1170,6 @@ class NeoRpcClient(RPCClient):
             )
 
 
-async def poll_tx_status(
-    tx_id: types.UInt256, client: NeoRpcClient, timeout=20, retry_delay=5
-) -> vm.VMState:
-    """
-    Poll the transaction execution state
-
-    Args:
-        tx_id: transaction hash to poll the execution status for
-        client: an initialized instance
-        timeout: maximum time in seconds to poll for status before assuming the transaction failed
-        retry_delay: time in seconds before checking for the state again
-
-    Raises:
-        JsonRpcTimeoutError: if the timeout threshold is reached
-        JsonRpcError: if any unexpected error occurs on the RpcNode e.g. because the right plugin is not installed
-    """
-    start = time.time()
-    while time.time() - start < timeout:
-        try:
-            log = await client.get_application_log_transaction(tx_id)
-            break
-        except JsonRpcError as e:
-            if e.message == "Unknown transaction/blockhash":
-                await asyncio.sleep(retry_delay)
-            else:
-                raise e
-    else:
-        raise JsonRpcTimeoutError(
-            f"Could not find transaction {tx_id} within specified timeout of {timeout} seconds"
-        )
-    return vm.VMState.from_string(log.execution.state)
-
-
 @dataclass
 class Receipt:
     tx_hash: types.UInt256
