@@ -646,9 +646,11 @@ class NEP17Contract(_TokenContract):
         source: types.UInt160 | NeoAddress,
         destination: types.UInt160 | NeoAddress,
         amount: int,
+        data: Optional[list] = None,
     ) -> ContractMethodResult[bool]:
         """
         Transfer `amount` of tokens from `source` account to `destination` account.
+        Forward `data` to `onNEP17Payment` handler if applicable.
 
         For this to pass while using `test_invoke()`, make sure to add a Signer with a script hash equal to the source
         account. i.e.
@@ -666,7 +668,7 @@ class NEP17Contract(_TokenContract):
         destination = _check_address_and_convert(destination)
 
         sb = vm.ScriptBuilder().emit_contract_call_with_args(
-            self.hash, "transfer", [source, destination, amount, None]
+            self.hash, "transfer", [source, destination, amount, data]
         )
         return ContractMethodResult(sb.to_array(), unwrap.as_bool)
 
@@ -675,6 +677,7 @@ class NEP17Contract(_TokenContract):
         source: types.UInt160 | NeoAddress,
         destinations: Sequence[types.UInt160 | NeoAddress],
         amount: int,
+        data: Optional[list] = None,
         abort_on_failure: bool = False,
     ) -> ContractMethodResult[bool]:
         """
@@ -684,6 +687,7 @@ class NEP17Contract(_TokenContract):
             source: account to take funds from
             destinations: accounts to send funds to
             amount: how much to transfer
+            data: forward to `onNEP17Payment` handler if applicable.
             abort_on_failure: if True aborts the whole transaction if any of the transfers fails.
 
         Raises:
@@ -696,7 +700,7 @@ class NEP17Contract(_TokenContract):
         for d in destinations:
             d = _check_address_and_convert(d)
             sb.emit_contract_call_with_args(
-                self.hash, "transfer", [source, d, amount, None]
+                self.hash, "transfer", [source, d, amount, data]
             )
             if abort_on_failure:
                 sb.emit(vm.OpCode.ASSERT)
