@@ -449,8 +449,17 @@ class GenericContract:
         self.hash = contract_hash
 
     def call_function(
-        self, name, args=None
+        self,
+        name,
+        args: Optional[Sequence] = None,
     ) -> ContractMethodResult[noderpc.ExecutionResult]:
+        """
+        Call a method on the contract
+
+        Args:
+            name: the method name to call as defined in the manifest
+            args: optional list of arguments the function expects
+        """
         if args is None:
             script = vm.ScriptBuilder().emit_contract_call(self.hash, name).to_array()
         else:
@@ -1079,6 +1088,40 @@ class NEP11NonDivisibleContract(_NEP11Contract):
             self.hash, "transfer", [destination, token_id, data]
         )
         return ContractMethodResult(sb.to_array(), unwrap.as_bool)
+
+    def transfer_multi(
+        self,
+        destinations: Sequence[types.UInt160 | NeoAddress],
+        token_ids: list[bytes],
+        data: Optional[list] = None,
+        abort_on_failure: bool = False,
+    ) -> ContractMethodResult[bool]:
+
+        sb = vm.ScriptBuilder()
+        for d, t in zip(destinations, token_ids):
+            d = _check_address_and_convert(d)
+            sb.emit_contract_call_with_args(self.hash, "transfer", [d, t, data])
+            if abort_on_failure:
+                sb.emit(vm.OpCode.ASSERT)
+
+        # when abort_on_failure is used the result of the `transfer()` call is consumed by the ASSERT opcode
+        # and the `stack` will be empty. Therefore, we only check for the VM state
+        def process_with_assert(res: noderpc.ExecutionResult, _: int = 0) -> bool:
+            unwrap.check_state_ok(res)
+            return True
+
+        # when abort_on_failure is not used we iterate over all transfer() results
+        def process(res: noderpc.ExecutionResult, _: int = 0) -> bool:
+            unwrap.check_state_ok(res)
+            for si in res.stack:
+                if si.as_bool() is False:
+                    return False
+            return True
+
+        if abort_on_failure:
+            return ContractMethodResult(sb.to_array(), process_with_assert)
+        else:
+            return ContractMethodResult(sb.to_array(), process)
 
     def owner_of(self, token_id: bytes) -> ContractMethodResult[types.UInt160]:
         """

@@ -1,0 +1,152 @@
+{
+    "name": "COZ Token",
+    "groups": [],
+    "abi": {
+        "methods": [
+            {
+                "name": "symbol",
+                "offset": 0,
+                "parameters": [],
+                "returntype": "String",
+                "safe": true
+            },
+            {
+                "name": "decimals",
+                "offset": 2,
+                "parameters": [],
+                "returntype": "Integer",
+                "safe": true
+            },
+            {
+                "name": "totalSupply",
+                "offset": 4,
+                "parameters": [],
+                "returntype": "Integer",
+                "safe": true
+            },
+            {
+                "name": "balanceOf",
+                "offset": 27,
+                "parameters": [
+                    {
+                        "name": "account",
+                        "type": "Hash160"
+                    }
+                ],
+                "returntype": "Integer",
+                "safe": true
+            },
+            {
+                "name": "transfer",
+                "offset": 59,
+                "parameters": [
+                    {
+                        "name": "from_address",
+                        "type": "Hash160"
+                    },
+                    {
+                        "name": "to_address",
+                        "type": "Hash160"
+                    },
+                    {
+                        "name": "amount",
+                        "type": "Integer"
+                    },
+                    {
+                        "name": "data",
+                        "type": "Any"
+                    }
+                ],
+                "returntype": "Boolean",
+                "safe": false
+            },
+            {
+                "name": "verify",
+                "offset": 413,
+                "parameters": [],
+                "returntype": "Boolean",
+                "safe": false
+            },
+            {
+                "name": "_deploy",
+                "offset": 518,
+                "parameters": [
+                    {
+                        "name": "data",
+                        "type": "Any"
+                    },
+                    {
+                        "name": "update",
+                        "type": "Boolean"
+                    }
+                ],
+                "returntype": "Void",
+                "safe": false
+            },
+            {
+                "name": "onNEP17Payment",
+                "offset": 420,
+                "parameters": [
+                    {
+                        "name": "from_address",
+                        "type": "Any"
+                    },
+                    {
+                        "name": "amount",
+                        "type": "Integer"
+                    },
+                    {
+                        "name": "data",
+                        "type": "Any"
+                    }
+                ],
+                "returntype": "Void",
+                "safe": false
+            },
+            {
+                "name": "_initialize",
+                "offset": 570,
+                "parameters": [],
+                "returntype": "Void",
+                "safe": false
+            }
+        ],
+        "events": [
+            {
+                "name": "Transfer",
+                "parameters": [
+                    {
+                        "name": "from_addr",
+                        "type": "Any"
+                    },
+                    {
+                        "name": "to_addr",
+                        "type": "Any"
+                    },
+                    {
+                        "name": "amount",
+                        "type": "Integer"
+                    }
+                ]
+            }
+        ]
+    },
+    "permissions": [
+        {
+            "contract": "*",
+            "methods": [
+                "onNEP17Payment"
+            ]
+        }
+    ],
+    "trusts": [],
+    "features": {},
+    "supportedstandards": [
+        "NEP-17"
+    ],
+    "extra": {
+        "Author": "Mirella Medeiros, Ricardo Prado and Lucas Uezu. COZ in partnership with Simpli",
+        "Description": "NEP-17 Example Token",
+        "Email": "contact@coz.io"
+    }
+}

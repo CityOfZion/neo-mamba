@@ -1,0 +1,30 @@
+{
+  "name": "coz",
+  "version": "1.0",
+  "scrypt": {
+    "n": 16384,
+    "r": 8,
+    "p": 8
+  },
+  "accounts": [
+    {
+      "address": "NUVaphUShQPD82yoXcbvFkedjHX6rUF7QQ",
+      "label": null,
+      "isDefault": false,
+      "lock": false,
+      "key": "6PYWVHQmKFE8Q4knLWeYdtW8kjeFLgVyQjkwbEK5tHey2nDbm7NdnmFZQ8",
+      "contract": {
+        "script": "DCECkELfhVx2XN7+bmHqIrKcoPcdPT0y2JwWqreh4Ik7XdxBVuezJw==",
+        "parameters": [
+          {
+            "name": "parameter0",
+            "type": "Signature"
+          }
+        ],
+        "deployed": false
+      },
+      "extra": {"password_to_unlock":  "123"}
+    }
+  ],
+  "extra": null
+}

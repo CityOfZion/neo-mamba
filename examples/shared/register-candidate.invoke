@@ -1,0 +1,12 @@
+[
+  {
+    "contract": "NeoToken",
+    "operation": "registerCandidate",
+    "args": [
+      {
+        "type": "PublicKey",
+        "value": "029042DF855C765CDEFE6E61EA22B29CA0F71D3D3D32D89C16AAB7A1E0893B5DDC"
+      }
+    ]
+  }
+]
