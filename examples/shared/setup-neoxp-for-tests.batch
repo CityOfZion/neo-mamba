@@ -1,0 +1,11 @@
+transfer 50000000 neo genesis coz
+transfer 26000000 gas genesis coz
+
+transfer 50000000 neo genesis user
+transfer 26000000 gas genesis user
+
+contract deploy nep17-token/nep17token.nef coz
+transfer 100 neo user NgJ6aLeAi3wJAQ3JbgcWsHGwUT76bvcWMM
+contract invoke ./register-candidate.invoke coz
+
+contract deploy nep11-token/nep11-token.nef coz
