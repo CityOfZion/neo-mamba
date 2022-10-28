@@ -212,7 +212,6 @@ class ChainFacade:
         append_network_fee: int = 0,
         append_system_fee: int = 0,
         receipt_time_out: int = 20,
-        receipt_retry_delay: int = 5,
     ) -> InvokeReceipt[ReturnType]:
         """
         Call a contract method and persist results on the chain. Costs GAS.
@@ -227,7 +226,6 @@ class ChainFacade:
             append_network_fee: increase the calculated network fee with this amount
             append_system_fee: increase the calculated system fee with this amount
             receipt_time_out: maximum time in seconds to wait for a receipt
-            receipt_retry_delay: time to wait in seconds between attempts to find the transaction on the chain
 
         Returns:
             A transaction receipt. The `state` field of the receipt indicates if the transaction script executed
@@ -239,6 +237,7 @@ class ChainFacade:
             invoke_raw() - does not wait for a transaction receipt, does not perform post-processing of the execution
                            results
         """
+        receipt_retry_delay = await self._get_retry_delay()
         async with noderpc.NeoRpcClient(self.config.rpc_host) as client:
             tx_id = await self.invoke_fast(
                 f,
@@ -345,7 +344,6 @@ class ChainFacade:
         append_network_fee: int = 0,
         append_system_fee: int = 0,
         receipt_time_out: int = 20,
-        receipt_retry_delay: int = 5,
     ) -> InvokeReceipt[noderpc.ExecutionResult]:
         """
         Call a contract method and persist results on the chain. Costs GAS.
@@ -359,7 +357,6 @@ class ChainFacade:
             append_network_fee: increase the calculated network fee with this amount
             append_system_fee: increase the calculated system fee with this amount
             receipt_time_out: maximum time in seconds to wait for a receipt
-            receipt_retry_delay: time to wait in seconds between attempts to find the transaction on the chain
 
         Returns:
             A transaction receipt. The `state` field of the receipt indicates if the transaction script executed
@@ -370,6 +367,7 @@ class ChainFacade:
             invoke() - waits for a transaction receipt, performs post-processing of the execution results
             invoke_fast() - does not wait for a receipt
         """
+        receipt_retry_delay = await self._get_retry_delay()
         async with noderpc.NeoRpcClient(self.config.rpc_host) as client:
             tx_id = await self.invoke_fast(
                 f,
@@ -407,6 +405,16 @@ class ChainFacade:
             res = await client.invoke_script(f.script, signers)
             return res.gas_consumed
 
+    async def _get_retry_delay(self) -> float:
+        if self.config._receipt_retry_delay is not None:
+            return self.config._receipt_retry_delay
+
+        async with noderpc.NeoRpcClient(self.config.rpc_host) as client:
+            result = await client.get_version()
+            # 5 seems like a reasonable divider where on mainnet (with 15s blocks) at worst case
+            # the RPC server is queried 5 times.
+            return (result.protocol.ms_per_block / 1000) / 5
+
     @classmethod
     def node_provider_mainnet(cls):
         return cls(Config.standard_config())
@@ -419,11 +427,19 @@ class ChainFacade:
 
 
 class Config:
-    def __init__(self, rpc_host: str):
+    def __init__(self, rpc_host: str, receipt_retry_delay: Optional[float] = None):
+        """
+        ChainFacade config
+
+        Args:
+            rpc_host: Neo RPC node host address
+            receipt_retry_delay: time to wait in seconds between attempts to find the transaction on the chain
+        """
         self.rpc_host = rpc_host
         self.signers: list[verification.Signer] = []
         self._signing_funcs: list[signing.SigningFunction] = []
         self._test_invoke_signers: list[verification.Signer] = []
+        self._receipt_retry_delay = receipt_retry_delay
 
     @classmethod
     def standard_config(cls):

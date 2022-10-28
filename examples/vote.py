@@ -30,9 +30,7 @@ async def example_vote(neoxp: shared.NeoExpress):
     voter = account.address
 
     print("Casting vote and waiting for receipt...")
-    receipt = await facade.invoke(
-        neo.candidate_vote(voter, candidate_pk), receipt_retry_delay=1
-    )
+    receipt = await facade.invoke(neo.candidate_vote(voter, candidate_pk))
     print(f"Success? {receipt.result}")
 
 

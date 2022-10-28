@@ -28,11 +28,7 @@ async def example_transfer_neo(neoxp: shared.NeoExpress):
     # Dedicated Neo native contract wrapper
     neo = NeoToken()
     print("Calling transfer and waiting for receipt...")
-    print(
-        await facade.invoke(
-            neo.transfer(source, destination, 10), receipt_retry_delay=1
-        )
-    )
+    print(await facade.invoke(neo.transfer(source, destination, 10)))
 
 
 async def example_transfer_other(neoxp: shared.NeoExpress):
@@ -60,11 +56,7 @@ async def example_transfer_other(neoxp: shared.NeoExpress):
     token = NEP17Contract(contract_hash)
     # Now call it in the same fashion as before with the NEoToken
     print("Calling transfer and waiting for receipt...")
-    print(
-        await facade.invoke(
-            token.transfer(source, destination, 10), receipt_retry_delay=1
-        )
-    )
+    print(await facade.invoke(token.transfer(source, destination, 10)))
 
 
 if __name__ == "__main__":
