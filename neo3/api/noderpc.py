@@ -7,10 +7,9 @@ import time
 from enum import Enum, IntEnum
 from contextlib import suppress
 from dataclasses import dataclass
-from typing import Optional, TypedDict, Any, Protocol, Iterator, Union, cast
+from typing import Optional, TypedDict, Any, Protocol, Iterator, Union, cast, Type
 from collections.abc import Sequence
-from neo3 import vm
-from neo3.core import types, cryptography, interfaces
+from neo3.core import types, cryptography, interfaces, serialization
 from neo3.contracts import manifest, nef, contract, abi
 from neo3.network.payloads import transaction, block, verification
 from neo3.wallet import utils as walletutils
@@ -515,11 +514,13 @@ ContractParameter = Union[
     str,
     bytes,
     bytearray,
+    types.BigInteger,
     types.UInt160,
     types.UInt256,
     cryptography.ECPoint,
     "ContractParameterArray",
     "ContractParameterDict",
+    Type[serialization.ISerializable_T],
 ]
 
 
@@ -560,7 +561,7 @@ class _ContractParameter(interfaces.IJson):
         elif isinstance(obj, IntEnum):
             self.type = abi.ContractParameterType.INTEGER
             self.value = str(obj.value)
-        elif isinstance(obj, int):
+        elif isinstance(obj, (int, types.BigInteger)):
             self.type = abi.ContractParameterType.INTEGER
             self.value = str(obj)
         elif isinstance(obj, str):
@@ -591,6 +592,9 @@ class _ContractParameter(interfaces.IJson):
             # It seems like mypy can't follow that ContractParameter is also
             # a list[dict[ContractParameter, ContractParameter]]
             self.value = pairs  # type: ignore
+        elif isinstance(obj, serialization.ISerializable):
+            self.type = abi.ContractParameterType.BYTEARRAY
+            self.value = base64.b64encode(obj.to_array()).decode()
         else:
             raise ValueError(f"Unsupported type {type(obj)}")
 
