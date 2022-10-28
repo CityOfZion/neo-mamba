@@ -34,16 +34,14 @@ async def example_airdrop(neoxp: shared.NeoExpress):
     receipt = await facade.invoke(
         neo.transfer(
             source=account.address, destination=shared.coz_token_hash, amount=100
-        ),
-        receipt_retry_delay=1,
+        )
     )
     print(receipt.result)
     print("Minting twice...", end="")
     receipt = await facade.invoke(
         neo.transfer(
             source=account.address, destination=shared.coz_token_hash, amount=100
-        ),
-        receipt_retry_delay=1,
+        )
     )
 
     print(receipt.result)
@@ -63,7 +61,6 @@ async def example_airdrop(neoxp: shared.NeoExpress):
     print(
         await facade.invoke(
             token.transfer_multi(account.address, destination_addresses, 10),
-            receipt_retry_delay=1,
         )
     )
 

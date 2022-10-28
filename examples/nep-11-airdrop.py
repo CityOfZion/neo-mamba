@@ -35,8 +35,7 @@ async def example_airdrop(neoxp: shared.NeoExpress):
             source=account.address,
             destination=shared.nep11_token_hash,
             amount=10 * (8**10),
-        ),
-        receipt_retry_delay=1,
+        )
     )
     print(receipt.result)
     print("Minting NFT 2..", end="")
@@ -45,8 +44,7 @@ async def example_airdrop(neoxp: shared.NeoExpress):
             source=account.address,
             destination=shared.nep11_token_hash,
             amount=10 * (8**10),
-        ),
-        receipt_retry_delay=1,
+        )
     )
     print(receipt.result)
     token_ids = await facade.test_invoke(ntf.token_ids_owned_by(account.address))
