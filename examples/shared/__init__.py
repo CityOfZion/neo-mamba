@@ -1,9 +1,9 @@
 import pathlib
 import os
 import sys
-import shutil
 import subprocess
 import threading
+import shlex
 import time
 import json
 from typing import Optional
@@ -31,16 +31,26 @@ class NeoExpress:
         config_path: Optional[str] = None,
         batch_path: Optional[str] = None,
         executable_path: Optional[str] = None,
-        return_delay: int = 1,
         debug: bool = False,
     ):
-        self.prog = "neoxp"
+        # The full qualified path is needed for correctly capturing streaming stdout with Popen without shell=True
+        # The assumption is that the tool is installed in the standard location (as per
+        # https://learn.microsoft.com/en-us/dotnet/core/tools/global-tools#install-a-global-tool )
+        # Unless specified manually
+        if sys.platform == "win32":
+            self.prog = f"{pathlib.Path().home()}\\.dotnet\\tools\\neoxp"
+        else:
+            self.prog = f"{pathlib.Path().home()}/.dotnet/tools/neoxp"
+
         self.config_path = (
             config_path if config_path is not None else neoxpress_config_path
         )
         self.batch_path = batch_path if batch_path is not None else neoxpress_batch_path
-        self.return_delay = return_delay
         self.debug = debug
+
+        self._process = None
+        self._ready = False
+        self._stop = False
 
         with open(self.config_path) as f:
             data = json.load(f)
@@ -52,20 +62,15 @@ class NeoExpress:
             self._verify_executable(executable_path)
             self.prog = executable_path
         else:
-            if sys.platform == "darwin":
-                try:
-                    subprocess.run(
-                        ["bash", "-c", "neoxp -h"],
-                        check=True,
-                        stdout=subprocess.DEVNULL,
-                    )
-                except subprocess.SubprocessError:
-                    raise ValueError(
-                        "Cannot automatically find global neo express executable. Please specify the path"
-                    )
-            elif shutil.which(self.prog) is None:
+            try:
+                subprocess.run(
+                    [self.prog, "-h"],
+                    check=True,
+                    stdout=subprocess.DEVNULL,
+                )
+            except subprocess.SubprocessError:
                 raise ValueError(
-                    "Cannot automatically find global neo express executable. Please specify the path"
+                    "Cannot automatically neo express executable. Please specify the path"
                 )
 
     def _verify_executable(self, full_path: str):
@@ -74,37 +79,47 @@ class NeoExpress:
 
     def initialize_with(self, batch_path: str):
         print("executing neo-express batch...", end="")
-        cmd = f"neoxp batch -r {batch_path}"
-        if sys.platform == "darwin":
-            subprocess.run(["bash", "-c", cmd], check=True, stdout=subprocess.DEVNULL)
-        else:
-            subprocess.run(cmd.split(" "), check=True, stdout=subprocess.DEVNULL)
+        cmd = f"{self.prog} batch -r {batch_path}"
+        subprocess.run(shlex.split(cmd), check=True, stdout=subprocess.DEVNULL)
         print("done")
 
-    def run(self, return_delay=None):
+    def run(self):
         print("starting neo-express...", end="")
-        cmd = f"neoxp run -i {self.config_path}"
-        kwargs = {"check": True}
-        if self.debug is False:
-            kwargs["stdout"] = subprocess.DEVNULL
-        if sys.platform == "darwin":
-            kwargs["args"] = ["bash", "-c", cmd]
-        else:
-            kwargs["args"] = cmd.split(" ")
-        thread = threading.Thread(
-            target=subprocess.run, kwargs=kwargs, name="neoxp", daemon=True
+        cmd = f"{self.prog} run -i {self.config_path}"
+
+        self._process = subprocess.Popen(
+            shlex.split(cmd),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            bufsize=1,
+            text=True,
+            shell=False,
         )
+
+        def process_stdout(process):
+            for output in iter(process.stdout.readline, b""):
+                if self._stop is True:
+                    break
+
+                if "Neo express is running" in output:
+                    self._ready = True
+
+                if self.debug:
+                    print(output, end="")
+
+        thread = threading.Thread(target=process_stdout, args=(self._process,))
         thread.start()
-        time.sleep(return_delay if return_delay else self.return_delay)
+
+        while not self._ready:
+            time.sleep(0.0001)
+
         print("done")
 
     def stop(self):
         print("stopping neo-express...", end="")
-        cmd = f"neoxp stop -a -i {self.config_path}"
-        if sys.platform == "darwin":
-            subprocess.run(["bash", "-c", cmd], check=True, stdout=subprocess.DEVNULL)
-        else:
-            subprocess.run(cmd.split(" "), check=True, stdout=subprocess.DEVNULL)
+        # break out of the process_stdout loop
+        self._stop = True
+        self._process.kill()
         print("done")
 
     @classmethod
@@ -113,15 +128,14 @@ class NeoExpress:
         executable_path: str,
         config_path: Optional[str] = None,
         batch_path: Optional[str] = None,
-        return_delay: int = 1,
         debug: bool = False,
     ):
-        return cls(config_path, batch_path, executable_path, return_delay, debug)
+        return cls(config_path, batch_path, executable_path, debug)
 
     def __enter__(self):
         if self.batch_path is not None:
             self.initialize_with(self.batch_path)
-        self.run(self.return_delay)
+        self.run()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):

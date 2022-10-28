@@ -37,5 +37,5 @@ async def example_vote(neoxp: shared.NeoExpress):
 
 
 if __name__ == "__main__":
-    with shared.NeoExpress(shared.neoxpress_config_path) as neoxp:
+    with shared.NeoExpress() as neoxp:
         asyncio.run(example_vote(neoxp))
