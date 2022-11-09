@@ -37,7 +37,7 @@ class MultiSigContext:
 
     def signing_status(self) -> dict[cryptography.ECPoint, bool]:
         # shows which keys have been completed
-        pass
+        raise NotImplementedError
 
     def process_contract(self, script: bytes) -> None:
         valid, threshold, public_keys = contractutils.parse_as_multisig_contract(script)

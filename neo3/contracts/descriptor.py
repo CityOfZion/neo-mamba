@@ -1,6 +1,7 @@
 from __future__ import annotations
 import binascii
 from neo3.core import interfaces, types, cryptography
+from typing import Optional
 
 
 class ContractPermissionDescriptor(interfaces.IJson):
@@ -11,7 +12,9 @@ class ContractPermissionDescriptor(interfaces.IJson):
     """
 
     def __init__(
-        self, contract_hash: types.UInt160 = None, group: cryptography.ECPoint = None
+        self,
+        contract_hash: Optional[types.UInt160] = None,
+        group: Optional[cryptography.ECPoint] = None,
     ):
         """
         Create a contract hash or group based restriction. Mutually exclusive.
