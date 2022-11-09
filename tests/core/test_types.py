@@ -5,6 +5,19 @@ from neo3.core import serialization
 
 
 class UIntBase(_UIntBase):
+    _BYTE_LEN = 2
+
+    def serialize(self) -> bytearray:
+        pass
+
+    @classmethod
+    def deserialize(cls, data: bytes):
+        pass
+
+
+class UIntBase3(_UIntBase):
+    _BYTE_LEN = 3
+
     def serialize(self) -> bytearray:
         pass
 
@@ -15,12 +28,12 @@ class UIntBase(_UIntBase):
 
 class UIntBaseTest(TestCase):
     def test_create_with_empty_data(self):
-        x = UIntBase(num_bytes=2)
+        x = UIntBase()
         self.assertEqual(len(x._data), 2)
         self.assertEqual(x._data, b"\x00\x00")
 
     def test_valid_rawbytes_data(self):
-        x = UIntBase(num_bytes=2, data=b"\xaa\xbb")
+        x = UIntBase(data=b"\xaa\xbb")
         self.assertEqual(len(x._data), 2)
         self.assertNotEqual(len(x._data), 4)
 
@@ -29,33 +42,31 @@ class UIntBaseTest(TestCase):
         some raw data can be decoded e.g. bytearray.fromhex('1122') but shouldn't be
         """
         tricky_raw_data = bytes.fromhex("1122")
-        x = UIntBase(num_bytes=2, data=tricky_raw_data)
+        x = UIntBase(data=tricky_raw_data)
         self.assertEqual(x._data, tricky_raw_data)
 
-    def test_data_length_mistmatch(self):
+    def test_data_length_mismatch(self):
         with self.assertRaises(ValueError) as context:
-            x = UIntBase(num_bytes=2, data=b"a")  # 2 != 1
+            x = UIntBase(data=b"a")  # 2 != 1
         self.assertTrue("Invalid UInt: data length" in str(context.exception))
 
     def test_size(self):
-        x = UIntBase(num_bytes=2, data=b"\xaa\xbb")
+        x = UIntBase(data=b"\xaa\xbb")
         self.assertEqual(len(x), 2)
 
     def test_hash_code(self):
-        x = UIntBase(num_bytes=4, data=bytearray.fromhex("DEADBEEF"))
-        self.assertEqual(hash(x), 4022250974)
-        x = UIntBase(num_bytes=2, data=bytearray.fromhex("1122"))
+        x = UIntBase(data=bytearray.fromhex("1122"))
         self.assertEqual(hash(x), 8721)
 
     def test_to_string(self):
-        x = UIntBase(num_bytes=2, data=bytearray.fromhex("1122"))
+        x = UIntBase(data=bytearray.fromhex("1122"))
         self.assertEqual("2211", str(x))
         self.assertNotEqual("1122", str(x))
 
     def test_equal(self):
-        x = UIntBase(num_bytes=2, data=bytearray.fromhex("1122"))
-        y = UIntBase(num_bytes=2, data=bytearray.fromhex("1122"))
-        z = UIntBase(num_bytes=2, data=bytearray.fromhex("2211"))
+        x = UIntBase(data=bytearray.fromhex("1122"))
+        y = UIntBase(data=bytearray.fromhex("1122"))
+        z = UIntBase(data=bytearray.fromhex("2211"))
 
         self.assertFalse(x == None)
         self.assertFalse(x == int(1122))
@@ -64,30 +75,23 @@ class UIntBaseTest(TestCase):
         self.assertTrue(x != z)
 
     def test_hash(self):
-        x = UIntBase(num_bytes=2, data=bytearray.fromhex("1122"))
-        y = UIntBase(num_bytes=2, data=bytearray.fromhex("1122"))
-        z = UIntBase(num_bytes=2, data=bytearray.fromhex("2211"))
+        x = UIntBase(data=bytearray.fromhex("1122"))
+        y = UIntBase(data=bytearray.fromhex("1122"))
+        z = UIntBase(data=bytearray.fromhex("2211"))
         self.assertEqual(hash(x), hash(y))
         self.assertNotEqual(hash(x), hash(z))
 
     def test_compare_to(self):
-        x = UIntBase(num_bytes=2, data=bytearray.fromhex("1122"))
-        y = UIntBase(num_bytes=3, data=bytearray.fromhex("112233"))
-        z = UIntBase(num_bytes=2, data=bytearray.fromhex("1133"))
-        xx = UIntBase(num_bytes=2, data=bytearray.fromhex("1122"))
+        x = UIntBase(data=bytearray.fromhex("1122"))
+        y = UIntBase3(data=bytearray.fromhex("112233"))
+        z = UIntBase(data=bytearray.fromhex("1133"))
+        xx = UIntBase(data=bytearray.fromhex("1122"))
 
         # test invalid type
         with self.assertRaises(TypeError) as context:
             x._compare_to(None)
 
         expected = "Cannot compare UIntBase to type NoneType"
-        self.assertEqual(expected, str(context.exception))
-
-        # test invalid length
-        with self.assertRaises(ValueError) as context:
-            x._compare_to(y)
-
-        expected = "Cannot compare UIntBase with length 2 to UIntBase with length 3"
         self.assertEqual(expected, str(context.exception))
 
         # test data difference ('22' < '33')
@@ -98,9 +102,9 @@ class UIntBaseTest(TestCase):
         self.assertEqual(0, x._compare_to(xx))
 
     def test_rich_comparison_methods(self):
-        x = UIntBase(num_bytes=2, data=bytearray.fromhex("1122"))
-        z = UIntBase(num_bytes=2, data=bytearray.fromhex("1133"))
-        xx = UIntBase(num_bytes=2, data=bytearray.fromhex("1122"))
+        x = UIntBase(data=bytearray.fromhex("1122"))
+        z = UIntBase(data=bytearray.fromhex("1133"))
+        xx = UIntBase(data=bytearray.fromhex("1122"))
 
         self.assertTrue(x < z)
         self.assertTrue(z > x)

@@ -8,16 +8,14 @@ __all__ = ["UInt160", "UInt256"]
 class _UIntBase(serialization.ISerializable):
     _BYTE_LEN = 0
 
-    def __init__(
-        self, num_bytes: int, data: Optional[bytes | bytearray] = None
-    ) -> None:
+    def __init__(self, data: Optional[bytes | bytearray] = None) -> None:
         """
 
         Args:
-            num_bytes:
             data:
         """
         super(_UIntBase, self).__init__()
+        num_bytes = self._BYTE_LEN
 
         if data is None:
             self._data = bytes(num_bytes)
@@ -52,25 +50,19 @@ class _UIntBase(serialization.ISerializable):
         return int.from_bytes(self._data[:slice_length], "little")
 
     def __str__(self):
-        """Convert the data to a human readable format (data is in reverse byte order)."""
+        """Convert the data to a human-readable format (data is in reverse byte order)."""
         db = bytearray(self._data)
         db.reverse()
         return db.hex()
 
     def _compare_to(self, other) -> int:
-        if not isinstance(other, _UIntBase):
+        if not isinstance(other, type(self)):
             raise TypeError(
                 f"Cannot compare {type(self).__name__} to type {type(other).__name__}"
             )
 
         x = self._data
         y = other._data
-
-        if len(x) != len(y):
-            raise ValueError(
-                f"Cannot compare {type(self).__name__} with length {len(x)} to {type(other).__name__} with"
-                f" length {len(y)}"
-            )
 
         length = len(x)
 
@@ -104,7 +96,7 @@ class _UIntBase(serialization.ISerializable):
 
     @classmethod
     def _serializable_init(cls):
-        return cls(cls._BYTE_LEN, data=b"\x00" * cls._BYTE_LEN)
+        return cls(data=b"\x00" * cls._BYTE_LEN)
 
 
 class UInt160(_UIntBase):
@@ -117,7 +109,7 @@ class UInt160(_UIntBase):
         Args:
             data: hex escaped bytearray.
         """
-        super(UInt160, self).__init__(num_bytes=self._BYTE_LEN, data=data)
+        super(UInt160, self).__init__(data=data)
 
     @classmethod
     def deserialize_from_bytes(cls: Type[UInt160], data: bytes) -> UInt160:
@@ -198,7 +190,7 @@ class UInt256(_UIntBase):
         Args:
             data: hex escaped bytearray.
         """
-        super(UInt256, self).__init__(num_bytes=self._BYTE_LEN, data=data)
+        super(UInt256, self).__init__(data=data)
 
     @classmethod
     def deserialize_from_bytes(cls: Type[UInt256], data: bytes) -> UInt256:
