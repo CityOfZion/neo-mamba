@@ -25,6 +25,14 @@ class BlockValidator:
 
 
 @dataclass
+class Candidate(BlockValidator):
+    active: bool
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}(public_key={self.public_key}, votes={self.votes}, active={self.active}"
+
+
+@dataclass
 class NextBlockValidatorsResponse:
     validators: list[BlockValidator]
 
@@ -771,6 +779,17 @@ class NeoRpcClient(RPCClient):
             params = [str(index_or_hash)]
         response = await self._do_post("getblockheader", params)
         return block.Header.deserialize_from_bytes(base64.b64decode(response))
+
+    async def get_candidates(self) -> Sequence[Candidate]:
+        response = await self._do_post("getcandidates")
+        candidates = []
+        for candidate in response:
+            pk = cryptography.ECPoint.deserialize_from_bytes(
+                bytes.fromhex(candidate["publickey"])
+            )
+            votes = int(candidate["votes"])
+            candidates.append(Candidate(pk, votes, candidate["active"]))
+        return candidates
 
     async def get_committee(self) -> tuple[cryptography.ECPoint, ...]:
         """
