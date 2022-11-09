@@ -19,10 +19,9 @@ from neo3.wallet import utils as walletutils
 class BlockValidator:
     public_key: cryptography.ECPoint
     votes: int
-    active: bool
 
     def __repr__(self):
-        return f"{self.__class__.__name__}(public_key={self.public_key}, votes={self.votes}, acitive={self.active})"
+        return f"{self.__class__.__name__}(public_key={self.public_key}, votes={self.votes}"
 
 
 @dataclass
@@ -37,7 +36,7 @@ class NextBlockValidatorsResponse:
                 bytes.fromhex(validator["publickey"])
             )
             votes = int(validator["votes"])
-            nvr.validators.append(BlockValidator(pk, votes, validator["active"]))
+            nvr.validators.append(BlockValidator(pk, votes))
         return nvr
 
 
