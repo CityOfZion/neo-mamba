@@ -1,5 +1,6 @@
 from bitarray import bitarray  # type: ignore
 from neo3crypto import mmh3_hash  # type: ignore
+from typing import Optional
 
 
 class BloomFilter:
@@ -7,7 +8,7 @@ class BloomFilter:
     BloomFilter implementation conforming to NEO's `implementation <https://github.com/neo-project/neo/blob/982e69090f27c1415872536ce39aea22f0873467/neo.UnitTests/Cryptography/UT_BloomFilter.cs>`_.  # noqa
     """
 
-    def __init__(self, m: int, k: int, ntweak: int, elements: bytes = None):
+    def __init__(self, m: int, k: int, ntweak: int, elements: Optional[bytes] = None):
         """
 
         Args:

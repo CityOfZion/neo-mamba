@@ -254,7 +254,7 @@ class ScriptBuilder:
     def __init__(self):
         self.data = bytearray()
 
-    def emit(self, opcode: OpCode, data: bytes = None) -> ScriptBuilder:
+    def emit(self, opcode: OpCode, data: Optional[bytes] = None) -> ScriptBuilder:
         self.emit_raw(opcode.value.to_bytes(1, "little"))
         if data is not None:
             self.emit_raw(data)

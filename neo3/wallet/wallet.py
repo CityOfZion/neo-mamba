@@ -39,7 +39,7 @@ class Wallet(interfaces.IJson):
         name: Optional[str] = None,
         version: str = _wallet_version,
         scrypt_params: Optional[scrypt.ScryptParameters] = None,
-        accounts: Sequence[account.Account] = None,
+        accounts: Optional[Sequence[account.Account]] = None,
         default_account: Optional[account.Account] = None,
         extra: Optional[dict[Any, Any]] = None,
     ):
@@ -77,7 +77,7 @@ class Wallet(interfaces.IJson):
         self.extra = extra if extra else {}
 
     def account_new(
-        self, password: str, label: str = None, is_default=False
+        self, password: str, label: Optional[str] = None, is_default=False
     ) -> account.Account:
         """
         Creates a new account and adds it in the wallet
@@ -269,7 +269,7 @@ class Wallet(interfaces.IJson):
         return json_account
 
     @classmethod
-    def from_json(cls, json: dict, password: str = None):
+    def from_json(cls, json: dict, password: Optional[str] = None):
         """
         Parse object out of JSON data.
 
@@ -317,7 +317,7 @@ class Wallet(interfaces.IJson):
         )
 
     @classmethod
-    def from_file(cls, path: str, password: str = None):
+    def from_file(cls, path: str, password: Optional[str] = None):
         with open(path, "r") as f:
             return cls.from_json(json.load(f), password)
 
@@ -341,7 +341,7 @@ class NEP6DiskWallet(Wallet):
         name: Optional[str] = None,
         version: str = Wallet._wallet_version,
         scrypt_params: Optional[scrypt.ScryptParameters] = None,
-        accounts: Sequence[account.Account] = None,
+        accounts: Optional[Sequence[account.Account]] = None,
         default_account: Optional[account.Account] = None,
         extra: Optional[dict] = None,
     ):
@@ -405,7 +405,7 @@ class NEP6DiskWallet(Wallet):
         )
 
     @classmethod
-    def from_json(cls, json: dict, password: str = None):
+    def from_json(cls, json: dict, password: Optional[str] = None):
         w = Wallet.from_json(json, password)
         path = ""
         return cls(
@@ -413,7 +413,7 @@ class NEP6DiskWallet(Wallet):
         )
 
     @classmethod
-    def from_file(cls, path: str, password: str = None):
+    def from_file(cls, path: str, password: Optional[str] = None):
         with open(path, "r") as f:
             w = cls.from_json(json.load(f), password)
             w.path = path

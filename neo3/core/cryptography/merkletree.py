@@ -5,7 +5,7 @@ from collections.abc import Sequence
 
 
 class _MerkleTreeNode:
-    def __init__(self, hash: types.UInt256 = None):
+    def __init__(self, hash: Optional[types.UInt256] = None):
         self.hash = hash if hash else types.UInt256.zero()  # type: types.UInt256
         self.parent = None  # type: Optional[_MerkleTreeNode]
         self.left_child = None  # type: Optional[_MerkleTreeNode]

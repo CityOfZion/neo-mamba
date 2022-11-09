@@ -12,6 +12,7 @@ from collections.abc import Sequence
 
 
 class TransactionAttributeType(Enum):
+    _INVALID = 0x9999
     HIGH_PRIORITY = 0x1
     ORACLE_RESPONSE = 0x11
 
@@ -44,7 +45,7 @@ class TransactionAttribute(serialization.ISerializable, interfaces.IJson):
     """
 
     def __init__(self):
-        self.type_: TransactionAttributeType = None
+        self.type_: TransactionAttributeType = TransactionAttributeType._INVALID
         self.allow_multiple = False
 
     def __len__(self):
@@ -219,11 +220,11 @@ class Transaction(inventory.IInventory, interfaces.IJson):
         system_fee: int,
         network_fee: int,
         valid_until_block: int,
-        attributes: list[TransactionAttribute] = None,
-        signers: Sequence[verification.Signer] = None,
-        script: bytes = None,
-        witnesses: list[verification.Witness] = None,
-        protocol_magic: int = None,
+        attributes: Optional[list[TransactionAttribute]] = None,
+        signers: Optional[Sequence[verification.Signer]] = None,
+        script: Optional[bytes] = None,
+        witnesses: Optional[list[verification.Witness]] = None,
+        protocol_magic: Optional[int] = None,
     ):
         #: Transaction data structure version - for internal use
         self.version = version

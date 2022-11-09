@@ -47,12 +47,6 @@ class ConsensusMessage(serialization.ISerializable):
         self.type = ConsensusMessageType(reader.read_uint8())
         self.view_number = reader.read_uint8()
 
-    def deserialize_specialization_from_bytes(
-        self, data: bytearray
-    ) -> ConsensusMessage:
-        # TODO: not implemented. Requires all ConsensusMessage subclasses to be implemented. Low priority.
-        pass
-
     @classmethod
     def _serializable_init(cls):
         return cls(ConsensusMessageType.CHANGE_VIEW)

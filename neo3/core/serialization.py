@@ -346,7 +346,7 @@ class BinaryReader(object):
         return obj
 
     def read_serializable_list(
-        self, obj_type: Type[ISerializable_T], max: int = None
+        self, obj_type: Type[ISerializable_T], max: Optional[int] = None
     ) -> list[ISerializable_T]:
         """
         Read and deserialize a list of objects of `obj_type` from the stream.

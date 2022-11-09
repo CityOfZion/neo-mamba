@@ -4,6 +4,7 @@ from neo3.core import Size as s, serialization, types, utils, cryptography as cr
 from neo3.network.payloads import verification, transaction, inventory
 from bitarray import bitarray  # type: ignore
 from collections.abc import Sequence
+from typing import Optional
 
 
 class Header(verification.IVerifiable):
@@ -26,7 +27,7 @@ class Header(verification.IVerifiable):
         primary_index: int,
         next_consensus: types.UInt160,
         witness: verification.Witness,
-        merkle_root: types.UInt256 = None,
+        merkle_root: Optional[types.UInt256] = None,
         *args,
         **kwargs,
     ):
@@ -168,7 +169,7 @@ class Block(inventory.IInventory):
     def __init__(
         self,
         header: Header,
-        transactions: Sequence[transaction.Transaction] = None,
+        transactions: Optional[Sequence[transaction.Transaction]] = None,
         *args,
         **kwargs,
     ):
@@ -426,7 +427,7 @@ class MerkleBlockPayload(serialization.ISerializable):
 class HeadersPayload(serialization.ISerializable):
     MAX_HEADERS_COUNT = 2000
 
-    def __init__(self, headers: Sequence[Header] = None):
+    def __init__(self, headers: Optional[Sequence[Header]] = None):
         """
         Should not be called directly. Use create() instead.
         """

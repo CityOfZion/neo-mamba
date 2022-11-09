@@ -54,8 +54,8 @@ class NetworkAddress(serialization.ISerializable):
     def __init__(
         self,
         address: str,
-        capabilities: list[capabilities.NodeCapability] = None,
-        timestamp: int = None,
+        capabilities: Optional[list[capabilities.NodeCapability]] = None,
+        timestamp: Optional[int] = None,
         state: AddressState = AddressState.NEW,
     ):
         """Create an instance."""

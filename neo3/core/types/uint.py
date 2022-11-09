@@ -6,6 +6,8 @@ __all__ = ["UInt160", "UInt256"]
 
 
 class _UIntBase(serialization.ISerializable):
+    _BYTE_LEN = 0
+
     def __init__(
         self, num_bytes: int, data: Optional[bytes | bytearray] = None
     ) -> None:
@@ -102,7 +104,7 @@ class _UIntBase(serialization.ISerializable):
 
     @classmethod
     def _serializable_init(cls):
-        return cls(b"\x00" * cls._BYTE_LEN)
+        return cls(cls._BYTE_LEN, data=b"\x00" * cls._BYTE_LEN)
 
 
 class UInt160(_UIntBase):

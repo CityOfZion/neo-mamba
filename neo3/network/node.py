@@ -483,7 +483,7 @@ class NeoNode:
         await self.send_message(m)
 
     async def request_blocks(
-        self, hash_start: types.UInt256, count: int = None
+        self, hash_start: types.UInt256, count: Optional[int] = None
     ) -> None:
         """
         Send a request for retrieving block hashes from `hash_start` to `hash_start`+`count`.
@@ -584,12 +584,12 @@ class NeoNode:
 
     @staticmethod
     async def connect_to(
-        host: str = None,
-        port: int = None,
+        host: Optional[str] = None,
+        port: Optional[int] = None,
         timeout=3,
         socket=None,
         *,
-        _test_data: dict = None,
+        _test_data: Optional[dict] = None,
     ) -> tuple[Optional[NeoNode], Optional[tuple[str, str]]]:
         if host is not None or port is not None:
             if socket is not None:
