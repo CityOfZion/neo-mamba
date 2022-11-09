@@ -4,7 +4,7 @@ import abc
 import base64
 from enum import IntFlag, IntEnum
 from neo3.core import serialization, utils, types, cryptography, Size as s, interfaces
-from typing import Any, no_type_check, Iterator
+from typing import Optional, Any, no_type_check, Iterator
 from collections.abc import Sequence
 
 
@@ -77,9 +77,9 @@ class Signer(serialization.ISerializable, interfaces.IJson):
         self,
         account: types.UInt160,
         scope: WitnessScope = WitnessScope.CALLED_BY_ENTRY,
-        allowed_contracts: Sequence[types.UInt160] = None,
-        allowed_groups: Sequence[cryptography.ECPoint] = None,
-        rules: Sequence[WitnessRule] = None,
+        allowed_contracts: Optional[Sequence[types.UInt160]] = None,
+        allowed_groups: Optional[Sequence[cryptography.ECPoint]] = None,
+        rules: Optional[Sequence[WitnessRule]] = None,
     ):
         #: The TX sender.
         self.account = account

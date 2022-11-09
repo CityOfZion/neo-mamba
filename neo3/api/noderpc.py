@@ -652,7 +652,7 @@ class RPCClient:
 
 
 class JsonRpcError(Exception):
-    def __init__(self, code: int, message: str, data: str = None):
+    def __init__(self, code: int, message: str, data: Optional[str] = None):
         self.code = code
         self.message = message
         self.data = "" if data is None else data
@@ -679,7 +679,7 @@ class NeoRpcClient(RPCClient):
     async def _do_post(
         self,
         method: str,
-        params: list = None,
+        params: Optional[list] = None,
         id: int = 0,
         jsonrpc_version: str = "2.0",
     ):

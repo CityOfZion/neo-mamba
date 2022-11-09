@@ -250,10 +250,10 @@ class SyncManager(singleton._Singleton):
             return -3
 
         node = self.nodemgr.get_node_with_height(best_node_height)
-        # if not node:
-        #     # no nodes with our desired height. We'll wait for node manager to resolve this
-        #     # or for the nodes to increase their height on the next produced block
-        #     return -4
+        if not node:
+            # no nodes with our desired height. We'll wait for node manager to resolve this
+            # or for the nodes to increase their height on the next produced block
+            return -4
 
         best_block_height = self._get_best_stored_block_height()
         block_request_limit = min(block_cache_space, self.BLOCK_NETWORK_REQ_LIMIT)

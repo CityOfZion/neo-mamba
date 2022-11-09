@@ -172,7 +172,7 @@ class WildcardContainer(interfaces.IJson):
     An internal helper class for ContractManifest attributes.
     """
 
-    def __init__(self, data: list = None):
+    def __init__(self, data: Optional[list] = None):
         self._is_wildcard = False
         self._data = data if data else []
 

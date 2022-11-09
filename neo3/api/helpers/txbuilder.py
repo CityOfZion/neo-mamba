@@ -2,10 +2,11 @@ from neo3.api import noderpc
 from neo3.api.helpers import signing
 from neo3.network.payloads import transaction, verification
 from neo3.wallet import account
+from typing import Optional
 
 
 class TxBuilder:
-    def __init__(self, client: noderpc.NeoRpcClient, script: bytes = None):
+    def __init__(self, client: noderpc.NeoRpcClient, script: Optional[bytes] = None):
         self.client = client
         self.tx = transaction.Transaction(
             version=0,

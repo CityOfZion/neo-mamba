@@ -13,6 +13,7 @@ from neo3.network.payloads import (
 )
 from neo3.core import Size as s, serialization
 from neo3 import network_logger as logger
+from typing import Optional
 
 
 class MessageType(IntEnum):
@@ -61,7 +62,9 @@ class Message(serialization.ISerializable):
     COMPRESSION_THRESHOLD = 64
 
     def __init__(
-        self, msg_type: MessageType, payload: serialization.ISerializable_T = None
+        self,
+        msg_type: MessageType,
+        payload: Optional[serialization.ISerializable_T] = None,
     ):
         """
 

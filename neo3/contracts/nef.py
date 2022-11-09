@@ -4,15 +4,16 @@ import hashlib
 from collections.abc import Sequence
 from neo3.core import serialization, types, Size as s, utils as coreutils, interfaces
 from neo3.contracts import callflags
+from typing import Optional
 
 
 class NEF(serialization.ISerializable, interfaces.IJson):
     def __init__(
         self,
-        compiler_name: str = None,
-        script: bytes = None,
-        tokens: Sequence[MethodToken] = None,
-        source: str = None,
+        compiler_name: Optional[str] = None,
+        script: Optional[bytes] = None,
+        tokens: Optional[Sequence[MethodToken]] = None,
+        source: Optional[str] = None,
         _magic: int = 0x3346454E,
     ):
         """
