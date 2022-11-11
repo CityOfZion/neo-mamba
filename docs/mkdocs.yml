@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=https://squidfunk.github.io/mkdocs-material/schema.json
+site_name: mamba
+site_url: https://ixje.github.io/mamba/
+repo_url: https://github.com/CityOfZion/neo-mamba
+copyright: 2019-2022, COZ - Erik van den Brink
+docs_dir: 'source'
+extra:
+  generator: false
+theme:
+  logo: mamba-logo.png
+  favicon: mamba-logo.png
+  name: material
+  custom_dir: source
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - toc.integrate
+  icon:
+    repo: fontawesome/brands/github
+  palette:
+    # Palette toggle for light mode
+    - scheme: default
+      toggle:
+        icon: material/toggle-switch
+        name: Switch to dark mode
+      primary: yellow
+
+    # Palette toggle for dark mode
+    - scheme: slate
+      toggle:
+        icon: material/toggle-switch-off-outline
+        name: Switch to light mode
+      primary: yellow
+nav:
+  - Home: 'index.md'
+  - Getting started: 'getting-started.md'
+  - Smart contracts: 'smart-contracts.md'
+  - Advanced: 'advanced.md'
+  - FAQ: 'faq.md'
+markdown_extensions:
+  - admonition
+  - pymdownx.highlight:
+      linenums: true
+      linenums_style: pymdownx-inline
+      anchor_linenums: true
+  # must keep superfences in combination with tabbed or tabs with just code won't work properly
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - toc:
+        permalink: true
