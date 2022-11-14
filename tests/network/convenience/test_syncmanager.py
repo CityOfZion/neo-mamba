@@ -86,12 +86,12 @@ class SyncManagerSyncBlocksTestCase(IsolatedAsyncioTestCase):
     async def test_sync_blocks_no_nodes(self):
         self.assertEqual(-3, await self.syncmgr._sync_blocks())
 
-    # async def test_sync_blocks_no_nodes_with_required_height(self):
-    #     mock_node = mock.AsyncMock()
-    #     mock_node.best_height = 1
-    #     self.nodemgr.nodes = [mock_node]
-    #     with mock.patch.object(self.nodemgr, 'get_node_with_height', return_value=None):
-    #         self.assertEqual(-4, await self.syncmgr._sync_blocks())
+    async def test_sync_blocks_no_nodes_with_required_height(self):
+        mock_node = mock.AsyncMock()
+        mock_node.best_height = 1
+        self.nodemgr.nodes = [mock_node]
+        with mock.patch.object(self.nodemgr, "get_node_with_height", return_value=None):
+            self.assertEqual(-4, await self.syncmgr._sync_blocks())
 
     async def test_sync_blocks_get_1_block(self):
         # scenario
@@ -151,7 +151,7 @@ class SyncManagerCheckTimeoutTestCase(IsolatedAsyncioTestCase):
         target_height = 2
         node1_id = 123
         request_info = requestinfo.RequestInfo(target_height)
-        request_info.mark_failed_node = mock.AsyncMock()
+        request_info.mark_failed_node = mock.Mock()
         flight_info = flightinfo.FlightInfo(node_id=node1_id, height=target_height)
         # reduce start time to enforce exceeding timeout treshold
         flight_info.start_time -= self.syncmgr.BLOCK_REQUEST_TIMEOUT + 1
@@ -284,7 +284,7 @@ class SyncManagerVarious(IsolatedAsyncioTestCase):
 
         # next test a valid scenario (outstanding request and receiving a block from the right node)
         mocked_node = node.NeoNode(object(), object())
-        mocked_node.nodeweight.append_new_speed = mock.AsyncMock()
+        mocked_node.nodeweight.append_new_speed = mock.Mock()
         mocked_node.nodeid = 456
         self.nodemgr.nodes = [mocked_node]
         # add a micro delay to ensure that delta_time in the next on_block_received call is bigger than 0. Only affects Windows

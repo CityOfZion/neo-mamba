@@ -83,6 +83,7 @@ class NeoNodeTestCase(IsolatedAsyncioTestCase):
             loop.call_soon(w.send, self.m_version.to_array())
             loop.call_soon(w.send, self.m_verack.to_array())
             n, _ = await node.NeoNode.connect_to(socket=r, _test_data=test_data)
+        r.close()
         w.close()
         self.assertIn("Trying to connect to socket", log_context.output[0])
         self.assertIn(
@@ -135,13 +136,13 @@ class NeoNodeTestCase(IsolatedAsyncioTestCase):
         self.assertEqual(None, addr)
 
     async def test_handshake_first_message_not_VERSION(self):
-
         r, w = socket.socketpair()
         loop = asyncio.get_running_loop()
 
         with self.assertLogs(network_logger, "DEBUG") as log_context:
             loop.call_soon(w.send, self.m_verack.to_array())
             await node.NeoNode.connect_to(socket=r, _test_data=self.peername_data)
+        r.close()
         w.close()
         self.assertIn(
             "Disconnect called with reason=HANDSHAKE_VERSION_ERROR",
@@ -159,6 +160,7 @@ class NeoNodeTestCase(IsolatedAsyncioTestCase):
         with self.assertLogs(network_logger, "DEBUG") as log_context:
             loop.call_soon(w.send, version.to_array())
             await node.NeoNode.connect_to(socket=r, _test_data=self.peername_data)
+        r.close()
         w.close()
         self.assertIn(
             "Disconnect called with reason=HANDSHAKE_VERSION_ERROR",
@@ -176,6 +178,7 @@ class NeoNodeTestCase(IsolatedAsyncioTestCase):
             loop.call_soon(w.send, self.m_version.to_array())
             loop.call_soon(w.send, self.m_version.to_array())
             await node.NeoNode.connect_to(socket=r, _test_data=self.peername_data)
+        r.close()
         w.close()
         self.assertIn(
             "Disconnect called with reason=HANDSHAKE_VERACK_ERROR",
@@ -265,6 +268,7 @@ class NeoNodeTestCase(IsolatedAsyncioTestCase):
             loop.call_soon(w.send, self.m_version.to_array())
             loop.call_soon(w.send, self.m_verack.to_array())
             await node.NeoNode.connect_to(socket=r, _test_data=self.peername_data)
+        r.close()
         w.close()
         self.assertIn("Blocked by ipfilter: 127.0.0.1:1111", log_context.output[1])
 
@@ -387,7 +391,7 @@ class NeoNodeTestCase(IsolatedAsyncioTestCase):
             msg_type=message.MessageType.ADDR, payload=address.AddrPayload([])
         )
         m_block = message.Message(
-            msg_type=message.MessageType.BLOCK, payload=empty.EmptyPayload()
+            msg_type=message.MessageType.BLOCK, payload=block.Block._serializable_init()
         )
         m_inv1 = message.Message(
             msg_type=message.MessageType.INV,
@@ -462,6 +466,7 @@ class NeoNodeTestCase(IsolatedAsyncioTestCase):
 
             await asyncio.sleep(0.5)
             await n.disconnect(address.DisconnectReason.SHUTTING_DOWN)
+        r.close()
         w.close()
 
     def test_utility_function(self):

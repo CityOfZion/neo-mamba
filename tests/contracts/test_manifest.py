@@ -17,6 +17,10 @@ class ContractGroupTestCase(unittest.TestCase):
             "signature": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
         }
 
+    def shortDescription(self) -> str | None:
+        # disable comment printing
+        return None
+
     def test_is_valid(self):
         """
         var private_key = new byte[]
