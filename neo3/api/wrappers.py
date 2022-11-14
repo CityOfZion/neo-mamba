@@ -84,7 +84,8 @@ class ContractMethodResult(Generic[ReturnType]):
         pass
 
 
-_DEFAULT_RPC = "http://seed1.neo.org:10332"
+_DEFAULT_MAINNET_RPC = "http://seed1.neo.org:10332"
+_DEFAULT_TESTNET_RPC = "http://seed1t5.neo.org:10332"
 
 SigningPair: TypeAlias = tuple[signing.SigningFunction, verification.Signer]
 
@@ -116,11 +117,20 @@ class ChainFacade:
     Abstracts away the logic for talking to the data provider (NodeRPC only atm)
     """
 
-    def __init__(self, config: Config):
-        self.config = config
+    def __init__(self, rpc_host: str, receipt_retry_delay: Optional[float] = None):
+        """
+
+        Args:
+            rpc_host: Neo RPC node host address
+            receipt_retry_delay: time to wait in seconds between attempts to find the transaction on the chain
+        """
+        self.rpc_host = rpc_host
         self._signing_func = None
         self.network = -1
         self.address_version = -1
+        self.signers: list[verification.Signer] = []
+        self._signing_funcs: list[signing.SigningFunction] = []
+        self._receipt_retry_delay = receipt_retry_delay
 
     async def test_invoke(
         self,
@@ -140,7 +150,7 @@ class ChainFacade:
         See Also: invoke() - persists state
         """
         if signers is None:
-            signers = self.config.signers
+            signers = self.signers
         return await self._test_invoke(f, signers=signers)
 
     async def test_invoke_multi(
@@ -159,7 +169,7 @@ class ChainFacade:
         See Also: invoke_multi() - persists state
         """
         if signers is None:
-            signers = self.config.signers
+            signers = self.signers
         return await asyncio.gather(
             *map(lambda c: self.test_invoke(c, signers=signers), f)
         )
@@ -183,7 +193,7 @@ class ChainFacade:
         See Also: invoke_raw() - persists state
         """
         if signers is None:
-            signers = self.config.signers
+            signers = self.signers
         return await self._test_invoke(f, signers=signers, return_raw=True)
 
     async def _test_invoke(
@@ -196,7 +206,7 @@ class ChainFacade:
         """
         return_raw - whether to post process the execution result or not
         """
-        async with noderpc.NeoRpcClient(self.config.rpc_host) as client:
+        async with noderpc.NeoRpcClient(self.rpc_host) as client:
             res = await client.invoke_script(f.script, signers)
             if f.execution_processor is None or return_raw:
                 return res
@@ -238,7 +248,7 @@ class ChainFacade:
                            results
         """
         receipt_retry_delay = await self._get_retry_delay()
-        async with noderpc.NeoRpcClient(self.config.rpc_host) as client:
+        async with noderpc.NeoRpcClient(self.rpc_host) as client:
             tx_id = await self.invoke_fast(
                 f,
                 signers=signers,
@@ -304,7 +314,7 @@ class ChainFacade:
         if system_fee > 0 and append_system_fee > 0:
             raise ValueError("system_fee and append_system_fee are mutually exclusive")
 
-        async with noderpc.NeoRpcClient(self.config.rpc_host) as client:
+        async with noderpc.NeoRpcClient(self.rpc_host) as client:
             builder = txbuilder.TxBuilder(client, f.script)
             await builder.init()
 
@@ -312,9 +322,7 @@ class ChainFacade:
                 for func, signer in signers:
                     builder.add_signer(func, signer)
             else:
-                for func, signer in zip(
-                    self.config._signing_funcs, self.config.signers
-                ):
+                for func, signer in zip(self._signing_funcs, self.signers):
                     builder.add_signer(func, signer)
 
             await builder.set_valid_until_block()
@@ -368,7 +376,7 @@ class ChainFacade:
             invoke_fast() - does not wait for a receipt
         """
         receipt_retry_delay = await self._get_retry_delay()
-        async with noderpc.NeoRpcClient(self.config.rpc_host) as client:
+        async with noderpc.NeoRpcClient(self.rpc_host) as client:
             tx_id = await self.invoke_fast(
                 f,
                 signers=signers,
@@ -401,59 +409,31 @@ class ChainFacade:
         """
         Estimates the gas price for calling the contract method
         """
-        async with noderpc.NeoRpcClient(self.config.rpc_host) as client:
+        async with noderpc.NeoRpcClient(self.rpc_host) as client:
             res = await client.invoke_script(f.script, signers)
             return res.gas_consumed
 
     async def _get_retry_delay(self) -> float:
-        if self.config._receipt_retry_delay is not None:
-            return self.config._receipt_retry_delay
+        if self._receipt_retry_delay is not None:
+            return self._receipt_retry_delay
 
-        async with noderpc.NeoRpcClient(self.config.rpc_host) as client:
+        async with noderpc.NeoRpcClient(self.rpc_host) as client:
             result = await client.get_version()
             # 5 seems like a reasonable divider where on mainnet (with 15s blocks) at worst case
             # the RPC server is queried 5 times.
             return (result.protocol.ms_per_block / 1000) / 5
 
-    @classmethod
-    def node_provider_mainnet(cls):
-        return cls(Config.standard_config())
-
-    @classmethod
-    def node_provider_testnet(cls):
-        c = Config.standard_config()
-        c.rpc_host = "http://seed1t5.neo.org:10332"
-        return cls(c)
-
-
-class Config:
-    def __init__(self, rpc_host: str, receipt_retry_delay: Optional[float] = None):
-        """
-        ChainFacade config
-
-        Args:
-            rpc_host: Neo RPC node host address
-            receipt_retry_delay: time to wait in seconds between attempts to find the transaction on the chain
-        """
-        self.rpc_host = rpc_host
-        self.signers: list[verification.Signer] = []
-        self._signing_funcs: list[signing.SigningFunction] = []
-        self._test_invoke_signers: list[verification.Signer] = []
-        self._receipt_retry_delay = receipt_retry_delay
-
-    @classmethod
-    def standard_config(cls):
-        return cls(_DEFAULT_RPC)
-
     def add_signer(self, func: signing.SigningFunction, signer: verification.Signer):
         self._signing_funcs.append(func)
         self.signers.append(signer)
 
-    def add_test_invoke_signer(self, signer: verification.Signer):
-        """
-        These signers will be used with `test_invoke`
-        """
-        self._test_invoke_signers.append(signer)
+    @classmethod
+    def node_provider_mainnet(cls):
+        return cls(_DEFAULT_MAINNET_RPC)
+
+    @classmethod
+    def node_provider_testnet(cls):
+        return cls(_DEFAULT_TESTNET_RPC)
 
 
 class GenericContract:

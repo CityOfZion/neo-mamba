@@ -135,7 +135,7 @@ async def main():
     account = wallet.account_default
     
     facade = ChainFacade.node_provider_mainnet()
-    facade.config.add_signer(
+    facade.add_signer(
         sign_insecure_with_account(account, pw="123"),
         Signer(account.script_hash)
     )
@@ -164,7 +164,7 @@ wallet that we'll load from disk.
 Next up is setting up and configuring the facade to automatically sign our transaction(s).
 ```py3 linenums="14"
 facade = ChainFacade.node_provider_mainnet()
-facade.config.add_signer(
+facade.add_signer(
     sign_insecure_with_account(account, pw="123"),
     Signer(account.script_hash)
 )
