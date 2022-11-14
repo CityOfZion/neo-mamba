@@ -27,6 +27,10 @@ class UIntBase3(_UIntBase):
 
 
 class UIntBaseTest(TestCase):
+    def shortDescription(self) -> str | None:
+        # disable comment printing
+        return None
+
     def test_create_with_empty_data(self):
         x = UIntBase()
         self.assertEqual(len(x._data), 2)

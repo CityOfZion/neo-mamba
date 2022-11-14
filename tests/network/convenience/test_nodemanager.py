@@ -117,7 +117,11 @@ class NodeManagerTestCase(TestCase):
         self.node1.nodeweight.error_response_count += 999
 
         with self.assertLogs(network_logger, "DEBUG") as context:
-            with mock.patch.object(self.node1, "disconnect"):
+            with mock.patch.object(
+                self.node1,
+                "disconnect",
+                new_callable=mock.MagicMock,  # forcing this to non-async version to prevent runtime warning
+            ):
                 with mock.patch("asyncio.create_task") as mocked_create_task:
                     self.nodemgr.increase_node_error_count(self.node1.nodeid)
         self.assertEqual(1000, self.node1.nodeweight.error_response_count)
@@ -136,7 +140,11 @@ class NodeManagerTestCase(TestCase):
         self.node1.nodeweight.timeout_count += 999
 
         with self.assertLogs(network_logger, "DEBUG") as context:
-            with mock.patch.object(self.node1, "disconnect"):
+            with mock.patch.object(
+                self.node1,
+                "disconnect",
+                new_callable=mock.MagicMock,  # forcing this to non-async version to prevent runtime warning):
+            ):
                 with mock.patch("asyncio.create_task"):
                     self.nodemgr.increase_node_timeout_count(self.node1.nodeid)
         self.assertEqual(1000, self.node1.nodeweight.timeout_count)
@@ -155,6 +163,10 @@ m_verack = message.Message(msg_type=message.MessageType.VERACK)
 m_ping = message.Message(
     msg_type=message.MessageType.PING, payload=ping.PingPayload(height=0)
 ).to_array()
+
+
+async def fake_create_task(coro):
+    await coro
 
 
 class NodeManagerTestCase2(IsolatedAsyncioTestCase):
@@ -217,6 +229,8 @@ class NodeManagerTestCase2(IsolatedAsyncioTestCase):
         await self.nodemgr.shutdown()
         for t in self.nodemgr.tasks:
             self.assertTrue(t.done())
+        r.close()
+        w.close()
 
     async def test_fill_open_connection_spots_no_clients(self):
         # create 1 open spot
@@ -225,8 +239,7 @@ class NodeManagerTestCase2(IsolatedAsyncioTestCase):
         node.NeoNode.addresses = [address.NetworkAddress(address="127.0.0.1:1111")]
 
         with self.assertLogs(network_logger, "DEBUG") as context:
-            with mock.patch("asyncio.create_task"):
-                await self.nodemgr._fill_open_connection_spots()
+            await self.nodemgr._fill_open_connection_spots()
         self.assertIn("Found 1 open pool spots", context.output[0])
         self.assertIn("Adding 127.0.0.1:1111 to connection queue", context.output[1])
 
@@ -376,8 +389,7 @@ class NodeManagerTimedTestCase(IsolatedAsyncioTestCase):  # asynctest.ClockedTes
         self.nodemgr.nodes = [self.node1]
         with self.assertLogs(network_logger, "DEBUG") as context:
             with mock.patch.object(self.node1, "disconnect") as patched_node_disconnect:
-                with mock.patch("asyncio.create_task"):
-                    await self.nodemgr._monitor_node_height()
+                await self.nodemgr._monitor_node_height()
         self.assertIn("max height update threshold exceeded", context.output[0])
         patched_node_disconnect.assert_called_with(
             reason=address.DisconnectReason.POOR_PERFORMANCE
