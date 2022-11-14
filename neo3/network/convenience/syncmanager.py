@@ -338,3 +338,4 @@ class SyncManager(singleton._Singleton):
         self._is_persisting_blocks = False
         self._tasks = []
         self._service_task = None
+        msgrouter.on_block_received -= self.on_block_received
