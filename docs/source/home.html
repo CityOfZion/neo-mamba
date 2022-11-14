@@ -1,0 +1,357 @@
+<!-- Custom HTML site displayed as the Home chapter -->
+
+{% extends "main.html" %}
+{% block tabs %}
+{{ super() }}
+<style>
+
+    .md-main {
+        flex-grow: 0
+    }
+
+    .md-main__inner {
+        display: flex;
+        height: 100%;
+    }
+
+    .tx-container {
+        padding-top: .0rem;
+        background: linear-gradient(to bottom, var(--md-primary-fg-color), hsla(160deg,47%,55%,1) 99%,#fff 99%)
+    }
+
+    .tx-hero {
+        margin: 32px 2.8rem;
+        color: var(--md-primary-bg-color);
+        justify-content: center;
+    }
+
+    .tx-hero h1 {
+        margin-bottom: 1rem;
+        color: currentColor;
+        font-weight: 700
+    }
+
+    .tx-hero__content {
+        padding-bottom: 1rem;
+        margin: 0 auto;
+    }
+
+    .tx-hero__image{
+        width:12rem;
+        height:12rem;
+        order:1;
+    }
+
+    .tx-hero .md-button {
+        margin-top: .5rem;
+        margin-right: .5rem;
+        color: var(--md-primary-bg-color)
+    }
+
+    .tx-hero .md-button--primary {
+        background-color: #dd2e57;
+
+        color: hsla(0, 0%, 100%, 1);
+        border-color: #dd2e57
+    }
+
+    .tx-hero .md-button:focus,
+    .tx-hero .md-button:hover {
+        background-color: var(--md-accent-fg-color);
+        color: var(--md-default-bg-color);
+        border-color: var(--md-accent-fg-color)
+    }
+
+    .feature-item h2 svg {
+        height: 30px;
+        float: left;
+        margin-right: 10px;
+        transform: translateY(10%);
+    }
+
+    .top-hr {
+        margin-top: 42px;
+    }
+
+    .feature-item {
+        font-family: 'Lato', sans-serif;
+        font-weight: 300;
+        box-sizing: border-box;
+        padding: 0 15px;
+        word-break: break-word
+        color: white
+    }
+
+    .feature-item h2 {
+        color: #333;
+        font-weight: 300;
+        font-size: 25px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        line-height: normal;
+        margin-top: 20px;
+        margin-bottom: 10px;
+        font-family: inherit;
+    }
+
+    .feature-item p {
+        font-size: 16px;
+        line-height: 1.8em;
+        text-rendering: optimizeLegibility;
+        -webkit-font-smoothing: antialiased;
+        color: #111;
+        margin: 0 0 10px;
+        display: block;
+    }
+
+    @media screen and (max-width:30em) {
+        .tx-hero h1 {
+            font-size: 1.4rem
+        }
+    }
+
+    @media screen and (min-width:60em) {
+        .md-sidebar--secondary {
+            display: none
+        }
+
+        .tx-hero {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .tx-hero__content {
+            max-width: 22rem;
+            margin-top: 3.5rem;
+            margin-bottom: 3.5rem;
+            margin-left: 1.0rem;
+            margin-right: 4.0rem;
+            align-items: center;
+        }
+    }
+
+    @media screen and (min-width:76.25em) {
+        .md-sidebar--primary {
+            display: none
+        }
+
+        .top-hr {
+            width: 100%;
+            display: flex;
+            max-width: 61rem;
+            margin-right: auto;
+            margin-left: auto;
+            padding: 0 .2rem;
+        }
+
+        .bottom-hr {
+            margin-top: 10px;
+            width: 100%;
+            display: flex;
+            max-width: 61rem;
+            margin-right: auto;
+            margin-left: auto;
+            padding: 0 .2rem;
+        }
+
+        .feature-item {
+            flex: 1;
+            min-width: 0;
+        }
+
+    }
+
+    .hr {
+        border-bottom: 1px solid #eee;
+        width: 100%;
+        margin: 20px 0;
+    }
+
+    .text-center {
+        text-align: center;
+        padding-right: 15px;
+        padding-left: 15px;
+        margin-right: auto;
+        margin-left: auto;
+        margin-top: 15px;
+        font-family: 'Lato', sans-serif;
+        font-size: 23px;
+        font-weight: 300;
+        padding-bottom: 10px;
+    }
+
+    .logos {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-flow: row wrap;
+        margin: 0 auto;
+    }
+
+    .logos img {
+        flex: 1 1 auto;
+        padding: 25px;
+        max-height: 130px;
+        vertical-align: middle;
+    }
+
+    .hr-logos {
+        margin-top: 0;
+        margin-bottom: 30px;
+    }
+
+    .md-footer-meta__inner {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        margin-top: 1.0rem;
+    }
+
+    .md-footer-social {
+        padding-top: 20px;
+    }
+</style>
+
+<!-- Main site Entry button descriptions -->
+<section class="tx-container">
+    <div class="md-grid md-typeset">
+      <div class="tx-hero">
+        <div class="tx-hero__image">
+          <svg width="579" height="552" viewBox="0 0 579 552" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M354.881 86.5774L427.888 44.5417" stroke="black" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M428.396 44.6315L354.857 2.35059H354.849L281.31 44.6315L207.772 2.35059H207.763L134.225 44.6315L354.855 171.474L428.396 129.196L354.855 86.9123" stroke="black" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M133.663 113.242L134.189 44.134L354.853 171.627V428.144L297.061 395.046" stroke="black" stroke-width="3" stroke-linejoin="round"/>
+<path d="M428.396 43.7886L428.683 199.643M354.853 427.322V172.135" stroke="black" stroke-width="3"/>
+<path fill-rule="evenodd" clip-rule="evenodd" d="M354.854 241.954L467.154 264.425L575.263 200.481L501.898 156.744L354.854 241.954Z" stroke="black" stroke-width="3" stroke-linejoin="round"/>
+<path fill-rule="evenodd" clip-rule="evenodd" d="M467.154 264.424L464.716 520.658L575.829 456.739L575.263 200.481L467.154 264.424Z" stroke="black" stroke-width="3" stroke-linejoin="round"/>
+<path fill-rule="evenodd" clip-rule="evenodd" d="M464.718 520.656L354.853 499.11V241.955L467.153 264.423L464.718 520.656Z" stroke="black" stroke-width="3"/>
+<path d="M2.64844 121.333L4.50389 381.098L38.2929 401.45" stroke="black" stroke-width="3"/>
+<path d="M297.453 206.801L75.8348 79.5496L3.04541 122.5L149.645 207.231L37.8252 272.353L150.212 292.446" stroke="black" stroke-width="3" stroke-linejoin="round"/>
+<path fill-rule="evenodd" clip-rule="evenodd" d="M150.131 292.081L150.159 549.116L297.217 463.944V206.89L150.131 292.081Z" stroke="black" stroke-width="3" stroke-linejoin="round"/>
+<path fill-rule="evenodd" clip-rule="evenodd" d="M39.2921 528.116L150.131 549.116L150.106 292.65L36.8354 272.549L39.2921 528.116Z" stroke="black" stroke-width="3" stroke-linejoin="round"/>
+</svg>
+        </div>
+        <div class="tx-hero__content">
+          <h1>NEO Python SDK </h1>
+          <p>NEO Blockchain access with <b>Python</b>. </p>
+          <a href="{{ page.next_page.url | url }}" title="{{ page.next_page.title | striptags }}" class="md-button md-button--primary">
+            Get started
+          </a>
+          <a href="{{ config.repo_url }}" title="{{ lang.t('source.link.title') }}" class="md-button">
+            Go to GitHub
+          </a>
+        </div>
+      </div>
+    </div>
+</section>
+
+<!-- Main site box descriptions -->
+<div class="top-hr">
+
+    <div class="feature-item">
+        <h2><svg version="1.1" id="Capa_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+	 viewBox="0 0 489 489" style="enable-background:new 0 0 489 489;" xml:space="preserve">
+<g>
+	<path d="M59.7,255.005c-44,53.5-59.7,116.5-59.7,157.6c0,5.6,3.7,10.4,9.1,11.8c1,0.3,2.1,0.4,3.1,0.4c4.3,0,8.4-2.3,10.7-6.2
+		c62.3-109.8,179.8-115.6,256.5-115.9v79.5c0,4.7,2.7,9.1,7,11.1s9.4,1.4,13-1.6l185.2-153.2c2.8-2.3,4.4-5.8,4.4-9.4
+		c0-3.7-1.6-7.1-4.5-9.4l-185-152.7c-3.7-3-8.7-3.7-13-1.6c-4.3,2-7,6.3-7,11.1v79.8C161.7,160.605,95.1,211.905,59.7,255.005z
+		 M291.8,180.405c6.7-0.1,12.1-5.5,12.1-12.3v-65.7l153.6,126.7l-153.6,127.1v-65.7c0-3.2-1.3-6.4-3.6-8.7c-2.3-2.3-5.4-3.6-8.7-3.6
+		c-71.3,0-184.7,0-260.6,86.6C50.1,289.405,115.8,182.105,291.8,180.405z"/>
+</g></svg>Manage smart contracts</h2>
+        <p>Deploy your smart contracts, update them when you have cool new features, or destroy them if you're done</p>
+    </div>
+    <div class="feature-item">
+        <h2>
+            Transfer tokens
+            <svg version="1.1" id="Capa_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+	 viewBox="0 0 550 550" style="enable-background:new 0 0 490 490;" xml:space="preserve">
+	<g>
+		<path d="M0.5,133.2V177c0,6.8,5.5,12.3,12.3,12.3S25,183.8,25,177v-43.8c0-39.4,32.1-71.5,71.5-71.5h61.9l-16.2,16.2
+			c-4.8,4.8-4.8,12.5,0,17.3c2.4,2.4,5.5,3.6,8.7,3.6s6.3-1.2,8.7-3.6l37.1-37.1c2.3-2.3,3.6-5.4,3.6-8.7c0-3.2-1.3-6.4-3.6-8.7
+			L159.6,3.6c-4.8-4.8-12.5-4.8-17.3,0s-4.8,12.5,0,17.3l16.2,16.2H96.6C43.6,37.2,0.5,80.3,0.5,133.2z"/>
+		<path d="M228,251.1H13.7c-6.8,0-12.3,5.5-12.3,12.3v214.3c0,6.8,5.5,12.3,12.3,12.3H228c6.8,0,12.3-5.5,12.3-12.3V263.3
+			C240.2,256.6,234.7,251.1,228,251.1z M215.7,465.4H26V275.6h189.8v189.8H215.7z"/>
+		<path d="M477.2,300.7c-6.8,0-12.3,5.5-12.3,12.3v43.8c0,39.4-32.1,71.5-71.5,71.5h-61.9l16.2-16.2c4.8-4.8,4.8-12.5,0-17.3
+			s-12.5-4.8-17.3,0l-37.1,37.1c-2.3,2.3-3.6,5.4-3.6,8.7s1.3,6.4,3.6,8.7l37.1,37.1c2.4,2.4,5.5,3.6,8.7,3.6s6.3-1.2,8.7-3.6
+			c4.8-4.8,4.8-12.5,0-17.3l-16.2-16.2h61.9c52.9,0,96-43.1,96-96V313C489.5,306.2,484,300.7,477.2,300.7z"/>
+		<path d="M476.3,0.1H262c-6.8,0-12.3,5.5-12.3,12.3v214.3c0,6.8,5.5,12.3,12.3,12.3h214.3c6.8,0,12.3-5.5,12.3-12.3V12.4
+			C488.5,5.6,483.1,0.1,476.3,0.1z M464,214.4H274.3V24.6H464V214.4z"/>
+	</g>
+</svg>
+        </h2>
+        <p>Easily send NEP-11 (NFT) and NEP-17 (fungible) tokens through dedicated wrappers</p>
+    </div>
+    <div class="feature-item">
+        <h2><svg version="1.1" id="Capa_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+	 viewBox="0 0 550.1 550.1" style="enable-background:new 0 0 490.1 490.1;" xml:space="preserve">
+<g>
+	<path d="M201.9,21.018c-18.6,13.6-28,36.9-28,69v76.2H68.3c-37.6,0-68.3,30.6-68.3,68.3v2.1c0,0.6,0.1,1.3,0.2,1.9l28.1,176.5
+		c5.2,42.4,34.8,66.8,81.1,66.8h209.2c37.6,0,68.3-30.6,68.3-68.3v-196.1c0-5.9,4.8-10.7,10.7-10.7h57.3c5.9,0,10.7,4.8,10.7,10.7
+		v207.9c0,5.9-4.8,10.7-10.7,10.7h-33.1c-6.8,0-12.3,5.5-12.3,12.3s5.5,12.3,12.3,12.3h33.1c19.4,0,35.2-15.8,35.2-35.2v-208
+		c0-19.4-15.8-35.2-35.2-35.2h-57.3c-13.8,0-25.8,8-31.6,19.6c-0.8-0.5-1.7-0.8-2.7-1.1c-3.3-0.9-81.4-23.8-81.4-91.2v-85.6
+		c0-5.4-3.5-10.1-8.6-11.7C271.7,11.718,231.3-0.582,201.9,21.018z M356.8,224.218c1.9,0.5,3.8,0.6,5.6,0.2v189.1
+		c0,24.1-19.6,43.8-43.8,43.8h-66.4H109.4c-34,0-53.1-15.2-56.9-45.7l-28-176v-1.1c0-24.1,19.6-43.8,43.8-43.8h117.9
+		c6.8,0,12.3-5.5,12.3-12.3v-88.4c0-23.9,6-40.4,17.9-49.2c12.9-9.6,30.7-8.7,41.1-7v75.6
+		C257.5,195.418,352.7,223.118,356.8,224.218z"/>
+</g></svg>Vote</h2>
+        <p>Let your voice be known and vote for your favourite consensus node and earn that extra GAS</p>
+    </div>
+</div>
+<div class="top-hr">
+    <div class="feature-item">
+        <h2><svg version="1.1" id="Capa_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+	 viewBox="0 0 550.6 550.6" style="enable-background:new 0 0 487.6 487.6;" xml:space="preserve">
+<g>
+	<path d="M460.3,216.55h-11.6v-69.7c0-28.5-23.2-51.6-51.6-51.6h-10.7l0.1-25.9c0-19.2-15.6-34.8-34.8-34.8H42.3
+		c-23.1,0-42,18.6-42.3,41.7c0,0.2,0,0.4,0,0.6v341.4c0,19.2,15.6,34.8,34.8,34.8h362.4c28.5,0,51.6-23.2,51.6-51.6v-69.8h11.6
+		c15,0,27.2-12.2,27.2-27.2v-60.7C487.5,228.75,475.3,216.55,460.3,216.55z M42.3,58.55h309.4c5.9,0,10.8,4.8,10.8,10.7l-0.1,26
+		H42.3c-10.1,0-18.3-8.2-18.3-18.3S32.2,58.55,42.3,58.55z M424.7,401.35c0,15.2-12.4,27.6-27.6,27.6H34.7
+		c-5.9,0-10.8-4.8-10.8-10.8v-303.1c5.6,2.7,11.8,4.2,18.4,4.2h354.8c15.2,0,27.6,12.4,27.6,27.6v69.7h-81.9
+		c-15,0-27.2,12.2-27.2,27.2v60.7c0,15,12.2,27.2,27.2,27.2h81.9V401.35z M463.5,304.45c0,1.8-1.4,3.2-3.2,3.2H342.9
+		c-1.8,0-3.2-1.4-3.2-3.2v-60.7c0-1.7,1.4-3.2,3.2-3.2h117.4c1.7,0,3.2,1.4,3.2,3.2L463.5,304.45L463.5,304.45z"/>
+</g></svg>Wallets</h2>
+        <p>Create or import wallets. Manage your accounts and view your balances</p>
+    </div>
+    <div class="feature-item">
+        <h2>
+        <svg version="1.1" id="Capa_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+	 viewBox="0 0 550.2 550.2" style="enable-background:new 0 0 489.2 489.2;" xml:space="preserve">
+	<g>
+		<path d="M365.55,485.6c2.4,2.4,5.5,3.6,8.7,3.6s6.3-1.2,8.7-3.6l94.5-94.5c4.8-4.8,4.8-12.5,0-17.3l-94.5-94.5
+			c-4.8-4.8-12.5-4.8-17.3,0s-4.8,12.5,0,17.3l73.6,73.6H20.35c-6.8,0-12.3,5.5-12.3,12.3s5.5,12.3,12.3,12.3h418.8l-73.6,73.5
+			C360.75,473.1,360.75,480.9,365.55,485.6z"/>
+		<path d="M106.25,3.6l-94.5,94.5c-4.8,4.8-4.8,12.5,0,17.3l94.5,94.5c2.4,2.4,5.5,3.6,8.7,3.6s6.3-1.2,8.7-3.6
+			c4.8-4.8,4.8-12.5,0-17.3L50.05,119h418.8c6.8,0,12.3-5.5,12.3-12.3s-5.5-12.3-12.3-12.3H49.95l73.6-73.5c4.8-4.8,4.8-12.5,0-17.3
+			S110.95-1.2,106.25,3.6z"/>
+    </g></svg> Interact
+    </h2>
+        <p>Call any on-chain smart contract with ease. Listen to notification events an act</p>
+    </div>
+    <div class="feature-item">
+        <h2><svg version="1.1" id="Capa_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+	 viewBox="0 0 489.8 489.8" style="enable-background:new 0 0 489.8 489.8;" xml:space="preserve">
+	<g>
+		<path d="M15.9,67.8c-0.2,0.2-0.4,0.4-0.7,0.6C5.9,76.8,0,88.9,0,102.4v225.5c0,27.5,22.3,49.8,49.8,49.8h235.3
+			c6.8,0,12.3-5.5,12.3-12.3s-5.5-12.3-12.3-12.3H49.8c-13.9,0-25.3-11.3-25.3-25.3V102.4c0-2.3,0.5-4.5,1.1-6.6L199.7,247
+			c2.3,2,5.2,3,8,3s5.7-1,8-3L391.4,94.5c1,2.5,1.6,5.1,1.6,7.9v87.7c0,6.8,5.5,12.3,12.3,12.3s12.3-5.5,12.3-12.3v-87.7
+			c0-25.3-20.6-45.9-45.9-45.9H45.9C34.4,56.5,23.9,60.8,15.9,67.8z M207.8,221.5L45.9,81h323.7L207.8,221.5z"/>
+		<path d="M489.8,409.2V339c0-13.1-10.6-23.8-23.7-24v-25.4c0-33.6-27.3-60.9-60.9-60.9s-60.9,27.3-60.9,60.9V315
+			c-13.1,0.2-23.7,10.9-23.7,24v70.2c0,13.3,10.8,24.1,24.1,24.1h121C479,433.3,489.8,422.5,489.8,409.2z M405.3,253.2
+			c20.1,0,36.4,16.3,36.4,36.4V315h-72.8v-25.4C368.8,269.5,385.2,253.2,405.3,253.2z M465.3,408.8H345.2v-69.3h120.1V408.8z"/>
+    </g></svg>Build and sign</h2>
+        <p>Whether you need standardised or specialised transactions, automated or manually signed</p>
+    </div>
+
+</div>
+
+<div class="top-hr">
+    <div class="hr">
+    </div>
+</div>
+
+
+{% endblock %}
+{% block content %}{% endblock %}
+{% block footer %}{% endblock %}
