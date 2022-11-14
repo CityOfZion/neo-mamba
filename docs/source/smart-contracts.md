@@ -136,7 +136,7 @@ async def main():
     
     facade = ChainFacade.node_provider_mainnet()
     facade.add_signer(
-        sign_insecure_with_account(account, pw="123"),
+        sign_insecure_with_account(account, password="123"),
         Signer(account.script_hash)
     )
     
@@ -165,7 +165,7 @@ Next up is setting up and configuring the facade to automatically sign our trans
 ```py3 linenums="14"
 facade = ChainFacade.node_provider_mainnet()
 facade.add_signer(
-    sign_insecure_with_account(account, pw="123"),
+    sign_insecure_with_account(account, password="123"),
     Signer(account.script_hash)
 )
 ```

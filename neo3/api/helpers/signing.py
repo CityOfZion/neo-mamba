@@ -17,7 +17,7 @@ class SigningDetails:
 SigningFunction = Callable[[transaction.Transaction, SigningDetails], Awaitable]
 
 
-def sign_insecure_with_account(acc: account.Account, pw: str) -> SigningFunction:
+def sign_insecure_with_account(acc: account.Account, password: str) -> SigningFunction:
     """
     Sign and add a witness using the account and the provided account password
     """
@@ -26,12 +26,14 @@ def sign_insecure_with_account(acc: account.Account, pw: str) -> SigningFunction
         tx: transaction.Transaction, details: SigningDetails
     ):
         # this will automatically add a witness
-        acc.sign_tx(tx, pw, details.network)
+        acc.sign_tx(tx, password, details.network)
 
     return insecure_account_signer
 
 
-def sign_secure_with_account(acc: account.Account, env_pw_name: str) -> SigningFunction:
+def sign_secure_with_account(
+    acc: account.Account, env_password_name: str
+) -> SigningFunction:
     """
     Sign and add a witness using the account. The account password is read from the environment variables.
     """
@@ -40,7 +42,7 @@ def sign_secure_with_account(acc: account.Account, env_pw_name: str) -> SigningF
         tx: transaction.Transaction, details: SigningDetails
     ):
         # this will automatically add a witness
-        acc.sign_tx(tx, os.environ[env_pw_name], details.network)
+        acc.sign_tx(tx, os.environ[env_password_name], details.network)
 
     return insecure_account_signer
 
