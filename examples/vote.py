@@ -15,7 +15,7 @@ async def example_vote(neoxp: shared.NeoExpress):
     # This is your interface for talking to the blockchain
     facade = ChainFacade(rpc_host=neoxp.rpc_host)
     facade.add_signer(
-        sign_insecure_with_account(account, pw="123"),
+        sign_insecure_with_account(account, password="123"),
         Signer(account.script_hash),
     )
 
