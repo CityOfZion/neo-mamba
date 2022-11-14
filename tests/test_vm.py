@@ -5,6 +5,10 @@ from neo3.contracts import callflags
 
 
 class ScriptBuilderTestCase(unittest.TestCase):
+    def shortDescription(self):
+        # disable docstring printing in test runner
+        return None
+
     def test_emit(self):
         # test emit opcode without operand
         sb = vm.ScriptBuilder()

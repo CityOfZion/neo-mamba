@@ -2,7 +2,7 @@
 This example shows how to send NFTs to multiple accounts in one go (airdrop).
 """
 import asyncio
-from neo3.api.wrappers import Config, ChainFacade, GasToken, NEP11NonDivisibleContract
+from neo3.api.wrappers import ChainFacade, GasToken, NEP11NonDivisibleContract
 from neo3.api.helpers.signing import sign_insecure_with_account
 from neo3.network.payloads.verification import Signer
 from examples import shared
@@ -12,12 +12,12 @@ async def example_airdrop(neoxp: shared.NeoExpress):
     wallet = shared.user_wallet
     account = wallet.account_default
 
-    config = Config(rpc_host=neoxp.rpc_host)
-    config.add_signer(
+    # This is your interface for talking to the blockchain
+    facade = ChainFacade(rpc_host=neoxp.rpc_host)
+    facade.add_signer(
         sign_insecure_with_account(account, pw="123"),
         Signer(account.script_hash),  # default scope is CALLED_BY_ENTRY
     )
-    facade = ChainFacade(config)
 
     # Wrap the NFT contract
     ntf = NEP11NonDivisibleContract(shared.nep11_token_hash)
@@ -58,7 +58,6 @@ async def example_airdrop(neoxp: shared.NeoExpress):
     print("Airdropping 1 NFT to each address and waiting for receipt...", end="")
     receipt = await facade.invoke(
         ntf.transfer_multi(destination_addresses, token_ids),
-        receipt_retry_delay=1,
     )
     print(receipt.result)
 
