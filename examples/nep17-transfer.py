@@ -19,7 +19,7 @@ async def example_transfer_neo(neoxp: shared.NeoExpress):
     # This is your interface for talking to the blockchain
     facade = ChainFacade(rpc_host=neoxp.rpc_host)
     facade.add_signer(
-        sign_insecure_with_account(account, pw="123"),
+        sign_insecure_with_account(account, password="123"),
         Signer(account.script_hash),  # default scope is CALLED_BY_ENTRY
     )
 
@@ -41,7 +41,7 @@ async def example_transfer_other(neoxp: shared.NeoExpress):
     # This is your interface for talking to the blockchain
     facade = ChainFacade(rpc_host=neoxp.rpc_host)
     facade.add_signer(
-        sign_insecure_with_account(account, pw="123"),
+        sign_insecure_with_account(account, password="123"),
         Signer(account.script_hash),  # default scope is CALLED_BY_ENTRY
     )
 
