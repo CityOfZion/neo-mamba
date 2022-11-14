@@ -421,11 +421,15 @@ class ChainFacade:
                 result = await client.get_version()
                 # 5 seems like a reasonable divider where on mainnet (with 15s blocks) at worst case
                 # the RPC server is queried 5 times.
-                self._receipt_retry_delay = (result.protocol.ms_per_block / 1000) / 5
-                self._receipt_timeout = (
+                delay = self._receipt_retry_delay = (
+                    result.protocol.ms_per_block / 1000
+                ) / 5
+                timeout = self._receipt_timeout = (
                     result.protocol.ms_per_block + self._receipt_retry_delay
                 )
-        return self._receipt_retry_delay, self._receipt_timeout
+                return delay, timeout
+        else:
+            return self._receipt_retry_delay, self._receipt_timeout
 
     def add_signer(self, func: signing.SigningFunction, signer: verification.Signer):
         self._signing_funcs.append(func)
