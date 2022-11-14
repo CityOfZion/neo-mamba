@@ -5,7 +5,7 @@ Finally, the contract is destroyed.
 """
 
 import asyncio
-from neo3.api.wrappers import GenericContract, Config, ChainFacade
+from neo3.api.wrappers import GenericContract, ChainFacade
 from neo3.api.helpers.signing import sign_insecure_with_account
 from neo3.api.helpers import unwrap
 from neo3.contracts import nef, manifest
@@ -17,13 +17,12 @@ async def main(neoxp: shared.NeoExpress):
     wallet = shared.user_wallet
     account = wallet.account_default
 
-    config = Config(rpc_host=neoxp.rpc_host)
-    config.add_signer(
+    # This is your interface for talking to the blockchain
+    facade = ChainFacade(rpc_host=neoxp.rpc_host)
+    facade.add_signer(
         sign_insecure_with_account(account, pw="123"),
         Signer(account.script_hash),  # default scope is CALLED_BY_ENTRY
     )
-    # This is your interface for talking to the blockchain
-    facade = ChainFacade(config)
 
     files_path = f"{shared.shared_dir}/deploy-update-destroy/"
 
