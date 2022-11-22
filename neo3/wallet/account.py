@@ -1,3 +1,6 @@
+"""
+Classes to work with account key material.
+"""
 from __future__ import annotations
 import base58  # type: ignore
 import base64
@@ -23,12 +26,17 @@ PRIVATE_KEY_LENGTH = 32
 
 
 class MultiSigContext:
+    """
+    Signing context for use with multi signature accounts.
+    """
     def __init__(self):
+        #: indicates if the context has been initialised for usage.
         self.initialised = False
+        #: minimum of signatures required for signing.
         self.signing_threshold = 999
-        #: List of valid public keys for signing
+        #: list of valid public keys for signing.
         self.expected_public_keys: list[cryptography.ECPoint] = []
-        #: Completed pairs
+        #: completed pairs.
         self.signature_pairs: dict[cryptography.ECPoint, bytes] = {}
 
     @property
@@ -128,6 +136,9 @@ class AccountContract(contract.Contract):
 
 
 class Account:
+    """
+    Container class for handling key material. Can be used to sign transactions.
+    """
     _json_schema = {
         "type": "object",
         "properties": {
@@ -160,7 +171,7 @@ class Account:
     ):
         """
         Instantiate an account. This constructor should only be directly called when it's desired to create a new
-        account using just a password and a randomly generated private key, otherwise use the alternative constructors
+        account using just a password and a randomly generated private key, otherwise use the alternative constructors.
         """
         public_key: Optional[cryptography.ECPoint] = None
         encrypted_key: Optional[bytes] = None
@@ -218,6 +229,9 @@ class Account:
 
     @property
     def is_watchonly(self) -> bool:
+        """
+        Return if the account can only be used for observing or in test transactions.
+        """
         if self.encrypted_key is None:
             return True
         else:
@@ -225,12 +239,18 @@ class Account:
 
     @property
     def is_multisig(self) -> bool:
+        """
+        Return if the account requires multiple signers.
+        """
         if self.contract is None:
             return False
         return contractutils.is_multisig_contract(self.contract.script)
 
     @property
     def is_single_sig(self) -> bool:
+        """
+        Return if the account requires a single signer.
+        """
         if self.contract is None:
             return False
         return contractutils.is_signature_contract(self.contract.script)
@@ -241,12 +261,12 @@ class Account:
         scope: Optional[verification.WitnessScope] = None,
     ):
         """
-        Add the account as sender of the transaction
+        Add the account as sender of the transaction.
 
         Args:
-            tx: the transaction to modify
+            tx: the transaction to modify.
             scope: the type of scope the signature of the sender has. Defaults to CALLED_BY_ENTRY.
-             See Also: WitnessScope
+             See Also: WitnessScope.
         """
         scope = scope if scope else verification.WitnessScope.CALLED_BY_ENTRY
         tx.signers.insert(0, verification.Signer(self.script_hash, scope))
@@ -255,15 +275,15 @@ class Account:
         self, tx: transaction.Transaction, password: str, magic: Optional[int] = None
     ) -> None:
         """
-        Helper function that signs the TX, adds the Witness and Sender
+        Helper function that signs the TX, adds the Witness and Sender.
 
         Args:
-            tx: transaction to sign
-            password: the password to decrypt the private key for signing
-            magic: the network magic
+            tx: transaction to sign.
+            password: the password to decrypt the private key for signing.
+            magic: the network magic.
 
         Raises:
-            ValueError: if transaction validation fails
+            ValueError: if transaction validation fails.
         """
         if magic is None:
             magic = settings.settings.network.magic
@@ -289,6 +309,15 @@ class Account:
         context: MultiSigContext,
         magic: Optional[int] = None,
     ) -> None:
+        """
+        Sign a transaction with a multi-signature account.
+
+        Args:
+            tx: the transaction to sign.
+            password: account password.
+            context: the signing context.
+            magic: override network magic.
+        """
         if magic is None:
             magic = settings.settings.network.magic
 
@@ -356,11 +385,11 @@ class Account:
         Sign arbitrary data using the SECP256R1 curve.
 
         Args:
-            data: data to be signed
-            password: the password to decrypt the private key
+            data: data to be signed.
+            password: the password to decrypt the private key.
 
         Returns:
-            signature of the signed data
+            signature of the signed data.
         """
         if self.is_watchonly:
             raise ValueError("Cannot sign transaction using a watch only account")

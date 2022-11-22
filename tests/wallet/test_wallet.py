@@ -18,7 +18,7 @@ class WalletCreationTestCase(unittest.TestCase):
         if os.path.isfile(wallet_file_path):
             os.remove(wallet_file_path)
 
-        test_wallet = wallet.NEP6DiskWallet(wallet_file_name)
+        test_wallet = wallet.DiskWallet(wallet_file_name)
         scrypt_parameters_default = scrypt.ScryptParameters()
 
         self.assertEqual(wallet_file_name, test_wallet.name)
@@ -30,7 +30,7 @@ class WalletCreationTestCase(unittest.TestCase):
         self.assertEqual({}, test_wallet.extra)
 
     def test_wallet_default_value(self):
-        test_wallet = wallet.NEP6DiskWallet.default()
+        test_wallet = wallet.DiskWallet.default()
         scrypt_parameters_default = scrypt.ScryptParameters()
 
         self.assertEqual("wallet.json", test_wallet.name)
@@ -47,7 +47,7 @@ class WalletCreationTestCase(unittest.TestCase):
         if os.path.isfile(wallet_path):
             os.remove(wallet_path)
 
-        test_wallet = wallet.NEP6DiskWallet.default(wallet_path, "NEP6 Wallet")
+        test_wallet = wallet.DiskWallet.default(wallet_path, "NEP6 Wallet")
         test_wallet.save()
         self.assertTrue(os.path.isfile(wallet_path))
 
@@ -68,7 +68,7 @@ class WalletCreationTestCase(unittest.TestCase):
             os.remove(wallet_path)
 
         # save using context manager
-        with wallet.NEP6DiskWallet.default(wallet_path, "NEP6 Wallet"):
+        with wallet.DiskWallet.default(wallet_path, "NEP6 Wallet"):
             pass
         self.assertTrue(os.path.isfile(wallet_path))
 
@@ -79,7 +79,7 @@ class WalletCreationTestCase(unittest.TestCase):
     def test_wallet_from_json(self):
         password = "123"
 
-        new_wallet = wallet.NEP6DiskWallet.default()
+        new_wallet = wallet.DiskWallet.default()
         # override scrypt parameters for testing
         new_wallet.scrypt = scrypt.ScryptParameters(2, 8, 8)
         test_account = account.Account.create_new(
@@ -98,7 +98,7 @@ class WalletCreationTestCase(unittest.TestCase):
 
     def test_wallet_account_new(self):
         password = "abcabc"
-        test_wallet = wallet.NEP6DiskWallet.default()
+        test_wallet = wallet.DiskWallet.default()
         # override scrypt parameters for testing
         test_wallet.scrypt = scrypt.ScryptParameters(2, 8, 8)
         self.assertEqual(0, len(test_wallet.accounts))
@@ -130,7 +130,7 @@ class WalletCreationTestCase(unittest.TestCase):
 
     def test_wallet_account_add(self):
         password = "abcabc"
-        test_wallet = wallet.NEP6DiskWallet.default()
+        test_wallet = wallet.DiskWallet.default()
 
         self.assertEqual(0, len(test_wallet.accounts))
 
@@ -179,7 +179,7 @@ class WalletCreationTestCase(unittest.TestCase):
         account_2 = account.Account(password=password, scrypt_parameters=scryptp)
         account_3 = account.Account(password=password, scrypt_parameters=scryptp)
 
-        test_wallet = wallet.NEP6DiskWallet.default()
+        test_wallet = wallet.DiskWallet.default()
         test_wallet.account_add(account_1)
         test_wallet.account_add(account_2)
         test_wallet.account_add(account_3)
@@ -221,7 +221,7 @@ class WalletCreationTestCase(unittest.TestCase):
         )
         account_3 = account.Account(password=password, scrypt_parameters=scryptp)
 
-        test_wallet = wallet.NEP6DiskWallet.default()
+        test_wallet = wallet.DiskWallet.default()
         test_wallet.account_add(account_1)
         test_wallet.account_add(account_2)
         test_wallet.account_add(account_3)

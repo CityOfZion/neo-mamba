@@ -1,3 +1,6 @@
+"""
+Containers following the NEP-6 wallet standard.
+"""
 from __future__ import annotations
 import os.path
 import json
@@ -11,6 +14,9 @@ from neo3.wallet import scrypt_parameters as scrypt
 
 
 class Wallet(interfaces.IJson):
+    """
+    Base container.
+    """
     _wallet_version = "1.0"
 
     # Wallet JSON validation schema
@@ -45,8 +51,8 @@ class Wallet(interfaces.IJson):
     ):
         """
         Args:
-            name: a user defined label for the wallet
-            version: the wallet's version, must be equal to or greater than 3.0
+            name: a user defined label for the wallet.
+            version: the wallet's version, must be equal to or greater than 3.0.
             scrypt_params:  the parameters of the Scrypt algorithm used for encrypting and decrypting the private keys
             in the wallet.
             accounts: an array of Account objects to add to the wallet.
@@ -80,12 +86,12 @@ class Wallet(interfaces.IJson):
         self, password: str, label: Optional[str] = None, is_default=False
     ) -> account.Account:
         """
-        Creates a new account and adds it in the wallet
+        Create a new account and adds it in the wallet.
 
         Args:
-            password: the password to encrypt the account
-            label: optional label to identify the account
-            is_default: whether it should set the created account as the default
+            password: the password to encrypt the account.
+            label: optional label to identify the account.
+            is_default: set the created account as the default.
         """
         account_ = account.Account(
             password=password,
@@ -100,13 +106,24 @@ class Wallet(interfaces.IJson):
     @property
     def account_default(self) -> Optional[account.Account]:
         """
-        Returns the default account if at least one account is present
+        Return the default account if at least one account is present.
         """
         return self._default_account
 
     def import_multisig_address(
         self, signing_threshold: int, public_keys: Sequence[cryptography.ECPoint]
     ) -> account.Account:
+        """
+        Import a multi-signature account into the container.
+
+        Args:
+            signing_threshold: minimum number of keys required for signing.
+            public_keys: the public keys the multisignature address consists off.
+
+        Raises:
+            ValueError: if the signing treshold exceeds 1024.
+                        if the signing treshold exceeds the number of public_keys.
+        """
         if signing_threshold < 1 or signing_threshold > 1024:
             raise ValueError("Invalid signing threshold")
 
@@ -130,11 +147,11 @@ class Wallet(interfaces.IJson):
 
     def _augment_multisig_with_key_material(self, acc: account.Account):
         """
-        Tries to augment multi-sig accounts with key material such that they can be used for signing
+        Tries to augment multi-sig accounts with key material such that they can be used for signing.
 
         There are 2 scenarios
         1. A multi-sig account is added while there already exists a regular account with key material for one of the
-        keys required by the multi-signature
+        keys required by the multi-signature.
         2. A regular account is added while there already exists a multi-sig account missing key material that the
         regular now adds.
         """
@@ -167,14 +184,14 @@ class Wallet(interfaces.IJson):
 
     def account_add(self, acc: account.Account, is_default=False) -> bool:
         """
-        Includes an account in the wallet
+        Add account in the wallet.
 
         Args:
-            acc: the account to be included
-            is_default: whether it should set the created account as the default
+            acc: the account to be added.
+            is_default: set the created account as the default.
 
         Raises:
-            ValueError: if the account's label is already used by another one
+            ValueError: if the account's label is already used by another one.
         """
         # true if ok, false if duplicate (any other possible reasons? otherwise we need to throw exceptions)
         if acc in self.accounts:
@@ -193,10 +210,10 @@ class Wallet(interfaces.IJson):
 
     def account_delete(self, acc: account.Account) -> bool:
         """
-        Removes an account from the wallet
+        Remove an account from the wallet.
 
         Args:
-            acc: the account to be removed
+            acc: the account to be removed.
         """
         # return success or not
         if acc not in self.accounts:
@@ -212,10 +229,10 @@ class Wallet(interfaces.IJson):
 
     def account_delete_by_label(self, label: str) -> bool:
         """
-        Removes an account from the wallet given its label
+        Remove an account from the wallet given its label.
 
         Args:
-            label: unique identifier of the account
+            label: unique identifier of the account.
         """
         # return success or not
         acc = self.account_get_by_label(label)
@@ -228,22 +245,22 @@ class Wallet(interfaces.IJson):
 
     def account_get_by_label(self, label: str) -> Optional[account.Account]:
         """
-        Gets an account given its label. Returns None if not found.
+        Get an account given its label. Returns None if not found.
 
         Args:
-            label: unique identifier of the account
+            label: unique identifier of the account.
         """
         # returns the account with given label. None if the account is not found
         return next((acc for acc in self.accounts if acc.label == label), None)
 
     def save(self):
         """
-        Saves the wallet.
+        Save the wallet.
 
         This is called automatically when using the context manager.
 
         See Also:
-            :class:`~neo3.wallet.nep6.nep6diskwallet.NEP6DiskWallet`
+            [DiskWallet](wallet.wallet.DiskWallet)
         """
         pass
 
@@ -275,7 +292,7 @@ class Wallet(interfaces.IJson):
 
         Args:
             json: a dictionary.
-            password: the password to decrypt the json data.
+            password: the password to decrypt the account data.
 
         Raises:
             KeyError: if the data supplied does not contain the necessary keys.
@@ -318,6 +335,13 @@ class Wallet(interfaces.IJson):
 
     @classmethod
     def from_file(cls, path: str, password: Optional[str] = None):
+        """
+        Load wallet from file.
+
+        Args:
+            path: path as passed to open().
+            password: the password to decrypt the account data.
+        """
         with open(path, "r") as f:
             return cls.from_json(json.load(f), password)
 
@@ -328,9 +352,9 @@ class Wallet(interfaces.IJson):
         self.save()
 
 
-class NEP6DiskWallet(Wallet):
+class DiskWallet(Wallet):
     """
-    A specialised wallet for persisting wallets to media.
+    Specialised wallet for persisting to media.
     """
 
     _default_path = "./wallet.json"
@@ -346,11 +370,10 @@ class NEP6DiskWallet(Wallet):
         extra: Optional[dict] = None,
     ):
         """
-
         Args:
             path: the location where the wallet will be stored.
-            name: a user defined label for the wallet
-            version: the wallet's version, must be equal to or greater than 3.0
+            name: a user defined label for the wallet.
+            version: the wallet's version, must be equal to or greater than 3.0.
             scrypt_params:  the parameters of the Scrypt algorithm used for encrypting and decrypting the private keys
             in the wallet.
             accounts: an array of Account objects to add to the wallet.
@@ -368,7 +391,7 @@ class NEP6DiskWallet(Wallet):
             name, extension = os.path.splitext(name)
 
         self.path: str = path
-        super(NEP6DiskWallet, self).__init__(
+        super(DiskWallet, self).__init__(
             name=name,
             version=version,
             scrypt_params=scrypt_params,
@@ -379,7 +402,7 @@ class NEP6DiskWallet(Wallet):
 
     def save(self) -> None:
         """
-        Persists the wallet
+        Persist the wallet to disk.
         """
         with open(self.path, "w") as json_file:
             json.dump(self.to_json(), json_file)
@@ -387,13 +410,13 @@ class NEP6DiskWallet(Wallet):
     @classmethod
     def default(
         cls, path: str = _default_path, name: Optional[str] = "wallet.json"
-    ) -> NEP6DiskWallet:
+    ) -> DiskWallet:
         """
-        Create a new Wallet with the default settings.
+        Create a new wallet with the default settings.
 
         Args:
             path: the JSON's path.
-            name: the Wallet name.
+            name: the wallet name.
         """
         return cls(
             path=path,

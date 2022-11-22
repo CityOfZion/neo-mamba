@@ -1,3 +1,6 @@
+"""
+NEO address utilities.
+"""
 import base58
 from neo3.core import types
 from neo3.wallet.types import NeoAddress
@@ -7,12 +10,12 @@ def script_hash_to_address(
     script_hash: types.UInt160, address_version: int = 0x35
 ) -> NeoAddress:
     """
-    Converts the specified script hash to an address.
+    Convert the specified script hash to an address.
 
     Args:
         script_hash: script hash to convert.
         address_version: network protocol address version. Historically has been fixed to 0x35 for MainNet and TestNet.
-         Can use the "getversion()" RPC method to query for its value
+         Can use the "getversion()" RPC method to query for its value.
     """
     data = address_version.to_bytes(1, "little") + script_hash.to_array()
     return base58.b58encode_check(data).decode("utf-8")
@@ -20,10 +23,10 @@ def script_hash_to_address(
 
 def address_to_script_hash(address: NeoAddress) -> types.UInt160:
     """
-    Converts the specified address to a script hash.
+    Convert the specified address to a script hash.
 
     Args:
-        address: address to convert
+        address: address to convert.
 
     Raises:
         ValueError: if the length of data (address value in bytes) is not valid.
@@ -55,7 +58,7 @@ def validate_address(address: NeoAddress, address_version: int = 0x35) -> None:
     Args:
         address: an address.
         address_version: network protocol address version. Historically has been fixed to 0x35 for MainNet and TestNet.
-         Can use the "getversion()" RPC method to query for its value
+         Can use the "getversion()" RPC method to query for its value.
 
     Raises:
         ValueError: if the length of data(address value in bytes) is not valid.
