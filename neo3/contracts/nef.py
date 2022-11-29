@@ -1,3 +1,6 @@
+"""
+Neo Executable Format.
+"""
 from __future__ import annotations
 import base64
 import hashlib
@@ -8,6 +11,10 @@ from typing import Optional
 
 
 class NEF(serialization.ISerializable, interfaces.IJson):
+    """
+    Neo Executable Format container.
+    """
+
     def __init__(
         self,
         compiler_name: Optional[str] = None,
@@ -17,8 +24,6 @@ class NEF(serialization.ISerializable, interfaces.IJson):
         _magic: int = 0x3346454E,
     ):
         """
-        Create a Neo Executable Format file.
-
         Args:
             compiler_name: human-readable name of the compiler and version used to create the script data.
             Automatically limited to 64 bytes
@@ -64,6 +69,9 @@ class NEF(serialization.ISerializable, interfaces.IJson):
 
     @property
     def checksum(self) -> int:
+        """
+        Data integrity value.
+        """
         if self._checksum == 0:
             self._checksum = self.compute_checksum()
         return self._checksum
@@ -121,12 +129,12 @@ class NEF(serialization.ISerializable, interfaces.IJson):
         )
 
     def to_json(self) -> dict:
-        """convert object into json"""
+        """Convert object into JSON representation."""
         raise NotImplementedError
 
     @classmethod
     def from_json(cls, json: dict):
-        """create object from JSON"""
+        """Create object from JSON."""
         tokens = []
         for t in json["tokens"]:
             tokens.append(MethodToken.from_json(t))
@@ -136,13 +144,14 @@ class NEF(serialization.ISerializable, interfaces.IJson):
     @classmethod
     def from_file(cls, path: str):
         """
-        create object from a file
+        Create object from a file.
+
         Args:
-            path: location of the file
+            path: location of the file.
 
         Raises:
-            FileNotFoundError: if the path is invalid
-            ValueError: if the file is not a valid NEF
+            FileNotFoundError: if the path is invalid.
+            ValueError: if the file is not a valid NEF.
         """
         with open(path, "rb") as f:
             try:
@@ -208,12 +217,12 @@ class MethodToken(serialization.ISerializable, interfaces.IJson):
         self.call_flags = callflags.CallFlags(reader.read_uint8())
 
     def to_json(self) -> dict:
-        """convert object into json"""
+        """Convert object into JSON representation."""
         raise NotImplementedError
 
     @classmethod
     def from_json(cls, json: dict):
-        """create object from JSON"""
+        """Create object from JSON"""
         h = types.UInt160.from_string(json["hash"][2:])
         m = json["method"]
         pc = json["paramcount"]

@@ -109,7 +109,7 @@ class TransactionAttribute(serialization.ISerializable, interfaces.IJson):
         return True
 
     def to_json(self) -> dict:
-        """Convert object into json"""
+        """Convert object into JSON representation."""
         return {"type": self.type_.to_csharp_name()}
 
     @classmethod
@@ -180,7 +180,7 @@ class OracleResponse(TransactionAttribute, interfaces.IJson):
         writer.write_var_bytes(self.result)
 
     def to_json(self) -> dict:
-        """Convert object into json"""
+        """Convert object into JSON representation."""
         json = super(OracleResponse, self).to_json()
         json.update(
             {"id": id, "code": self.code, "result": base64.b64encode(self.result)}
@@ -427,7 +427,7 @@ class Transaction(inventory.IInventory, interfaces.IJson):
         return self.network_fee // len(self)
 
     def to_json(self) -> dict:
-        """Convert object into json"""
+        """Convert object into JSON representation."""
         version = b"\x35"
         # replace with to_address once the feature-wallet branch is merged
         x = version + self.sender.to_array()

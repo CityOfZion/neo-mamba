@@ -1,23 +1,25 @@
 """
 Convenience wrappers for calling smart contracts via RPC.
 
-* The most specific wrappers in this module are for NEOs native contracts
-  * NeoToken, GasToken, PolicyContract and RoleManagement
-  * The ContractManagement and Ledger contracts are not wrapped. See the FAQ for the reasons
+The most specific wrappers in this module are for NEOs native contracts `NeoToken`, `GasToken`, `PolicyContract` and
+ `RoleManagement`. The `ContractManagement` and `Ledger` contracts are not wrapped. See the FAQ for the reasons.
 
-* One step up are wrappers for contracts following the NEP-17 Token standard (`NEP17Contract`) and NEP-11 NFT standard
-(`NEP11DivisibleContract` & `NEP11NonDivisibleContract`)
-* As last resort there is the `GenericContract` which can be used for calling arbitrary functions on arbitrary contracts
+One step up are wrappers for contracts following the NEP-17 Token standard (`NEP17Contract`) and NEP-11 NFT standard
+(`NEP11DivisibleContract` & `NEP11NonDivisibleContract`).
+As last resort there is the `GenericContract` which can be used for calling arbitrary functions on arbitrary contracts.
 
 Obtaining the execution results of the functions on the wrapped contracts is done through one of 3 methods on the
  ChainFacade class
-1. test_invoke() - does not persist to chain. Costs no gas.
-2. invoke() - does persist to chain. Requires signing and costs gas.
-3. estimate_gas - does not persist to chain. Costs no gas.
+
+1. `test_invoke()` - does not persist to chain. Costs no gas.
+2. `invoke()` - does persist to chain. Requires signing and costs gas.
+3. `estimate_gas()` - does not persist to chain. Costs no gas.
 
 Example:
     facade = ChainFacade.node_provider_mainnet()
+
     neo = NeoToken()
+
     result = await facade.test_invoke(neo.candidates_registered())
 """
 
@@ -46,9 +48,9 @@ ReturnType = TypeVar("ReturnType")
 
 class ContractMethodResult(Generic[ReturnType]):
     """
-    A helper class around the script (VM opcodes) to be executed which allows to forward the annotated return type
-    (ContractMethodResult[T]) of the annotated function "f" to a consumer function, without having to actually return
-     an instance of T in the implementation of "f".
+    A helper class around the `script` (VM opcodes) to be executed which allows to forward the annotated return type
+    (`ContractMethodResult[T]`) of the annotated function `f` to a consumer function, without having to actually return
+     an instance of `T` in the implementation of `f`.
 
      Example:
          def get_name() -> ContractMethodResult[str]:
@@ -71,8 +73,8 @@ class ContractMethodResult(Generic[ReturnType]):
         """
 
         Args:
-            script: VM opcodes to be executed
-            execution_processor: post processor function
+            script: VM opcodes to be executed.
+            execution_processor: post processor function.
         """
         super(ContractMethodResult, self).__init__()
         self.script = script
@@ -92,14 +94,25 @@ SigningPair: TypeAlias = tuple[signing.SigningFunction, verification.Signer]
 
 @dataclass
 class InvokeReceipt(Generic[ReturnType]):
+    """
+    Transaction submission results.
+    """
+
+    #: Unique identifier.
     tx_hash: types.UInt256
+    #: The block height/index the transaction is included in.
     included_in_block: int
+    #: Number of blocks after accepting the transaction.
     confirmations: int
+    #: The total gas cost for block inclusion and script execution.
     gas_consumed: int
-    #: HALT = SUCCESS, Others = FAILURE
+    #: HALT = success, Others = failure.
     state: vm.VMState
+    #: Virtual Machine exception.
     exception: Optional[str]
+    #: Smart contract notifications.
     notifications: list[noderpc.Notification]
+    #: Script excution result.
     result: ReturnType
 
     def __repr__(self):
@@ -114,7 +127,7 @@ class ChainFacade:
     """
     The gateway to the network.
 
-    Abstracts away the logic for talking to the data provider (NodeRPC only atm)
+    Abstracts away the logic for talking to the data provider (NodeRPC only atm).
     """
 
     def __init__(
@@ -125,9 +138,9 @@ class ChainFacade:
     ):
         """
         Args:
-            rpc_host: Neo RPC node host address
-            receipt_retry_delay: time to wait in seconds between attempts to find the transaction on the chain
-            receipt_timeout: maximum time to wait in seconds to find the transaction on the chain
+            rpc_host: Neo RPC node host address.
+            receipt_retry_delay: time to wait in seconds between attempts to find the transaction on the chain.
+            receipt_timeout: maximum time to wait in seconds to find the transaction on the chain.
         """
         self.rpc_host = rpc_host
         self._signing_func = None
@@ -145,15 +158,16 @@ class ChainFacade:
         signers: Optional[Sequence[verification.Signer]] = None,
     ) -> ReturnType:
         """
-        Call a contract method in read-only mode
+        Call a contract method in read-only mode.
 
         This does not persist any state on the actual chain and therefore does not require signing or paying GAS.
 
         Args:
-            f: function to call
-            signers: manually set the list of signers
+            f: function to call.
+            signers: manually set the list of signers.
 
-        See Also: invoke() - persists state
+        See Also:
+            `invoke()` - persists state.
         """
         if signers is None:
             signers = self.signers
@@ -166,13 +180,14 @@ class ChainFacade:
         signers: Optional[Sequence[verification.Signer]] = None,
     ) -> tuple:
         """
-        Call all contract methods in one go (concurrently) and return the list of results
+        Call all contract methods in one go (concurrently) and return the list of results.
 
         Args:
-            f: list of functions to call
-            signers: manually set the list of signers
+            f: list of functions to call.
+            signers: manually set the list of signers.
 
-        See Also: invoke_multi() - persists state
+        See Also:
+            `invoke_multi()` - persists state.
         """
         if signers is None:
             signers = self.signers
@@ -187,16 +202,17 @@ class ChainFacade:
         signers: Optional[Sequence[verification.Signer]] = None,
     ) -> noderpc.ExecutionResult:
         """
-        Call a contract method in read-only mode
+        Call a contract method in read-only mode.
 
         This does not persist any state on the actual chain and therefore does not require signing or paying GAS.
         Does not post process the execution results.
 
         Args:
-            f: function to call
-            signers: manually set the list of signers
+            f: function to call.
+            signers: manually set the list of signers.
 
-        See Also: invoke_raw() - persists state
+        See Also:
+            `invoke_raw()` - persists state.
         """
         if signers is None:
             signers = self.signers
@@ -210,7 +226,10 @@ class ChainFacade:
         return_raw: Optional[bool] = False,
     ):
         """
-        return_raw - whether to post process the execution result or not
+        Args:
+            f:
+            signers:
+            return_raw: whether to post process the execution result or not.
         """
         async with noderpc.NeoRpcClient(self.rpc_host) as client:
             res = await client.invoke_script(f.script, signers)
@@ -234,22 +253,22 @@ class ChainFacade:
         post-processing function of `f` if present.
 
         Args:
-            f: function to call
-            signers: manually set the list of signers
-            network_fee: manually set the network fee
-            system_fee: manually set the system fee
-            append_network_fee: increase the calculated network fee with this amount
-            append_system_fee: increase the calculated system fee with this amount
+            f: function to call.
+            signers: manually set the list of signers.
+            network_fee: manually set the network fee.
+            system_fee: manually set the system fee.
+            append_network_fee: increase the calculated network fee with this amount.
+            append_system_fee: increase the calculated system fee with this amount.
 
         Returns:
             A transaction receipt. The `state` field of the receipt indicates if the transaction script executed
             successfully. The remaining fields provide additional information such as notifications that happened
-            in the contract
+            in the contract.
 
         See Also:
-            invoke_fast() - does not wait for a receipt
-            invoke_raw() - does not wait for a transaction receipt, does not perform post-processing of the execution
-                           results
+            `invoke_fast()` - does not wait for a receipt.
+            `invoke_raw()` - does not wait for a transaction receipt, does not perform post-processing of the execution
+                           results.
         """
         delay, timeout = await self._get_receipt_time_values()
         async with noderpc.NeoRpcClient(self.rpc_host) as client:
@@ -293,12 +312,12 @@ class ChainFacade:
         Call a contract method and persist results on the chain. Costs GAS.
 
         Args:
-            f: function to call
-            signers: manually set the list of signers
-            network_fee: manually set the network fee
-            system_fee: manually set the system fee
-            append_network_fee: increase the calculated network fee with this amount
-            append_system_fee: increase the calculated system fee with this amount
+            f: function to call.
+            signers: manually set the list of signers.
+            network_fee: manually set the network fee.
+            system_fee: manually set the system fee.
+            append_network_fee: increase the calculated network fee with this amount.
+            append_system_fee: increase the calculated system fee with this amount.
 
         Returns:
             a transaction ID if accepted by the network. Acceptance is does not guarantee successful execution.
@@ -306,9 +325,9 @@ class ChainFacade:
             field of the receipt indicates if the transaction script executed successfully.
 
         See Also:
-            invoke() - waits for a transaction receipt, performs post-processing of the execution results
-            invoke_raw() - does not wait for a transaction receipt, does not perform post-processing of the execution
-                           results
+            `invoke()` - waits for a transaction receipt, performs post-processing of the execution results.
+            `invoke_raw()` - does not wait for a transaction receipt, does not perform post-processing of the execution
+                           results.
         """
         if network_fee > 0 and append_network_fee > 0:
             raise ValueError(
@@ -361,12 +380,12 @@ class ChainFacade:
         Waits for tx to be included in a block. Does not post processes the execution results.
 
         Args:
-            f: function to call
-            signers: manually set the list of signers
-            network_fee: manually set the network fee
-            system_fee: manually set the system fee
-            append_network_fee: increase the calculated network fee with this amount
-            append_system_fee: increase the calculated system fee with this amount
+            f: function to call.
+            signers: manually set the list of signers.
+            network_fee: manually set the network fee.
+            system_fee: manually set the system fee.
+            append_network_fee: increase the calculated network fee with this amount.
+            append_system_fee: increase the calculated system fee with this amount.
 
         Returns:
             A transaction receipt. The `state` field of the receipt indicates if the transaction script executed
@@ -374,8 +393,8 @@ class ChainFacade:
             in the contract.
 
         See Also:
-            invoke() - waits for a transaction receipt, performs post-processing of the execution results
-            invoke_fast() - does not wait for a receipt
+            `invoke()` - waits for a transaction receipt, performs post-processing of the execution results
+            `invoke_fast()` - does not wait for a receipt.
         """
         delay, timeout = await self._get_receipt_time_values()
         async with noderpc.NeoRpcClient(self.rpc_host) as client:
@@ -409,7 +428,7 @@ class ChainFacade:
         signers: Optional[Sequence[verification.Signer]] = None,
     ) -> int:
         """
-        Estimates the gas price for calling the contract method
+        Estimate the gas price for calling the contract method.
         """
         async with noderpc.NeoRpcClient(self.rpc_host) as client:
             res = await client.invoke_script(f.script, signers)
@@ -432,21 +451,30 @@ class ChainFacade:
             return self._receipt_retry_delay, self._receipt_timeout
 
     def add_signer(self, func: signing.SigningFunction, signer: verification.Signer):
+        """
+        Add a `Signer` which will automatically be included when the various invoke functions.
+        """
         self._signing_funcs.append(func)
         self.signers.append(signer)
 
     @classmethod
     def node_provider_mainnet(cls):
+        """
+        Create a facade pre-configured to N3 MainNet.
+        """
         return cls(_DEFAULT_MAINNET_RPC)
 
     @classmethod
     def node_provider_testnet(cls):
+        """
+        Create a facade pre-configured to N3 TestNet.
+        """
         return cls(_DEFAULT_TESTNET_RPC)
 
 
 class GenericContract:
     """
-    Generic class to call arbitrary methods on a smart contract
+    Generic class to call arbitrary methods on a smart contract.
     """
 
     def __init__(self, contract_hash):
@@ -458,11 +486,11 @@ class GenericContract:
         args: Optional[Sequence] = None,
     ) -> ContractMethodResult[noderpc.ExecutionResult]:
         """
-        Call a method on the contract
+        Call a method on the contract.
 
         Args:
-            name: the method name to call as defined in the manifest
-            args: optional list of arguments the function expects
+            name: the method name to call as defined in the manifest.
+            args: optional list of arguments the function expects.
         """
         if args is None:
             script = vm.ScriptBuilder().emit_contract_call(self.hash, name).to_array()
@@ -482,14 +510,14 @@ class GenericContract:
         """
         Update this contract on chain with a new manifest and/or contract (NEF).
 
-        Assumes the update method on the contract uses the standard arguments; nef, manifest and (optional) data
+        Assumes the update method on the contract uses the standard arguments; nef, manifest and (optional) data.
         If it uses custom arguments use `call_function` instead.
 
         Args:
-            update_method: override with name of the update function on the contract
-            nef: compiled contract
-            manifest: contract manifest
-            data: data that is passed to the `_deploy` method of the smart contract (if the method exists)
+            update_method: override with name of the update function on the contract.
+            nef: compiled contract.
+            manifest: contract manifest.
+            data: data that is passed to the `_deploy` method of the smart contract (if the method exists).
         """
         if nef is None and manifest is None:
             raise ValueError("NEF and manifest are both None. Nothing to update")
@@ -508,10 +536,10 @@ class GenericContract:
         """
         Destroy the contract on chain.
 
-        This will permanently block the contract hash.
+        This will permanently block the contract hash on the network.
 
         Args:
-            destroy_method: override with name of the destroy function on the contract
+            destroy_method: override with name of the destroy function on the contract. Default signature is `destroy()`.
         """
         sb = vm.ScriptBuilder().emit_contract_call(self.hash, destroy_method)
         return ContractMethodResult(sb.to_array(), unwrap.as_none)
@@ -523,15 +551,15 @@ class GenericContract:
         data: Optional[list] = None,
     ) -> ContractMethodResult[types.UInt160]:
         """
-        Deploy a smart contract to the chain
+        Deploy a smart contract to the chain.
 
         Args:
-            nef: compiled contract
-            manifest: contract manifest file
-            data: data that is passed to the `_deploy` method of the smart contract (if the method exists)
+            nef: compiled contract.
+            manifest: contract manifest file.
+            data: data that is passed to the `_deploy` method of the smart contract (if the method exists).
 
         Returns:
-            contract hash
+            contract hash.
         """
         sb = vm.ScriptBuilder()
         sb.emit_contract_call_with_args(
@@ -552,23 +580,23 @@ class _TokenContract(GenericContract):
 
     def symbol(self) -> ContractMethodResult[str]:
         """
-        User-friendly name of the token
+        User-friendly name of the token.
         """
         script = vm.ScriptBuilder().emit_contract_call(self.hash, "symbol").to_array()
         return ContractMethodResult(script, unwrap.as_str)
 
     def decimals(self) -> ContractMethodResult[int]:
         """
-        Get the amount of decimals
+        Get the amount of decimals.
 
-        Use this with the result of balance_of to display the correct user representation
+        Use this with the result of balance_of to display the correct user representation.
         """
         script = vm.ScriptBuilder().emit_contract_call(self.hash, "decimals").to_array()
         return ContractMethodResult(script, unwrap.as_int)
 
     def total_supply(self) -> ContractMethodResult[int]:
         """
-        Get the total token supply in the NEO system
+        Get the total token supply in the NEO system.
         """
         script = (
             vm.ScriptBuilder().emit_contract_call(self.hash, "totalSupply").to_array()
@@ -578,20 +606,21 @@ class _TokenContract(GenericContract):
 
 class NEP17Contract(_TokenContract):
     """
-    Base class for calling NEP-17 compliant smart contracts
+    Base class for calling NEP-17 compliant smart contracts.
     """
 
     def balance_of(
         self, account: types.UInt160 | NeoAddress
     ) -> ContractMethodResult[int]:
         """
-        Get the balance for the given account
+        Get the balance for the given account.
 
-        Note: the returned value does not take the token decimals into account. e.g. for the GAS token you want to
+        Note:
+            The returned value does not take the token decimals into account. e.g. for the GAS token you want to
         divide the result by 10**8 (as the Gas token has 8 decimals).
 
         Raises:
-            ValueError if `account` is an invalid NeoAddress format
+            ValueError: if `account` is an invalid NeoAddress format.
         """
         account = _check_address_and_convert(account)
         script = (
@@ -605,12 +634,12 @@ class NEP17Contract(_TokenContract):
         self, account: types.UInt160 | NeoAddress
     ) -> ContractMethodResult[float]:
         """
-        Get the balance for the given account and convert the result into the user representation
+        Get the balance for the given account while taking the token decimals into account.
 
-        Uses the token decimals to convert to the user end representation
+        Uses the token decimals to convert to the user end representation.
 
         Raises:
-            ValueError if `account` is an invalid NeoAddress format
+            ValueError: if `account` is an invalid NeoAddress format.
         """
         account = _check_address_and_convert(account)
 
@@ -648,9 +677,12 @@ class NEP17Contract(_TokenContract):
             await facade.test_invoke(token.transfer(source, destination, 10), signers=[signer]))
 
         Raises:
-            ValueError if `source` or `destination` is an invalid NeoAddress format
+            ValueError: if `source` or `destination` is an invalid NeoAddress format
 
-        Returns: True if funds transferred successful. False otherwise.
+        Returns:
+            The return value after invoking with `invoke()` or `test_invoke()` is
+                `True` if the token transferred successful.
+                `False` otherwise.
         """
         source = _check_address_and_convert(source)
         destination = _check_address_and_convert(destination)
@@ -658,6 +690,37 @@ class NEP17Contract(_TokenContract):
         sb = vm.ScriptBuilder().emit_contract_call_with_args(
             self.hash, "transfer", [source, destination, amount, data]
         )
+        return ContractMethodResult(sb.to_array(), unwrap.as_bool)
+
+    def transfer_friendly(self, source, dest, amount):
+        """
+        Transfer `amount` of tokens from `source` account to `destination` account.
+
+        Same as `transfer` but does not require manually convert amount if the token uses decimals.
+
+        Returns:
+            The return value after invoking with `invoke()` or `test_invoke()` is
+                `True` if the token transferred successful.
+                `False` otherwise.
+        """
+        sb = vm.ScriptBuilder()
+        sb.emit_push(None)  # data
+        sb.emit_push(10)  # multiplier base
+        sb.emit_contract_call(self.hash, "decimals")
+        sb.emit(vm.OpCode.POW)
+        sb.emit_push(amount)
+        sb.emit(vm.OpCode.MUL)
+        sb.emit_push(dest)
+        sb.emit_push(source)
+        sb.emit_push(4)
+        sb.emit(vm.OpCode.PACK)
+        sb.emit_push(callflags.CallFlags.ALL)
+        sb.emit_push("transfer")
+        sb.emit_push(self.hash)
+        sb.emit_syscall(vm.Syscalls.SYSTEM_CONTRACT_CALL)
+
+        for b in sb.to_array():
+            print(f"{hex(b)},", end="")
         return ContractMethodResult(sb.to_array(), unwrap.as_bool)
 
     def transfer_multi(
@@ -669,19 +732,22 @@ class NEP17Contract(_TokenContract):
         abort_on_failure: bool = False,
     ) -> ContractMethodResult[bool]:
         """
-        Transfer `amount` of tokens from `source` to each account in `destinations`
+        Transfer `amount` of tokens from `source` to each account in `destinations`.
 
         Args:
-            source: account to take funds from
-            destinations: accounts to send funds to
-            amount: how much to transfer
+            source: account to take funds from.
+            destinations: accounts to send funds to.
+            amount: how much to transfer.
             data: forward to `onNEP17Payment` handler if applicable.
             abort_on_failure: if True aborts the whole transaction if any of the transfers fails.
 
         Raises:
-            ValueError if any of the destinations is supplied as NeoAddress but is an invalid address format
+            ValueError: if any of the destinations is supplied as NeoAddress but is an invalid address format.
 
-        Returns: True if all transfers are successful. False otherwise.
+        Returns:
+            The return value after invoking with `invoke()` or `test_invoke()` is
+                `True` if all transfers are successful.
+                `False` otherwise.
         """
         sb = vm.ScriptBuilder()
         source = _check_address_and_convert(source)
@@ -714,31 +780,42 @@ class NEP17Contract(_TokenContract):
 
 
 class GasToken(NEP17Contract):
+    """
+    Wrapped GAS token contract.
+    """
+
     def __init__(self):
         super(GasToken, self).__init__(contract.CONTRACT_HASHES.GAS_TOKEN)
 
 
 class Candidate:
     """
-    Container for holding consensus candidate voting results
+    Container for holding consensus candidate voting results.
     """
 
     def __init__(self, public_key: cryptography.ECPoint, votes: int):
+        #: public key of the candidate.
         self.public_key = public_key
+        #: number of votes the candidate has.
         self.votes = votes
         shash = coreutils.to_script_hash(
             contractutils.create_signature_redeemscript(self.public_key)
         )
+        #: NEO address of the candidate.
         self.address = walletutils.script_hash_to_address(shash)
 
 
 class NeoToken(NEP17Contract):
+    """
+    Wrapped NEO token contract.
+    """
+
     def __init__(self):
         super(NeoToken, self).__init__(contract.CONTRACT_HASHES.NEO_TOKEN)
 
     def get_gas_per_block(self) -> ContractMethodResult[int]:
         """
-        Get the amount of GAS generated in each block
+        Get the amount of GAS generated in each block.
         """
         script = (
             vm.ScriptBuilder()
@@ -751,14 +828,14 @@ class NeoToken(NEP17Contract):
         self, account: types.UInt160 | NeoAddress, end: Optional[int] = None
     ) -> ContractMethodResult[int]:
         """
-        Get the amount of unclaimed GAS
+        Get the amount of unclaimed GAS.
 
         Args:
-            account: for whom
-            end: up to which block height to calculate the GAS bonus. Omit to calculate to the current chain height
+            account: for whom.
+            end: up to which block height to calculate the GAS bonus. Omit to calculate to the current chain height.
 
         Raises:
-            ValueError if `account` is an invalid NeoAddress format
+            ValueError: if `account` is an invalid NeoAddress format.
         """
         if not isinstance(account, types.UInt160):
             walletutils.validate_address(account)
@@ -785,7 +862,7 @@ class NeoToken(NEP17Contract):
 
     def candidate_registration_price(self) -> ContractMethodResult[int]:
         """
-        Get the amount of GAS to pay to register as consensus candidate
+        Get the amount of GAS to pay to register as consensus candidate.
         """
         script = (
             vm.ScriptBuilder()
@@ -798,11 +875,13 @@ class NeoToken(NEP17Contract):
         self, public_key: cryptography.ECPoint
     ) -> ContractMethodResult[bool]:
         """
-        Register as a consensus candidate
+        Register as a consensus candidate.
 
-        See Also: wallet.Account.public_key
+        See Also:
+            Account.public_key
 
-        Returns: True if successful. False otherwise.
+        Returns:
+            `True` if successful. `False` otherwise.
         """
         sb = vm.ScriptBuilder()
         sb.emit_contract_call_with_args(
@@ -814,11 +893,13 @@ class NeoToken(NEP17Contract):
         self, public_key: cryptography.ECPoint
     ) -> ContractMethodResult[bool]:
         """
-        Unregister as a consensus candidate
+        Unregister as a consensus candidate.
 
-        See Also: wallet.Account.public_key
+        See Also:
+            Account.public_key
 
-        Returns: True if successful. False otherwise.
+        Returns:
+            `True` if successful. `False` otherwise.
         """
         sb = vm.ScriptBuilder()
         sb.emit_contract_call_with_args(
@@ -830,16 +911,17 @@ class NeoToken(NEP17Contract):
         self, voter: types.UInt160 | NeoAddress, candidate: cryptography.ECPoint
     ) -> ContractMethodResult[bool]:
         """
-        Cast a vote for `candidate` to become a consensus node
+        Cast a vote for `candidate` to become a consensus node.
 
         Args:
-            voter: the account to vote from
-            candidate: who to vote on
+            voter: the account to vote from.
+            candidate: who to vote on.
 
         Raises:
-            ValueError if `voter` is an invalid NeoAddress format
+            ValueError: if `voter` is an invalid NeoAddress format.
 
-        Returns: True if vote cast successful. False otherwise.
+        Returns:
+            `True` if vote cast successful. `False` otherwise.
         """
         voter = _check_address_and_convert(voter)
         script = (
@@ -853,7 +935,7 @@ class NeoToken(NEP17Contract):
         self, candidate: cryptography.ECPoint
     ) -> ContractMethodResult[int]:
         """
-        Get the total vote count for `candidate`
+        Get the total vote count for `candidate`.
         """
         script = (
             vm.ScriptBuilder()
@@ -864,7 +946,7 @@ class NeoToken(NEP17Contract):
 
     def candidates_registered(self) -> ContractMethodResult[list[Candidate]]:
         """
-        Get the first 256 registered candidates
+        Get the first 256 registered candidates.
         """
         script = (
             vm.ScriptBuilder().emit_contract_call(self.hash, "getCandidates").to_array()
@@ -886,11 +968,12 @@ class NeoToken(NEP17Contract):
 
 class _NEP11Contract(_TokenContract):
     """
-    Base class for calling NEP-11 compliant smart contracts
+    Base class for calling NEP-11 compliant smart contracts.
 
-    NFTs can be divisible or non-divisible which is determined by the value of `decimals()`
+    NFTs can be divisible or non-divisible which is determined by the value of `decimals()`.
 
-    Note: the following 2 common methods defined in the NEP-11 standard have different names to improve discoverability
+    Note:
+        The following 2 common methods defined in the NEP-11 standard have different names to improve discoverability
          NEP-11 standard    This wrapper
       1. balanceOf       -> total_owned_by
       2. tokensOf        -> token_ids_owned_by
@@ -898,7 +981,7 @@ class _NEP11Contract(_TokenContract):
 
     def decimals(self) -> ContractMethodResult[int]:
         """
-        Get the amount of decimals
+        Get the amount of decimals.
 
         A zero return value indicates a non-divisible NFT.
         A bigger than zero return value indicates a divisible NFTs.
@@ -912,7 +995,7 @@ class _NEP11Contract(_TokenContract):
         Get the total amount of NFTs owned for the given account.
 
         Raises:
-            ValueError if `owner` is an invalid NeoAddress format
+            ValueError: if `owner` is an invalid NeoAddress format.
         """
         owner = _check_address_and_convert(owner)
         script = (
@@ -926,10 +1009,10 @@ class _NEP11Contract(_TokenContract):
         self, owner: types.UInt160 | NeoAddress
     ) -> ContractMethodResult[list[bytes]]:
         """
-        Get an iterator containing all token ids owned by the specified address
+        Get an iterator containing all token ids owned by the specified address.
 
         Raises:
-            ValueError if `owner` is an invalid NeoAddress format
+            ValueError: if `owner` is an invalid NeoAddress format.
         """
         owner = _check_address_and_convert(owner)
         sb = vm.ScriptBuilder()
@@ -945,9 +1028,10 @@ class _NEP11Contract(_TokenContract):
 
     def tokens(self) -> ContractMethodResult[list[bytes]]:
         """
-        Get all tokens minted by the contract
+        Get all tokens minted by the contract.
 
-        Note: this is an optional method and may not exist on the contract
+        Note:
+            This is an optional method and may not exist on the contract.
         """
 
         def process(res: noderpc.ExecutionResult, _: int = 0) -> list[bytes]:
@@ -961,9 +1045,10 @@ class _NEP11Contract(_TokenContract):
 
     def properties(self, token_id: bytes) -> ContractMethodResult[dict]:
         """
-        Get all properties for the given NFT
+        Get all properties for the given NFT.
 
-        Note: this is an optional method and may not exist on the contract
+        Note:
+            This is an optional method and may not exist on the contract.
         """
         sb = vm.ScriptBuilder().emit_contract_call_with_args(
             self.hash, "properties", [token_id]
@@ -973,9 +1058,9 @@ class _NEP11Contract(_TokenContract):
 
 class NEP11DivisibleContract(_NEP11Contract):
     """
-    Base class for divisible NFTs
+    Base class for divisible NFTs.
 
-    The NEP-11 `ownerOf` method is named `owners_of` in this wrapper
+    The NEP-11 `ownerOf` method is named `owners_of` in this wrapper.
     """
 
     def transfer(
@@ -997,9 +1082,10 @@ class NEP11DivisibleContract(_NEP11Contract):
             await facade.test_invoke(token.transfer(source, destination, 10), signers=[signer]))
 
         Raises:
-            ValueError if `source` or `destination` is an invalid NeoAddress format
+            ValueError: if `source` or `destination` is an invalid NeoAddress format.
 
-        Returns: True if token fractions transferred successful. False otherwise.
+        Returns:
+            True if token fractions transferred successful. False otherwise.
         """
         source = _check_address_and_convert(source)
         destination = _check_address_and_convert(destination)
@@ -1011,7 +1097,7 @@ class NEP11DivisibleContract(_NEP11Contract):
 
     def owners_of(self, token_id: bytes) -> ContractMethodResult[list[types.UInt160]]:
         """
-        Get a list of account script hashes that own a part of `token_id`
+        Get a list of account script hashes that own a part of `token_id`.
         """
         sb = vm.ScriptBuilder()
         sb.emit_contract_call_with_args_and_unwrap_iterator(
@@ -1028,10 +1114,10 @@ class NEP11DivisibleContract(_NEP11Contract):
         self, owner: types.UInt160 | NeoAddress, token_id: bytes
     ) -> ContractMethodResult[int]:
         """
-        Get the token balance for the given owner
+        Get the token balance for the given owner.
 
         Raises:
-            ValueError if `owner` is an invalid NeoAddress format
+            ValueError: if `owner` is an invalid NeoAddress format.
         """
         owner = _check_address_and_convert(owner)
         sb = vm.ScriptBuilder().emit_contract_call_with_args(
@@ -1043,12 +1129,12 @@ class NEP11DivisibleContract(_NEP11Contract):
         self, owner: types.UInt160 | NeoAddress, token_id: bytes
     ) -> ContractMethodResult[float]:
         """
-        Get the balance for the given account and convert the result into the user representation
+        Get the balance for the given account and convert the result into the user representation.
 
-        Uses the token decimals to convert to the user end representation
+        Uses the token decimals to convert to the user end representation.
 
         Raises:
-            ValueError if `owner` is an invalid NeoAddress format
+            ValueError: if `owner` is an invalid NeoAddress format.
         """
         owner = _check_address_and_convert(owner)
         sb = vm.ScriptBuilder()
@@ -1068,7 +1154,7 @@ class NEP11DivisibleContract(_NEP11Contract):
 
 
 class NEP11NonDivisibleContract(_NEP11Contract):
-    """Base class for non-divisible NFTs"""
+    """Base class for non-divisible NFTs."""
 
     def transfer(
         self,
@@ -1078,7 +1164,7 @@ class NEP11NonDivisibleContract(_NEP11Contract):
     ) -> ContractMethodResult[bool]:
         """
         Transfer `token_id` to `destination` account.
-        The source account will be the account that pays for the fees (a.k.a. the transaction.sender)
+        The source account will be the account that pays for the fees (a.k.a. the transaction.sender).
 
         For this to pass while using `test_invoke()`, make sure to add a Signer with a script hash equal to the source
         account. i.e.
@@ -1087,9 +1173,12 @@ class NEP11NonDivisibleContract(_NEP11Contract):
             await facade.test_invoke(token.transfer(destination, token_id, 10), signers=[signer]))
 
         Raises:
-            ValueError if `destination` is an invalid NeoAddress format
+            ValueError: if `destination` is an invalid NeoAddress format.
 
-        Returns: True if the token transferred successful. False otherwise.
+        Returns:
+            The return value after invoking with `invoke()` or `test_invoke()` is
+                `True` if the token transferred successful.
+                `False` otherwise.
         """
         destination = _check_address_and_convert(destination)
         sb = vm.ScriptBuilder().emit_contract_call_with_args(
@@ -1104,7 +1193,23 @@ class NEP11NonDivisibleContract(_NEP11Contract):
         data: Optional[list] = None,
         abort_on_failure: bool = False,
     ) -> ContractMethodResult[bool]:
+        """
+        Transfer multiple token_ids to multiple destinations. Destination and token_ids are paired in order.
 
+        Args:
+            destinations: accounts to send tokens to.
+            token_ids: list of token ids.
+            data: forward to `onNEP17Payment` handler if applicable.
+            abort_on_failure: if `True` aborts the whole transaction if any of the transfers fails.
+
+        Raises:
+            ValueError: if any of the destinations is supplied as NeoAddress but is an invalid address format.
+
+        Returns:
+            The return value after invoking with `invoke()` or `test_invoke()` is
+                `True` if all transfers are successful.
+                `False` otherwise.
+        """
         sb = vm.ScriptBuilder()
         for d, t in zip(destinations, token_ids):
             d = _check_address_and_convert(d)
@@ -1133,7 +1238,7 @@ class NEP11NonDivisibleContract(_NEP11Contract):
 
     def owner_of(self, token_id: bytes) -> ContractMethodResult[types.UInt160]:
         """
-        Get the owner of the given token
+        Get the owner of the given token.
         """
         sb = vm.ScriptBuilder().emit_contract_call_with_args(
             self.hash, "ownerOf", [token_id]
@@ -1154,9 +1259,10 @@ def _check_address_and_convert(value: types.UInt160 | NeoAddress) -> types.UInt1
 
 class PolicyContract(GenericContract):
     """
-    Wrapper around the native contract that manages system policies
+    Wrapper around the native contract that manages system policies.
 
-    Note: functions that only consensus committee members can use are not implemented
+    Note:
+        Functions that only consensus committee members can use are not implemented.
     """
 
     def __init__(self):
@@ -1164,28 +1270,28 @@ class PolicyContract(GenericContract):
 
     def fee_per_byte(self) -> ContractMethodResult[int]:
         """
-        The fee per transaction byte
+        The fee per transaction byte.
         """
         sb = vm.ScriptBuilder().emit_contract_call(self.hash, "getFeePerByte")
         return ContractMethodResult(sb.to_array(), unwrap.as_int)
 
     def exec_fee_factor(self) -> ContractMethodResult[int]:
         """
-        The system fee multiplier for transactions
+        The system fee multiplier for transactions.
         """
         sb = vm.ScriptBuilder().emit_contract_call(self.hash, "getExecFeeFactor")
         return ContractMethodResult(sb.to_array(), unwrap.as_int)
 
     def storage_price(self) -> ContractMethodResult[int]:
         """
-        The price per byte of smart contract storage
+        The price per byte of smart contract storage.
         """
         sb = vm.ScriptBuilder().emit_contract_call(self.hash, "getStoragePrice")
         return ContractMethodResult(sb.to_array(), unwrap.as_int)
 
     def is_blocked(self, script_hash: types.UInt160) -> ContractMethodResult[bool]:
         """
-        Check if an account or contract is blocked on the network
+        Check if an account or contract is blocked on the network.
         """
         sb = vm.ScriptBuilder()
         sb.emit_contract_call_with_args(self.hash, "isBlocked", [script_hash])
@@ -1193,6 +1299,10 @@ class PolicyContract(GenericContract):
 
 
 class DesignateRole(IntEnum):
+    """
+    Special role that can be assigned to nodes in the network by the consensus committee.
+    """
+
     STATE_VALIDATOR = 4
     ORACLE = 8
     NEO_FS_ALPHABET_NODE = 16
@@ -1200,7 +1310,7 @@ class DesignateRole(IntEnum):
 
 class RoleContract(GenericContract):
     """
-    Wrapper around the native Role management contract
+    Wrapper around the native Role management contract.
     """
 
     def __init__(self):

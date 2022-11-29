@@ -1,7 +1,7 @@
 import socket
 import logging
 import asyncio
-from neo3.network import node, message, capabilities, ipfilter, encode_base62
+from neo3.network import node, message, capabilities, ipfilter
 from neo3.network.payloads import (
     version,
     address,
@@ -471,9 +471,9 @@ class NeoNodeTestCase(IsolatedAsyncioTestCase):
 
     def test_utility_function(self):
         with self.assertRaises(ValueError) as context:
-            encode_base62(-100)
+            node.encode_base62(-100)
         self.assertIn("cannot encode negative numbers", str(context.exception))
 
-        self.assertEqual("0", encode_base62(0))
+        self.assertEqual("0", node.encode_base62(0))
 
-        self.assertEqual("w1R", encode_base62(123123))
+        self.assertEqual("w1R", node.encode_base62(123123))

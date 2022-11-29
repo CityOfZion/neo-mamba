@@ -29,6 +29,7 @@ class MultiSigContext:
     """
     Signing context for use with multi signature accounts.
     """
+
     def __init__(self):
         #: indicates if the context has been initialised for usage.
         self.initialised = False
@@ -139,6 +140,7 @@ class Account:
     """
     Container class for handling key material. Can be used to sign transactions.
     """
+
     _json_schema = {
         "type": "object",
         "properties": {
@@ -225,6 +227,9 @@ class Account:
 
     @property
     def script_hash(self) -> types.UInt160:
+        """
+        Return account script hash.
+        """
         return utils.address_to_script_hash(self.address)
 
     @property
@@ -401,6 +406,16 @@ class Account:
     def create_new(
         cls, password: str, scrypt_parameters: Optional[scrypt.ScryptParameters] = None
     ) -> Account:
+        """
+        Instantiate and returns a new account encrypted using password.
+
+        Args:
+            password: the password to decrypt the nep2 key.
+            scrypt_parameters: supply custom Scrypt parameters.
+
+        Returns:
+            The newly created account.
+        """
         return cls(
             password=password, watch_only=False, scrypt_parameters=scrypt_parameters
         )
@@ -446,10 +461,10 @@ class Account:
             private_key: the private key that will be used to create an encrypted key.
             password: the password to encrypt a randomly generated private key.
             scrypt_parameters: optional custom parameters to be used in the Scrypt algorithm. Default settings conform
-            to the NEP-2 standard
+            to the NEP-2 standard.
 
         Returns:
-            The newly created account.
+            the newly created account.
         """
         return cls(
             password=password,
@@ -473,7 +488,7 @@ class Account:
             _scrypt_parameters: the Scrypt parameters to use to encode the private key. Default conforms to NEP-2.
 
         Returns:
-            The newly created account.
+            the newly created account.
         """
         return cls(
             password=password,
@@ -490,7 +505,7 @@ class Account:
             script_hash: the script hash that will identify an account to be watched.
 
         Returns:
-            The account that will be monitored.
+            the account that will be monitored.
         """
         return cls(
             password="",
@@ -507,7 +522,7 @@ class Account:
             address: the address that will identify an account to be watched.
 
         Returns:
-            The account that will be monitored.
+            the account that will be monitored.
         """
         return cls(password="", watch_only=True, address=address)
 
@@ -728,11 +743,12 @@ class Account:
     def _xor_bytes(a: bytes, b: bytes) -> bytes:
         """
         XOR on two bytes objects
+
         Args:
             a (bytes): object 1
             b (bytes): object 2
         Returns:
-            bytes: The XOR result
+            the XOR result
         """
         assert len(a) == len(b)
         res = bytearray()

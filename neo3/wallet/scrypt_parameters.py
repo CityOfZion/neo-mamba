@@ -16,12 +16,14 @@ class ScryptParameters(interfaces.IJson):
     }
 
     def __init__(self, n: int = 16384, r: int = 8, p: int = 8):
-
         self.n = n
         self.r = r
         self.p = p
 
     def to_json(self) -> dict:
+        """
+        Convert object into JSON representation.
+        """
         return {"n": self.n, "r": self.r, "p": self.p}
 
     @classmethod

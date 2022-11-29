@@ -1,3 +1,6 @@
+"""
+P2P network sync manager.
+"""
 from __future__ import annotations
 import asyncio
 import traceback
@@ -10,6 +13,12 @@ from contextlib import suppress
 
 
 class SyncManager(singleton._Singleton):
+    """
+    Convenience class for syncing the chain over the P2P network.
+    Takes care of requesting blocks, tracking the request, resending if necessary and forwarding the received blocks
+    to a consumer.
+    """
+
     #: Maximum number of Blocks to cache in memory. Block persisting empties the cache allowing new blocks to be
     #: requested.
     BLOCK_MAX_CACHE_SIZE = 500

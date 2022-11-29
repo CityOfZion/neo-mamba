@@ -43,7 +43,7 @@ class RequestInfo:
 
     def most_recent_flight(self) -> Optional[flightinfo.FlightInfo]:
         """
-        Get the last :class:`FlightInfo <neo3.network.convenience.flightinfo.FlightInfo>` object created for this
+        Get the last `FlightInfo` object created for this
         request.
         """
         try:
@@ -58,7 +58,7 @@ class RequestInfo:
         SyncManager tags nodes that do not return the requested data before a specified timeout.
 
         Args:
-            node_id: the :attr:`~neo3.network.node.NeoNode.id` of the node the data is requested from.
+            node_id: the `NeoNode.id` of the node the data is requested from.
         """
         self.failed_nodes[node_id] = self.failed_nodes.get(node_id, 0) + 1
         self.failed_total += 1

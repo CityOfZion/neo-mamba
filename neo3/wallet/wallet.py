@@ -17,6 +17,7 @@ class Wallet(interfaces.IJson):
     """
     Base container.
     """
+
     _wallet_version = "1.0"
 
     # Wallet JSON validation schema
@@ -260,7 +261,7 @@ class Wallet(interfaces.IJson):
         This is called automatically when using the context manager.
 
         See Also:
-            [DiskWallet](wallet.wallet.DiskWallet)
+            [DiskWallet](#neo3.wallet.wallet.DiskWallet)
         """
         pass
 
@@ -296,7 +297,7 @@ class Wallet(interfaces.IJson):
 
         Raises:
             KeyError: if the data supplied does not contain the necessary keys.
-            ValueError: if the 'version' property is under 1.0 or is not a valid string.
+            ValueError: if the `version` property is under 1.0 or is not a valid string.
         """
         validate(json, schema=cls.json_schema)
         try:
@@ -339,7 +340,7 @@ class Wallet(interfaces.IJson):
         Load wallet from file.
 
         Args:
-            path: path as passed to open().
+            path: path as passed to `open()`.
             password: the password to decrypt the account data.
         """
         with open(path, "r") as f:

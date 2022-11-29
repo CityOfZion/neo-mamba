@@ -611,6 +611,9 @@ class _ContractParameter(interfaces.IJson):
         raise NotImplementedError
 
     def to_json(self) -> dict:
+        """
+        Convert object into JSON representation.
+        """
         return {"type": self.type.PascalCase(), "value": self.value}
 
 

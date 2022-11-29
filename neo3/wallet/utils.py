@@ -14,8 +14,8 @@ def script_hash_to_address(
 
     Args:
         script_hash: script hash to convert.
-        address_version: network protocol address version. Historically has been fixed to 0x35 for MainNet and TestNet.
-         Can use the "getversion()" RPC method to query for its value.
+        address_version: network protocol address version. Historically has been fixed to `0x35` for MainNet and TestNet.
+         Use the `getversion()` RPC method to query for its value.
     """
     data = address_version.to_bytes(1, "little") + script_hash.to_array()
     return base58.b58encode_check(data).decode("utf-8")
@@ -57,8 +57,8 @@ def validate_address(address: NeoAddress, address_version: int = 0x35) -> None:
 
     Args:
         address: an address.
-        address_version: network protocol address version. Historically has been fixed to 0x35 for MainNet and TestNet.
-         Can use the "getversion()" RPC method to query for its value.
+        address_version: network protocol address version. Historically has been fixed to `0x35` for MainNet and TestNet.
+         Use the `getversion()` RPC method to query for its value.
 
     Raises:
         ValueError: if the length of data(address value in bytes) is not valid.

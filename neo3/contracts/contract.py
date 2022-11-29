@@ -1,3 +1,6 @@
+"""
+Smart contract and account contract classes. Contains a list of all native contracts.
+"""
 from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -20,11 +23,15 @@ class _ContractHashes:
     STD_LIB = types.UInt160.from_string("0xacce6fd80d44e1796aa0c2c625e9e4e0ce39efc0")
 
 
-# Neo's native contract hashes
+#: List of Neo's native contract hashes.
 CONTRACT_HASHES = _ContractHashes()
 
 
 class Contract:
+    """
+    Generic contract.
+    """
+
     def __init__(
         self, script: bytes, parameter_list: Sequence[abi.ContractParameterType]
     ):
@@ -37,7 +44,7 @@ class Contract:
     @property
     def script_hash(self) -> types.UInt160:
         """
-        The contract script hash
+        The contract script hash.
         """
         return self._script_hash
 
@@ -64,9 +71,6 @@ class Contract:
 
         Args:
             public_key: the public key to use during verification.
-
-        Returns:
-
         """
         return cls(
             utils.create_signature_redeemscript(public_key),
@@ -75,6 +79,10 @@ class Contract:
 
 
 class ContractState(serialization.ISerializable):
+    """
+    Smart contract chain state container.
+    """
+
     def __init__(
         self,
         id_: int,
@@ -112,6 +120,9 @@ class ContractState(serialization.ISerializable):
 
     @property
     def script(self) -> bytes:
+        """
+        NEF script
+        """
         return self.nef.script
 
     @script.setter
@@ -133,6 +144,16 @@ class ContractState(serialization.ISerializable):
         self.hash = reader.read_serializable(types.UInt160)
 
     def can_call(self, target_contract: ContractState, target_method: str) -> bool:
+        """
+        Utility function to check if the contract has permission to call `target_method` on `target_contract`.
+
+        Args:
+            target_contract:
+            target_method:
+
+        Returns:
+            `True` if allowed. `False` if not possible.
+        """
         results = list(
             map(
                 lambda p: p.is_allowed(
