@@ -7,8 +7,8 @@
 
 
 The project has pivoted direction to focus on being a light SDK (=not requiring a full chain locally).
-It is nearing the late stages of development before its first release in the new form. Given the large changes there are
-still some important areas that are to be redone completely such as documentation.
+It is ready for its first release and expected to only change based on internal tests in the coming week.
+Expect a release by mid-December 2022! Documentation can temporarily be found at https://ixje.github.io/neo-mamba/
 
 Follow the project and check back soon if you're looking to use Python to
 
