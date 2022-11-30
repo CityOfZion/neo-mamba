@@ -1,9 +1,13 @@
+"""
+P2P node. Connects over TCP. Handles network messages.
+"""
 from __future__ import annotations
 import asyncio
 import traceback
 import struct
+import string
 from datetime import datetime
-from neo3.network import encode_base62, message, capabilities, relaycache
+from neo3.network import message, capabilities, relaycache
 from neo3.network.ipfilter import ipfilter
 from neo3.network.convenience import nodeweight
 from neo3.network.payloads import address, version, inventory, ping, block
@@ -18,21 +22,27 @@ from collections.abc import Sequence
 
 
 class NeoNode:
+    """
+    P2P network actor.
+    """
+
     #: list[address.NetworkAddress]: a list of known network addresses (class attribute).
     addresses = []  # type: list[address.NetworkAddress]
 
     def __init__(self, reader: StreamReader, writer: StreamWriter):
-        self.nodeid: int = id(self)  #: int: Unique identifier.
-        #: address.NetworkAddress: Address of the remote endpoint.
-        # print(f"Testing peername: {writer.transport.get_extra_info('peername')}")
+        #: Unique identifier.
+        self.nodeid: int = id(self)
+        #: Address of the remote endpoint.
         self.address = address.NetworkAddress(
             "0.0.0.0:0", state=address.AddressState.DEAD
         )
-        self.nodeid_human: str = encode_base62(self.nodeid)  #: str: Human readable id.
+        #: Human readable id.
+        self.nodeid_human: str = encode_base62(self.nodeid)
         self.version: Optional[version.VersionPayload] = None
         self.tasks: list[asyncio.Task] = []
         self.nodeweight = nodeweight.NodeWeight(self.nodeid)
-        self.best_height: int = 0  #: int: Best block height of node.
+        #: Best block height of node.
+        self.best_height: int = 0
         self.best_height_last_update = datetime.utcnow().timestamp()
 
         self._read_task: Optional[asyncio.Task] = None
@@ -136,7 +146,7 @@ class NeoNode:
 
     def handler_addr(self, msg: message.Message) -> None:
         """
-        Handler for a message with the ADDR type.
+        Handler for a message with the `ADDR` type.
 
         Args:
             msg:
@@ -147,7 +157,7 @@ class NeoNode:
 
     def handler_block(self, msg: message.Message) -> None:
         """
-        Handler for a message with the BLOCK type.
+        Handler for a message with the `BLOCK` type.
 
         Args:
             msg:
@@ -156,7 +166,7 @@ class NeoNode:
 
     def handler_consensus(self, msg: message.Message) -> None:
         """
-        Handler for a message with the CONSENSUS type.
+        Handler for a message with the `CONSENSUS` type.
 
         Args:
             msg:
@@ -165,7 +175,7 @@ class NeoNode:
 
     def handler_inv(self, msg: message.Message) -> None:
         """
-        Handler for a message with the INV type.
+        Handler for a message with the `INV` type.
 
         Args:
             msg:
@@ -189,7 +199,7 @@ class NeoNode:
 
     def handler_filteradd(self, msg: message.Message) -> None:
         """
-        Handler for a message with the FILTERADD type.
+        Handler for a message with the `FILTERADD` type.
 
         Args:
             msg:
@@ -198,7 +208,7 @@ class NeoNode:
 
     def handler_filterclear(self, msg: message.Message) -> None:
         """
-        Handler for a message with the FILTERCLEAR type.
+        Handler for a message with the `FILTERCLEAR` type.
 
         Args:
             msg:
@@ -207,7 +217,7 @@ class NeoNode:
 
     def handler_filterload(self, msg: message.Message) -> None:
         """
-        Handler for a message with the FILTERLOAD type.
+        Handler for a message with the `FILTERLOAD` type.
 
         Args:
             msg:
@@ -216,7 +226,7 @@ class NeoNode:
 
     def handler_getaddr(self, msg: message.Message) -> None:
         """
-        Handler for a message with the GETADDR type.
+        Handler for a message with the `GETADDR` type.
 
         Args:
             msg:
@@ -229,7 +239,7 @@ class NeoNode:
 
     def handler_getblocks(self, msg: message.Message) -> None:
         """
-        Handler for a message with the GETBLOCKS type.
+        Handler for a message with the `GETBLOCKS` type.
 
         Args:
             msg:
@@ -238,7 +248,7 @@ class NeoNode:
 
     def handler_getblockdata(self, msg: message.Message) -> None:
         """
-        Handler for a message with the GETBLOCKBYINDEX type.
+        Handler for a message with the `GETBLOCKBYINDEX` type.
 
         Args:
             msg:
@@ -247,7 +257,7 @@ class NeoNode:
 
     def handler_getdata(self, msg: message.Message) -> None:
         """
-        Handler for a message with the GETDATA type.
+        Handler for a message with the `GETDATA` type.
 
         Args:
             msg:
@@ -266,7 +276,7 @@ class NeoNode:
 
     def handler_getheaders(self, msg: message.Message) -> None:
         """
-        Handler for a message with the GETHEADERS type.
+        Handler for a message with the `GETHEADERS` type.
 
         Args:
             msg:
@@ -275,7 +285,7 @@ class NeoNode:
 
     def handler_mempool(self, msg: message.Message) -> None:
         """
-        Handler for a message with the MEMPOOL type.
+        Handler for a message with the `MEMPOOL` type.
 
         Args:
             msg:
@@ -284,7 +294,7 @@ class NeoNode:
 
     def handler_merkleblock(self, msg: message.Message) -> None:
         """
-        Handler for a message with the MERKLEBLOCK type.
+        Handler for a message with the `MERKLEBLOCK` type.
 
         Args:
             msg:
@@ -293,7 +303,7 @@ class NeoNode:
 
     def handler_headers(self, msg: message.Message) -> None:
         """
-        Handler for a message with the HEADERS type.
+        Handler for a message with the `HEADERS` type.
 
         Args:
             msg:
@@ -304,7 +314,7 @@ class NeoNode:
 
     def handler_ping(self, msg: message.Message) -> None:
         """
-        Handler for a message with the PING type.
+        Handler for a message with the `PING` type.
 
         Args:
             msg:
@@ -317,7 +327,7 @@ class NeoNode:
 
     def handler_pong(self, msg: message.Message) -> None:
         """
-        Handler for a message with the PONG type.
+        Handler for a message with the `PONG` type.
 
         Args:
             msg:
@@ -333,7 +343,7 @@ class NeoNode:
 
     def handler_transaction(self, msg: message.Message) -> None:
         """
-        Handler for a message with the TRANSACTION type.
+        Handler for a message with the `TRANSACTION` type.
 
         Args:
             msg:
@@ -342,7 +352,7 @@ class NeoNode:
 
     def handler_extensible(self, msg: message.Message) -> None:
         """
-        Handler for a message with the EXTENSIBLE type.
+        Handler for a message with the `EXTENSIBLE` type.
 
         Args:
             msg:
@@ -363,10 +373,19 @@ class NeoNode:
         )
 
     async def send_message(self, msg: message.Message) -> None:
+        """
+        Broadcast a message to the network.
+        """
         self.writer.write(msg.to_array())
         await self.writer.drain()
 
     async def read_message(self, timeout: Optional[int] = 30) -> Optional[Message]:
+        """
+        Read a message from the network.
+
+        Args:
+            timeout: maximum time to wait for a message to arrive over the network.
+        """
         if timeout == 0:
             # avoid memleak. See: https://bugs.python.org/issue37042
             timeout = None
@@ -441,7 +460,7 @@ class NeoNode:
         Send network addresses.
 
         Args:
-            network_addresses:
+            network_addresses: list of addresses of other network actors.
         """
         m = message.Message(
             msg_type=message.MessageType.ADDR,
@@ -458,8 +477,8 @@ class NeoNode:
         Not specifying a `count` results in requesting at most 2000 headers.
 
         Args:
-            index_start:
-            count:
+            index_start: block height to start from.
+            count: number of headers to request.
         """
         m = message.Message(
             msg_type=message.MessageType.GETHEADERS,
@@ -470,9 +489,6 @@ class NeoNode:
     async def send_headers(self, headers: Sequence[block.Header]) -> None:
         """
         Send a list of Header objects.
-
-        Args:
-            headers:
         """
         if len(headers) > 2000:
             headers = headers[:2000]
@@ -496,12 +512,12 @@ class NeoNode:
             combination with these hashes to return the actual :class:`~neo3.network.payloads.block.Block` objects.
 
         See also:
-            :meth:`~neo3.network.node.NeoNode.request_block_data()` to immediately retrieve
-            :class:`~neo3.network.payloads.block.Block` objects.
+            `NeoNode.request_block_data()` to immediately retrieve
+            `neo3.network.payloads.block.Block` objects.
 
         Args:
-            hash_start:
-            count:
+            hash_start: block hash to start from.
+            count: number of blocks to return.
         """
         m = message.Message(
             msg_type=message.MessageType.GETBLOCKS,
@@ -535,8 +551,8 @@ class NeoNode:
         Send a request for receiving the specified inventory data.
 
         Args:
-            type:
-            hashes:
+            type: the inventory type to request.
+            hashes: the hashes of `type` to request.
         """
         if len(hashes) < 1:
             return
@@ -551,7 +567,7 @@ class NeoNode:
         self, inv_type: inventory.InventoryType, inv_hash: types.UInt256
     ) -> None:
         """
-        Send an inventory to the network
+        Send an inventory to the network.
 
         Args:
             inv_type:
@@ -563,7 +579,7 @@ class NeoNode:
 
     async def send_ping(self) -> None:
         """
-        Send a Ping message and expecting a Pong response
+        Send a Ping message and expecting a Pong response.
         """
         height = 0
 
@@ -573,10 +589,10 @@ class NeoNode:
 
     async def relay(self, inv: inventory.IInventory) -> bool:
         """
-        Relay the inventory to the network
+        Relay the inventory to the network.
 
         Args:
-            inv: should be of type Block, Transaction or Consensus. See: :class:`~neo3.network.payloads.inventory.InventoryType`. # noqa
+            inv: should be of type Block, Transaction or Consensus.
         """
         relaycache.RelayCache().add(inv)
         await self.send_inventory(inv.inventory_type, inv.hash())
@@ -591,6 +607,20 @@ class NeoNode:
         *,
         _test_data: Optional[dict] = None,
     ) -> tuple[Optional[NeoNode], Optional[tuple[str, str]]]:
+        """
+        Connect to another node.
+
+        Args:
+            host: node ip.
+            port: node port.
+            timeout: max time to wait before aborting.
+            socket: use an existing socket.
+            _test_data:
+
+        Returns:
+            tuple[NeoNode, None]: if connection was established succesfully.
+            tuple[None, tuple[host:port, failure_reason]]: if connection is not established successfully.
+        """
         if host is not None or port is not None:
             if socket is not None:
                 raise ValueError(
@@ -745,3 +775,23 @@ class NeoNode:
     @classmethod
     def _reset_for_test(cls) -> None:
         cls.addresses = []
+
+
+chars = string.digits + string.ascii_letters
+base = len(chars)
+
+
+def encode_base62(num: int):
+    """Encode number in base62, returns a string."""
+    if num < 0:
+        raise ValueError("cannot encode negative numbers")
+
+    if num == 0:
+        return chars[0]
+
+    digits = []
+    while num:
+        rem = num % base
+        num = num // base
+        digits.append(chars[rem])
+    return "".join(reversed(digits))

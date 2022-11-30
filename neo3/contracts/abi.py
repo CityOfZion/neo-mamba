@@ -1,3 +1,6 @@
+"""
+NEP-14 Application Binary Interface classes.
+"""
 from __future__ import annotations
 from typing import Optional
 from collections.abc import Sequence
@@ -7,6 +10,10 @@ from neo3.contracts import utils as contractutils
 
 
 class ContractParameterType(IntEnum):
+    """
+    Type information for a contract method parameter.
+    """
+
     ANY = 0x00
     BOOLEAN = 0x10
     INTEGER = 0x11
@@ -124,7 +131,7 @@ class ContractEventDescriptor(interfaces.IJson):
 
         Raises:
             KeyError: if the data supplied does not contain the necessary key.
-            ValueError: if the 'name' property has an incorrect format
+            ValueError: if the `name` property has an incorrect format.
         """
         c = cls(
             name=contractutils.validate_type(json["name"], str),
@@ -156,7 +163,7 @@ class ContractMethodDescriptor(ContractEventDescriptor, interfaces.IJson):
         """
         Args:
             name: the human-readable identifier of the method.
-            offset: script offset
+            offset: script offset.
             parameters: the list of parameters the method takes.
             return_type: the type of the returned value.
         """
@@ -230,7 +237,7 @@ class ContractMethodDescriptor(ContractEventDescriptor, interfaces.IJson):
 class ContractABI(interfaces.IJson):
     """
     The smart contract application binary interface describes the callable events and contracts for a given
-    smart contract.
+     smart contract.
     """
 
     def __init__(
@@ -240,7 +247,6 @@ class ContractABI(interfaces.IJson):
     ):
         """
         Args:
-            byte code.
             methods: the available methods in the contract.
             events: the various events that can be broadcast by the contract.
         """
@@ -256,7 +262,7 @@ class ContractABI(interfaces.IJson):
         self, name, parameter_count: int
     ) -> Optional[ContractMethodDescriptor]:
         """
-        Return the ContractMethodDescriptor matching the name (and optional parameter count) or None otherwise.
+        Return the ContractMethodDescriptor matching the name (and optional parameter count) or `None` otherwise.
 
         Args:
             name: the name of the method to return.
@@ -298,7 +304,7 @@ class ContractABI(interfaces.IJson):
 
         Raises:
             KeyError: if the data supplied does not contain the necessary keys.
-            ValueError: if the contract has no methods
+            ValueError: if the contract has no methods.
         """
         c = cls(
             methods=list(

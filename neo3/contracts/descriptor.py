@@ -94,7 +94,7 @@ class ContractPermissionDescriptor(interfaces.IJson):
         raise ValueError(f"Invalid JSON - Cannot deduce permission type from: {value}")
 
     def to_array(self) -> bytes:
-        """Serialize the object"""
+        """Serialize the object."""
         if self.is_hash:
             return self.contract_hash.to_array()  # type: ignore
         if self.is_group:

@@ -1,3 +1,6 @@
+"""
+Signing functions for use with `ChainFacade.invoke`.
+"""
 import os
 from dataclasses import dataclass
 from neo3.network.payloads import transaction
@@ -19,7 +22,7 @@ SigningFunction = Callable[[transaction.Transaction, SigningDetails], Awaitable]
 
 def sign_insecure_with_account(acc: account.Account, password: str) -> SigningFunction:
     """
-    Sign and add a witness using the account and the provided account password
+    Sign and add a witness using the account and the provided account password.
     """
 
     async def insecure_account_signer(

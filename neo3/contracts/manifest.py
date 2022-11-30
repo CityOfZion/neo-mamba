@@ -1,3 +1,6 @@
+"""
+NEP-15 contract manifest classes for describing smart contract access control.
+"""
 from __future__ import annotations
 import base64
 import binascii
@@ -12,7 +15,8 @@ class ContractGroup(interfaces.IJson):
     """
     Describes a set of mutually trusted contracts.
 
-    See Also: ContractManifest.
+    See Also:
+        ContractManifest.
     """
 
     def __init__(self, public_key: cryptography.ECPoint, signature: bytes):
@@ -76,14 +80,14 @@ class ContractGroup(interfaces.IJson):
 
 class ContractPermission(interfaces.IJson):
     """
-    Describes a single set of outgoing call restrictions for a 'System.Contract.Call' SYSCALL.
+    Describes a single set of outgoing call restrictions for a `System.Contract.Call` SYSCALL.
     It describes what other smart contracts the executing contract is allowed to call and what exact methods on the
     other contract are allowed to be called. This is enforced during runtime.
 
     Example:
-        Contract A (the executing contract) wants to call method "x" on Contract B. The runtime will query the manifest
+        Contract A (the executing contract) wants to call method `x` on Contract B. The runtime will query the manifest
         of Contract A and ask if this is allowed. The Manifest will search through its permissions (a list of
-        ContractPermission objects) and ask if it "is_allowed()".
+        ContractPermission objects) and ask if it `is_allowed()`.
     """
 
     def __init__(
@@ -222,7 +226,7 @@ class WildcardContainer(interfaces.IJson):
         Note: if the value is not '*', and is a Python list, then it will assume
         that the list members are strings or convertible via str().
 
-        If the wildcard should contain other data types, use the alternative `from_json_as_type()` method
+        If the wildcard should contain other data types, use the alternative `from_json_as_type()` method.
 
         Args:
             json: a dictionary.
@@ -252,7 +256,7 @@ class WildcardContainer(interfaces.IJson):
 
         Args:
             json: a dictionary.
-            conversion_func: a callable that takes 1 argument, which is the element in the value list
+            conversion_func: a callable that takes 1 argument, which is the element in the value list.
 
             Example with UInt160:
                 {'wildcard': ['0xa400ff00ff00ff00ff00ff00ff00ff00ff00ff01', 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa']}
@@ -420,7 +424,7 @@ class ContractManifest(serialization.ISerializable, interfaces.IJson):
         Raise:
             KeyError: if the data supplied does not contain the necessary keys.
             ValueError: if the manifest name property has an incorrect format.
-            ValueError: if the manifest support standards contains an string
+            ValueError: if the manifest support standards contains an string.
         """
         manifest = cls()
         manifest._deserialize_from_json(json)
@@ -435,12 +439,12 @@ class ContractManifest(serialization.ISerializable, interfaces.IJson):
 
     def is_valid(self, contract_hash: types.UInt160) -> bool:
         """
-        Validates the if any in the manifest groups signed the requesting `contract_hash` as permissive.
+        Validates the if any of the manifest groups signed the requesting `contract_hash` as permissive.
 
         An example use-case is to allow creation and updating of smart contracts by a select group.
 
         Args:
-            contract_hash:
+            contract_hash: target contract hash.
         """
         result = list(map(lambda g: g.is_valid(contract_hash), self.groups))
         return all(result)
@@ -465,6 +469,15 @@ class ContractManifest(serialization.ISerializable, interfaces.IJson):
         return any(results)
 
     def contains_group(self, public_key: cryptography.ECPoint) -> bool:
+        """
+        Check if group exists.
+
+        Args:
+            public_key: needle to search for.
+
+        Returns:
+            `True` if found. `False` otherwise.
+        """
         for g in self.groups:
             if public_key == g.public_key:
                 return True
@@ -473,13 +486,14 @@ class ContractManifest(serialization.ISerializable, interfaces.IJson):
     @classmethod
     def from_file(cls, path: str):
         """
-        create object from a file
+        Create object from a file.
+
         Args:
-            path: location of the file
+            path: location of the file.
 
         Raises:
-            FileNotFoundError: if the path is invalid
-            ValueError: if the file is not a valid ContractManifest
+            FileNotFoundError: if the path is invalid.
+            ValueError: if the file is not a valid ContractManifest.
         """
         with open(path, "rb") as f:
             manifest_bytes = f.read()

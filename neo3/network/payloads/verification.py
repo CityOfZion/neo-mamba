@@ -190,7 +190,7 @@ class Signer(serialization.ISerializable, interfaces.IJson):
                     yield rule
 
     def to_json(self) -> dict:
-        """Convert object into json"""
+        """Convert object into JSON representation."""
         json: dict[str, Any] = {
             "account": "0x" + str(self.account),
             "scopes": self.scope.to_csharp_name(),
@@ -288,7 +288,7 @@ class Witness(serialization.ISerializable, interfaces.IJson):
         return types.UInt160(data=data)
 
     def to_json(self) -> dict:
-        """Convert object into json"""
+        """Convert object into JSON representation."""
         return {
             "invocation": base64.b64encode(self.invocation_script).decode(),
             "verification": base64.b64encode(self.verification_script).decode(),
@@ -393,7 +393,7 @@ class WitnessCondition(serialization.ISerializable, interfaces.IJson):
             )
 
     def to_json(self) -> dict:
-        """Convert object into json"""
+        """Convert object into JSON representation."""
         return {"type": self.type.to_csharp_string()}
 
     @classmethod
@@ -433,7 +433,7 @@ class ConditionAnd(WitnessCondition):
             raise ValueError("Cannot have 0 expressions")
 
     def to_json(self) -> dict:
-        """Convert object into json"""
+        """Convert object into JSON representation."""
         json = super(ConditionAnd, self).to_json()
         json["expressions"] = list(map(lambda exp: exp.to_json(), self.expressions))
         return json
@@ -466,7 +466,7 @@ class ConditionBool(WitnessCondition):
         self.value = reader.read_bool()
 
     def to_json(self) -> dict:
-        """Convert object into json"""
+        """Convert object into JSON representation."""
         json = super(ConditionBool, self).to_json()
         json["expression"] = self.value
         return json
@@ -503,7 +503,7 @@ class ConditionNot(WitnessCondition):
         )
 
     def to_json(self) -> dict:
-        """Convert object into json"""
+        """Convert object into JSON representation."""
         json = super(ConditionNot, self).to_json()
         json["expression"] = self.expression.to_json()
         return json
@@ -542,7 +542,7 @@ class ConditionOr(WitnessCondition):
             raise ValueError("Cannot have 0 expressions")
 
     def to_json(self) -> dict:
-        """Convert object into json"""
+        """Convert object into JSON representation."""
         json = super(ConditionOr, self).to_json()
         json["expressions"] = list(map(lambda exp: exp.to_json(), self.expressions))
         return json
@@ -570,7 +570,7 @@ class ConditionCalledByContract(WitnessCondition):
         self.hash_ = reader.read_serializable(types.UInt160)
 
     def to_json(self) -> dict:
-        """Convert object into json"""
+        """Convert object into JSON representation."""
         json = super(ConditionCalledByContract, self).to_json()
         json["hash"] = f"0x{self.hash_}"
         return json
@@ -621,7 +621,7 @@ class ConditionCalledByGroup(WitnessCondition):
         self.group = reader.read_serializable(cryptography.ECPoint)  # type: ignore
 
     def to_json(self) -> dict:
-        """Convert object into json"""
+        """Convert object into JSON representation."""
         json = super(ConditionCalledByGroup, self).to_json()
         json["group"] = str(self.group)
         return json
@@ -658,7 +658,7 @@ class WitnessRule(serialization.ISerializable, interfaces.IJson):
         )
 
     def to_json(self) -> dict:
-        """Convert object into json"""
+        """Convert object into JSON representation."""
         return {
             "action": self.action.name.title(),
             "condition": self.condition.to_json(),

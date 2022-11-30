@@ -1,3 +1,6 @@
+"""
+Contract utilities for determing the contract hash, contract types, extracting public keys and signing treshold and more.
+"""
 from typing import Type
 from collections.abc import Sequence
 from neo3.core import types, utils as coreutils, cryptography
@@ -7,6 +10,16 @@ from neo3 import vm
 def get_contract_hash(
     sender: types.UInt160, nef_checksum: int, contract_name: str
 ) -> types.UInt160:
+    """
+    Return the calculated contract hash.
+
+    Args:
+        sender: script hash of account that deployed the contract.
+        nef_checksum: checksum of the contract's NEF file.
+        contract_name: the name from the contract's manifest.
+    Returns:
+        a unique contract identifier.
+    """
     sb = vm.ScriptBuilder()
     sb.emit(vm.OpCode.ABORT)
     sb.emit_push(sender)
@@ -16,6 +29,16 @@ def get_contract_hash(
 
 
 def validate_type(obj: object, type_: Type):
+    """
+    Helper function to validate ABI type information.
+
+    Args:
+        obj: target object.
+        type_: expected type
+
+    Raises:
+        ValueError: if types do not match.
+    """
     if type(obj) != type_:
         raise ValueError(f"Expected type '{type_}' , got '{type(obj)}' instead")
     return obj
@@ -82,7 +105,7 @@ def create_signature_redeemscript(public_key: cryptography.ECPoint) -> bytes:
 
 def is_signature_contract(script: bytes) -> bool:
     """
-    Test if the provided script is signature contract.
+    Test if the provided script is a (single) signature contract.
 
     Args:
         script: contract script.
@@ -102,7 +125,7 @@ def is_signature_contract(script: bytes) -> bool:
 
 def is_multisig_contract(script: bytes) -> bool:
     """
-    Test if the provided script is multi-signature contract.
+    Test if the provided script is a multi-signature contract.
 
     Args:
         script: contract script.
@@ -118,11 +141,11 @@ def parse_as_multisig_contract(
     Try to parse script as multisig contract and extract related data.
 
     Args:
-        script: array of vm byte code
+        script: array of vm byte code.
 
     Returns:
-        bool: True if the script passes as a valid multisignature contract script. False otherwise
-        int: the signing threshold if validation passed. 0 otherwise
+        bool: `True` if the script passes as a valid multisignature contract script. `False` otherwise.
+        int: the signing threshold if validation passed. 0 otherwise.
         list[ECPoint]: the public keys in the script if valiation passed. An empty array otherwise.
     """
     script = bytes(script)
@@ -196,10 +219,3 @@ def parse_as_multisig_contract(
     if syscall_num != vm.Syscalls.SYSTEM_CRYPTO_CHECK_MULTI_SIGNATURE_ACCOUNT:
         return VALIDATION_FAILURE
     return True, signature_threshold, public_keys
-
-
-def get_consensus_address(validators: Sequence[cryptography.ECPoint]) -> types.UInt160:
-    script = create_multisig_redeemscript(
-        len(validators) - (len(validators) - 1) // 3, validators
-    )
-    return coreutils.to_script_hash(script)
