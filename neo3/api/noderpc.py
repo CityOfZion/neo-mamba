@@ -1,3 +1,6 @@
+"""
+NEO RPC Node client and response classes.
+"""
 from __future__ import annotations
 import aiohttp
 import base64
@@ -17,6 +20,10 @@ from neo3.wallet import utils as walletutils
 
 @dataclass
 class BlockValidator:
+    """
+    Activate consensus member.
+    """
+
     public_key: cryptography.ECPoint
     votes: int
 
@@ -26,6 +33,10 @@ class BlockValidator:
 
 @dataclass
 class Candidate(BlockValidator):
+    """
+    Candidate consensus member.
+    """
+
     active: bool
 
     def __repr__(self):
@@ -34,6 +45,10 @@ class Candidate(BlockValidator):
 
 @dataclass
 class NextBlockValidatorsResponse:
+    """
+    Response to `getnextblockvalidators` RPC call.
+    """
+
     validators: list[BlockValidator]
 
     @classmethod
@@ -50,6 +65,10 @@ class NextBlockValidatorsResponse:
 
 @dataclass
 class VersionProtocol:
+    """
+    Partial response of `getversion` RPC call.
+    """
+
     address_version: int
     network: int
     validators_count: int
@@ -63,6 +82,10 @@ class VersionProtocol:
 
 @dataclass
 class GetVersionResponse:
+    """
+    Response to `getversion` RPC call.
+    """
+
     tcp_port: int
     ws_port: Optional[int]
     nonce: int
@@ -95,12 +118,20 @@ class GetVersionResponse:
 
 @dataclass
 class Peer:
+    """
+    P2P peer information.
+    """
+
     address: str
     port: int
 
 
 @dataclass
 class GetPeersResponse:
+    """
+    Response to `getpeers` RPC call.
+    """
+
     connected: list[Peer]
     bad: list[Peer]
     unconnected: list[Peer]
@@ -119,6 +150,10 @@ class GetPeersResponse:
 
 @dataclass
 class Nep17Balance:
+    """
+    NEP-17 balance entry.
+    """
+
     asset_hash: types.UInt160
     amount: int
     last_updated_block: int
@@ -132,6 +167,10 @@ class Nep17Balance:
 
 @dataclass
 class Nep17BalancesResponse:
+    """
+    Response to `getnep17balances` RPC call.
+    """
+
     balances: list[Nep17Balance]
     address: str
 
@@ -147,6 +186,10 @@ class Nep17BalancesResponse:
 
 @dataclass
 class Nep17Transfer:
+    """
+    NEP-17 transfer record.
+    """
+
     time: datetime.datetime
     asset_hash: types.UInt160
     transfer_address: str
@@ -184,6 +227,10 @@ class Nep17Transfer:
 
 @dataclass
 class Nep17TransfersResponse:
+    """
+    Response to `getnep17transfer` RPC call.
+    """
+
     sent: list[Nep17Transfer]
     received: list[Nep17Transfer]
     address: str
@@ -201,6 +248,8 @@ class Nep17TransfersResponse:
 @dataclass
 class MempoolResponse:
     """
+    Response to `getrawmempool` RPC call.
+
     A verified transaction in the memory pool is a transaction which has had:
     - basic structural validation (e.g. max tx size)
     - signature validation
@@ -224,6 +273,11 @@ class MempoolResponse:
 
 
 class StackItemType(Enum):
+    """
+    Virtual machine item types that can be found in the `stack` property of responses when executing a script or
+     transactions.
+    """
+
     ANY = "Any"
     ARRAY = "Array"
     BOOL = "Boolean"
@@ -238,6 +292,10 @@ class StackItemType(Enum):
 
 @dataclass
 class StackItem:
+    """
+    Virtual machine stack item.
+    """
+
     type: StackItemType
     value: Any
 
@@ -245,6 +303,12 @@ class StackItem:
         return f"{self.__class__.__name__}(type={self.type.name}, value={self.value})"
 
     def as_bool(self) -> bool:
+        """
+        Unwrap as `bool`.
+
+        Raises:
+            ValueError: if internal item type does not match required.
+        """
         if self.type != StackItemType.BOOL:
             raise ValueError(
                 f"item is not of type '{StackItemType.BOOL}' but of type '{self.type}'"
@@ -252,6 +316,12 @@ class StackItem:
         return self.value
 
     def as_str(self) -> str:
+        """
+        Unwrap as `str`.
+
+        Raises:
+            ValueError: if internal item type does not match required.
+        """
         if self.type != StackItemType.BYTE_STRING:
             raise ValueError(
                 f"item is not of type '{StackItemType.BYTE_STRING}' but of type '{self.type}'"
@@ -260,6 +330,13 @@ class StackItem:
         return v.decode()
 
     def as_int(self) -> int:
+        """
+        Unwrap as `int`.
+
+        Raises:
+            ValueError: if internal item type does not match required.
+
+        """
         if self.type != StackItemType.INTEGER:
             raise ValueError(
                 f"item is not of type '{StackItemType.INTEGER}' but of type '{self.type}'"
@@ -268,6 +345,12 @@ class StackItem:
         return v
 
     def as_uint160(self) -> types.UInt160:
+        """
+        Unwrap as `UInt160`.
+
+        Raises:
+            ValueError: if internal item type does not match required.
+        """
         if self.type not in (StackItemType.BYTE_STRING, StackItemType.BUFFER):
             raise ValueError(
                 f"item is not of type '{StackItemType.BYTE_STRING}' or '{StackItemType.BUFFER}' but of type '{self.type}'"
@@ -279,6 +362,12 @@ class StackItem:
         return types.UInt160(data)
 
     def as_uint256(self) -> types.UInt256:
+        """
+        Unwrap as `UInt256`.
+
+        Raises:
+            ValueError: if internal item type does not match required.
+        """
         if self.type not in (StackItemType.BYTE_STRING, StackItemType.BUFFER):
             raise ValueError(
                 f"item is not of type '{StackItemType.BYTE_STRING}' or '{StackItemType.BUFFER}' but of type '{self.type}'"
@@ -290,9 +379,18 @@ class StackItem:
         return types.UInt256(data)
 
     def as_address(self) -> str:
+        """
+        Unwrap as NEO3 address.
+        """
         return walletutils.script_hash_to_address(self.as_uint160())
 
     def as_public_key(self) -> cryptography.ECPoint:
+        """
+        Unwrap as `ECPoint`.
+
+        Raises:
+            ValueError: if internal item type does not match required.
+        """
         if self.type not in (StackItemType.BYTE_STRING, StackItemType.BUFFER):
             raise ValueError(
                 f"item is not of type '{StackItemType.BYTE_STRING}' or '{StackItemType.BUFFER}' but of type '{self.type}'"
@@ -304,6 +402,12 @@ class StackItem:
         return cryptography.ECPoint.deserialize_from_bytes(data, validate=True)
 
     def as_list(self) -> list[StackItem]:
+        """
+        Unwrap as `list`.
+
+        Raises:
+            ValueError: if internal item type does not match required.
+        """
         if self.type != StackItemType.ARRAY:
             raise ValueError(
                 f"item is not of type '{StackItemType.ARRAY}' but of type '{self.type}'"
@@ -311,6 +415,12 @@ class StackItem:
         return cast(list, self.value)
 
     def as_dict(self) -> dict:
+        """
+        Unwrap as `dict`.
+
+        Raises:
+            ValueError: if internal item type does not match required.
+        """
         if self.type != StackItemType.MAP:
             raise ValueError(
                 f"item is not of type '{StackItemType.MAP}' but of type '{self.type}'"
@@ -319,6 +429,13 @@ class StackItem:
         return dict(m.items())
 
     def as_none(self) -> None:
+        """
+        Unwrap as `None`.
+
+        Raises:
+            ValueError: if internal item type does not match required.
+
+        """
         if self.type != StackItemType.ANY:
             raise ValueError(
                 f"item is not of type '{StackItemType.ANY}' but of type '{self.type}'"
@@ -358,6 +475,10 @@ _Item = TypedDict("_Item", {"type": str, "value": Any})
 
 @dataclass
 class ExecutionResult:
+    """
+    Execution result data.
+    """
+
     state: str
     gas_consumed: int
     exception: Optional[str]
@@ -424,6 +545,10 @@ class ExecutionResult:
 
 @dataclass
 class ExecutionResultResponse(ExecutionResult):
+    """
+    Response to `invokecontractverify`, `invokefunction` or `invokescript` RPC call.
+    """
+
     script: bytes
 
     @classmethod
@@ -438,6 +563,10 @@ class ExecutionResultResponse(ExecutionResult):
 
 @dataclass
 class Notification:
+    """
+    Smart contract notification entry.
+    """
+
     contract: types.UInt160
     event_name: str
     state: StackItem
@@ -458,6 +587,10 @@ class Notification:
 
 @dataclass
 class ApplicationExecution(ExecutionResult):
+    """
+    Specialised `ExecutionResult` with additional notification and trigger information.
+    """
+
     trigger: str
     notifications: list[Notification]
 
@@ -485,6 +618,10 @@ class ApplicationExecution(ExecutionResult):
 
 @dataclass
 class TransactionApplicationLogResponse:
+    """
+    Data log for processing of a transaction on chain.
+    """
+
     tx_hash: types.UInt256
     execution: ApplicationExecution
 
@@ -500,6 +637,12 @@ class TransactionApplicationLogResponse:
 
 @dataclass
 class BlockApplicationLogResponse:
+    """
+    Data log for processing of a block on chain.
+
+    Does not include the data log for its transactions.
+    """
+
     block_hash: types.UInt256
     executions: list[ApplicationExecution]
 
@@ -532,6 +675,8 @@ ContractParameter = Union[
 
 
 class ContractParameterArray(Protocol):
+    """"""
+
     def insert(self, index: int, value: ContractParameter) -> None:
         ...
 
@@ -546,6 +691,8 @@ class ContractParameterArray(Protocol):
 
 
 class ContractParameterDict(Protocol):
+    """"""
+
     def __setitem__(self, k: ContractParameter, v: ContractParameter) -> None:
         ...
 
@@ -607,19 +754,26 @@ class _ContractParameter(interfaces.IJson):
 
     @classmethod
     def from_json(cls, json: dict):
-        """Not supported"""
+        """Not supported."""
         raise NotImplementedError
 
     def to_json(self) -> dict:
+        """
+        Convert object into JSON representation.
+        """
         return {"type": self.type.PascalCase(), "value": self.value}
 
 
 class RPCClient:
+    """
+    RPC Client base.
+    """
+
     def __init__(self, url: str, timeout: float = 3.0):
         """
         Args:
-            url: host + port
-            timeout: total time in seconds a request may take
+            url: host + port.
+            timeout: total time in seconds a request may take.
         """
         self.url = url
         self.timeout = timeout
@@ -629,7 +783,7 @@ class RPCClient:
 
     async def _post(self, json: dict):
         """
-        Create a POST request with JSON to `self.url` with `self.timeout`
+        Create a POST request with JSON to `self.url` with `self.timeout`.
 
         Raises:
             asyncio.exceptions.TimeoutError
@@ -639,7 +793,7 @@ class RPCClient:
 
     async def close(self):
         """
-        Close the client session
+        Close the client session.
         """
         await self.session.close()
 
@@ -673,6 +827,10 @@ class JsonRpcTimeoutError(JsonRpcError):
 
 
 class NeoRpcClient(RPCClient):
+    """
+    Specialised RPC client for NEO's Node RPC API.
+    """
+
     def __init__(self, host: str, **kwargs):
         super(NeoRpcClient, self).__init__(host, **kwargs)
 
@@ -781,6 +939,9 @@ class NeoRpcClient(RPCClient):
         return block.Header.deserialize_from_bytes(base64.b64decode(response))
 
     async def get_candidates(self) -> Sequence[Candidate]:
+        """
+        Fetch list of consensus candidates.
+        """
         response = await self._do_post("getcandidates")
         candidates = []
         for candidate in response:
@@ -847,12 +1008,12 @@ class NeoRpcClient(RPCClient):
         end_time: Optional[datetime.datetime] = None,
     ) -> Nep17TransfersResponse:
         """
-        Obtain NEP17 transfers for a given address. Defaults to the last 7 days on the server side.
+        Fetch NEP17 transfers for a given address. Defaults to the last 7 days on the server side.
 
         Args:
-            address: account to get transfer for
-            start_time: if given the start of the requested range. Must be in UTC and time aware not naïve
-            end_time: if given the end of the requested range
+            address: account to get transfer for.
+            start_time: if given the start of the requested range. Must be in UTC and time aware not naïve.
+            end_time: if given the end of the requested range.
 
         Example:
             # Fetch transfers of the last 14 days
@@ -886,7 +1047,7 @@ class NeoRpcClient(RPCClient):
 
     async def get_raw_mempool(self) -> MempoolResponse:
         """
-        Return the transaction hashes currently in the memory pool waiting to be added to the next produced block.
+        Fetch the transaction hashes currently in the memory pool waiting to be added to the next produced block.
         """
         result = await self._do_post("getrawmempool", [True])
         return MempoolResponse.from_json(result)
@@ -900,7 +1061,7 @@ class NeoRpcClient(RPCClient):
 
     async def get_peers(self) -> GetPeersResponse:
         """
-        Fetch peer information
+        Fetch peer information.
         """
         result = await self._do_post("getpeers")
         return GetPeersResponse.from_json(result)
@@ -910,8 +1071,8 @@ class NeoRpcClient(RPCClient):
         Fetch a value from a smart contracts storage by its key.
 
         Args:
-            script_hash: contract script hash
-            key: the storage key to fetch the data for
+            script_hash: contract script hash.
+            key: the storage key to fetch the data for.
 
         Example:
             # fetch the fee per byte from the Policy native contract
@@ -947,7 +1108,7 @@ class NeoRpcClient(RPCClient):
         Fetch the amount of unclaimed gas for the given address.
 
         Args:
-            address: a NEO address
+            address: a NEO address.
         """
         result = await self._do_post("getunclaimedgas", [address])
         return int(result["unclaimed"])
@@ -973,9 +1134,9 @@ class NeoRpcClient(RPCClient):
             which uses the Application trigger).
 
         Args:
-            contract_hash: the hash of the smart contract to call
-            function_params: the arguments required by the smart contract function
-            signers: additional signers (e.g. for checkwitness passing)
+            contract_hash: the hash of the smart contract to call.
+            function_params: the arguments required by the smart contract function.
+            signers: additional signers (e.g. for checkwitness passing).
         """
         if isinstance(contract_hash, str):
             contract_hash = types.UInt160.from_string(contract_hash)
@@ -1008,10 +1169,10 @@ class NeoRpcClient(RPCClient):
             To alter the blockchain state use the `send_transaction` method instead.
 
         Args:
-            contract_hash: the hash of the smart contract to call
-            name: the name of the function to call on the smart contract
-            function_params: the arguments required by the smart contract function
-            signers: additional signers (e.g. for checkwitness passing)
+            contract_hash: the hash of the smart contract to call.
+            name: the name of the function to call on the smart contract.
+            function_params: the arguments required by the smart contract function.
+            signers: additional signers (e.g. for checkwitness passing).
 
         Example:
             # check if an account is blocked using the Policy native contract
@@ -1042,17 +1203,17 @@ class NeoRpcClient(RPCClient):
         self, script: bytes, signers: Optional[Sequence[verification.Signer]] = None
     ) -> ExecutionResultResponse:
         """
-        Executes a script in the virtual machine.
+        Execute a script in the virtual machine.
 
         Note:
             Executing VM scripts through this function does not alter the blockchain state.
 
         Args:
-            script: an array of VM opcodes
-            signers: additional signers (e.g. for checkwitness passing)
+            script: an array of VM opcodes.
+            signers: additional signers (e.g. for checkwitness passing).
 
         Returns:
-            The results of executing the script in the VM
+            The results of executing the script in the VM.
         """
         signers = [] if signers is None else signers
         signers = list(map(lambda s: s.to_json(), signers))  # type: ignore
@@ -1071,7 +1232,7 @@ class NeoRpcClient(RPCClient):
             uses the `sendrawtransaction` RPC method internally.
 
         Args:
-            tx: either a Transaction object or a serialized Transaction. Must be signed
+            tx: either a Transaction object or a serialized Transaction. Must be signed.
 
         Returns:
             a transaction hash if successful.
@@ -1088,7 +1249,7 @@ class NeoRpcClient(RPCClient):
         Broadcast a transaction to the network.
 
         Args:
-            block_: either a Block object or a serialized Block
+            block_: either a Block object or a serialized Block.
 
         Returns:
             a block hash if successful.
@@ -1103,7 +1264,7 @@ class NeoRpcClient(RPCClient):
         Verify if the given address is valid for the network the node is running on.
 
         Args:
-            address: a NEO address
+            address: a NEO address.
         """
         result = await self._do_post("validateaddress", [address])
         return result["isvalid"]
@@ -1167,20 +1328,38 @@ class NeoRpcClient(RPCClient):
         else:
             return f"Unknown({str(p)}"
 
-    async def get_transaction_receipt(self, tx_id: types.UInt256) -> Receipt:
-        log = await self.get_application_log_transaction(tx_id)
-        included_in = await self.get_transaction_height(tx_id)
+    async def get_transaction_receipt(self, tx_hash: types.UInt256) -> Receipt:
+        """
+        Fetch a transaction receipt.
+
+        Args:
+            tx_hash: unique identifier of the transaction to fetch receipt for.
+        """
+        log = await self.get_application_log_transaction(tx_hash)
+        included_in = await self.get_transaction_height(tx_hash)
         confirmations = await self.get_block_count() - included_in
 
-        return Receipt(tx_id, included_in, confirmations, log.execution)
+        return Receipt(tx_hash, included_in, confirmations, log.execution)
 
     async def wait_for_transaction_receipt(
-        self, tx_id: types.UInt256, timeout=20, retry_delay=5
+        self, tx_hash: types.UInt256, timeout=20, retry_delay=5
     ) -> Receipt:
+        """
+        Try to fetch a transaction.
+
+        Args:
+            tx_hash: unique identifier of the transaction to fetch the receipt for.
+            timeout: maximum time to wait to find the transaction on chain.
+            retry_delay: interval between querying the chain for the transaction.
+
+        Raises:
+            JsonRpcTimeoutError: if timeout threshold is exceeded
+            JsonRpcError: for other errors that might occur.
+        """
         start = time.time()
         while time.time() - start < timeout:
             try:
-                return await self.get_transaction_receipt(tx_id)
+                return await self.get_transaction_receipt(tx_hash)
             except JsonRpcError as e:
                 if "Unknown transaction" in e.message:
                     await asyncio.sleep(retry_delay)
@@ -1188,12 +1367,17 @@ class NeoRpcClient(RPCClient):
                     raise e
         else:
             raise JsonRpcTimeoutError(
-                f"Could not find receipt for {tx_id} within specified timeout of {timeout} seconds"
+                f"Could not find receipt for {tx_hash} within specified timeout of {timeout} seconds"
             )
 
 
 @dataclass
 class Receipt:
+    """
+    Transaction receipt containing data regarding chain state and events happening as a result of executing the
+     transaction.
+    """
+
     tx_hash: types.UInt256
     included_in_block: int
     confirmations: int

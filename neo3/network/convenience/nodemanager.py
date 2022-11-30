@@ -1,3 +1,6 @@
+"""
+P2P network node manager.
+"""
 from __future__ import annotations
 import asyncio
 import aiodns  # type: ignore
@@ -23,7 +26,8 @@ def is_ip_address(hostname: str) -> bool:
 
 class NodeManager(singleton._Singleton):
     """
-    This class is a convenience class that helps establish and maintain a pool of active connections to NEO nodes.
+    Convenience class that helps establish and maintain a pool of active connections to NEO nodes.
+    It will track the node quality and swap them out if considered bad as to always try and keep a healty pool.
 
     Attention:
         This class is singleton.
@@ -34,7 +38,7 @@ class NodeManager(singleton._Singleton):
     #: Time interval in seconds for calling the height monitoring check.
     MONITOR_HEIGHT_INTERVAL = 30
     #: Time interval in seconds for pinging remote nodes. Ping (and the Pong) response informs each other about chain
-    #: heights
+    #: heights.
     PING_INTERVAL = 2
 
     #: Maximum time in seconds a node may take to update its best height before being removed for being stuck.
@@ -50,22 +54,22 @@ class NodeManager(singleton._Singleton):
     MAX_NODE_ERROR_COUNT = 5
 
     #: Maximum number of times a timeout threshold may be exceeded before the node is disconnected.
-    #: Requires calling :meth:`~neo3.network.convenience.nodemanager.NodeManager.increase_node_timeout_count` which is
-    #: done automatically by the :class:`~neo3.network.convenience.syncmanager.SyncManager` if used.
+    #: Requires calling NodeManager.increase_node_timeout_count` which is done automatically by the
+    #: SyncManager if used.
     MAX_NODE_TIMEOUT_COUNT = 15
 
     # init() is used instead of __init__() due to the Singleton inheritance (read its class documentation)
     def init(self):
-        #: A list of nodes that we're actively using to request data from
+        #: A list of nodes that we're actively using to request data from.
         self.nodes: list[node.NeoNode] = []
-        #: A list of host:port addresses that have a task pending to connect to, but are not fully processed
+        #: A list of host:port addresses that have a task pending to connect to, but are not fully processed.
         self.queued_addresses = []
 
         self.tasks = []
         #: THe maximum number of clients to have connected at any time.
         self.max_clients = 5
         #: The minimum number clients to always have connected. If this is not met
-        #: :attr:`~neo3.network.convenience.nodemanager.MAX_NODE_ERROR_COUNT` times then recovery logic will trigger.
+        #: `Nodemanager.MAX_NODE_ERROR_COUNT` times then recovery logic will trigger.
         self.min_clients = 1
         self.shutting_down = False
         self.is_running = False
@@ -78,11 +82,13 @@ class NodeManager(singleton._Singleton):
 
     def start(self) -> None:
         """
-        Start the node manager services. This does 2 things
+        Start the node manager services.
 
-        1. Connect to the seed list addresses provided in the configuration
-        2. Try to maintain a pool of connected nodes according to the `min/max clients` configuration settings and
-           monitor that they don't get stuck.
+        This does 2 things.
+
+            1. Connect to the seed list addresses provided in the configuration.
+            2. Try to maintain a pool of connected nodes according to the `min/max clients` configuration settings and
+               monitor that they don't get stuck.
         """
 
         def _start_services():
@@ -112,7 +118,7 @@ class NodeManager(singleton._Singleton):
         Disconnects all active nodes and stops service tasks.
 
         Note:
-            This dependents on asyncio's Task canceling logic. It waits for all tasks to be cancelled and/or stopped
+            This depents on asyncio's Task canceling logic. It waits for all tasks to be cancelled and/or stopped
             before returning.
         """
         self.shutting_down = True
@@ -193,7 +199,7 @@ class NodeManager(singleton._Singleton):
             ri: the info object indicating which header or block we filter on.
 
         Returns:
-            None if there are no connected nodes that can provide the target information as specified in the RequestInfo
+            None if there are no connected nodes that can provide the target information as specified in the RequestInfo.
             Node instance with the lowest failure count.
         """
         # Find the node with the least failures for the item in RequestInfo
@@ -224,10 +230,10 @@ class NodeManager(singleton._Singleton):
     def increase_node_error_count(self, nodeid: int) -> None:
         """
         Utility function to increase a node's `error_response_count` param by 1 and disconnect the node if it exceeds
-        the threshold set by :attr:`~neo3.network.convenience.nodemanager.MAX_NODE_ERROR_COUNT`.
+        the threshold set by `NodeManager.MAX_NODE_ERROR_COUNT`.
 
         Args:
-            nodeid (:attr:`~neo3.network.node.NeoNode.nodeid`): the specific node to update.
+            nodeid (`NeoNode.nodeid`): the specific node to update.
         """
         node = self.get_node_by_nodeid(nodeid)
         if node:
@@ -244,10 +250,10 @@ class NodeManager(singleton._Singleton):
     def increase_node_timeout_count(self, nodeid: int) -> None:
         """
         Utility function to increase a node's `timeout_count` param by 1 and disconnect the node if it exceeds the
-        threshold set by :attr:`~neo3.network.convenience.nodemanager.MAX_NODE_ERROR_COUNT`.
+        threshold set by `NodeManager.MAX_NODE_ERROR_COUNT`.
 
         Args:
-            nodeid (:attr:`~neo3.network.node.NeoNode.nodeid`): the specific node to update.
+            nodeid (`NeoNode.nodeid`): the specific node to update.
         """
         node = self.get_node_by_nodeid(nodeid)
         if node:
@@ -290,7 +296,7 @@ class NodeManager(singleton._Singleton):
 
     async def _process_seed_list_addresses(self) -> None:
         """
-        Parses addresses from the seed list and store valid addresses
+        Parses addresses from the seed list and store valid addresses.
         """
         resolver = aiodns.DNSResolver(loop=asyncio.get_event_loop(), timeout=2)
 
@@ -427,12 +433,12 @@ class NodeManager(singleton._Singleton):
 
     async def _send_ping(self):
         """
-        Inform connected nodes of our height while also learning if their height has changed
+        Inform connected nodes of our height while also learning if their height has changed.
 
-        NEO C# Preview3 no longer seems to instantly inform its connected nodes about new available blocks. Therefore
+        NEO C# Preview3 no longer seems to instantly inform its connected nodes about new available blocks. Therefore,
         syncing can be 2-3 blocks behind. By calling this in an interval we improve
-        1) new block receiving speed when our local chain is "in sync".
-        2) our node height monitoring service
+        1. new block receiving speed when our local chain is "in sync".
+        2. our node height monitoring service
         """
         for remote_node in self.nodes:  # type: node.NeoNode
             asyncio.create_task(remote_node.send_ping())
@@ -441,7 +447,7 @@ class NodeManager(singleton._Singleton):
         """
         Helper function to run a coroutine every `interval` seconds as long as the node manager is running.
 
-        Stores a task in `tasks`
+        Stores a task in `tasks`.
 
         Args:
             coro:

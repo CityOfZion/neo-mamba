@@ -2,6 +2,11 @@ from datetime import datetime
 
 
 class NodeWeight:
+    """
+    An internal class for tracking and calculating node weight data.
+    Is used by ``NodeManager`` for selecting the next node candidate.
+    """
+
     SPEED_RECORD_COUNT = 3
     SPEED_INIT_VALUE = 100 * 1024 ^ 2  # Start with a big speed of 100 MB/s
 
@@ -9,12 +14,8 @@ class NodeWeight:
 
     def __init__(self, node_id: int):
         """
-        An internal class for tracking and calculating node weight data.
-
-        Is used by ``NodeManager`` for selecting the next node candidate.
-
         Args:
-            node_id: the :attr:`~neo3.network.node.NeoNode.id` of the node this weight belongs to.
+            node_id: the `NeoNode.id` of the node this weight belongs to.
         """
 
         #: The :attr:`~neo3.network.node.NeoNode.id` of the node this weight belongs to.
@@ -34,7 +35,7 @@ class NodeWeight:
         The average is calculated based on 3 values. The last value is popped from the collection.
 
         Args:
-            speed: in number of bytes per second
+            speed: in number of bytes per second.
         """
         # remove oldest
         self.speed.pop(-1)
@@ -43,7 +44,7 @@ class NodeWeight:
 
     def append_new_request_time(self) -> None:
         """
-        Add a request time value to the collection from which the average request time is calculated
+        Add a request time value to the collection from which the average request time is calculated.
 
         The average is calculated based on 3 values. The last value is popped from the collection.
         """

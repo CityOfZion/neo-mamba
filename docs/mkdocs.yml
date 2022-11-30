@@ -6,6 +6,10 @@ copyright: 2019-2022, COZ - Erik van den Brink
 docs_dir: 'source'
 extra:
   generator: false
+plugins:
+  - search
+  - mkapi:
+     src_dirs: ["../neo3"]
 theme:
   logo: mamba-logo.png
   favicon: mamba-logo.png
@@ -16,6 +20,7 @@ theme:
     - navigation.tracking
     - navigation.tabs
     - toc.integrate
+    - navigation.indexes
   icon:
     repo: fontawesome/brands/github
   palette:
@@ -38,6 +43,8 @@ nav:
   - Smart contracts: 'smart-contracts.md'
   - Advanced: 'advanced.md'
   - FAQ: 'faq.md'
+  - API Reference: 'mkapi/api/../neo3'
+
 markdown_extensions:
   - admonition
   - pymdownx.highlight:

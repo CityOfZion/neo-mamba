@@ -1,3 +1,6 @@
+"""
+NEO Virtual Machine classes.
+"""
 from __future__ import annotations
 import hashlib
 from enum import IntEnum
@@ -15,9 +18,9 @@ def _syscall_name_to_int(name: str) -> int:
 
 class OpCode(IntEnum):
     """
-    NEO Virtual Machine instructions
+    NEO Virtual Machine instructions.
 
-    Can be concatenated into a hex-escaped bytes sequence
+    Can be concatenated into a hex-escaped bytes sequence.
 
     Example:
         In [1]: from neo3.contracts import vm
@@ -371,12 +374,12 @@ class ScriptBuilder:
         call_flags: Optional[callflags.CallFlags] = None,
     ) -> ScriptBuilder:
         """
-        Emit opcode sequence to call a smart contrat operation
+        Emit opcode sequence to call a smart contrat operation.
 
         Args:
-            script_hash: contract script hash
-            operation: method to call on contract
-            call_flags: call flags for the operation
+            script_hash: contract script hash.
+            operation: method to call on contract.
+            call_flags: call flags for the operation.
         """
         self.emit(OpCode.NEWARRAY0)
         self.emit_push(callflags.CallFlags.ALL if call_flags is None else call_flags)
@@ -393,13 +396,13 @@ class ScriptBuilder:
         call_flags: Optional[callflags.CallFlags] = None,
     ) -> ScriptBuilder:
         """
-        Emit opcode sequence to call a smart contrat operation with arguments
+        Emit opcode sequence to call a smart contrat operation with arguments.
 
         Args:
-            script_hash: contract script hash
-            operation: method to call on contrat
-            args: parameters to pass to the `operation`
-            call_flags: call flags for the operation
+            script_hash: contract script hash.
+            operation: method to call on contract.
+            args: parameters to pass to the `operation`.
+            call_flags: call flags for the operation.
         """
         for arg in reversed(args):
             self.emit_push(arg)

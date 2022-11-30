@@ -1,3 +1,6 @@
+"""
+P2P network message classes.
+"""
 from __future__ import annotations
 import lz4.block  # type: ignore
 from enum import IntEnum, IntFlag
@@ -17,6 +20,10 @@ from typing import Optional
 
 
 class MessageType(IntEnum):
+    """
+    P2P network message types.
+    """
+
     VERSION = 0x00
     VERACK = 0x01
 
@@ -50,13 +57,21 @@ class MessageType(IntEnum):
 
 
 class MessageConfig(IntFlag):
-    #: Indicates that the payload data is not compressed
+    """
+    P2P network message config flags.
+    """
+
+    #: Indicates that the payload data is not compressed.
     NONE = 0
-    #: Indicates that the payload data is compressed using LZ4
+    #: Indicates that the payload data is compressed using LZ4.
     COMPRESSED = 1 << 0
 
 
 class Message(serialization.ISerializable):
+    """
+    P2P network message container.
+    """
+
     PAYLOAD_MAX_SIZE = 0x2000000
     COMPRESSION_MIN_SIZE = 128
     COMPRESSION_THRESHOLD = 64
@@ -118,9 +133,7 @@ class Message(serialization.ISerializable):
             reader: instance.
         """
         self.config = MessageConfig(reader.read_uint8())
-        x = reader.read_uint8()
-        self.type = MessageType(x)
-        # self.type = MessageType(reader.read_uint8())
+        self.type = MessageType(reader.read_uint8())
 
         payload_data = reader.read_var_bytes(self.PAYLOAD_MAX_SIZE)
         if len(payload_data) > 0:

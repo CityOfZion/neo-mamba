@@ -1,7 +1,7 @@
-""" A module for filtering IPs via black and whitelists.
+""" A module for filtering IPs via black and whitelists on P2P nodes (`NeoNode`).
 
 A global instance ``ipfilter`` can be imported directly from the module and is taken into account by default in the
-NeoNode class when connections are established.
+`NeoNode` class when connections are established.
 
 Filtering rules
 
@@ -9,12 +9,9 @@ Filtering rules
 * Host masks can be applied.
 * When using host masks do not set host bits (leave them to 0) or an exception will occur.
 
-.. _IPFilter examples:
-Examples:
-    The following are `configuration` examples for common scenario's.
+The following are `configuration` examples for common scenario's.
 
-    1. Accept only specific trusted IPs
-    ::
+1. Accept only specific trusted IPs.
 
         {
             'blacklist': [
@@ -26,10 +23,10 @@ Examples:
             ]
         }
 
-    2. Accept only a range of trusted IPs
-    ::
+2. Accept only a range of trusted IPs.
 
-        # accepts any IP in the range of 10.10.10.0 - 10.10.10.255
+        # Accepts any IP in the range of 10.10.10.0 - 10.10.10.255
+
         {
             'blacklist': [
                 '0.0.0.0/0'
@@ -39,10 +36,10 @@ Examples:
             ]
         }
 
-    3. Accept all except specific IPs
-    ::
+3. Accept all except specific IPs.
 
-        # can be used for banning bad actors
+        # Can be used for banning bad actors
+
         {
             'blacklist': [
                 '12.12.12.12',
