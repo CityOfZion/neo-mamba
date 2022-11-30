@@ -6,7 +6,7 @@ import base64
 import binascii
 import orjson as json  # type: ignore
 from typing import Callable, Optional, Any
-from neo3.contracts import utils as contractutils, abi, descriptor
+from neo3.contracts import utils as contractutils, abi
 from neo3.core import serialization, types, cryptography, utils as coreutils, interfaces
 from neo3.core.serialization import BinaryReader, BinaryWriter
 
@@ -92,7 +92,7 @@ class ContractPermission(interfaces.IJson):
 
     def __init__(
         self,
-        contract: descriptor.ContractPermissionDescriptor,
+        contract: ContractPermissionDescriptor,
         methods: WildcardContainer,
     ):
         self.contract = contract
@@ -109,7 +109,7 @@ class ContractPermission(interfaces.IJson):
         Construct a ContractPermission which allows any contract and any method to be called.
         """
         return cls(
-            descriptor.ContractPermissionDescriptor(),  # with no parameters equals to Wildcard
+            ContractPermissionDescriptor(),  # with no parameters equals to Wildcard
             WildcardContainer.create_wildcard(),
         )
 
@@ -162,7 +162,7 @@ class ContractPermission(interfaces.IJson):
             KeyError: if the data supplied does not contain the necessary keys.
             ValueError: if a method is zero length.
         """
-        cpd = descriptor.ContractPermissionDescriptor.from_json(json)
+        cpd = ContractPermissionDescriptor.from_json(json)
         json_wildcard = {"wildcard": json["methods"]}
         methods = WildcardContainer.from_json(json_wildcard)
         for m in methods:
@@ -283,6 +283,105 @@ class WildcardContainer(interfaces.IJson):
         )
 
 
+class ContractPermissionDescriptor(interfaces.IJson):
+    """
+    A restriction object that limits the smart contract's calling abilities. Enforced at runtime.
+
+    See Also: ContractManifest.
+    """
+
+    def __init__(
+        self,
+        contract_hash: Optional[types.UInt160] = None,
+        group: Optional[cryptography.ECPoint] = None,
+    ):
+        """
+        Create a contract hash or group based restriction. Mutually exclusive.
+        Supply no arguments to create a wildcard permission descriptor.
+
+        Raises:
+            ValueError: if both contract hash and group arguments are supplied.
+        """
+        if contract_hash is not None and group is not None:
+            raise ValueError("Maximum 1 argument can be supplied")
+        self.contract_hash = contract_hash
+        self.group = group
+
+    def __eq__(self, other):
+        return self.contract_hash == other.contract_hash and self.group == other.group
+
+    @property
+    def is_hash(self) -> bool:
+        """
+        Indicates if the permission is limited to a specific contract hash.
+        """
+        return self.contract_hash is not None
+
+    @property
+    def is_group(self) -> bool:
+        """
+        Indicates if the permission is limited to a specific group.
+        """
+        return self.group is not None
+
+    @property
+    def is_wildcard(self) -> bool:
+        """
+        Indicates if the permission is not limited to a specific contract or a specific group.
+        """
+        return not self.is_hash and not self.is_group
+
+    def to_json(self) -> dict:
+        """
+        Convert object into JSON representation.
+        """
+        # NEO C# deviates here. They return a string
+        if self.contract_hash:
+            val = "0x" + str(self.contract_hash)
+        elif self.group:
+            val = str(self.group)
+        else:
+            val = "*"
+        return {"contract": val}
+
+    @classmethod
+    def from_json(cls, json: dict) -> ContractPermissionDescriptor:
+        """
+        Parse object out of JSON data.
+
+        Args:
+            json: a dictionary.
+
+        Raises:
+            KeyError: if the data supplied does not contain the necessary key.
+            ValueError: if the data supplied cannot recreate a valid object.
+        """
+        # catches both missing key and None as value
+        value = json.get("contract", None)
+        if value is None:
+            raise ValueError(f"Invalid JSON - Cannot deduce permission type from None")
+
+        if len(value) == 42:
+            return cls(contract_hash=types.UInt160.from_string(value[2:]))
+        if len(value) == 66:
+            ecpoint = cryptography.ECPoint.deserialize_from_bytes(
+                binascii.unhexlify(value)
+            )
+            return cls(group=ecpoint)
+        if value == "*":
+            return cls()  # no args == wildcard
+        raise ValueError(f"Invalid JSON - Cannot deduce permission type from: {value}")
+
+    def to_array(self) -> bytes:
+        """Serialize the object."""
+        if self.is_hash:
+            return self.contract_hash.to_array()  # type: ignore
+        if self.is_group:
+            return self.group.to_array()  # type: ignore
+        # wildcard
+        return b""
+
+
 class ContractManifest(serialization.ISerializable, interfaces.IJson):
     """
     A description of a smart contract's abilities (callable methods & events) as well as a set of restrictions
@@ -385,9 +484,7 @@ class ContractManifest(serialization.ISerializable, interfaces.IJson):
         else:
             self.trusts = WildcardContainer.from_json_as_type(
                 {"wildcard": json["trusts"]},
-                lambda t: descriptor.ContractPermissionDescriptor.from_json(
-                    {"contract": t}
-                ),
+                lambda t: ContractPermissionDescriptor.from_json({"contract": t}),
             )
 
         # converting json key/value back to default WildcardContainer format

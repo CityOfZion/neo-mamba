@@ -1,7 +1,7 @@
 import unittest
 import json
 from copy import deepcopy
-from neo3.contracts import abi, manifest, nef, contract, descriptor
+from neo3.contracts import abi, manifest, nef, contract
 from neo3.core import cryptography, types, serialization
 
 
@@ -83,7 +83,7 @@ class ContractPermissionTestCase(unittest.TestCase):
         )
 
         # setup an allowed permission for a contract with UInt160.zero hash for all methods
-        cpd = descriptor.ContractPermissionDescriptor(contract_hash=dummy_contract_hash)
+        cpd = manifest.ContractPermissionDescriptor(contract_hash=dummy_contract_hash)
         cp = manifest.ContractPermission(
             contract=cpd, methods=manifest.WildcardContainer.create_wildcard()
         )
@@ -116,7 +116,7 @@ class ContractPermissionTestCase(unittest.TestCase):
             manifest.ContractGroup(keypair.public_key, signature)
         ]
 
-        cpd = descriptor.ContractPermissionDescriptor(group=keypair.public_key)
+        cpd = manifest.ContractPermissionDescriptor(group=keypair.public_key)
         cp = manifest.ContractPermission(
             contract=cpd, methods=manifest.WildcardContainer.create_wildcard()
         )
@@ -142,7 +142,7 @@ class ContractPermissionTestCase(unittest.TestCase):
         )
 
         # setup an allowed permission for a contract with UInt160.zero hash for 2 methods
-        cpd = descriptor.ContractPermissionDescriptor(contract_hash=dummy_contract_hash)
+        cpd = manifest.ContractPermissionDescriptor(contract_hash=dummy_contract_hash)
         cp = manifest.ContractPermission(
             contract=cpd,
             methods=manifest.WildcardContainer(data=["method1", "method2"]),
@@ -352,10 +352,10 @@ class ManifestTestCase(unittest.TestCase):
         )
         m.abi.methods = [method1]
 
-        t1 = descriptor.ContractPermissionDescriptor(
+        t1 = manifest.ContractPermissionDescriptor(
             contract_hash=types.UInt160.from_string("01" * 20)
         )
-        t2 = descriptor.ContractPermissionDescriptor(
+        t2 = manifest.ContractPermissionDescriptor(
             contract_hash=types.UInt160.from_string("02" * 20)
         )
         m.trusts = manifest.WildcardContainer(data=[t1, t2])
@@ -429,3 +429,69 @@ class ManifestTestCase(unittest.TestCase):
         cm2 = manifest.ContractManifest.from_json(self.expected_json)
         self.assertFalse(cm == object())
         self.assertTrue(cm == cm2)
+
+
+class ContractPermissionDescriptorTestCase(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        private_key = b"\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01"
+        cls.keypair = cryptography.KeyPair(private_key)
+
+    def test_wildcard(self):
+        cpd = manifest.ContractPermissionDescriptor()
+        self.assertTrue(cpd.is_wildcard)
+        self.assertDictEqual({"contract": "*"}, cpd.to_json())
+        cpd_from_json = manifest.ContractPermissionDescriptor.from_json(cpd.to_json())
+        self.assertEqual(cpd.contract_hash, cpd_from_json.contract_hash)
+        self.assertEqual(cpd.group, cpd_from_json.group)
+
+    def test_group(self):
+        cpd = manifest.ContractPermissionDescriptor(contract_hash=types.UInt160.zero())
+        self.assertTrue(cpd.is_hash)
+        self.assertFalse(cpd.is_group)
+        self.assertFalse(cpd.is_wildcard)
+        self.assertDictEqual(
+            {"contract": "0x0000000000000000000000000000000000000000"}, cpd.to_json()
+        )
+        cpd_from_json = manifest.ContractPermissionDescriptor.from_json(cpd.to_json())
+        self.assertEqual(cpd.contract_hash, cpd_from_json.contract_hash)
+        self.assertEqual(cpd.group, cpd_from_json.group)
+
+    def test_contract_hash(self):
+        cpd = manifest.ContractPermissionDescriptor(group=self.keypair.public_key)
+        self.assertFalse(cpd.is_hash)
+        self.assertTrue(cpd.is_group)
+        self.assertFalse(cpd.is_wildcard)
+        self.assertDictEqual(
+            {
+                "contract": "033d523f36a732974c0f7dbdfafb5206ecd087211366a274190f05b86d357f4bad"
+            },
+            cpd.to_json(),
+        )
+        cpd_from_json = manifest.ContractPermissionDescriptor.from_json(cpd.to_json())
+
+        self.assertEqual(cpd.contract_hash, cpd_from_json.contract_hash)
+        self.assertEqual(cpd.group, cpd_from_json.group)
+
+    def test_exceptions(self):
+        # test construction with too many arguments given
+        with self.assertRaises(ValueError) as context:
+            cpd = manifest.ContractPermissionDescriptor(
+                contract_hash=types.UInt160.zero(), group=self.keypair.public_key
+            )
+        self.assertIn("Maximum 1 argument", str(context.exception))
+
+        # test from_json with invalid json
+        with self.assertRaises(ValueError) as context:
+            manifest.ContractPermissionDescriptor.from_json({"contract": None})
+        self.assertEqual(
+            "Invalid JSON - Cannot deduce permission type from None",
+            str(context.exception),
+        )
+
+        with self.assertRaises(ValueError) as context:
+            manifest.ContractPermissionDescriptor.from_json({"contract": "abc"})
+        self.assertEqual(
+            "Invalid JSON - Cannot deduce permission type from: abc",
+            str(context.exception),
+        )
