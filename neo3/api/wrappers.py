@@ -37,7 +37,7 @@ from neo3.wallet.types import NeoAddress
 from neo3.core import types, cryptography, utils as coreutils
 from neo3 import vm
 from neo3.contracts import contract, callflags, utils as contractutils, nef, manifest
-
+from copy import deepcopy
 
 # result stack index
 ItemIndex: TypeAlias = int
@@ -69,16 +69,19 @@ class ContractMethodResult(Generic[ReturnType]):
         self,
         script: bytes,
         execution_processor: Optional[ExecutionResultParser] = None,
+        return_count: int = 1,
     ):
         """
 
         Args:
             script: VM opcodes to be executed.
             execution_processor: post processor function.
+            return_count: number of items expected to be returned on the stack.
         """
         super(ContractMethodResult, self).__init__()
         self.script = script
         self.execution_processor = execution_processor
+        self.return_count = return_count
         # TODO: add support for post processing notifications for functions that know will emit notifications
         self.notification_processor = None
 
@@ -159,7 +162,6 @@ class ChainFacade:
     ) -> ReturnType:
         """
         Call a contract method in read-only mode.
-
         This does not persist any state on the actual chain and therefore does not require signing or paying GAS.
 
         Args:
@@ -203,7 +205,6 @@ class ChainFacade:
     ) -> noderpc.ExecutionResult:
         """
         Call a contract method in read-only mode.
-
         This does not persist any state on the actual chain and therefore does not require signing or paying GAS.
         Does not post process the execution results.
 
@@ -420,6 +421,160 @@ class ChainFacade:
                 receipt.execution.notifications,
                 receipt.execution.stack,
             )
+
+    async def invoke_multi(
+        self,
+        f: list[ContractMethodResult],
+        *,
+        signers: Optional[Sequence[SigningPair]] = None,
+        network_fee: int = 0,
+        system_fee: int = 0,
+        append_network_fee: int = 0,
+        append_system_fee: int = 0,
+        _post_processing: bool = True,
+    ) -> Sequence:
+        """
+        Call all contract methods (concatenated) in one go and persist results on the chain. Costs GAS.
+        Waits for tx to be included in a block. Automatically post processes the execution results according to the
+        post-processing function of `f` if present.
+
+        Args:
+            f: list of functions to call.
+            signers: manually set the list of signers.
+            network_fee: manually set the network fee.
+            system_fee: manually set the system fee.
+            append_network_fee: increase the calculated network fee with this amount.
+            append_system_fee: increase the calculated system fee with this amount.
+
+        Returns:
+            a list with the results of all exected functions.
+
+        See Also:
+            `test_invoke_multi` - free equivalent for read only operations or testing.
+            `invoke_multi_fast` - does not wait for a receipt.
+            `invoke_multi_raw` - does not wait for a transaction receipt, does not perform post-processing of the
+                execution results.
+        """
+        tx_id = await self.invoke_multi_fast(
+            f,
+            signers=signers,
+            network_fee=network_fee,
+            system_fee=system_fee,
+            append_network_fee=append_network_fee,
+            append_system_fee=append_system_fee,
+        )
+
+        delay, timeout = await self._get_receipt_time_values()
+        async with noderpc.NeoRpcClient(self.rpc_host) as client:
+            receipt = await client.wait_for_transaction_receipt(
+                tx_id, timeout=timeout, retry_delay=delay
+            )
+
+        results = []
+        stack_offset = 0
+        for call in f:
+            res_cpy = deepcopy(receipt.execution)
+            # adjust the stack so that it becomes transparent for the post-processing functions.
+            res_cpy.stack = res_cpy.stack[
+                stack_offset : stack_offset + call.return_count
+            ]
+            if call.execution_processor is None or not _post_processing:
+                results.append(res_cpy)
+            else:
+                results.append(call.execution_processor(res_cpy, 0))
+            stack_offset += call.return_count
+        return results
+
+    async def invoke_multi_fast(
+        self,
+        f: list[ContractMethodResult],
+        *,
+        signers: Optional[Sequence[SigningPair]] = None,
+        network_fee: int = 0,
+        system_fee: int = 0,
+        append_network_fee: int = 0,
+        append_system_fee: int = 0,
+    ) -> types.UInt256:
+        """
+        Call all contract methods (concatenated) in one go and persist results on the chain. Costs GAS.
+        Does not wait for tx to be included in a block. Automatically post processes the execution results according to
+        the post-processing function of `f` if present.
+
+        Args:
+            f: list of functions to call.
+            signers: manually set the list of signers.
+            network_fee: manually set the network fee.
+            system_fee: manually set the system fee.
+            append_network_fee: increase the calculated network fee with this amount.
+            append_system_fee: increase the calculated system fee with this amount.
+
+        Returns:
+            a transaction ID if accepted by the network. Acceptance is does not guarantee successful execution.
+            Acceptance means there are no transaction format errors. Use `invoke()` to wait for a receipt. The `state`
+            field of the receipt indicates if the transaction script executed successfully.
+
+
+        See Also:
+            `test_invoke_fast` - free equivalent for read only operations or testing.
+            `invoke_multi` - waits for a transaction receipt, performs post-processing of the execution results.
+            `invoke_multi_raw` - does not wait for a transaction receipt, does not perform post-processing of the
+                execution results.
+        """
+        script = bytearray()
+        for call in f:  # type: ContractMethodResult
+            script.extend(call.script)
+
+        wrapped: ContractMethodResult[None] = ContractMethodResult(script)
+        tx_id = await self.invoke_fast(
+            wrapped,
+            signers=signers,
+            network_fee=network_fee,
+            system_fee=system_fee,
+            append_network_fee=append_network_fee,
+            append_system_fee=append_system_fee,
+        )
+        return tx_id
+
+    async def invoke_multi_raw(
+        self,
+        f: list[ContractMethodResult],
+        *,
+        signers: Optional[Sequence[SigningPair]] = None,
+        network_fee: int = 0,
+        system_fee: int = 0,
+        append_network_fee: int = 0,
+        append_system_fee: int = 0,
+    ) -> Sequence:
+        """
+        Call all contract methods (concatenated) in one go and persist results on the chain. Costs GAS.
+        Do not wait for tx to be included in a block. Do not post process the execution results according to
+        the post-processing function of `f` if present.
+
+        Args:
+            f: list of functions to call.
+            signers: manually set the list of signers.
+            network_fee: manually set the network fee.
+            system_fee: manually set the system fee.
+            append_network_fee: increase the calculated network fee with this amount.
+            append_system_fee: increase the calculated system fee with this amount.
+
+        Returns:
+            a list with the results of all exected functions.
+
+        See Also:
+            `test_invoke_raw` - free equivalent for read only operations or testing.
+            `invoke_multi` - waits for a transaction receipt, performs post-processing of the execution results.
+            `invoke_multi_fast` - does not wait for a receipt.
+        """
+        return await self.invoke_multi(
+            f,
+            signers=signers,
+            network_fee=network_fee,
+            system_fee=system_fee,
+            append_network_fee=append_network_fee,
+            append_system_fee=append_system_fee,
+            _post_processing=False,
+        )
 
     async def estimate_gas(
         self,
