@@ -548,6 +548,7 @@ class ExecutionResultResponse(ExecutionResult):
     """
     Response to `invokecontractverify`, `invokefunction` or `invokescript` RPC call.
     """
+
     script: bytes
 
     @classmethod
@@ -675,6 +676,7 @@ ContractParameter = Union[
 
 class ContractParameterArray(Protocol):
     """"""
+
     def insert(self, index: int, value: ContractParameter) -> None:
         ...
 
@@ -690,6 +692,7 @@ class ContractParameterArray(Protocol):
 
 class ContractParameterDict(Protocol):
     """"""
+
     def __setitem__(self, k: ContractParameter, v: ContractParameter) -> None:
         ...
 
