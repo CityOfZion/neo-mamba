@@ -1,3 +1,6 @@
+"""
+Block payload and related classes.
+"""
 from __future__ import annotations
 import hashlib
 from neo3.core import Size as s, serialization, types, utils, cryptography as crypto
@@ -9,7 +12,7 @@ from typing import Optional
 
 class Header(verification.IVerifiable):
     """
-    A Block header only object.
+    A `Block` header only object.
 
     Does not contain any consensus data or transactions.
 
@@ -86,6 +89,12 @@ class Header(verification.IVerifiable):
         writer.write_serializable_list([self.witness])
 
     def serialize_unsigned(self, writer: serialization.BinaryWriter) -> None:
+        """
+        Serialize the unsigned data portion.
+
+        Args:
+            writer: instance.
+        """
         writer.write_uint32(self.version)
         writer.write_serializable(self.prev_hash)
         writer.write_serializable(self.merkle_root)
@@ -194,51 +203,51 @@ class Block(inventory.IInventory):
 
     @property
     def version(self) -> int:
-        """Block data structure version - for internal use"""
+        """Block data structure version - for internal use."""
         return self.header.version
 
     @property
     def prev_hash(self) -> types.UInt256:
-        """The hash of the previous block"""
+        """The hash of the previous block."""
         return self.header.prev_hash
 
     @property
     def merkle_root(self) -> types.UInt256:
-        """The merkle root of the transactions in the block"""
+        """The merkle root of the transactions in the block."""
         return self.header.merkle_root
 
     @property
     def timestamp(self) -> int:
-        """UTC timestamp in milliseconds"""
+        """UTC timestamp in milliseconds."""
         return self.header.timestamp
 
     @property
     def nonce(self) -> int:
-        """Random number"""
+        """Random number."""
         return self.header.nonce
 
     @property
     def index(self) -> int:
-        """The height of the block"""
+        """The height of the block."""
         return self.header.index
 
     @property
     def primary_index(self) -> int:
-        """The index into the consensus node list that was used to generate this block"""
+        """The index into the consensus node list that was used to generate this block."""
         return self.header.primary_index
 
     @property
     def next_consensus(self) -> types.UInt160:
-        """The hash of the consensus node that will generate the next block"""
+        """The hash of the consensus node that will generate the next block."""
         return self.header.next_consensus
 
     @property
     def witness(self) -> verification.Witness:
-        """The witness of this block"""
+        """The witness of this block."""
         return self.header.witness
 
     def hash(self) -> types.UInt256:
-        """A unique identifier based on the unsigned data portion of the object"""
+        """A unique identifier based on the unsigned data portion of the object."""
         return self.header.hash()
 
     def get_script_hashes_for_verifying(self, snapshot) -> list[types.UInt160]:
@@ -301,7 +310,7 @@ class Block(inventory.IInventory):
             raise ValueError("Deserialization error - merkle root mismatch")
 
     def deserialize_unsigned(self, reader: serialization.BinaryReader) -> None:
-        """Not supported"""
+        """Not supported."""
         raise NotImplementedError
 
     def rebuild_merkle_root(self) -> None:
@@ -325,7 +334,7 @@ class Block(inventory.IInventory):
 
 class TrimmedBlock(serialization.ISerializable):
     """
-    A size reduced Block instance.
+    A size reduced `Block` instance.
 
     Contains consensus data and transactions hashes instead of their full objects.
     """
@@ -343,12 +352,12 @@ class TrimmedBlock(serialization.ISerializable):
         return self.__class__.deserialize_from_bytes(self.to_array())
 
     def hash(self):
-        """A unique identifier based on the unsigned data portion of the object"""
+        """A unique identifier based on the unsigned data portion of the object."""
         return self.header.hash()
 
     @property
     def index(self):
-        """The height of the block"""
+        """The height of the block."""
         return self.header.index
 
     def serialize(self, writer: serialization.BinaryWriter) -> None:
@@ -377,6 +386,10 @@ class TrimmedBlock(serialization.ISerializable):
 
 
 class MerkleBlockPayload(serialization.ISerializable):
+    """
+    Payload for transfering merkletree hashes of a block.
+    """
+
     def __init__(self, block: Block, flags: bitarray):
         hashes = [t.hash() for t in block.transactions]
         tree = crypto.MerkleTree(hashes)
@@ -425,12 +438,13 @@ class MerkleBlockPayload(serialization.ISerializable):
 
 
 class HeadersPayload(serialization.ISerializable):
+    """
+    Payload for sending or receiving `Block` headers.
+    """
+
     MAX_HEADERS_COUNT = 2000
 
     def __init__(self, headers: Optional[Sequence[Header]] = None):
-        """
-        Should not be called directly. Use create() instead.
-        """
         self.headers = list(headers) if headers else []
 
     def __len__(self):
@@ -457,8 +471,8 @@ class HeadersPayload(serialization.ISerializable):
 
 class GetBlocksPayload(serialization.ISerializable):
     """
-    Used to request an array block hashes that can be retrieved via a message with the
-    :const:`~neo3.network.message.MessageType.GETDATA` type.
+    Used to request an array of block hashes that can be retrieved via a message with the
+    `message.MessageType.GETDATA` type.
     """
 
     def __init__(self, hash_start: types.UInt256, count=-1):
@@ -471,7 +485,7 @@ class GetBlocksPayload(serialization.ISerializable):
                 Note:
 
                     For syncing supply the local best height block hash to receive the hashes in the range of
-                    best_height+1 to best_height+1+count
+                    `best_height`+`1` to `best_height`+`1`+`count`.
 
             count: number of hashes to return.
         """
@@ -508,9 +522,8 @@ class GetBlocksPayload(serialization.ISerializable):
 
 class GetBlockByIndexPayload(serialization.ISerializable):
     """
-    Used to request full Block or Header objects via a message with the
-    :const:`~neo3.network.message.MessageType.GETBLOCKBYINDEX` or :const:`~neo3.network.message.MessageType.GETHEADERS`
-    type respectively.
+    Used to request full Block or Header objects via a message with the `message.MessageType.GETBLOCKBYINDEX`
+     or `message.MessageType.GETHEADERS` type respectively.
     """
 
     def __init__(self, index_start: int, count: int = HeadersPayload.MAX_HEADERS_COUNT):
@@ -546,8 +559,7 @@ class GetBlockByIndexPayload(serialization.ISerializable):
             reader: instance.
 
         Raises:
-            ValueError: if `count` is zero or exceeds
-               :const:`~neo3.network.payloads.getblocks.GetBlockByIndexPayload.MAX_BLOCKS_COUNT`.
+            ValueError: if `count` is zero or exceeds `GetBlockByIndexPayload.MAX_BLOCKS_COUNT`.
         """
         self.index_start = reader.read_uint32()
         self.count = reader.read_int16()

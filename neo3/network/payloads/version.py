@@ -1,3 +1,6 @@
+"""
+Payload containing node information.
+"""
 from __future__ import annotations
 import datetime
 from neo3.core import Size as s, serialization, utils

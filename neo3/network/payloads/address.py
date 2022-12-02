@@ -1,3 +1,6 @@
+"""
+Node address information.
+"""
 from __future__ import annotations
 from typing import Optional
 from datetime import datetime
@@ -37,7 +40,7 @@ class DisconnectReason(IntEnum):
     """
     Reason for disconnecting a node.
 
-    Will also be broadcast back to the node when `this PR <https://github.com/neo-project/neo/pull/1154>`__ is merged.
+    Will also be broadcast back to the node when [this PR](https://github.com/neo-project/neo/pull/1154>) is merged.
     For now only used internally with logging.
     """
 
@@ -51,6 +54,10 @@ class DisconnectReason(IntEnum):
 
 
 class NetworkAddress(serialization.ISerializable):
+    """
+    Address properties.
+    """
+
     def __init__(
         self,
         address: str,
@@ -102,40 +109,70 @@ class NetworkAddress(serialization.ISerializable):
 
     @property
     def ip(self) -> str:
+        """
+        Get ip.
+        """
         host, port = self.address.split(":")
         return host
 
     @property
     def port(self) -> int:
+        """
+        Get port.
+        """
         host, port = self.address.split(":")
         return int(port)
 
     @property
     def is_state_new(self) -> bool:
+        """
+        Test if state is `new`.
+        """
         return self.state == AddressState.NEW
 
     def set_state_new(self) -> None:
+        """
+        Set state attribute to `new`.
+        """
         self.state = AddressState.NEW
 
     @property
     def is_state_connected(self) -> bool:
+        """
+        Test if state is `connected`.
+        """
         return self.state == AddressState.CONNECTED
 
     def set_state_connected(self) -> None:
+        """
+        Set state attribute to `connected`.
+        """
         self.state = AddressState.CONNECTED
 
     @property
     def is_state_poor(self) -> bool:
+        """
+        Test if state is `poor`.
+        """
         return self.state == AddressState.POOR
 
     def set_state_poor(self) -> None:
+        """
+        Set state attribute to `poor`.
+        """
         self.state = AddressState.POOR
 
     @property
     def is_state_dead(self) -> bool:
+        """
+        Test if state is `dead`.
+        """
         return self.state == AddressState.DEAD
 
     def set_state_dead(self) -> None:
+        """
+        Set state attribute to `dead`.
+        """
         self.state = AddressState.DEAD
 
     def serialize(self, writer: serialization.BinaryWriter) -> None:
@@ -180,6 +217,10 @@ class NetworkAddress(serialization.ISerializable):
 
 
 class AddrPayload(serialization.ISerializable):
+    """
+    Address payload with list of address information entries.
+    """
+
     def __init__(self, addresses: Sequence[NetworkAddress]):
         self.addresses = list(addresses)
 
