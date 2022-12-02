@@ -2,53 +2,6 @@
 
 A global instance ``ipfilter`` can be imported directly from the module and is taken into account by default in the
 `NeoNode` class when connections are established.
-
-Filtering rules
-
-* The whitelist has precedence over the blacklist settings.
-* Host masks can be applied.
-* When using host masks do not set host bits (leave them to 0) or an exception will occur.
-
-The following are `configuration` examples for common scenario's.
-
-1. Accept only specific trusted IPs.
-
-        {
-            'blacklist': [
-                '0.0.0.0/0'
-            ],
-            'whitelist': [
-                '10.10.10.10',
-                '15.15.15.15'
-            ]
-        }
-
-2. Accept only a range of trusted IPs.
-
-        # Accepts any IP in the range of 10.10.10.0 - 10.10.10.255
-
-        {
-            'blacklist': [
-                '0.0.0.0/0'
-            ],
-            'whitelist': [
-                '10.10.10.0/24',
-            ]
-        }
-
-3. Accept all except specific IPs.
-
-        # Can be used for banning bad actors
-
-        {
-            'blacklist': [
-                '12.12.12.12',
-                '13.13.13.13'
-            ],
-            'whitelist': [
-            ]
-        }
-
 """
 from ipaddress import IPv4Network
 from contextlib import suppress
@@ -56,6 +9,53 @@ from copy import deepcopy
 
 
 class IPFilter:
+    """
+    Filtering rules.
+
+    * The whitelist has precedence over the blacklist settings.
+    * Host masks can be applied.
+    * When using host masks do not set host bits (leave them to 0) or an exception will occur.
+
+    The following are `configuration` examples for common scenario's.
+
+    1. Accept only specific trusted IPs.
+
+            {
+                'blacklist': [
+                    '0.0.0.0/0'
+                ],
+                'whitelist': [
+                    '10.10.10.10',
+                    '15.15.15.15'
+                ]
+            }
+
+    2. Accept only a range of trusted IPs.
+
+            # Accepts any IP in the range of 10.10.10.0 - 10.10.10.255
+
+            {
+                'blacklist': [
+                    '0.0.0.0/0'
+                ],
+                'whitelist': [
+                    '10.10.10.0/24',
+                ]
+            }
+
+    3. Accept all except specific IPs.
+
+            # Can be used for banning bad actors
+
+            {
+                'blacklist': [
+                    '12.12.12.12',
+                    '13.13.13.13'
+                ],
+                'whitelist': [
+                ]
+            }
+    """
 
     default_config: dict = {"blacklist": [], "whitelist": []}
 
