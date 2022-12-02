@@ -17,10 +17,7 @@ class InventoryPayload(serialization.ISerializable):
     """
     A payload used to share inventory hashes.
 
-    See also:
-        - :ref:`getblocks <message-usage-getblocks>`
-        - :ref:`getdata <message-usage-getdata>`
-        - :ref:`mempool <message-usage-mempool>`
+    Use by `getdata`, `getblocks` and `mempool` message types.
     """
 
     def __init__(self, type: InventoryType, hashes: Sequence[types.UInt256]):
@@ -66,6 +63,10 @@ class InventoryPayload(serialization.ISerializable):
 
 
 class IInventory(verification.IVerifiable):
+    """
+    Inventory interface.
+    """
+
     @abc.abstractmethod
     def hash(self) -> types.UInt256:
         """"""

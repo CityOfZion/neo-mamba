@@ -1,3 +1,6 @@
+"""
+Customizable payload.
+"""
 from __future__ import annotations
 import hashlib
 from neo3.core import types, serialization, Size as s, utils
@@ -5,6 +8,10 @@ from neo3.network.payloads import inventory, verification
 
 
 class ExtensiblePayload(inventory.IInventory):
+    """
+    A payload that supports arbitrary `data`.
+    """
+
     # Comes from neo3.network.message.Message.PAYLOAD_MAX_SIZE but wanted to break the import cycle
     # despite not causing any circular imported errors yet
     PAYLOAD_MAX_SIZE = 0x2000000

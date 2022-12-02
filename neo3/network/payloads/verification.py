@@ -1,3 +1,6 @@
+"""
+Classes for managing transaction signers and signature scopes.
+"""
 from __future__ import annotations
 import hashlib
 import abc
@@ -10,31 +13,28 @@ from collections.abc import Sequence
 
 class WitnessScope(IntFlag):
     """
-    Determine the rules for a smart contract :func:`CheckWitness()` sys call.
+    Flags that determine where in the system the signature is valid. Used by `CheckWitness()` sys call.
     """
 
     #: No Contract was witnessed. Only sign the transaction.
     NONE = 0x0
     #: Allow the witness if the current calling script hash equals the entry script hash into the virtual machine.
-    #: Using this prevents passing :func:`CheckWitness()` in a smart contract called via another smart contract.
+    #: Using this prevents passing `CheckWitness()` in a smart contract called via another smart contract.
     CALLED_BY_ENTRY = 0x01
-    #: Allow the witness if called from a smart contract that is whitelisted in the signer
-    #: :attr:`~neo3.network.payloads.verification.Signer.allowed_contracts` attribute.
+    #: Allow the witness if called from a smart contract that is whitelisted in the signer `allowed_contracts`
+    #: attribute.
     CUSTOM_CONTRACTS = 0x10
-    #: Allow the witness if any public key is in the signer
-    #: :attr:`~neo3.network.payloads.verification.Signer.allowed_groups` attribute is whitelisted in the contracts
+    #: Allow the witness if any public key is in the signer `allowed_groups` attribute is whitelisted in the contracts
     #: manifest.groups array.
     CUSTOM_GROUPS = 0x20
-    #: Allow the witness if the specified :attr:`~neo3.network.payloads.verification.Signer.rules` are satisfied
+    #: Allow the witness if the specified `Signer.rules` are satisfied
     WITNESS_RULES = 0x40
     #: Allow the witness in all context. Equal to NEO 2.x's default behaviour.
     GLOBAL = 0x80
 
     @no_type_check
     def to_csharp_name(self) -> str:
-        """
-        Internal helper to match C# convention
-        """
+        #: Internal helper to match C# convention.
         if self == 0:
             return "None"
         flags = []
@@ -50,9 +50,7 @@ class WitnessScope(IntFlag):
 
     @classmethod
     def from_chsarp_name(cls, csharp_name):
-        """
-        Internal helper to parse from C# convention
-        """
+        #: Internal helper to parse from C# convention
         c = cls(cls.NONE)
         if "CalledByEntry" in csharp_name:
             c |= c.CALLED_BY_ENTRY
@@ -67,7 +65,7 @@ class WitnessScope(IntFlag):
 
 class Signer(serialization.ISerializable, interfaces.IJson):
     """
-    A class that specifies who can pass CheckWitness() verifications in a smart contract.
+    A class that specifies the rules of who can pass `CheckWitness()` verifications in a smart contract.
     """
 
     #: Maximum number of allowed_contracts or allowed_groups
@@ -85,14 +83,11 @@ class Signer(serialization.ISerializable, interfaces.IJson):
         self.account = account
         #: WitnessScope: The configured validation scope.
         self.scope = scope
-        #: list[types.UInt160]: Whitelist of contract script hashes if used with
-        #: :const:`~neo3.network.payloads.verification.WitnessScope.CUSTOM_CONTRACTS`.
+        #: list[types.UInt160]: Whitelist of contract script hashes if used with `WitnessScope.CUSTOM_CONTRACTS`.
         self.allowed_contracts = allowed_contracts if allowed_contracts else []
-        #: list[cryptography.ECPoint]: Whitelist of public keys if used with
-        #: :const:`~neo3.network.payloads.verification.WitnessScope.CUSTOM_GROUPS`.
+        #: list[cryptography.ECPoint]: Whitelist of public keys if used with `WitnessScope.CUSTOM_GROUPS`.
         self.allowed_groups = allowed_groups if allowed_groups else []
-        #: List of rules that must pass for the current execution context when used with
-        #: :const:`~neo3.network.payloads.verification.WitnessScope.WITNESS_RULES`.
+        #: List of rules that must pass for the current execution context when used with `WitnessScope.WITNESS_RULES`.
         self.rules = rules if rules else []
 
     def __len__(self):
@@ -169,6 +164,9 @@ class Signer(serialization.ISerializable, interfaces.IJson):
             )
 
     def get_all_rules(self) -> Iterator[WitnessRule]:
+        """
+        Return all witness rules.
+        """
         if WitnessScope.GLOBAL in self.scope:
             yield WitnessRule(WitnessRuleAction.ALLOW, ConditionBool(True))
         else:
@@ -215,7 +213,7 @@ class Signer(serialization.ISerializable, interfaces.IJson):
 
     @classmethod
     def from_json(cls, json: dict):
-        """Create object from JSON"""
+        """Create object from JSON."""
         account = types.UInt160.from_string(json["account"][2:])
         scopes = WitnessScope.from_chsarp_name(json["scopes"])
 
@@ -307,11 +305,19 @@ class Witness(serialization.ISerializable, interfaces.IJson):
 
 
 class WitnessRuleAction(IntEnum):
+    """
+    Witness rule execution.
+    """
+
     DENY = 0
     ALLOW = 1
 
 
 class WitnessConditionType(IntEnum):
+    """
+    Type of valid witness conditions.
+    """
+
     BOOLEAN = 0x0
     NOT = 0x01
     AND = 0x2
@@ -336,6 +342,10 @@ class WitnessConditionType(IntEnum):
 
 
 class WitnessCondition(serialization.ISerializable, interfaces.IJson):
+    """
+    Base class for conditions.
+    """
+
     MAX_SUB_ITEMS = 16
     MAX_NESTING_DEPTH = 2
 
@@ -403,6 +413,10 @@ class WitnessCondition(serialization.ISerializable, interfaces.IJson):
 
 
 class ConditionAnd(WitnessCondition):
+    """
+    Match all conditions.
+    """
+
     _type = WitnessConditionType.AND
 
     def __init__(self, expressions: list[WitnessCondition]):
@@ -444,6 +458,10 @@ class ConditionAnd(WitnessCondition):
 
 
 class ConditionBool(WitnessCondition):
+    """
+    Fixed value. Can be used to emulate GLOBAL scope.
+    """
+
     _type = WitnessConditionType.BOOLEAN
 
     def __init__(self, value: bool):
@@ -477,6 +495,10 @@ class ConditionBool(WitnessCondition):
 
 
 class ConditionNot(WitnessCondition):
+    """
+    Invert condition.
+    """
+
     _type = WitnessConditionType.NOT
 
     def __init__(self, expression: WitnessCondition):
@@ -514,6 +536,10 @@ class ConditionNot(WitnessCondition):
 
 
 class ConditionOr(WitnessCondition):
+    """
+    Match any from a list of conditions.
+    """
+
     _type = WitnessConditionType.OR
 
     def __init__(self, expressions: list[WitnessCondition]):
@@ -553,6 +579,10 @@ class ConditionOr(WitnessCondition):
 
 
 class ConditionCalledByContract(WitnessCondition):
+    """
+    Match hash against caller script hash.
+    """
+
     _type = WitnessConditionType.CALLED_BY_CONTRACT
 
     def __init__(self, hash_: types.UInt160):
@@ -581,6 +611,10 @@ class ConditionCalledByContract(WitnessCondition):
 
 
 class ConditionCalledByEntry(WitnessCondition):
+    """
+    Match hash against entry script hash.
+    """
+
     _type = WitnessConditionType.CALLED_BY_ENTRY
 
     def __eq__(self, other):
@@ -598,6 +632,10 @@ class ConditionCalledByEntry(WitnessCondition):
 
 
 class ConditionCalledByGroup(WitnessCondition):
+    """
+    Match key against the caller group.
+    """
+
     _type = WitnessConditionType.CALLED_BY_GROUP
 
     def __init__(self, group: cryptography.ECPoint):
@@ -632,14 +670,27 @@ class ConditionCalledByGroup(WitnessCondition):
 
 
 class ConditionGroup(ConditionCalledByGroup):
+    """
+    Match group against current script hash.
+    """
+
     _type = WitnessConditionType.GROUP
 
 
 class ConditionScriptHash(ConditionCalledByContract):
+    """
+    Match hash against another script hash.
+    """
+
     _type = WitnessConditionType.SCRIPT_HASH
 
 
 class WitnessRule(serialization.ISerializable, interfaces.IJson):
+    """
+    A firewall like rule with an action to deny or allow if the condition matches. Gives fine-grained control over
+    where the signature of the witness is valid inside the system.
+    """
+
     def __init__(self, action: WitnessRuleAction, condition: WitnessCondition):
         self.action = action
         self.condition = condition
@@ -666,7 +717,7 @@ class WitnessRule(serialization.ISerializable, interfaces.IJson):
 
     @classmethod
     def from_json(cls, json: dict):
-        """Create object from JSON"""
+        """Create object from JSON."""
         raise NotImplementedError()
 
     @classmethod
@@ -675,6 +726,10 @@ class WitnessRule(serialization.ISerializable, interfaces.IJson):
 
 
 class IVerifiable(serialization.ISerializable):
+    """
+    Verifiable interface.
+    """
+
     def __init__(self, *args, **kwargs):
         super(IVerifiable, self).__init__(*args, **kwargs)
         self.witnesses: list[Witness] = []
@@ -694,7 +749,7 @@ class IVerifiable(serialization.ISerializable):
         """
 
     def get_hash_data(self, protocol_magic: int) -> bytes:
-        """Get the unsigned data
+        """Get the unsigned data.
 
         Args:
             protocol_magic: network protocol number (NEO MainNet = 860833102, Testnet (T5) = 894710606, private net = ?)

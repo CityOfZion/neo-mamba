@@ -1,3 +1,6 @@
+"""
+Transaction payload and related classes.
+"""
 from __future__ import annotations
 import hashlib
 import abc
@@ -12,14 +15,16 @@ from collections.abc import Sequence
 
 
 class TransactionAttributeType(Enum):
+    """
+    Various attributes that can be set by consensus committee members.
+    """
+
     _INVALID = 0x9999
     HIGH_PRIORITY = 0x1
     ORACLE_RESPONSE = 0x11
 
     def to_csharp_name(self) -> str:
-        """
-        Internal helper to match C# convention
-        """
+        #: Internal helper to match C# convention
         if self == self.HIGH_PRIORITY:
             return "HighPriority"
         else:
@@ -27,9 +32,7 @@ class TransactionAttributeType(Enum):
 
     @classmethod
     def from_csharp_name(cls, name: str):
-        """
-        Internal helper to parse from C# convention
-        """
+        #: Internal helper to parse from C# convention
         if name == "HighPriority":
             return cls.HIGH_PRIORITY
         else:
@@ -41,7 +44,7 @@ TransactionAttribute_T = TypeVar("TransactionAttribute_T", bound="TransactionAtt
 
 class TransactionAttribute(serialization.ISerializable, interfaces.IJson):
     """
-    Attributes that can be attached to a Transaction.
+    Base class for attributes that can be attached to a Transaction.
     """
 
     def __init__(self):
@@ -70,7 +73,7 @@ class TransactionAttribute(serialization.ISerializable, interfaces.IJson):
 
     @abc.abstractmethod
     def _serialize_without_type(self, writer: serialization.BinaryWriter) -> None:
-        """Serialize the remaining attributes"""
+        """Serialize the remaining attributes."""
 
     def deserialize(self, reader: serialization.BinaryReader) -> None:
         """
@@ -88,7 +91,7 @@ class TransactionAttribute(serialization.ISerializable, interfaces.IJson):
     @staticmethod
     def deserialize_from(reader: serialization.BinaryReader) -> TransactionAttribute:
         """
-        Deserialize from a binary stream into a new TransactionAttribute
+        Deserialize from a binary stream into a new TransactionAttribute.
         """
         attribute_type = reader.read_uint8()
         for sub in TransactionAttribute.__subclasses__():
@@ -103,7 +106,7 @@ class TransactionAttribute(serialization.ISerializable, interfaces.IJson):
 
     @abc.abstractmethod
     def _deserialize_without_type(self, reader: serialization.BinaryReader) -> None:
-        """Deserialize the remaining attributes"""
+        """Deserialize the remaining attributes."""
 
     def verify(self, snapshot, tx: Transaction) -> bool:
         return True
@@ -114,12 +117,16 @@ class TransactionAttribute(serialization.ISerializable, interfaces.IJson):
 
     @classmethod
     def from_json(cls, json: dict):
-        """Create object from JSON"""
+        """Create object from JSON."""
         c = cls()
         c.type_ = TransactionAttributeType(json["type"])
 
 
 class HighPriorityAttribute(TransactionAttribute):
+    """
+    Attribute to give the transaction processing priority over other transactions.
+    """
+
     def __init__(self):
         super(HighPriorityAttribute, self).__init__()
         self.type_ = TransactionAttributeType.HIGH_PRIORITY
@@ -132,6 +139,10 @@ class HighPriorityAttribute(TransactionAttribute):
 
 
 class OracleResponseCode(IntEnum):
+    """
+    Oracle response status codes.
+    """
+
     SUCCESS = 0x00
     PROTOCOL_NOT_SUPPORTED = 0x10
     CONSENSUS_UNREACHABLE = 0x12
@@ -145,6 +156,10 @@ class OracleResponseCode(IntEnum):
 
 
 class OracleResponse(TransactionAttribute, interfaces.IJson):
+    """
+    Oracle response.
+    """
+
     _MAX_RESULT_SIZE = 0xFFFF
 
     def __init__(self, id: int, code: OracleResponseCode, result: bytes):
@@ -240,8 +255,7 @@ class Transaction(inventory.IInventory, interfaces.IJson):
         Optional attributes
 
         See also:
-            :class:`~neo3.network.payloads.transaction.HighPriorityAttribute`.
-            :class:`~neo3.network.payloads.oracle.OracleResponse`.
+            `HighPriorityAttribute` and `OracleResponse`.
         """
         self.attributes = attributes if attributes else []
         #: A list of authorities used by the :func:`ChecKWitness` smart contract system call.
@@ -354,7 +368,7 @@ class Transaction(inventory.IInventory, interfaces.IJson):
         writer.write_var_bytes(self.script)
 
     def serialize_special(self, writer: serialization.BinaryWriter) -> None:
-        """Internal use only - serialize the TX includes its unofficial fields"""
+        #: Internal use only - serialize the TX includes its unofficial fields.
         self.serialize(writer)
         writer.write_uint8(int(self.vm_state))
         writer.write_uint32(self.block_height)
@@ -410,7 +424,7 @@ class Transaction(inventory.IInventory, interfaces.IJson):
             raise ValueError("Deserialization error - invalid script length 0")
 
     def deserialize_special(self, reader: serialization.BinaryReader) -> None:
-        """Internal use only - deserialize the data from the stream into a TX that includes the unofficial fields"""
+        #: Internal use only - deserialize the data from the stream into a TX that includes the unofficial fields.
         self.deserialize(reader)
         self.vm_state = vm.VMState(reader.read_uint8())
         self.block_height = reader.read_uint32()
@@ -449,7 +463,7 @@ class Transaction(inventory.IInventory, interfaces.IJson):
 
     @classmethod
     def from_json(cls, json: dict, procotol_magic=None):
-        """Create object from JSON"""
+        """Create object from JSON."""
         version = json["version"]
         nonce = json["nonce"]
         system_fee = int(json["sysfee"])
