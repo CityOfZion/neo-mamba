@@ -25,7 +25,7 @@ theme:
     repo: fontawesome/brands/github
   palette:
     # Palette toggle for light mode
-    - scheme: default
+#    - scheme: default
 #      toggle:
 #        icon: material/toggle-switch
 #        name: Switch to dark mode
