@@ -47,10 +47,6 @@ class WitnessRuleTestCase(unittest.TestCase):
         }
         self.assertDictEqual(expected, self.rule.to_json())
 
-    def test_from_json(self):
-        with self.assertRaises(NotImplementedError):
-            verification.WitnessRule.from_json({})
-
 
 class ConditionsTestCase(unittest.TestCase):
     def shortDescription(self):
@@ -88,6 +84,7 @@ class ConditionsTestCase(unittest.TestCase):
         self.assertEqual(expected_len, len(c))
         self.assertEqual(expected_data, c.to_array())
         self.assertEqual(expected_json, c.to_json())
+        self.assertEqual(c, verification.ConditionAnd.from_json(c.to_json()))
 
         deserialized_c = verification.ConditionAnd.deserialize_from_bytes(c.to_array())
         self.assertEqual(c.expressions, deserialized_c.expressions)
@@ -111,6 +108,7 @@ class ConditionsTestCase(unittest.TestCase):
         self.assertEqual(expected_len, len(c))
         self.assertEqual(expected_data, c.to_array())
         self.assertEqual(expected_json, c.to_json())
+        self.assertEqual(c, verification.ConditionBool.from_json(c.to_json()))
 
         deserialized_c = verification.ConditionBool.deserialize_from_bytes(c.to_array())
         self.assertEqual(c, deserialized_c)
@@ -133,6 +131,7 @@ class ConditionsTestCase(unittest.TestCase):
         self.assertEqual(expected_len, len(c))
         self.assertEqual(expected_data, c.to_array())
         self.assertEqual(expected_json, c.to_json())
+        self.assertEqual(c, verification.ConditionNot.from_json(c.to_json()))
 
         deserialized_c = verification.ConditionNot.deserialize_from_bytes(c.to_array())
         self.assertEqual(c, deserialized_c)
@@ -168,6 +167,7 @@ class ConditionsTestCase(unittest.TestCase):
         self.assertEqual(expected_len, len(c))
         self.assertEqual(expected_data, c.to_array())
         self.assertEqual(expected_json, c.to_json())
+        self.assertEqual(c, verification.ConditionOr.from_json(c.to_json()))
 
         deserialized_c = verification.ConditionOr.deserialize_from_bytes(c.to_array())
         self.assertEqual(c.expressions, deserialized_c.expressions)
@@ -199,6 +199,9 @@ class ConditionsTestCase(unittest.TestCase):
         self.assertEqual(expected_len, len(c))
         self.assertEqual(expected_data, c.to_array())
         self.assertEqual(expected_json, c.to_json())
+        self.assertEqual(
+            c, verification.ConditionCalledByContract.from_json(c.to_json())
+        )
 
         deserialized_c = verification.ConditionCalledByContract.deserialize_from_bytes(
             c.to_array()
@@ -221,6 +224,7 @@ class ConditionsTestCase(unittest.TestCase):
         self.assertEqual(expected_len, len(c))
         self.assertEqual(expected_data, c.to_array())
         self.assertEqual(expected_json, c.to_json())
+        self.assertEqual(c, verification.ConditionCalledByEntry.from_json(c.to_json()))
 
         deserialized_c = verification.ConditionCalledByEntry.deserialize_from_bytes(
             c.to_array()
@@ -253,8 +257,17 @@ class ConditionsTestCase(unittest.TestCase):
         self.assertEqual(expected_len, len(c))
         self.assertEqual(expected_data, c.to_array())
         self.assertEqual(expected_json, c.to_json())
+        self.assertEqual(c, verification.ConditionCalledByGroup.from_json(c.to_json()))
 
         deserialized_c = verification.ConditionCalledByGroup.deserialize_from_bytes(
             c.to_array()
         )
         self.assertEqual(c, deserialized_c)
+
+    def test_various(self):
+        with self.assertRaises(ValueError) as context:
+            verification.WitnessCondition.from_json({"type": "fake_type"})
+        self.assertEqual(
+            "fake_type cannot be converted to WitnessConditionType",
+            str(context.exception),
+        )
