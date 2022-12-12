@@ -40,8 +40,8 @@ Please report any issues on `Github <https://github.com/CityOfZion/neo-mamba/iss
 
 Also check out our Python smart contract compiler `Boa <https://github.com/CityOfZion/neo3-boa>`_ !
 
-Install & Documentation
------------------------
+Installation and usage
+----------------------
 Installation instructions, how to interact with smart contrats as well as API reference documentation can be found at
 https://dojo.coz.io/neo3/mamba/
 
