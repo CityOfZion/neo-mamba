@@ -17,10 +17,10 @@ neo-mamba
    :target: https://github.com/psf/black
 
 .. image:: https://img.shields.io/pypi/pyversions/neo-mamba
-   :alt: PyPI - Python Version
+   :target: https://pypi.org/project/neo-mamba
 
 .. image:: .github/resources/images/platformbadge.svg
-   :alt: works on
+   :target: https://github.com/CityOfZion/neo-mamba
 
 This project is for you if you're looking to use Python to
 
