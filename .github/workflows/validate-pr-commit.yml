@@ -14,7 +14,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-20.04, windows-latest]
         python-version: ["3.10"]
     steps:
       - name: Checkout code
@@ -26,7 +26,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           check-latest: true
-      - if: matrix.os == 'ubuntu-latest'
+      - if: matrix.os == 'ubuntu-20.04'
         name: Setup install dependencies
         run: |
           cd mamba
@@ -49,7 +49,7 @@ jobs:
           path: mamba.tar.gz
           retention-days: 1
   linting:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v3
       - uses: psf/black@stable
@@ -57,12 +57,12 @@ jobs:
           src: "neo3/ examples/ tests/"
   type-checking:
     needs: setup
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - name: restore artifact
         uses: actions/download-artifact@v3
         with:
-          name: setup-artifact-ubuntu-latest
+          name: setup-artifact-ubuntu-20.04
       - name: Set up Python 3.10
         uses: actions/setup-python@v4.2.0
         with:
@@ -79,7 +79,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ ubuntu-latest, windows-latest ]
+        os: [ ubuntu-20.04, windows-latest ]
     steps:
       - name: restore artifact
         uses: actions/download-artifact@v3
@@ -90,7 +90,7 @@ jobs:
         with:
           python-version: "3.10"
           check-latest: true
-      - if: success() && matrix.os == 'ubuntu-latest'
+      - if: success() && matrix.os == 'ubuntu-20.04'
         name: extract and test
         run: |
           tar -xf mamba.tar.gz
@@ -106,14 +106,14 @@ jobs:
           make test
   coverage:
     needs: setup
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: restore artifact
         uses: actions/download-artifact@v3
         with:
-          name: setup-artifact-ubuntu-latest
+          name: setup-artifact-ubuntu-20.04
       - name: Set up Python 3.10
         uses: actions/setup-python@v4.2.0
         with:
