@@ -1,24 +1,5 @@
-.. image:: https://www.freepnglogos.com/uploads/under-construction-png/under-construction-sutton-group-heritage-realty-brokerage-durham-region-real-estate-16.png
-    :height: 200px
+.. image:: .github/resources/images/logo.png
     :width: 400 px
-    :alt: under construction
-    :align: center
-
-
-
-The project has pivoted direction to focus on being a light SDK (=not requiring a full chain locally).
-It is ready for its first release and expected to only change based on internal tests in the coming week.
-Expect a release by mid-December 2022! Documentation can temporarily be found at https://ixje.github.io/neo-mamba/
-
-Follow the project and check back soon if you're looking to use Python to
-
-* Deploy smart contracts
-* Transfer NEP-11 and NEP-17 tokens
-* Vote for your favourite consensus node
-* Interact with on-chain smart contracts
-* Manage wallets
-* Build and sign specialized transactions
-* and more..
 
 neo-mamba
 -----------
@@ -35,30 +16,33 @@ neo-mamba
 .. image:: https://img.shields.io/badge/code%20style-black-000000.svg
    :target: https://github.com/psf/black
 
+.. image:: https://img.shields.io/pypi/pyversions/neo-mamba
+   :alt: PyPI - Python Version
+
+.. image:: .github/resources/images/platformbadge.svg
+   :alt: works on
+
+This project is for you if you're looking to use Python to
+
+* Deploy smart contracts
+* Transfer NEP-11 and NEP-17 tokens
+* Vote for your favourite consensus node
+* Interact with on-chain smart contracts
+* Manage wallets
+* Build and sign specialized transactions
+* and more..
+
 This SDK provides building blocks for Python developers to interact with the NEO blockchain without requiring to run a full node.
 In order to interact with the chain and obtain information it relies heavily on RPC nodes. You can find a list of public RPC nodes `here <https://dora.coz.io/monitor>`_.
-::
-
-  Note that up to v0.11.0 this project had a full node focus. Maintaining full node consistency was a
-  major resource consumer and ended up not leaving enough resources to develop the areas users are
-  more interested in. As such the project direction pivoted since version 0.12.0 to focus on being
-  an SDK again.
 
 Please report any issues on `Github <https://github.com/CityOfZion/neo-mamba/issues>`_ or submit ideas how to improve the SDK.
 
 Also check out our Python smart contract compiler `Boa <https://github.com/CityOfZion/neo3-boa>`_ !
 
-Install
--------
-Requires Python 3.10.
-The SDK only version is currently only available from source. ``pip install mamba`` will get you the full node version
-with different requirements (e.g. limited to Linux/OSX)
-
-::
-
-  git clone https://github.com/CityOfZion/neo-mamba.git
-  cd neo-mamba
-  pip install -e .
+Install & Documentation
+-----------------------
+Installation instructions, how to interact with smart contrats as well as API reference documentation can be found at
+https://dojo.coz.io/neo3/mamba/
 
 Developing or contributing
 --------------------------
@@ -69,7 +53,3 @@ Install the requirements, modify the code and PR :-)
 
 The project uses `Black <https://github.com/psf/black>`_ for code formatting. You might want to
 `integrate <https://black.readthedocs.io/en/stable/integrations/editors.html>`_ this into your editor.
-
-Documentation
--------------
-External documentation is outdated. Docstrings in source are up to date.
