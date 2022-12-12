@@ -46,6 +46,8 @@ class WitnessScope(IntFlag):
             flags.append("CustomGroups")
         if self.GLOBAL in self:
             flags.append("Global")
+        if self.WITNESS_RULES in self:
+            flags.append("WitnessRules")
         return ", ".join(flags)
 
     @classmethod
@@ -60,6 +62,8 @@ class WitnessScope(IntFlag):
             c |= c.CUSTOM_GROUPS
         if "Global" in csharp_name:
             c |= c.GLOBAL
+        if "WitnessRules" in csharp_name:
+            c |= c.WITNESS_RULES
         return c
 
 
@@ -229,7 +233,12 @@ class Signer(serialization.ISerializable, interfaces.IJson):
                     cryptography.ECPoint.deserialize_from_bytes(bytes.fromhex(group))
                 )
 
-        return cls(account, scopes, allowed_contracts, allowed_groups)
+        rules = []
+        if "rules" in json:
+            for rule in json["rules"]:
+                rules.append(WitnessRule.from_json(rule))
+
+        return cls(account, scopes, allowed_contracts, allowed_groups, rules)
 
     @classmethod
     def _serializable_init(cls):
@@ -340,6 +349,25 @@ class WitnessConditionType(IntEnum):
         else:
             return self.name.title()
 
+    @classmethod
+    def from_csharp_string(cls, name: str):
+        match name:
+            case "ScriptHash":
+                return WitnessConditionType.SCRIPT_HASH
+            case "CalledByEntry":
+                return WitnessConditionType.CALLED_BY_ENTRY
+            case "CalledByContract":
+                return WitnessConditionType.CALLED_BY_CONTRACT
+            case "CalledByGroup":
+                return WitnessConditionType.CALLED_BY_GROUP
+            case _:
+                _name = name.upper()
+                for k, v in cls.__members__.items():
+                    if k == _name:
+                        return v
+                else:
+                    raise ValueError(f"{name} cannot be converted to {cls.__name__}")
+
 
 class WitnessCondition(serialization.ISerializable, interfaces.IJson):
     """
@@ -409,7 +437,11 @@ class WitnessCondition(serialization.ISerializable, interfaces.IJson):
     @classmethod
     def from_json(cls, json: dict):
         """Create object from JSON"""
-        raise NotImplementedError()
+        condition_type = WitnessConditionType.from_csharp_string(json["type"])
+        for sub in WitnessCondition.__subclasses__():
+            child = sub._serializable_init()  # type: ignore
+            if child.type == condition_type:
+                return child.from_json(json)
 
 
 class ConditionAnd(WitnessCondition):
@@ -453,6 +485,14 @@ class ConditionAnd(WitnessCondition):
         return json
 
     @classmethod
+    def from_json(cls, json: dict):
+        return cls(
+            list(
+                map(lambda expr: WitnessCondition.from_json(expr), json["expressions"])
+            )
+        )
+
+    @classmethod
     def _serializable_init(cls):
         return cls([])
 
@@ -488,6 +528,10 @@ class ConditionBool(WitnessCondition):
         json = super(ConditionBool, self).to_json()
         json["expression"] = self.value
         return json
+
+    @classmethod
+    def from_json(cls, json: dict):
+        return cls(json["expression"])
 
     @classmethod
     def _serializable_init(cls):
@@ -529,6 +573,10 @@ class ConditionNot(WitnessCondition):
         json = super(ConditionNot, self).to_json()
         json["expression"] = self.expression.to_json()
         return json
+
+    @classmethod
+    def from_json(cls, json: dict):
+        return cls(WitnessCondition.from_json(json["expression"]))
 
     @classmethod
     def _serializable_init(cls):
@@ -574,6 +622,14 @@ class ConditionOr(WitnessCondition):
         return json
 
     @classmethod
+    def from_json(cls, json: dict):
+        return cls(
+            list(
+                map(lambda expr: WitnessCondition.from_json(expr), json["expressions"])
+            )
+        )
+
+    @classmethod
     def _serializable_init(cls):
         return cls([])
 
@@ -590,6 +646,11 @@ class ConditionCalledByContract(WitnessCondition):
 
     def __len__(self):
         return super(ConditionCalledByContract, self).__len__() + s.uint160
+
+    def __eq__(self, other):
+        if type(other) != type(self):
+            return False
+        return self.hash_ == other.hash_
 
     def _serialize_without_type(self, writer: serialization.BinaryWriter) -> None:
         writer.write_serializable(self.hash_)
@@ -609,6 +670,10 @@ class ConditionCalledByContract(WitnessCondition):
     def _serializable_init(cls):
         return cls(types.UInt160.zero())
 
+    @classmethod
+    def from_json(cls, json: dict):
+        return cls(types.UInt160.from_string(json["hash"]))
+
 
 class ConditionCalledByEntry(WitnessCondition):
     """
@@ -621,6 +686,10 @@ class ConditionCalledByEntry(WitnessCondition):
         if type(self) == type(other):
             return True
         return False
+
+    @classmethod
+    def from_json(cls, json: dict):
+        return cls()
 
     def _serialize_without_type(self, writer: serialization.BinaryWriter) -> None:
         pass
@@ -663,6 +732,12 @@ class ConditionCalledByGroup(WitnessCondition):
         json = super(ConditionCalledByGroup, self).to_json()
         json["group"] = str(self.group)
         return json
+
+    @classmethod
+    def from_json(cls, json: dict):
+        return cls(
+            cryptography.ECPoint.deserialize_from_bytes(bytes.fromhex(json["group"]))
+        )
 
     @classmethod
     def _serializable_init(cls):
@@ -718,7 +793,11 @@ class WitnessRule(serialization.ISerializable, interfaces.IJson):
     @classmethod
     def from_json(cls, json: dict):
         """Create object from JSON."""
-        raise NotImplementedError()
+        action = WitnessRuleAction.DENY
+        if json["action"] == "Allow":
+            action = WitnessRuleAction.ALLOW
+        condition = WitnessCondition.from_json(json["condition"])
+        return cls(action, condition)
 
     @classmethod
     def _serializable_init(cls):
