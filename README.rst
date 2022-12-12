@@ -1,5 +1,6 @@
 .. image:: .github/resources/images/logo.png
     :width: 400 px
+    :align: center
 
 neo-mamba
 -----------
