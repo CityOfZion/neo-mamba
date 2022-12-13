@@ -43,7 +43,7 @@ Also check out our Python smart contract compiler `Boa <https://github.com/CityO
 Installation and usage
 ----------------------
 Installation instructions, how to interact with smart contrats as well as API reference documentation can be found at
-https://dojo.coz.io/neo3/mamba/
+https://mamba.coz.io/
 
 Developing or contributing
 --------------------------
