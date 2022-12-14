@@ -28,14 +28,14 @@ jobs:
       - if: github.event.inputs.pypi-target == 'Main'
         name: Publish to PyPi
         env:
-          TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
-          TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
         run: |
           twine upload dist/*
       - if: github.event.inputs.pypi-target == 'Test'
         name: Publish to Test-PyPi
         env:
-          TWINE_USERNAME: ${{ secrets.PYPI_TEST_USERNAME }}
-          TWINE_PASSWORD: ${{ secrets.PYPI_TEST_PASSWORD }}
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_TEST_API_TOKEN }}
         run: |
           twine upload --repository testpypi dist/*
