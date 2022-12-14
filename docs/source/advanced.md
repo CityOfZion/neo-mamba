@@ -1,1 +1,1 @@
-XXXdescribe wrapping own contract? 
+Please provide suggestions on Github! 
