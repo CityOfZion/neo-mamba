@@ -1,9 +1,10 @@
 # yaml-language-server: $schema=https://squidfunk.github.io/mkdocs-material/schema.json
 site_name: mamba
-site_url: https://ixje.github.io/mamba/
+site_url: https://dojo.coz.io/neo3/mamba/
 repo_url: https://github.com/CityOfZion/neo-mamba
 copyright: 2019-2022, COZ - Erik van den Brink
 docs_dir: 'source'
+use_directory_urls: false
 extra:
   generator: false
 plugins:

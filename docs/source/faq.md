@@ -13,12 +13,12 @@ cases the `Ledger` contract returns even incomplete data. For example `Ledger.Ge
 transactions as opposed to `NeoRpcClient.get_block()` which returns the complete block. The `Ledger` contract is really
 intended to be consumed by smart contracts.
 
+## Why does the IJson interface consume and produce dictionaries?
+This was originally used in the full node version of Mamba. However, it seems like the standard in the Python community
+ if judged by looking at popular packages/frameworks like `requests` and `aiohttp`. Also, frameworks like `FastAPI`, 
+ `Django` and `Flask` all have ways of consuming a `dict` when returning a json response. It seems like the best choice 
+ for these reasons. 
+
 ## How do I &lt;insert topic&gt;?
 Have a look at the examples on GitHub if the documentation doesn't cover your question. If the examples also don't answer
 your question then feel free to ask on GitHub or ask in #python on the [NEO Discord server](https://discord.gg/rvZFQ5382k).
-
-## Why does the IJson interface consume and produce dictionaries?
-This was originally used in the full node version of Mamba. However, it seems like the standard in the Python community
- if judged by looking at popular packages/frameworks like `requests` and `aiohttp`. Also frameworks like `FastAPI`, 
- `Django` and `Flask` all have ways of consuming a `dict` when return json. It seems like the best choice for these 
- reasons. 

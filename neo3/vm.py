@@ -390,7 +390,7 @@ class ScriptBuilder:
 
     def emit_contract_call_with_args(
         self,
-        script_hash,
+        script_hash: types.UInt160,
         operation: str,
         args,
         call_flags: Optional[callflags.CallFlags] = None,
