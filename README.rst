@@ -5,7 +5,7 @@
 neo-mamba
 -----------
 
-.. image:: https://img.shields.io/github/workflow/status/CityOfZion/neo-mamba/CI
+.. image:: https://img.shields.io/github/actions/workflow/status/CityOfZion/neo-mamba/validate-pr-commit.yml?branch=master
   :target: https://shields.io/
 
 .. image:: https://coveralls.io/repos/github/CityOfZion/neo-mamba/badge.svg?branch=master
