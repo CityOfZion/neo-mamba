@@ -22,11 +22,11 @@ work with it to achieve your goals.
 
 === "UNIX"
     ```linenums="0"
-    pip install neo3-mamba
+    pip install neo-mamba
     ```
 === "Windows"
     ```linenums="0"
-    python -m pip install neo3-mamba
+    python -m pip install neo-mamba
     ```
 
 ### From source
