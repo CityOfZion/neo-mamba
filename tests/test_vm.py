@@ -25,7 +25,7 @@ class ScriptBuilderTestCase(unittest.TestCase):
         sb.emit_push(None)
         sb.emit_push(True)
         sb.emit_push(False)
-        expected = vm.OpCode.PUSHNULL + vm.OpCode.PUSH1 + vm.OpCode.PUSH0
+        expected = vm.OpCode.PUSHNULL + vm.OpCode.PUSHT + vm.OpCode.PUSHF
         self.assertEqual(expected, sb.to_array())
 
     def test_emit_push_strings(self):

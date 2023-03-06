@@ -37,6 +37,8 @@ class OpCode(IntEnum):
     PUSHINT64 = 0x03
     PUSHINT128 = 0x04
     PUSHINT256 = 0x05
+    PUSHT = 0x08
+    PUSHF = 0x09
     PUSHA = 0x0A
     PUSHNULL = 0x0B
     PUSHDATA1 = 0x0C
@@ -268,9 +270,9 @@ class ScriptBuilder:
             return self.emit(OpCode.PUSHNULL)
         elif isinstance(value, bool):
             if value is True:
-                return self.emit(OpCode.PUSH1)
+                return self.emit(OpCode.PUSHT)
             else:
-                return self.emit(OpCode.PUSH0)
+                return self.emit(OpCode.PUSHF)
         elif isinstance(value, str):
             self.emit_push(value.encode("utf-8"))
             return self
