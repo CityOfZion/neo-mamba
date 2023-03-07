@@ -1,4 +1,4 @@
-.PHONY: black build clean clean-test clean-pyc clean-build docs help test coverage version-major version-minor version-patch
+.PHONY: black build clean clean-test clean-pyc clean-build clean-docs docs docs-deploy help test coverage version-major version-minor version-patch
 .DEFAULT_GOAL := help
 define BROWSER_PYSCRIPT
 import os, webbrowser, sys
@@ -26,7 +26,7 @@ BROWSER := python3 -c "$$BROWSER_PYSCRIPT"
 help:
 	@python3 -c "$$PRINT_HELP_PYSCRIPT" < $(MAKEFILE_LIST)
 
-clean: clean-build clean-pyc clean-test ## remove all build, test, coverage and Python artifacts
+clean: clean-build clean-pyc clean-test clean-docs ## remove all build, test, coverage and Python artifacts
 
 
 clean-build: ## remove build artifacts
@@ -35,6 +35,9 @@ clean-build: ## remove build artifacts
 	rm -rf .eggs/
 	find . -name '*.egg-info' -exec rm -fr {} +
 	find . -name '*.egg' -exec rm -f {} +
+
+clean-docs: ## clean the /docs/
+	rm -rf docs/site/
 
 clean-pyc: ## remove Python file artifacts
 	find . -name '*.pyc' -exec rm -f {} +
@@ -55,13 +58,13 @@ coverage: ## check code coverage quickly with the default Python
 	coverage html
 	$(BROWSER) htmlcov/index.html
 
-clean-docs: ## clean the /docs/
-	cd docs && $(MAKE) clean
-
 docs: ## generate Sphinx HTML documentation, including API docs
-	rm -rf docs/build/
-	sphinx-build -b html docs/source/ docs/build/
-	$(BROWSER) docs/build/index.html
+	rm -rf docs/site/
+	mkdocs build -f docs/mkdocs.yml
+	$(BROWSER) docs/site/index.html
+
+docs-deploy: ## manually deploy the docs to github pages
+	aws s3 sync ./docs/site  s3://docs-coz/neo3/mamba --acl public-read
 
 type: ## perform static type checking using mypy
 	mypy neo3/
