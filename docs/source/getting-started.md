@@ -13,11 +13,6 @@ work with it to achieve your goals.
 * Python 3.10
 * Linux, OSX or Windows
 
-!!! note
-
-    ARM based platforms (e.g. Mac with M1 chip) are not supported due to native extensions
-    the project relies on. Not all of those have M1 supported binaries (yet). 
-
 ## Installation
 
 === "UNIX"
