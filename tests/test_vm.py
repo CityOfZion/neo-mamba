@@ -138,6 +138,23 @@ class ScriptBuilderTestCase(unittest.TestCase):
         #     sb.emit_push(data)
         # self.assertIn("Value is too long", str(context.exception))
 
+    def test_emit_push_dict(self):
+        data = {"a": 123, "b": 456}
+
+        sb = vm.ScriptBuilder()
+        sb.emit_push(data)
+        expected = "007b0c016101c8010c016212be"
+        self.assertEqual(expected, sb.to_array().hex())
+
+        # test invalid key type
+        sb = vm.ScriptBuilder()
+        with self.assertRaises(ValueError) as context:
+            sb.emit_push({1.0: "abc"})
+        self.assertEqual(
+            "Unsupported key type <class 'float'>. Supported types by the VM are bool, int and str",
+            str(context.exception),
+        )
+
     def test_emit_push_unsupported(self):
         class Unsupported:
             pass
