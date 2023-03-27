@@ -347,7 +347,7 @@ class ScriptBuilder:
                 self.emit_push(v)
                 self.emit_push(k)
             self.emit_push(len(value))
-            self.emit(OpCode.PACKMAP)
+            return self.emit(OpCode.PACKMAP)
         else:
             raise ValueError(f"Unsupported value type {type(value)}")
 
