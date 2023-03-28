@@ -331,11 +331,13 @@ class ScriptBuilder:
                 self.emit_raw(value)
             return self
         elif isinstance(value, Sequence):
-            self.emit(OpCode.NEWARRAY0)
-            for v in value:
-                self.emit(OpCode.DUP)
-                self.emit_push(v)
-                self.emit(OpCode.APPEND)
+            for item in reversed(value):
+                if isinstance(item, Sequence):
+                    self.emit_push(item)
+                    continue
+                self.emit_push(item)
+            self.emit_push(len(value))
+            self.emit(OpCode.PACK)
             return self
         elif isinstance(value, dict):
             for k, v in value.items():
