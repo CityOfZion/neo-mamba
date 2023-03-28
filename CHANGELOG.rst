@@ -3,6 +3,10 @@ Changelog
 
 All notable changes to this project are documented in this file.
 
+[1.1.1] 2023-03-28
+------------------
+- Modify list parameters handling to remove useless OpCodes and reduce fees.
+
 [0.9.4] 2021-11-30
 ------------------
 - Fixes as a result of Auditing the latest blocks on the network.
