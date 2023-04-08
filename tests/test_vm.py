@@ -155,6 +155,14 @@ class ScriptBuilderTestCase(unittest.TestCase):
             str(context.exception),
         )
 
+    def test_emit_push_list(self):
+        data = ["a", 123, "b", 456]
+
+        sb = vm.ScriptBuilder()
+        sb.emit_push(data)
+        expected = "01c8010c0162007b0c016114c0"
+        self.assertEqual(expected, sb.to_array().hex())
+
     def test_emit_push_unsupported(self):
         class Unsupported:
             pass
