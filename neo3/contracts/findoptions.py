@@ -13,6 +13,7 @@ class FindOptions(IntFlag):
     DESERIALIZE_VALUES = 1 << 3
     PICK_FIELD0 = 1 << 4
     PICK_FIELD1 = 1 << 5
+    BACKWARDS = 1 << 7
     ALL = (
         KEYS_ONLY
         | REMOVE_PREFIX
@@ -20,4 +21,5 @@ class FindOptions(IntFlag):
         | DESERIALIZE_VALUES
         | PICK_FIELD0
         | PICK_FIELD1
+        | BACKWARDS
     )
