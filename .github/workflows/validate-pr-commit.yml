@@ -83,6 +83,7 @@ jobs:
     strategy:
       matrix:
         os: [ ubuntu-20.04, windows-latest ]
+        python-version: ["3.10", "3.11"]
     steps:
       - name: restore artifact
         uses: actions/download-artifact@v3
