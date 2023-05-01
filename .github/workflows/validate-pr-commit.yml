@@ -92,7 +92,7 @@ jobs:
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4.2.0
         with:
-          python-version: \'${{ matrix.python-version }}'
+          python-version: '${{ matrix.python-version }}'
           check-latest: true
       - if: success() && matrix.os == 'ubuntu-20.04'
         name: extract and test
