@@ -77,7 +77,7 @@ jobs:
           source venv/bin/activate
           make type
   unit-tests:
-    name: Unit tests ${{ matrix.python-version }}
+    name: Unit tests ${{ matrix.os }} Python ${{ matrix.python-version }}
     needs: setup
     runs-on: ${{ matrix.os }}
     strategy:
