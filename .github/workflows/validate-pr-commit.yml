@@ -10,12 +10,12 @@ on:
 
 jobs:
   setup:
-    name: Setup ${{ matrix.os }}
+    name: Setup ${{ matrix.os }} Python ${{ matrix.python-version }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-20.04, windows-latest]
-        python-version: ["3.10"]
+        python-version: ["3.10", "3.11"]
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -45,7 +45,7 @@ jobs:
       - name: persist
         uses: actions/upload-artifact@v3
         with:
-          name: setup-artifact-${{ matrix.os }}
+          name: setup-artifact-${{ matrix.os }}-py${{ matrix.python-version }}
           path: mamba.tar.gz
           retention-days: 1
   linting:
@@ -64,7 +64,7 @@ jobs:
       - name: restore artifact
         uses: actions/download-artifact@v3
         with:
-          name: setup-artifact-ubuntu-20.04
+          name: setup-artifact-ubuntu-20.04-py3.10
       - name: Set up Python 3.10
         uses: actions/setup-python@v4.2.0
         with:
@@ -77,6 +77,7 @@ jobs:
           source venv/bin/activate
           make type
   unit-tests:
+    name: Unit tests ${{ matrix.python-version }}
     needs: setup
     runs-on: ${{ matrix.os }}
     strategy:
@@ -86,11 +87,11 @@ jobs:
       - name: restore artifact
         uses: actions/download-artifact@v3
         with:
-          name: setup-artifact-${{ matrix.os }}
-      - name: Set up Python 3.10
+          name: setup-artifact-${{ matrix.os }}-py${{ matrix.python-version }}
+      - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4.2.0
         with:
-          python-version: "3.10"
+          python-version: \'${{ matrix.python-version }}'
           check-latest: true
       - if: success() && matrix.os == 'ubuntu-20.04'
         name: extract and test
@@ -115,7 +116,7 @@ jobs:
       - name: restore artifact
         uses: actions/download-artifact@v3
         with:
-          name: setup-artifact-ubuntu-20.04
+          name: setup-artifact-ubuntu-20.04-py3.10
       - name: Set up Python 3.10
         uses: actions/setup-python@v4.2.0
         with:
