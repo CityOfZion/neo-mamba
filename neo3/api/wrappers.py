@@ -874,8 +874,6 @@ class NEP17Contract(_TokenContract):
         sb.emit_push(self.hash)
         sb.emit_syscall(vm.Syscalls.SYSTEM_CONTRACT_CALL)
 
-        for b in sb.to_array():
-            print(f"{hex(b)},", end="")
         return ContractMethodResult(sb.to_array(), unwrap.as_bool)
 
     def transfer_multi(
