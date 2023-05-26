@@ -315,6 +315,19 @@ class StackItem:
             )
         return self.value
 
+    def as_bytes(self) -> bytes:
+        """
+        Unwrap as `bool`.
+
+        Raises:
+            ValueError: if internal item type does not match required.
+        """
+        if self.type != StackItemType.BYTE_STRING:
+            raise ValueError(
+                f"item is not of type '{StackItemType.BYTE_STRING}' but of type '{self.type}'"
+            )
+        return self.value
+
     def as_str(self) -> str:
         """
         Unwrap as `str`.
