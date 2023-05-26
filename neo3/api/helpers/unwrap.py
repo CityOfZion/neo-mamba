@@ -144,7 +144,8 @@ def as_dict(res: noderpc.ExecutionResult, idx: int = 0) -> dict:
         res: execution result.
         idx: idx: the index in the result stack to fetch the stack item from.
 
-    Returns:
+    Raises:
+        ValueError: if the index is out of range, or the value cannot be converted to a dict.
 
     """
     return item(res, idx).as_dict()
@@ -162,6 +163,21 @@ def as_none(res: noderpc.ExecutionResult, idx: int = 0) -> None:
         ValueError: if the index is out of range, or the value is not `None`.
     """
     return item(res, idx).as_none()
+
+
+def as_bytes(res: noderpc.ExecutionResult, idx: int = 0) -> bytes:
+    """
+    Convert the stack item at `idx` to `bytes`.
+
+    Args:
+        res: execution result.
+        idx: the index in the result stack to fetch the stack item from.
+
+    Raises:
+        ValueError: if the index is out of range, or the value cannot be converted to bytes.
+
+    """
+    return item(res, idx).as_bytes()
 
 
 def item(res: noderpc.ExecutionResult, idx: int = 0) -> noderpc.StackItem:
