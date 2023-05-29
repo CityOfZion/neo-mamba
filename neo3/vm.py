@@ -6,7 +6,7 @@ import hashlib
 from enum import IntEnum
 from neo3.contracts import callflags
 from neo3.core import types, serialization, cryptography
-from typing import Optional, Iterator, Union, Type
+from typing import Optional, Iterator, Union, Type, Protocol
 from collections.abc import Sequence
 
 
@@ -266,6 +266,38 @@ ContractParameter = Union[
 ]
 
 
+class ContractParameterArray(Protocol):
+    """"""
+
+    def insert(self, index: int, value: ContractParameter) -> None:
+        ...
+
+    def __getitem__(self, i: int) -> ContractParameter:
+        ...
+
+    def __setitem__(self, i: int, o: ContractParameter) -> None:
+        ...
+
+    def __delitem__(self, i: int) -> None:
+        ...
+
+
+class ContractParameterDict(Protocol):
+    """"""
+
+    def __setitem__(self, k: ContractParameter, v: ContractParameter) -> None:
+        ...
+
+    def __delitem__(self, v: ContractParameter) -> None:
+        ...
+
+    def __getitem__(self, k: ContractParameter) -> ContractParameter:
+        ...
+
+    def __iter__(self) -> Iterator[ContractParameter]:
+        ...
+
+
 class ScriptBuilder:
     """
     A utility class to create scripts (sequence of opcodes) that can be executed by the
@@ -423,7 +455,7 @@ class ScriptBuilder:
         self,
         script_hash: types.UInt160,
         operation: str,
-        args: list[ContractParameter] | ContractParameter,
+        args: ContractParameter,
         call_flags: Optional[callflags.CallFlags] = None,
     ) -> ScriptBuilder:
         """
@@ -462,7 +494,7 @@ class ScriptBuilder:
         self,
         script_hash,
         operation: str,
-        args: list[ContractParameter] | ContractParameter,
+        args: ContractParameter,
         call_flags: Optional[callflags.CallFlags] = None,
     ) -> ScriptBuilder:
         return self._emit_contract_call_and_unwrap_iterator(
@@ -476,7 +508,7 @@ class ScriptBuilder:
         self,
         script_hash,
         operation: str,
-        args: Optional[list[ContractParameter] | ContractParameter] = None,
+        args: Optional[ContractParameter] = None,
         call_flags: Optional[callflags.CallFlags] = None,
     ) -> ScriptBuilder:
         # jump to local variables initialization code
@@ -494,7 +526,7 @@ class ScriptBuilder:
         self.emit(OpCode.NEWARRAY0)
         self.emit(OpCode.STLOC0)
 
-        if args is None or len(args) == 0:
+        if args is None or (isinstance(args, Sequence) and len(args) == 0):
             self.emit_contract_call(script_hash, operation, call_flags)
         else:
             self.emit_contract_call_with_args(script_hash, operation, args, call_flags)

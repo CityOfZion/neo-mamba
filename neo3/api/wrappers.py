@@ -818,7 +818,7 @@ class NEP17Contract(_TokenContract):
         source: types.UInt160 | NeoAddress,
         destination: types.UInt160 | NeoAddress,
         amount: int,
-        data: Optional[noderpc.ContractParameter | list[noderpc.ContractParameter]] = None,
+        data: Optional[noderpc.ContractParameter] = None,
     ) -> ContractMethodResult[bool]:
         """
         Transfer `amount` of tokens from `source` account to `destination` account.
