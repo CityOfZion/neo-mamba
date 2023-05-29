@@ -638,7 +638,7 @@ class GenericContract:
     def call_function(
         self,
         name,
-        args: Optional[Sequence] = None,
+        args: Optional[noderpc.ContractParameter] = None,
     ) -> ContractMethodResult[noderpc.ExecutionResult]:
         """
         Call a method on the contract.
