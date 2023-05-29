@@ -5,8 +5,8 @@ from __future__ import annotations
 import hashlib
 from enum import IntEnum
 from neo3.contracts import callflags
-from neo3.core import types, serialization
-from typing import Optional, Iterator
+from neo3.core import types, serialization, cryptography
+from typing import Optional, Iterator, Union, Type
 from collections.abc import Sequence
 
 
@@ -250,6 +250,22 @@ class OpCode(IntEnum):
             return super(OpCode, self).__radd__(other)
 
 
+ContractParameter = Union[
+    bool,
+    int,
+    str,
+    bytes,
+    bytearray,
+    types.BigInteger,
+    types.UInt160,
+    types.UInt256,
+    cryptography.ECPoint,
+    "ContractParameterArray",
+    "ContractParameterDict",
+    Type[serialization.ISerializable_T],
+]
+
+
 class ScriptBuilder:
     """
     A utility class to create scripts (sequence of opcodes) that can be executed by the
@@ -407,7 +423,7 @@ class ScriptBuilder:
         self,
         script_hash: types.UInt160,
         operation: str,
-        args,
+        args: list[ContractParameter] | ContractParameter,
         call_flags: Optional[callflags.CallFlags] = None,
     ) -> ScriptBuilder:
         """
@@ -419,10 +435,13 @@ class ScriptBuilder:
             args: parameters to pass to the `operation`.
             call_flags: call flags for the operation.
         """
-        for arg in reversed(args):
-            self.emit_push(arg)
-        self.emit_push(len(args))
-        self.emit(OpCode.PACK)
+        if isinstance(args, Sequence):
+            for arg in reversed(args):
+                self.emit_push(arg)
+            self.emit_push(len(args))
+            self.emit(OpCode.PACK)
+        else:
+            self.emit_push(args)
         self.emit_push(callflags.CallFlags.ALL if call_flags is None else call_flags)
         self.emit_push(operation)
         self.emit_push(script_hash)
@@ -443,7 +462,7 @@ class ScriptBuilder:
         self,
         script_hash,
         operation: str,
-        args: list,
+        args: list[ContractParameter] | ContractParameter,
         call_flags: Optional[callflags.CallFlags] = None,
     ) -> ScriptBuilder:
         return self._emit_contract_call_and_unwrap_iterator(
@@ -457,7 +476,7 @@ class ScriptBuilder:
         self,
         script_hash,
         operation: str,
-        args: Optional[list] = None,
+        args: Optional[list[ContractParameter] | ContractParameter] = None,
         call_flags: Optional[callflags.CallFlags] = None,
     ) -> ScriptBuilder:
         # jump to local variables initialization code
