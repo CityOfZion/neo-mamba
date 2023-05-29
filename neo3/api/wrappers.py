@@ -660,7 +660,7 @@ class GenericContract:
         update_method: str = "update",
         nef: Optional[nef.NEF] = None,
         manifest: Optional[manifest.ContractManifest] = None,
-        data: Optional[list] = None,
+        data: Optional[noderpc.ContractParameter] = None,
     ) -> ContractMethodResult[None]:
         """
         Update this contract on chain with a new manifest and/or contract (NEF).
@@ -703,7 +703,7 @@ class GenericContract:
     def deploy(
         nef: nef.NEF,
         manifest: manifest.ContractManifest,
-        data: Optional[list] = None,
+        data: Optional[noderpc.ContractParameter] = None,
     ) -> ContractMethodResult[types.UInt160]:
         """
         Deploy a smart contract to the chain.
@@ -881,7 +881,7 @@ class NEP17Contract(_TokenContract):
         source: types.UInt160 | NeoAddress,
         destinations: Sequence[types.UInt160 | NeoAddress],
         amount: int,
-        data: Optional[list] = None,
+        data: Optional[noderpc.ContractParameter] = None,
         abort_on_failure: bool = False,
     ) -> ContractMethodResult[bool]:
         """
@@ -1222,7 +1222,7 @@ class NEP11DivisibleContract(_NEP11Contract):
         destination: types.UInt160 | NeoAddress,
         amount: int,
         token_id: bytes,
-        data: Optional[list] = None,
+        data: Optional[noderpc.ContractParameter] = None,
     ) -> ContractMethodResult[bool]:
         """
         Transfer `amount` of `token_id` from `source` account to `destination` account.
@@ -1313,7 +1313,7 @@ class NEP11NonDivisibleContract(_NEP11Contract):
         self,
         destination: types.UInt160 | NeoAddress,
         token_id: bytes,
-        data: Optional[list] = None,
+        data: Optional[noderpc.ContractParameter] = None,
     ) -> ContractMethodResult[bool]:
         """
         Transfer `token_id` to `destination` account.
@@ -1343,7 +1343,7 @@ class NEP11NonDivisibleContract(_NEP11Contract):
         self,
         destinations: Sequence[types.UInt160 | NeoAddress],
         token_ids: list[bytes],
-        data: Optional[list] = None,
+        data: Optional[noderpc.ContractParameter] = None,
         abort_on_failure: bool = False,
     ) -> ContractMethodResult[bool]:
         """
