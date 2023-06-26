@@ -847,7 +847,9 @@ class NEP17Contract(_TokenContract):
         )
         return ContractMethodResult(sb.to_array(), unwrap.as_bool)
 
-    def transfer_friendly(self, source, dest, amount):
+    def transfer_friendly(
+        self, source, dest, amount, data: Optional[noderpc.ContractParameter] = None
+    ):
         """
         Transfer `amount` of tokens from `source` account to `destination` account.
 
@@ -859,7 +861,7 @@ class NEP17Contract(_TokenContract):
                 `False` otherwise.
         """
         sb = vm.ScriptBuilder()
-        sb.emit_push(None)  # data
+        sb.emit_push(data)
         sb.emit_push(10)  # multiplier base
         sb.emit_contract_call(self.hash, "decimals")
         sb.emit(vm.OpCode.POW)
