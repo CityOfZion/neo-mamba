@@ -22,7 +22,7 @@ jobs:
         with:
           path: 'mamba'
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4.2.0
+        uses: actions/setup-python@v4.6.1
         with:
           python-version: ${{ matrix.python-version }}
           check-latest: true
@@ -66,7 +66,7 @@ jobs:
         with:
           name: setup-artifact-ubuntu-20.04-py3.10
       - name: Set up Python 3.10
-        uses: actions/setup-python@v4.2.0
+        uses: actions/setup-python@v4.6.1
         with:
           python-version: "3.10"
           check-latest: true
@@ -90,7 +90,7 @@ jobs:
         with:
           name: setup-artifact-${{ matrix.os }}-py${{ matrix.python-version }}
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4.2.0
+        uses: actions/setup-python@v4.6.1
         with:
           python-version: '${{ matrix.python-version }}'
           check-latest: true
@@ -119,7 +119,7 @@ jobs:
         with:
           name: setup-artifact-ubuntu-20.04-py3.10
       - name: Set up Python 3.10
-        uses: actions/setup-python@v4.2.0
+        uses: actions/setup-python@v4.6.1
         with:
           python-version: "3.10"
           check-latest: true
