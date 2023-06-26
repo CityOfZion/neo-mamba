@@ -1179,9 +1179,13 @@ class _NEP11Contract(_TokenContract):
 
         return ContractMethodResult(sb.to_array(), process)
 
-    def tokens(self) -> ContractMethodResult[list[bytes]]:
+    def tokens(self, limit: int = 2000) -> ContractMethodResult[list[bytes]]:
         """
         Get all tokens minted by the contract.
+
+        limit: the maximum tokens to return. Note: there is a limit on the virtual machine (default: 2048) to avoid too
+        much compute being used. The limit is set slightly lower on purpose to allow other necessary items in the VM.
+        If the contract returns more items you'll have to resort to retrieving them using RPC Session Iterators.
 
         Note:
             This is an optional method and may not exist on the contract.
@@ -1192,7 +1196,7 @@ class _NEP11Contract(_TokenContract):
             return [si.value for si in raw_results]
 
         sb = vm.ScriptBuilder().emit_contract_call_and_unwrap_iterator(
-            self.hash, "tokens"
+            self.hash, "tokens", unwrap_limit=limit
         )
         return ContractMethodResult(sb.to_array(), process)
 

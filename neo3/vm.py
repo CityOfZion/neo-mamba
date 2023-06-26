@@ -485,9 +485,10 @@ class ScriptBuilder:
         script_hash,
         operation: str,
         call_flags: Optional[callflags.CallFlags] = None,
+        unwrap_limit: int = 2000,
     ) -> ScriptBuilder:
         return self._emit_contract_call_and_unwrap_iterator(
-            script_hash, operation, None, call_flags
+            script_hash, operation, None, call_flags, unwrap_limit
         )
 
     def emit_contract_call_with_args_and_unwrap_iterator(
@@ -510,7 +511,21 @@ class ScriptBuilder:
         operation: str,
         args: Optional[ContractParameter] = None,
         call_flags: Optional[callflags.CallFlags] = None,
+        unwrap_limit: int = 2000,
     ) -> ScriptBuilder:
+        """
+
+        Args:
+            script_hash: contract hash to call
+            operation: method name to call
+            args: arguments passed to the method called
+            call_flags: call flags of the method called
+            unwrap_limit: maximum number of items to return. Can't be larger than the MaxStackSize limit configured for
+            the VM or it will throw an exception.
+            https://github.com/neo-project/neo-vm/blob/5b0a39811b34abacab1273f3ee5a9a9f7e52ac7b/src/Neo.VM/ExecutionEngineLimits.cs#L34C21-L34C33
+            The current default is slightly lower than the max, because that allows for a few other items to be on the
+            stack in other function frames.
+        """
         # jump to local variables initialization code
         self.emit_jump(OpCode.JMP, 4)
         # the following 2 instructions are for loading the result array and exiting the script
@@ -520,7 +535,7 @@ class ScriptBuilder:
         self.emit(OpCode.RET)
         # reserve 2 local variables for the `iterator` and `results` list
         self.emit(OpCode.INITSLOT)
-        self.emit_raw(b"\x02")
+        self.emit_raw(b"\x03")
         self.emit_raw(b"\x00")
         # store results list in pos 0
         self.emit(OpCode.NEWARRAY0)
@@ -532,12 +547,17 @@ class ScriptBuilder:
             self.emit_contract_call_with_args(script_hash, operation, args, call_flags)
         # store iterator in pos 1
         self.emit(OpCode.STLOC1)
-
+        # store stack item counter in pos 2
+        self.emit_push(0)
+        self.emit(OpCode.STLOC2)
         """
         Next set of opcodes does the following
 
         while iterator.next()
           results.append(iterator.value)
+          ctr += 1
+          if ctr == stack_limit:
+            break
         return results
         """
         loop_start = len(self.data)
@@ -556,6 +576,15 @@ class ScriptBuilder:
         # fix argument order for APPEND
         self.emit(OpCode.SWAP)
         self.emit(OpCode.APPEND)
+        # load stack item counter
+        self.emit(OpCode.LDLOC2)
+        self.emit(OpCode.INC)
+        self.emit(OpCode.DUP)
+        self.emit(OpCode.STLOC2)
+        # load stack item limit
+        self.emit_push(unwrap_limit)
+        self.emit(OpCode.NUMEQUAL)
+        self.emit_jump(OpCode.JMPIF, self._offset_to(return_results))
         # jump back to start of `while` loop
         self.emit_jump(OpCode.JMP, self._offset_to(loop_start))
         return self
