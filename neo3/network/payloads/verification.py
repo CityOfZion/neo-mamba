@@ -420,15 +420,26 @@ class WitnessCondition(serialization.ISerializable, interfaces.IJson):
         reader: serialization.BinaryReader, max_nesting_depth: int
     ) -> WitnessCondition:
         condition_type = reader.read_uint8()
-        for sub in WitnessCondition.__subclasses__():
-            child = sub._serializable_init()  # type: ignore
-            if child.type.value == condition_type:
-                child._deserialize_without_type(reader, max_nesting_depth)
-                return child
-        else:
+
+        def find_condition(condition) -> Optional[WitnessCondition]:
+            for sub in condition.__subclasses__():
+                child = sub._serializable_init()
+                if child.type.value == condition_type:
+                    child._deserialize_without_type(reader, max_nesting_depth)
+                    return child
+                if len(sub.__subclasses__()) > 0:
+                    condition = find_condition(sub)
+                    if condition is not None:
+                        return condition
+            return None
+
+        condition = find_condition(WitnessCondition)
+        if condition is None:
             raise ValueError(
-                f"Deserialization error - unknown witness condition. Type: {condition_type}"
+                f"Deserialization error - unknown witness condition. Type: {hex(condition_type)}"
             )
+        else:
+            return condition
 
     def to_json(self) -> dict:
         """Convert object into JSON representation."""
