@@ -89,7 +89,7 @@ class WalletCreationTestCase(unittest.TestCase):
 
         json_wallet = new_wallet.to_json()
 
-        test_wallet = wallet.Wallet.from_json(json_wallet, password="123")
+        test_wallet = wallet.Wallet.from_json(json_wallet, passwords=["123"])
         self.assertEqual(new_wallet.name, test_wallet.name)
         self.assertEqual("1.0", test_wallet.version)
         self.assertEqual(1, len(test_wallet.accounts))
@@ -248,7 +248,48 @@ class WalletCreationTestCase(unittest.TestCase):
         with open(p) as f:
             data = json.load(f)
 
-        w = wallet.Wallet.from_json(data, "123")
+        w = wallet.Wallet.from_json(data, ["123", "123"])
         self.assertEqual(2, len(w.accounts))
         self.assertEqual("NY9qiu8YScTM9oAc3nnaeNjaX5fnraaRTA", w.accounts[0].address)
         self.assertEqual("NcmoFiYqThZJFiEYVF1BjYEk6YwF5vtkFA", w.accounts[1].address)
+
+    def test_from_json_with_multiple_accounts(self):
+        label_1 = "Account 1"
+        label_2 = "Account 2"
+
+        password1 = "123123"
+        password2 = "456456"
+        scryptp = scrypt.ScryptParameters(2, 8, 8)
+        account_1 = account.Account(
+            password=password1, label=label_1, scrypt_parameters=scryptp
+        )
+        account_2 = account.Account(
+            password=password2, label=label_2, scrypt_parameters=scryptp
+        )
+        w = wallet.Wallet(name="test wallet", scrypt_params=scryptp)
+        w.account_add(account_1)
+        w.account_add(account_2)
+        w_json = w.to_json()
+
+        # now test we can load it from_json
+        w2_with_passwords = wallet.Wallet.from_json(w_json, [password1, password2])
+        self.assertEqual(2, len(w2_with_passwords.accounts))
+        self.assertFalse(w2_with_passwords.accounts[0].is_watchonly)
+        self.assertFalse(w2_with_passwords.accounts[0].is_watchonly)
+
+        w2_as_watchonly = wallet.Wallet.from_json(w_json)
+        self.assertEqual(2, len(w2_with_passwords.accounts))
+        self.assertTrue(w2_as_watchonly.accounts[0].is_watchonly)
+        self.assertTrue(w2_as_watchonly.accounts[0].is_watchonly)
+
+    def test_insufficient_passwords_provided_from_json(self):
+        p = os.path.join(os.path.dirname(__file__), "rc2-wallet.json")
+        with open(p) as f:
+            data = json.load(f)
+
+        with self.assertRaises(ValueError) as context:
+            wallet.Wallet.from_json(data, ["123"])
+        self.assertIn(
+            "Incorrect number of passwords provided (1) for number of accounts in wallet (2)",
+            str(context.exception),
+        )
