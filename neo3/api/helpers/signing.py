@@ -64,17 +64,23 @@ def sign_on_remote_server() -> SigningFunction:
 
     return remote_server_signer
 
-# TODO: should probably take a list of accounts and a list of passwords
-# create a test scenario with a 2 out of 3 account
-def sign_insecure_with_multisig_account(acc: account.Account, password: str) -> SigningFunction:
+
+def sign_insecure_with_multisig_account(
+    acc: account.Account, password: str
+) -> SigningFunction:
     """
-    Sign and add a witness using the account and the provided account password.
+    Sign and add a multi-signature witness.
+
+    This only works for a 1 out of n multi-signature account.
+
+    Args:
+        acc: a multi-signature account
+        password: the password of the account to sign with
     """
 
     async def insecure_account_signer(
         tx: transaction.Transaction, details: SigningDetails
     ):
-        # TODO: set the expected public keys
         ctx = account.MultiSigContext()
         # this will automatically add a witness
         acc.sign_multisig_tx(tx, password, ctx, details.network)
