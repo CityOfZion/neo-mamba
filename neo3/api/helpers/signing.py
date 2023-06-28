@@ -63,3 +63,26 @@ def sign_on_remote_server() -> SigningFunction:
         raise NotImplementedError
 
     return remote_server_signer
+
+
+def sign_insecure_with_multisig_account(
+    acc: account.Account, password: str
+) -> SigningFunction:
+    """
+    Sign and add a multi-signature witness.
+
+    This only works for a 1 out of n multi-signature account.
+
+    Args:
+        acc: a multi-signature account
+        password: the password of the account to sign with
+    """
+
+    async def insecure_account_signer(
+        tx: transaction.Transaction, details: SigningDetails
+    ):
+        ctx = account.MultiSigContext()
+        # this will automatically add a witness
+        acc.sign_multisig_tx(tx, password, ctx, details.network)
+
+    return insecure_account_signer

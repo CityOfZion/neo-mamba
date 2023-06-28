@@ -360,7 +360,23 @@ class ChainFacade:
             if network_fee > 0:
                 builder.tx.network_fee = network_fee
             else:
+                # calculate network fee has a chicken/egg problem for light wallet sdk's.
+                # in order to calculate the right network fees (especially multisig) the witnesses have to be constructed
+                # which is done in `build_and_sign()`.
+                # at the same time `network_fee` is part of the signed data.
+                # So here we call build_and_sign() just for creating the witnesses, then calculate the real fee (which will
+                # reset the witnesses) and then at the end of the function we build_and_sign() again to have a valid
+                # signature over the right network_fee
+
+                # if there were no witnesses prior to signging, then we should restore that after the tmp signing
+                reset_witnesses = len(builder.tx.witnesses) == 0
+                builder.tx.network_fee = 999
+                await builder.build_and_sign()
                 await builder.calculate_network_fee()
+
+                if reset_witnesses:
+                    builder.tx.witnesses = []
+
                 builder.tx.network_fee += append_network_fee
 
             tx = await builder.build_and_sign()
@@ -632,7 +648,7 @@ class GenericContract:
     Generic class to call arbitrary methods on a smart contract.
     """
 
-    def __init__(self, contract_hash):
+    def __init__(self, contract_hash: types.UInt160):
         self.hash = contract_hash
 
     def call_function(

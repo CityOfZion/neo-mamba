@@ -69,6 +69,8 @@ class TxBuilder:
             # removing it here as it will be replaced by a proper one once we're signing
             self.tx.witnesses = []
         else:
+            if len(self.tx.signers) == 0:
+                raise ValueError("Cannot calculate network fee without signers")
             self.tx.network_fee = await self.client.calculate_network_fee(self.tx)
 
     @staticmethod
