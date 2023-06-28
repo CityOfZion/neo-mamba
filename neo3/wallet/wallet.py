@@ -287,13 +287,13 @@ class Wallet(interfaces.IJson):
         return json_account
 
     @classmethod
-    def from_json(cls, json: dict, password: Optional[str] = None):
+    def from_json(cls, json: dict, passwords: Optional[list[str]] = None):
         """
         Parse object out of JSON data.
 
         Args:
             json: a dictionary.
-            password: the password to decrypt the account data.
+            passwords: the password to decrypt the account data.
 
         Raises:
             KeyError: if the data supplied does not contain the necessary keys.
@@ -309,21 +309,28 @@ class Wallet(interfaces.IJson):
         accounts = []
         default_account = None
         scryptp = scrypt.ScryptParameters.from_json(json["scrypt"])
-        if len(json["accounts"]) > 0:
-            if password is None:
-                raise ValueError("Missing wallet password to decrypt account data")
+        if (len_accounts := len(json["accounts"])) > 0:
+            if passwords is None:
+                # mypy is being annoying about re-assigning to the same variable with a different type
+                # we just need a list with None's for zip() to work and to create a watch only account.
+                passwords = [None] * len(json["accounts"])  # type: ignore
             else:
-                for json_account in json["accounts"]:
-                    account_from_json = account.Account.from_json(
-                        json_account, password, scrypt_parameters=scryptp
+                len_pws = len(passwords)
+                if len_accounts != len_pws:
+                    raise ValueError(
+                        f"Incorrect number of passwords provided ({len_pws}) for number of accounts in wallet ({len_accounts})"
                     )
-                    accounts.append(account_from_json)
-                    if (
-                        default_account is None
-                        and hasattr(json, "isDefault")
-                        and json["isDefault"]
-                    ):
-                        default_account = account_from_json
+            for json_account, pw in zip(json["accounts"], passwords):
+                account_from_json = account.Account.from_json(
+                    json_account, pw, scrypt_parameters=scryptp
+                )
+                accounts.append(account_from_json)
+                if (
+                    default_account is None
+                    and hasattr(json, "isDefault")
+                    and json["isDefault"]
+                ):
+                    default_account = account_from_json
 
         return cls(
             name=json["name"],
@@ -335,16 +342,16 @@ class Wallet(interfaces.IJson):
         )
 
     @classmethod
-    def from_file(cls, path: str, password: Optional[str] = None):
+    def from_file(cls, path: str, passwords: Optional[list[str]] = None):
         """
         Load wallet from file.
 
         Args:
             path: path as passed to `open()`.
-            password: the password to decrypt the account data.
+            passwords: the password to decrypt the account data.
         """
         with open(path, "r") as f:
-            return cls.from_json(json.load(f), password)
+            return cls.from_json(json.load(f), passwords)
 
     def __enter__(self) -> Wallet:
         return self
@@ -429,16 +436,16 @@ class DiskWallet(Wallet):
         )
 
     @classmethod
-    def from_json(cls, json: dict, password: Optional[str] = None):
-        w = Wallet.from_json(json, password)
+    def from_json(cls, json: dict, passwords: Optional[list[str]] = None):
+        w = Wallet.from_json(json, passwords)
         path = ""
         return cls(
             path, w.name, w.version, w.scrypt, w.accounts, w.account_default, w.extra
         )
 
     @classmethod
-    def from_file(cls, path: str, password: Optional[str] = None):
+    def from_file(cls, path: str, passwords: Optional[list[str]] = None):
         with open(path, "r") as f:
-            w = cls.from_json(json.load(f), password)
+            w = cls.from_json(json.load(f), passwords)
             w.path = path
             return w

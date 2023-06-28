@@ -121,3 +121,11 @@ class AccountCreationTestCase(unittest.TestCase):
                     testcase["encrypted_key"], "wrong password"
                 )
             self.assertIn("Wrong passphrase", str(context.exception))
+
+    def test_new_account_no_password(self):
+        with self.assertRaises(ValueError) as context:
+            account.Account()
+        self.assertIn(
+            "Can't create an account without a password unless it is a watch only account",
+            str(context.exception),
+        )

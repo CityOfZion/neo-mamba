@@ -161,7 +161,7 @@ class Account:
 
     def __init__(
         self,
-        password: str,
+        password: Optional[str] = None,
         private_key: Optional[bytes] = None,
         watch_only: bool = False,
         address: Optional[NeoAddress] = None,
@@ -186,6 +186,11 @@ class Account:
                 utils.validate_address(address)
 
         else:
+            if not watch_only and password is None:
+                raise ValueError(
+                    "Can't create an account without a password unless it is a watch only account. "
+                    "To create a watch only accont set `watch_only` to `True` and provide an address"
+                )
             key_pair: cryptography.KeyPair
 
             if private_key is None:
@@ -542,7 +547,7 @@ class Account:
     def from_json(
         cls,
         json: dict,
-        password: str,
+        password: Optional[str],
         scrypt_parameters: Optional[scrypt.ScryptParameters] = None,
     ) -> Account:
         """
@@ -558,19 +563,22 @@ class Account:
         """
         validate(json, schema=cls._json_schema)
 
+        private_key = None
+        if json["key"] is not None and password is not None:
+            private_key = cls.private_key_from_nep2(
+                json["key"], password, scrypt_parameters
+            )
+
         return cls(
             password=password,
-            private_key=(
-                cls.private_key_from_nep2(json["key"], password, scrypt_parameters)
-                if json["key"] is not None
-                else json["key"]
-            ),
+            private_key=private_key,
             address=json["address"],
             label=json["label"],
             lock=json["lock"],
             contract_=AccountContract.from_json(json["contract"]),
             extra=json["extra"],
             scrypt_parameters=scrypt_parameters,
+            watch_only=True if private_key is None else False,
         )
 
     @staticmethod
