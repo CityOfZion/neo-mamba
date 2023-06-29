@@ -2,8 +2,9 @@
 NEO address utilities.
 """
 import base58
-from neo3.core import types
+from neo3.core import types, cryptography, utils as coreutils
 from neo3.wallet.types import NeoAddress
+from neo3.contracts import utils as contractutils
 
 
 def script_hash_to_address(
@@ -35,6 +36,14 @@ def address_to_script_hash(address: NeoAddress) -> types.UInt160:
     validate_address(address)
     data = base58.b58decode_check(address)
     return types.UInt160(data[1:])
+
+
+def public_key_to_script_hash(public_key: cryptography.ECPoint) -> types.UInt160:
+    """
+    Convert the specified public key to a script hash.
+    """
+    contract_script = contractutils.create_signature_redeemscript(public_key)
+    return coreutils.to_script_hash(contract_script)
 
 
 def is_valid_address(address: NeoAddress) -> bool:
