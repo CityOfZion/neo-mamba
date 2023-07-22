@@ -90,7 +90,7 @@ class ContractMethodResult(Generic[ReturnType]):
 
 
 _DEFAULT_MAINNET_RPC = "http://seed1.neo.org:10332"
-_DEFAULT_TESTNET_RPC = "http://seed1t5.neo.org:10332"
+_DEFAULT_TESTNET_RPC = "http://seed1t5.neo.org:20332"
 
 SigningPair: TypeAlias = tuple[signing.SigningFunction, verification.Signer]
 
