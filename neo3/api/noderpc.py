@@ -802,7 +802,7 @@ class RPCClient:
             asyncio.exceptions.TimeoutError
         """
         async with self.session.post(self.url, json=json) as request:
-            return await request.json()
+            return await request.json(content_type=None)
 
     async def close(self):
         """
@@ -1374,7 +1374,7 @@ class NeoRpcClient(RPCClient):
             try:
                 return await self.get_transaction_receipt(tx_hash)
             except JsonRpcError as e:
-                if "Unknown transaction" in e.message:
+                if "Unknown transaction" in e.message or "Unknown script container" in e.message:
                     await asyncio.sleep(retry_delay)
                 else:
                     raise e
