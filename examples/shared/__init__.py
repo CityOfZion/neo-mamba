@@ -12,8 +12,8 @@ from neo3.core import types
 
 shared_dir = pathlib.Path("shared").resolve(strict=True)
 
-user_wallet = Wallet.from_file(f"{shared_dir}/user-wallet.json", password="123")
-coz_wallet = Wallet.from_file(f"{shared_dir}/coz-wallet.json", password="123")
+user_wallet = Wallet.from_file(f"{shared_dir}/user-wallet.json", passwords=["123"])
+coz_wallet = Wallet.from_file(f"{shared_dir}/coz-wallet.json", passwords=["123"])
 neoxpress_config_path = f"{shared_dir}/default.neo-express"
 neoxpress_batch_path = f"{shared_dir}/setup-neoxp-for-tests.batch"
 coz_token_hash = types.UInt160.from_string("0x41ee5befd936c90f15893261abbd681f20ed0429")
