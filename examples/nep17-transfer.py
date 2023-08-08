@@ -51,7 +51,7 @@ async def example_transfer_other(neoxp: shared.NeoExpress):
     # Use the generic NEP17 class to wrap the token and create a similar interface as before
     # The contract hash is that of our sample Nep17 token which is deployed in our neoxpress setup
     contract_hash = types.UInt160.from_string(
-        "0xb31569ff17cde6a3935592608b606ac3cdd591df"
+        "0x41ee5befd936c90f15893261abbd681f20ed0429"
     )
     token = NEP17Contract(contract_hash)
     # Now call it in the same fashion as before with the NEoToken

@@ -56,7 +56,7 @@ async def main(neoxp: shared.NeoExpress):
     print(unwrap.as_int(result))
 
     print("Destroying contract...", end="")
-    # destroy also doesn't give any return value. So if it doens't fail then it means success
+    # destroy also doesn't give any return value. So if it doesn't fail then it means success
     await facade.invoke(contract.destroy())
     print("done")
 
