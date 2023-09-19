@@ -563,6 +563,7 @@ class ExecutionResultResponse(ExecutionResult):
     """
 
     script: bytes
+    notifications: list[Notification]
 
     @classmethod
     def from_json(cls, json: dict):
@@ -571,7 +572,19 @@ class ExecutionResultResponse(ExecutionResult):
         stack = list(
             map(lambda item: ExecutionResult._parse_stack_item(item), json["stack"])
         )
-        return cls(json["state"], gc, json["exception"], stack, script)
+        notifications = []
+        notifs = json.get("notifications", [])
+        for n in notifs:
+            notifications.append(Notification.from_json(n))
+
+        return cls(
+            json["state"],
+            gc,
+            json["exception"],
+            stack,
+            script,
+            notifications=notifications,
+        )
 
 
 @dataclass

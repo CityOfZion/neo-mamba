@@ -549,6 +549,7 @@ class TestNeoRpcClient(unittest.IsolatedAsyncioTestCase):
             "state": "HALT",
             "gasconsumed": "1017810",
             "exception": None,
+            "notifications": [],
             "stack": [
                 {"type": "Boolean", "value": True},
                 {
@@ -604,6 +605,7 @@ class TestNeoRpcClient(unittest.IsolatedAsyncioTestCase):
             "gasconsumed": "1017810",
             "exception": None,
             "stack": [{"type": "Boolean", "value": True}],
+            "notifications": [],
         }
 
         self.mock_response(captured)
