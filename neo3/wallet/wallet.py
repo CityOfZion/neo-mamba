@@ -169,6 +169,7 @@ class Wallet(interfaces.IJson):
                     # copy key information of the first matching account
                     acc.encrypted_key = account_.encrypted_key
                     acc.public_key = account_.public_key
+                    acc.scrypt_parameters = account_.scrypt_parameters
                     break
         else:
             # scenario 2
@@ -181,6 +182,7 @@ class Wallet(interfaces.IJson):
                     if acc.public_key in public_keys:
                         account_.encrypted_key = acc.encrypted_key
                         account_.public_key = acc.public_key
+                        acc.scrypt_parameters = account_.scrypt_parameters
                         break
 
     def account_add(self, acc: account.Account, is_default=False) -> bool:
