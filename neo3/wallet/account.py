@@ -404,7 +404,7 @@ class Account:
         if self.is_watchonly:
             raise ValueError("Cannot sign transaction using a watch only account")
         # mypy can't infer that the is_watchonly check ensures encrypted_key has a value
-        private_key = self.private_key_from_nep2(self.encrypted_key.decode("utf-8"), password)  # type: ignore
+        private_key = self.private_key_from_nep2(self.encrypted_key.decode("utf-8"), password, _scrypt_parameters=self.scrypt_parameters)  # type: ignore
         return cryptography.sign(data, private_key)
 
     @classmethod
