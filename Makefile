@@ -76,10 +76,10 @@ build: ## create source distribution and wheel
 	python -m build
 
 version-major: ## bump the major version prior to release, auto commits and tag
-	bumpversion major
+	bumpversion bump major
 
 version-minor: ## bump the minor version prior to release, auto commits and tag
-	bumpversion minor
+	bumpversion bump minor
 
 version-patch: ## bump the patch version prior to release, auto commits and tag
-	bumpversion patch
+	bumpversion bump patch
