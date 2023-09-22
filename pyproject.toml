@@ -1,6 +1,81 @@
+[project]
+name = "neo-mamba"
+description = "Python SDK for the NEO 3 blockchain"
+readme = "README.rst"
+requires-python = ">= 3.10.0,<= 3.12"
+license = {file = "LICENSE.md"}
+keywords = ["NEO", "NEO3", "blockchain", "SDK"]
+authors = [
+	{name = "Erik van den Brink", email = "erik@coz.io"},
+]
+maintainers = [
+	{name = "Erik van den Brink", email = "erik@coz.io"},
+]
+dynamic = ["version"]
+dependencies = [
+    "aiodns==3.0.0",
+	"aiohttp==3.8.5",
+	"base58==2.1.1",
+	"bitarray==2.8.1",
+	"Events==0.5",
+	"jsonschema>=4.19.0",
+	"lz4==4.3.2",
+	"neo3crypto==0.4",
+	"netaddr>=0.8.0",
+	"orjson>=3.9.4",
+	"pycryptodome==3.18.0",
+	"pybiginteger==1.3.0",
+	"pybiginteger-stubs==1.3.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "aioresponses==0.7.4",
+	"black==22.8.0",
+	"build==0.10.0",
+	"bump-my-version==0.10.0",
+	"coverage>=7.3.1",
+	"docutils==0.17.1",
+	"mypy==1.4.1",
+	"mypy-extensions==1.0.0",
+]
+docs = [
+    "mkdocs==1.4.1",
+	"mkdocs-material==8.5.7",
+	"mkdocs-material-extensions==1.1",
+	"mkapi-fix-coz==0.1.0",
+]
+
+[project.urls]
+repository = "https://github.com/CityOfZion/neo-mamba"
+documentation = "https://mamba.coz.io/"
+
+
 [build-system]
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [tool.black]
 target-version = ['py310']
+
+[tool.setuptools.dynamic]
+version = {attr = "neo3.__version__"}
+
+[tool.bumpversion]
+current_version = "2.0.2"
+commit = true
+tag = true
+
+[[tool.bumpversion.files]]
+filename = "./neo3/__init__.py"
+search = "__version__ = \"{current_version}\""
+replace = "__version__ = \"{new_version}\""
+
+[tool.mypy]
+check_untyped_defs = true
+
+[tool.coverage.run]
+source = ["neo3"]
+
+[tool.coverage.report]
+omit = ["neo3/core/cryptography/ecc*"]
