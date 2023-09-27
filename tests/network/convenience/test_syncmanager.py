@@ -299,7 +299,6 @@ class SyncManagerVarious(IsolatedAsyncioTestCase):
         self.assertEqual(1, len(self.syncmgr.block_cache))
 
     async def test_persist_blocks(self):
-
         fake_block1 = mock.AsyncMock()
         fake_block1.index = 1
         fake_block2 = mock.AsyncMock()

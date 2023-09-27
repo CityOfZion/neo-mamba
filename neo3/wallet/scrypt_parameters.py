@@ -4,7 +4,6 @@ from neo3.core import interfaces
 
 
 class ScryptParameters(interfaces.IJson):
-
     json_schema = {
         "type": "object",
         "properties": {
