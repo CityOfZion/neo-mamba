@@ -455,7 +455,6 @@ class NeoNodeTestCase(IsolatedAsyncioTestCase):
         data = b"".join(list(_mock_data(self)))
         with self.assertLogs(network_logger, "DEBUG") as log_context:
             try:
-
                 loop.call_soon(w.send, data)
                 n, _ = await node.NeoNode.connect_to(
                     socket=r, _test_data=self.peername_data
