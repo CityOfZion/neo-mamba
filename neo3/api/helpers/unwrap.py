@@ -147,6 +147,13 @@ def as_dict(res: noderpc.ExecutionResult, idx: int = 0) -> dict:
     Raises:
         ValueError: if the index is out of range, or the value cannot be converted to a dict.
 
+
+    Warning:
+        Accepted key types on the Virtual Machine side are `int`, `str` and `bytes`.
+        However, when data is returned there is no way to differentiate between
+        the key being of type `str` or `bytes` as the RPC node will encode both as a `ByteString`.
+        The dictionary returned will return such types as `bytes` and it is the user responsibility to decode
+        them to a `str` if needed.
     """
     return item(res, idx).as_dict()
 

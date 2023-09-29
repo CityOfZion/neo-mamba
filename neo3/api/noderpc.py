@@ -522,11 +522,6 @@ class ExecutionResult:
             map_ = []
             for stack_item in item["value"]:
                 key = ExecutionResult._parse_stack_item(stack_item["key"])
-                key_type = StackItemType(stack_item["key"]["type"])
-                if key_type == StackItemType.BYTE_STRING:
-                    key.value = key.value.decode()
-                else:
-                    key.value = str(key.value)
                 value = ExecutionResult._parse_stack_item(stack_item["value"])
                 map_.append((key, value))
             return MapStackItem(type_, map_)
