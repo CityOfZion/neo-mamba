@@ -146,12 +146,18 @@ class ScriptBuilderTestCase(unittest.TestCase):
         expected = "007b0c016101c8010c016212be"
         self.assertEqual(expected, sb.to_array().hex())
 
+        data = {b"\x01": 1, b"\x02": 2}
+        sb = vm.ScriptBuilder()
+        sb.emit_push(data)
+        expected = "110c0101120c010212be"
+        self.assertEqual(expected, sb.to_array().hex())
+
         # test invalid key type
         sb = vm.ScriptBuilder()
         with self.assertRaises(ValueError) as context:
             sb.emit_push({1.0: "abc"})
         self.assertEqual(
-            "Unsupported key type <class 'float'>. Supported types by the VM are bool, int and str",
+            "Unsupported key type <class 'float'>. Supported types by the VM are bool, int, str, bytes or ISerializable",
             str(context.exception),
         )
 

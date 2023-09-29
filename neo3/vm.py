@@ -388,9 +388,12 @@ class ScriptBuilder:
         elif isinstance(value, dict):
             for k, v in value.items():
                 # This restriction exists on the VM side where keys to a 'Map' may only be of 'PrimitiveType'
-                if not isinstance(k, (int, str, bool)):
+                if not isinstance(
+                    k, (int, str, bool, bytes, serialization.ISerializable)
+                ):
                     raise ValueError(
-                        f"Unsupported key type {type(k)}. Supported types by the VM are bool, int and str"
+                        f"Unsupported key type {type(k)}. "
+                        f"Supported types by the VM are bool, int, str, bytes or ISerializable"
                     )
                 self.emit_push(v)
                 self.emit_push(k)
