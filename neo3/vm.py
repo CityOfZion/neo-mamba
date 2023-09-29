@@ -357,8 +357,6 @@ class ScriptBuilder:
                 raise ValueError("Input number exceeds maximum data size of 32 bytes")
         elif isinstance(value, (bytes, bytearray)):
             len_value = len(value)
-            if len_value == 0:
-                raise ValueError("Cannot push zero sized data")
             if len_value > 0xFFFFFFFF:
                 raise ValueError(
                     f"Value is too long {len_value}. Maximum allowed length is 0xFFFF_FFFF"

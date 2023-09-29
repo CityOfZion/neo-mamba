@@ -40,6 +40,11 @@ class ScriptBuilderTestCase(unittest.TestCase):
         expected = "0c0cd0bfd180d0b8d0b2d0b5d182"
         self.assertEqual(expected, sb.to_array().hex())
 
+        sb = vm.ScriptBuilder()
+        sb.emit_push("")
+        expected = "0c00"
+        self.assertEqual(expected, sb.to_array().hex())
+
     def test_emit_push_uint(self):
         sb = vm.ScriptBuilder()
         sb.emit_push(
@@ -125,11 +130,6 @@ class ScriptBuilderTestCase(unittest.TestCase):
         sb.emit_push(data)
         expected_header = bytes.fromhex("0e01000100")
         self.assertEqual(expected_header + data, sb.to_array())
-
-        sb = vm.ScriptBuilder()
-        with self.assertRaises(ValueError) as context:
-            sb.emit_push(b"")
-        self.assertEqual("Cannot push zero sized data", str(context.exception))
 
         # too slow
         # data = b'\x01' * (0xFFFFFFFF + 1)
