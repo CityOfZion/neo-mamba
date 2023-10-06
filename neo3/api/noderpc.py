@@ -2,6 +2,9 @@
 NEO RPC Node client and response classes.
 """
 from __future__ import annotations
+
+import socket
+
 import aiohttp
 import base64
 import asyncio
@@ -798,7 +801,8 @@ class RPCClient:
         self.url = url
         self.timeout = timeout
         self.session = aiohttp.ClientSession(
-            timeout=aiohttp.ClientTimeout(total=self.timeout)
+            timeout=aiohttp.ClientTimeout(total=self.timeout),
+            connector=aiohttp.TCPConnector(family=socket.AF_INET)
         )
 
     async def _post(self, json: dict):
