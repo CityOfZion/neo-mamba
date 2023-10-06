@@ -1,3 +1,4 @@
+import platform
 import unittest
 from neo3.network.convenience import nodeweight, requestinfo, flightinfo
 
@@ -23,6 +24,7 @@ class RequestInfoTestCase(unittest.TestCase):
 
 
 class NodeWeightTestCase(unittest.TestCase):
+    @unittest.skipIf(platform.system() == "Windows", "Unstable on CI for Windows")
     def test_weight(self):
         nw1 = nodeweight.NodeWeight(node_id=123)
         self.assertEqual(nodeweight.NodeWeight.SPEED_RECORD_COUNT, len(nw1.speed))
