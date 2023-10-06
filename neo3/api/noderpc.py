@@ -802,7 +802,7 @@ class RPCClient:
         self.timeout = timeout
         self.session = aiohttp.ClientSession(
             timeout=aiohttp.ClientTimeout(total=self.timeout),
-            connector=aiohttp.TCPConnector(family=socket.AF_INET)
+            connector=aiohttp.TCPConnector(family=socket.AF_INET),
         )
 
     async def _post(self, json: dict):
