@@ -81,11 +81,9 @@ class TestNeoRpcClient(unittest.IsolatedAsyncioTestCase):
         self.mock_response(captured2)
         from neo3.contracts.contract import CONTRACT_HASHES
 
-        count = 0
         results = []
         async for k, v in self.client.find_states(CONTRACT_HASHES.MANAGEMENT, b"\x0c"):
             results.append((k, v))
-            count += 1
         self.assertEqual(3, len(results))
         self.assertEqual(key1, results[0][0])
         self.assertEqual(value1, results[0][1])
