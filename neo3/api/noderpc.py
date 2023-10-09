@@ -13,7 +13,17 @@ import time
 from enum import Enum, IntEnum
 from contextlib import suppress
 from dataclasses import dataclass
-from typing import Optional, TypedDict, Any, Protocol, Iterator, Union, cast, Type
+from typing import (
+    Optional,
+    TypedDict,
+    Any,
+    Protocol,
+    Iterator,
+    Union,
+    cast,
+    Type,
+    AsyncGenerator,
+)
 from collections.abc import Sequence
 from neo3.core import types, cryptography, interfaces, serialization
 from neo3.contracts import manifest, nef, contract, abi
@@ -886,6 +896,47 @@ class NeoRpcClient(RPCClient):
         params = [base64.b64encode(tx).decode()]
         result = await self._do_post("calculatenetworkfee", params)
         return int(result["networkfee"])
+
+    async def find_states(
+        self, contract_hash: types.UInt160 | str, prefix: Optional[bytes] = None
+    ) -> AsyncGenerator[tuple[bytes, bytes], None]:
+        """
+        Fetch the smart contract storage state.
+
+        Args:
+            contract_hash: the hash of the smart contract to call.
+            prefix: storage prefix to search for. If omitted will return all storage
+
+        Returns:
+            a storage key/value pair
+
+        Examples:
+            # prints all deployed
+            prefix_contract_hash = b"\x0c"
+            async with api.NeoRpcClient("https://testnet1.neo.coz.io:443") as client:
+                async for k, v in client.find_states(CONTRACT_HASHES.MANAGEMENT, prefix_contract_hash):
+                    print(k, v)
+
+        """
+        if isinstance(contract_hash, str):
+            contract_hash = types.UInt160.from_string(contract_hash)
+        contract_hash = f"0x{contract_hash}"
+
+        if prefix is None:
+            prefix = b""
+        _prefix = base64.b64encode(prefix).decode()
+        start = 0
+        while True:
+            response = await self._do_post(
+                "findstorage", [contract_hash, _prefix, start]
+            )
+            for pair in response["results"]:
+                key = base64.b64decode(pair["key"])
+                value = base64.b64decode(pair["value"])
+                yield key, value
+            if not response["truncated"]:
+                break
+            start = response["next"]
 
     async def get_application_log_transaction(
         self, tx_hash: types.UInt256 | str
