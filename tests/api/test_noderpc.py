@@ -14,6 +14,7 @@ JSON = Any
 class TestNeoRpcClient(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
         self.client = api.NeoRpcClient("localhost")
+        # CAREFULL THIS PATCHES ALL aiohttp CALLS!
         self.helper = aioresponses()
         self.helper.start()
 
@@ -42,6 +43,56 @@ class TestNeoRpcClient(unittest.IsolatedAsyncioTestCase):
             transaction.Transaction._serializable_init()
         )
         self.assertEqual(123, response)
+
+    async def test_find_states(self):
+        key1 = b"\x0c\x00\x00\x00\x01"
+        key2 = b"\x0c\x00\x00\x00\x02"
+        key3 = b"\x0c\x00\x00\x00\x03"
+
+        value1 = b"\x97\"\x8dq\xd20\xaf\xde\\\xce\x8f\xf9'\x1f*\x9d(\x88u\xf0"
+        value2 = b"\x92,\x15\xa9\xa0\xe9\x00\x02\xed\xb4o\x1e>\xe4\xb7V\x8c\xb7%F"
+        value3 = b"\xe0\x98^\x9d\xf0w\xb0\x88v\x1eV\xb3m\x97\xef\x89\x08F\x12\x13"
+
+        captured1 = {
+            "truncated": True,
+            "next": 2,
+            "results": [
+                {
+                    "key": base64.b64encode(key1).decode(),
+                    "value": base64.b64encode(value1).decode(),
+                },
+                {
+                    "key": base64.b64encode(key2).decode(),
+                    "value": base64.b64encode(value2).decode(),
+                },
+            ],
+        }
+        captured2 = {
+            "truncated": False,
+            "next": 3,
+            "results": [
+                {
+                    "key": base64.b64encode(key3).decode(),
+                    "value": base64.b64encode(value3).decode(),
+                }
+            ],
+        }
+        self.mock_response(captured1)
+        self.mock_response(captured2)
+        from neo3.contracts.contract import CONTRACT_HASHES
+
+        count = 0
+        results = []
+        async for k, v in self.client.find_states(CONTRACT_HASHES.MANAGEMENT, b"\x0c"):
+            results.append((k, v))
+            count += 1
+        self.assertEqual(3, len(results))
+        self.assertEqual(key1, results[0][0])
+        self.assertEqual(value1, results[0][1])
+        self.assertEqual(key2, results[1][0])
+        self.assertEqual(value2, results[1][1])
+        self.assertEqual(key3, results[2][0])
+        self.assertEqual(value3, results[2][1])
 
     async def test_get_application_log_transaction(self):
         captured = {
