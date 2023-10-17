@@ -17,7 +17,7 @@ neo-mamba
 .. image:: https://img.shields.io/badge/code%20style-black-000000.svg
    :target: https://github.com/psf/black
 
-.. image:: https://img.shields.io/pypi/pyversions/neo-mamba
+.. image:: https://img.shields.io/python/required-version-toml?tomlFilePath=https://raw.githubusercontent.com/CityOfZion/neo-mamba/master/pyproject.toml
    :target: https://pypi.org/project/neo-mamba
 
 .. image:: .github/resources/images/platformbadge.svg
