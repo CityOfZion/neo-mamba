@@ -1,0 +1,5 @@
+# .git-blame-ignore-revs
+# apply black to code base
+008c07f606365e624e95ff25d66f72d36625e708
+# apply black to tests
+260f4731126a501283498b6868fea82448ebf4a7
