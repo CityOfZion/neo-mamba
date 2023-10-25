@@ -864,7 +864,11 @@ class NEP17Contract(_TokenContract):
         return ContractMethodResult(sb.to_array(), unwrap.as_bool)
 
     def transfer_friendly(
-        self, source, dest, amount, data: Optional[noderpc.ContractParameter] = None
+        self,
+        source: types.UInt160 | NeoAddress,
+        destination: types.UInt160 | NeoAddress,
+        amount,
+        data: Optional[noderpc.ContractParameter] = None,
     ):
         """
         Transfer `amount` of tokens from `source` account to `destination` account.
@@ -875,7 +879,12 @@ class NEP17Contract(_TokenContract):
             The return value after invoking with `invoke()` or `test_invoke()` is
                 `True` if the token transferred successful.
                 `False` otherwise.
+
+        Raises:
+            ValueError: if `source` or `destination` is an invalid NeoAddress format
         """
+        source = _check_address_and_convert(source)
+        destination = _check_address_and_convert(destination)
         sb = vm.ScriptBuilder()
         sb.emit_push(data)
         sb.emit_push(10)  # multiplier base
@@ -883,7 +892,7 @@ class NEP17Contract(_TokenContract):
         sb.emit(vm.OpCode.POW)
         sb.emit_push(amount)
         sb.emit(vm.OpCode.MUL)
-        sb.emit_push(dest)
+        sb.emit_push(destination)
         sb.emit_push(source)
         sb.emit_push(4)
         sb.emit(vm.OpCode.PACK)
