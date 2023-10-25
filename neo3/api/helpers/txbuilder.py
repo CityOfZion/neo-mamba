@@ -45,8 +45,6 @@ class TxBuilder:
                 "fee calculation will be incorrect"
             )
         res = await self.client.invoke_script(self.tx.script, self.tx.signers)
-        if res.state != "HALT":
-            raise ValueError(f"Failed to get system fee: {res.exception}")
         self.tx.system_fee = res.gas_consumed
 
     async def set_valid_until_block(self) -> None:
