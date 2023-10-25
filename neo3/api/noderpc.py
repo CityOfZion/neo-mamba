@@ -1417,15 +1417,15 @@ class NeoRpcClient(RPCClient):
         return Receipt(tx_hash, included_in, confirmations, log.execution)
 
     async def wait_for_transaction_receipt(
-        self, tx_hash: types.UInt256, timeout=20, retry_delay=5
+        self, tx_hash: types.UInt256, timeout: float = 20, retry_delay: float = 5
     ) -> Receipt:
         """
         Try to fetch a transaction.
 
         Args:
             tx_hash: unique identifier of the transaction to fetch the receipt for.
-            timeout: maximum time to wait to find the transaction on chain.
-            retry_delay: interval between querying the chain for the transaction.
+            timeout: maximum time to wait to find the transaction on chain in seconds.
+            retry_delay: interval between querying the chain for the transaction in seconds.
 
         Raises:
             JsonRpcTimeoutError: if timeout threshold is exceeded
