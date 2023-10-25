@@ -615,8 +615,8 @@ class ChainFacade:
                     result.protocol.ms_per_block / 1000
                 ) / 5
                 timeout = self._receipt_timeout = (
-                    result.protocol.ms_per_block + self._receipt_retry_delay
-                )
+                    result.protocol.ms_per_block / 1000
+                ) + self._receipt_retry_delay
                 return delay, timeout
         else:
             return self._receipt_retry_delay, self._receipt_timeout
