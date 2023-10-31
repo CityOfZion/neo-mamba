@@ -10,6 +10,22 @@ from typing import Optional, Iterator, Union, Type, Protocol
 from collections.abc import Sequence
 
 
+class StackItemType(IntEnum):
+    """
+    StackItemType as defined inside the virtual machine
+    """
+
+    ANY = 0x0
+    POINTER = 0x10
+    BOOLEAN = 0x20
+    INTEGER = 0x21
+    BYTESTRING = 0x28
+    BUFFER = 0x30
+    ARRAY = 0x40
+    STRUCT = 0x41
+    MAP = 0x48
+
+
 def _syscall_name_to_int(name: str) -> int:
     return int.from_bytes(
         hashlib.sha256(name.encode()).digest()[:4], "little", signed=False
