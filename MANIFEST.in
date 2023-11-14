@@ -8,6 +8,7 @@ graft docs/*
 include docs/make.bat
 include docs/Makefile
 recursive-exclude docs/build/*
+include neo3/py.typed
 graft neo3/*
 graft tests/*
 global-exclude *.py[cod]
