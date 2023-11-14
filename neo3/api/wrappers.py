@@ -655,7 +655,7 @@ class GenericContract:
         self,
         name,
         args: Optional[noderpc.ContractParameter] = None,
-    ) -> ContractMethodResult[noderpc.ExecutionResult]:
+    ) -> ContractMethodResult[noderpc.ExecutionResultResponse]:
         """
         Call a method on the contract.
 
