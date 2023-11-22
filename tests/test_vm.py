@@ -274,7 +274,7 @@ class SyscallsTestCase(unittest.TestCase):
         self.assertIsNone(vm.Syscalls.get_by_number(123))
 
     def test_all(self):
-        self.assertEqual(35, len(list(vm.Syscalls.all())))
+        self.assertEqual(36, len(list(vm.Syscalls.all())))
 
     def test_equality(self):
         # allow to compare against ints (should match the syscall number)

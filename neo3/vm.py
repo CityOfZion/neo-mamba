@@ -719,6 +719,10 @@ class Syscalls:
     SYSTEM_RUNTIME_PLATFORM = Syscall(
         "System.Runtime.Platform", callflags.CallFlags.NONE
     )
+    #: Get the Signers of the current transaction.
+    SYSTEM_RUNTIME_CURRENT_SIGNERS = Syscall(
+        "System.Runtime.CurrentSigners", callflags.CallFlags.NONE
+    )
     #: Get the network magic number.
     SYSTEM_RUNTIME_GET_NETWORK = Syscall(
         "System.Runtime.GetNetwork", callflags.CallFlags.NONE
