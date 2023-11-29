@@ -19,6 +19,16 @@ This was originally used in the full node version of Mamba. However, it seems li
  `Django` and `Flask` all have ways of consuming a `dict` when returning a json response. It seems like the best choice 
  for these reasons. 
 
+## How do I prevent 'error: "as_none" of "StackItem" does not return a value' when type checking with MyPy?
+The `mypy` team made an unfortunate choice to include a restriction on something that is actually a code style choice.
+They [refuse](https://github.com/python/mypy/issues/6549) to change the default behaviour despite the raised complaints 
+and other type checkers like pyright not falling over this. The error can be disabled with 
+`--disable-error-code func-returns-value` or by adding it to your configuration file i.e. for `pyproject.toml` use 
+```toml
+[tool.mypy]
+disable_error_code = "func-returns-value"
+```
+
 ## How do I &lt;insert topic&gt;?
 Have a look at the examples on GitHub if the documentation doesn't cover your question. If the examples also don't answer
 your question then feel free to ask on GitHub or ask in #python on the [NEO Discord server](https://discord.gg/rvZFQ5382k).
