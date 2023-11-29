@@ -73,6 +73,7 @@ replace = "__version__ = \"{new_version}\""
 
 [tool.mypy]
 check_untyped_defs = true
+disable_error_code = "func-returns-value"
 
 [tool.coverage.run]
 source = ["neo3"]
