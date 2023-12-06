@@ -497,6 +497,16 @@ class ScriptBuilder:
         self.emit_syscall(Syscalls.SYSTEM_CONTRACT_CALL)
         return self
 
+    def emit_contract_call_and_count_iterator(
+        self,
+        script_hash,
+        operation: str,
+        call_flags: Optional[callflags.CallFlags] = None,
+    ) -> ScriptBuilder:
+        return self._emit_contract_call_and_count_iterator(
+            script_hash, operation, None, call_flags
+        )
+
     def emit_contract_call_and_unwrap_iterator(
         self,
         script_hash,
@@ -506,6 +516,17 @@ class ScriptBuilder:
     ) -> ScriptBuilder:
         return self._emit_contract_call_and_unwrap_iterator(
             script_hash, operation, None, call_flags, unwrap_limit
+        )
+
+    def emit_contract_call_with_args_and_count_iterator(
+        self,
+        script_hash,
+        operation: str,
+        args: Optional[ContractParameter] = None,
+        call_flags: Optional[callflags.CallFlags] = None,
+    ) -> ScriptBuilder:
+        return self._emit_contract_call_and_count_iterator(
+            script_hash, operation, args, call_flags
         )
 
     def emit_contract_call_with_args_and_unwrap_iterator(
@@ -602,6 +623,68 @@ class ScriptBuilder:
         self.emit_push(unwrap_limit)
         self.emit(OpCode.NUMEQUAL)
         self.emit_jump(OpCode.JMPIF, self._offset_to(return_results))
+        # jump back to start of `while` loop
+        self.emit_jump(OpCode.JMP, self._offset_to(loop_start))
+        return self
+
+    def _emit_contract_call_and_count_iterator(
+        self,
+        script_hash,
+        operation: str,
+        args: Optional[ContractParameter] = None,
+        call_flags: Optional[callflags.CallFlags] = None,
+    ) -> ScriptBuilder:
+        """
+        Count the number of values returned by the iterator
+
+        Args:
+            script_hash: contract hash to call
+            operation: method name to call
+            args: arguments passed to the method called
+            call_flags: call flags of the method called
+        """
+        # jump to local variables initialization code
+        self.emit_jump(OpCode.JMP, 4)
+        # the following 2 instructions are for loading the counter and exiting the script
+        # it is at the beginning because it makes it easy to calculate the offset
+        return_results = len(self.data)
+        self.emit(OpCode.LDLOC1)
+        self.emit(OpCode.RET)
+        # reserve local variables for the `iterator` and a `counter`
+        self.emit(OpCode.INITSLOT)
+        self.emit_raw(b"\x02")
+        self.emit_raw(b"\x00")
+
+        if args is None or (isinstance(args, Sequence) and len(args) == 0):
+            self.emit_contract_call(script_hash, operation, call_flags)
+        else:
+            self.emit_contract_call_with_args(script_hash, operation, args, call_flags)
+        # store iterator in pos 0
+        self.emit(OpCode.STLOC0)
+
+        # store stack item counter in pos 1
+        self.emit_push(0)
+        self.emit(OpCode.STLOC1)
+        """
+        Next set of opcodes does the following
+
+        while iterator.next()
+          ctr += 1
+        return results
+        """
+        loop_start = len(self.data)
+        # load iterator as argument for iterator.next
+        self.emit(OpCode.LDLOC0)
+        # test if the iterator has a value
+        self.emit_syscall(Syscalls.SYSTEM_ITERATOR_NEXT)
+        # if not jump to exit routine
+        self.emit_jump(OpCode.JMPIFNOT, self._offset_to(return_results))
+        self.emit_push("it next")
+        self.emit_syscall(Syscalls.SYSTEM_RUNTIME_LOG)
+        # load stack item counter
+        self.emit(OpCode.LDLOC1)
+        self.emit(OpCode.INC)
+        self.emit(OpCode.STLOC1)
         # jump back to start of `while` loop
         self.emit_jump(OpCode.JMP, self._offset_to(loop_start))
         return self
