@@ -513,9 +513,10 @@ class ScriptBuilder:
         operation: str,
         call_flags: Optional[callflags.CallFlags] = None,
         unwrap_limit: int = 2000,
+        start_index: int = 0,
     ) -> ScriptBuilder:
         return self._emit_contract_call_and_unwrap_iterator(
-            script_hash, operation, None, call_flags, unwrap_limit
+            script_hash, operation, None, call_flags, unwrap_limit, start_index
         )
 
     def emit_contract_call_with_args_and_count_iterator(
@@ -550,6 +551,7 @@ class ScriptBuilder:
         args: Optional[ContractParameter] = None,
         call_flags: Optional[callflags.CallFlags] = None,
         unwrap_limit: int = 2000,
+        start_index: int = 0,
     ) -> ScriptBuilder:
         """
 
@@ -563,6 +565,7 @@ class ScriptBuilder:
             https://github.com/neo-project/neo-vm/blob/5b0a39811b34abacab1273f3ee5a9a9f7e52ac7b/src/Neo.VM/ExecutionEngineLimits.cs#L34C21-L34C33
             The current default is slightly lower than the max, because that allows for a few other items to be on the
             stack in other function frames.
+            start_index: index in the iterator to start capturing values from
         """
         # jump to local variables initialization code
         self.emit_jump(OpCode.JMP, 4)
@@ -571,9 +574,9 @@ class ScriptBuilder:
         return_results = len(self.data)
         self.emit(OpCode.LDLOC0)
         self.emit(OpCode.RET)
-        # reserve 2 local variables for the `iterator` and `results` list
+        # reserve local variables for the `iterator`, the `results` list, the `start_index` and a `counter`
         self.emit(OpCode.INITSLOT)
-        self.emit_raw(b"\x03")
+        self.emit_raw(b"\x04")
         self.emit_raw(b"\x00")
         # store results list in pos 0
         self.emit(OpCode.NEWARRAY0)
@@ -588,13 +591,17 @@ class ScriptBuilder:
         # store stack item counter in pos 2
         self.emit_push(0)
         self.emit(OpCode.STLOC2)
+        # store the start index in pos 3
+        self.emit_push(start_index)
+        self.emit(OpCode.STLOC3)
         """
         Next set of opcodes does the following
 
         while iterator.next()
-          results.append(iterator.value)
+          if ctr >= start_index:
+            results.append(iterator.value)
           ctr += 1
-          if ctr == stack_limit:
+          if ctr == end_index:
             break
         return results
         """
@@ -605,6 +612,14 @@ class ScriptBuilder:
         self.emit_syscall(Syscalls.SYSTEM_ITERATOR_NEXT)
         # if not jump to exit routine
         self.emit_jump(OpCode.JMPIFNOT, self._offset_to(return_results))
+        # load item counter + start_index
+        self.emit(OpCode.LDLOC2)
+        self.emit(OpCode.LDLOC3)
+        self.emit(OpCode.GE)
+        skip_append_value_to_array = (
+            len(self.data) + 11
+        )  # 11 is all the instructions + operands until the 'increase counter' label
+        self.emit_jump(OpCode.JMPIFNOT, self._offset_to(skip_append_value_to_array))
         # load iterator as argument for iterator.value
         self.emit(OpCode.LDLOC1)
         # get result
@@ -614,13 +629,14 @@ class ScriptBuilder:
         # fix argument order for APPEND
         self.emit(OpCode.SWAP)
         self.emit(OpCode.APPEND)
+        # increase counter
         # load stack item counter
         self.emit(OpCode.LDLOC2)
         self.emit(OpCode.INC)
         self.emit(OpCode.DUP)
         self.emit(OpCode.STLOC2)
-        # load stack item limit
-        self.emit_push(unwrap_limit)
+        # load end_index
+        self.emit_push(start_index + unwrap_limit)
         self.emit(OpCode.NUMEQUAL)
         self.emit_jump(OpCode.JMPIF, self._offset_to(return_results))
         # jump back to start of `while` loop
