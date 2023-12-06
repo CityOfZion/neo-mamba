@@ -1227,6 +1227,18 @@ class _NEP11Contract(_TokenContract):
         )
         return ContractMethodResult(sb.to_array(), process)
 
+    def tokens_count(self):
+        """
+        Count all tokens minted by the contract
+
+        Note:
+            This depends on the optional `tokens` method and can thus fail.
+        """
+        sb = vm.ScriptBuilder().emit_contract_call_and_count_iterator(
+            self.hash, "tokens"
+        )
+        return ContractMethodResult(sb.to_array(), unwrap.as_int)
+
     def properties(self, token_id: bytes) -> ContractMethodResult[dict]:
         """
         Get all properties for the given NFT.
