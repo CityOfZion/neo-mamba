@@ -13,17 +13,17 @@ maintainers = [
 ]
 dynamic = ["version"]
 dependencies = [
-    "aiodns==3.0.0",
+    "aiodns==3.1.1",
     "aiohttp==3.9.1",
     "base58==2.1.1",
-    "bitarray==2.8.1",
+    "bitarray==2.8.5",
     "Events==0.5",
     "jsonschema>=4.19.0",
     "lz4==4.3.2",
     "neo3crypto==0.4.1",
-    "netaddr>=0.8.0",
-    "orjson>=3.9.4",
-    "pycryptodome==3.18.0",
+    "netaddr>=0.9.0",
+    "orjson>=3.9.10",
+    "pycryptodome==3.19.0",
     "pybiginteger==1.3.1",
     "pybiginteger-stubs==1.3.1",
 ]
@@ -33,10 +33,10 @@ dev = [
     "aioresponses==0.7.6",
     "black==23.9.1",
     "build==0.10.0",
-    "bump-my-version==0.10.0",
-    "coverage>=7.3.1",
+    "bump-my-version==0.12.0",
+    "coverage>=7.3.2",
     "docutils==0.17.1",
-    "mypy==1.4.1",
+    "mypy==1.7.1",
     "mypy-extensions==1.0.0",
 ]
 docs = [

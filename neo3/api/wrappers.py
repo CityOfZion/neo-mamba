@@ -180,7 +180,7 @@ class ChainFacade:
         f: list[ContractMethodResult],
         *,
         signers: Optional[Sequence[verification.Signer]] = None,
-    ) -> tuple:
+    ) -> Sequence:
         """
         Call all contract methods in one go (concurrently) and return the list of results.
 
