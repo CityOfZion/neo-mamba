@@ -55,9 +55,9 @@ Install the requirements, modify the code and PR :-)
 For larger changes consider opening an issue first to discuss the change. Below are a few guidelines for contributing
 
 * The project uses `Black <https://github.com/psf/black>`_ for code formatting. PRs will fail if formatted incorrectly.
-  You might want to `integrate <https://black.readthedocs.io/en/stable/integrations/editors.html>`_ `black` into your
-  editor or run it manually with `make black`.
+  You might want to `integrate <https://black.readthedocs.io/en/stable/integrations/editors.html>`_ ``black`` into your
+  editor or run it manually with ``make black``.
 * All public functions/classes must have docstrings.
-* All your code must be typed. Test your typing with `make type`. In rare cases it might be hard/impractical to add typing.
+* All your code must be typed. Test your typing with ``make type``. In rare cases it might be hard/impractical to add typing.
   Point it out if that is the case and add a short description why we could do without.
-* Add tests that cover the newly added (or changed if applicable) code. Use `make test` and `make coverage`.
+* Add tests that cover the newly added (or changed if applicable) code. Use ``make test`` and ``make coverage``.
