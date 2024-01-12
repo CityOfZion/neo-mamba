@@ -402,7 +402,7 @@ class ScriptBuilder:
             self.emit(OpCode.PACK)
             return self
         elif isinstance(value, dict):
-            for k, v in value.items():
+            for k, v in reversed(value.items()):
                 # This restriction exists on the VM side where keys to a 'Map' may only be of 'PrimitiveType'
                 if not isinstance(
                     k, (int, str, bool, bytes, serialization.ISerializable)
