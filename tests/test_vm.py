@@ -143,13 +143,13 @@ class ScriptBuilderTestCase(unittest.TestCase):
 
         sb = vm.ScriptBuilder()
         sb.emit_push(data)
-        expected = "007b0c016101c8010c016212be"
+        expected = "01c8010c0162007b0c016112be"
         self.assertEqual(expected, sb.to_array().hex())
 
         data = {b"\x01": 1, b"\x02": 2}
         sb = vm.ScriptBuilder()
         sb.emit_push(data)
-        expected = "110c0101120c010212be"
+        expected = "120c0102110c010112be"
         self.assertEqual(expected, sb.to_array().hex())
 
         # test invalid key type
