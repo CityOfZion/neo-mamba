@@ -330,7 +330,7 @@ class StackItem:
 
     def as_bytes(self) -> bytes:
         """
-        Unwrap as `bool`.
+        Unwrap as `bytes`.
 
         Raises:
             ValueError: if internal item type does not match required.
