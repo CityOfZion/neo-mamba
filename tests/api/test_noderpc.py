@@ -751,7 +751,7 @@ class TestStackItem(unittest.TestCase):
         with self.assertRaises(ValueError) as context:
             self.si_int.as_str()
         self.assertEqual(
-            "item is not of type 'StackItemType.BYTE_STRING' but of type 'StackItemType.INTEGER'",
+            "item is not of type 'StackItemType.BYTE_STRING' or 'StackItemType.BUFFER' but of type 'StackItemType.INTEGER'",
             str(context.exception),
         )
 
