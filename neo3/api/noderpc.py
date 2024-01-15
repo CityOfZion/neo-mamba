@@ -335,9 +335,9 @@ class StackItem:
         Raises:
             ValueError: if internal item type does not match required.
         """
-        if self.type != StackItemType.BYTE_STRING:
+        if self.type not in (StackItemType.BYTE_STRING, StackItemType.BUFFER):
             raise ValueError(
-                f"item is not of type '{StackItemType.BYTE_STRING}' but of type '{self.type}'"
+                f"item is not of type '{StackItemType.BYTE_STRING}' or '{StackItemType.BUFFER} but of type '{self.type}'"
             )
         return self.value
 
@@ -348,9 +348,9 @@ class StackItem:
         Raises:
             ValueError: if internal item type does not match required.
         """
-        if self.type != StackItemType.BYTE_STRING:
+        if self.type not in (StackItemType.BYTE_STRING, StackItemType.BUFFER):
             raise ValueError(
-                f"item is not of type '{StackItemType.BYTE_STRING}' but of type '{self.type}'"
+                f"item is not of type '{StackItemType.BYTE_STRING}' or '{StackItemType.BUFFER}' but of type '{self.type}'"
             )
         v = cast(bytes, self.value)
         return v.decode()
