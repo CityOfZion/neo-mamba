@@ -21,15 +21,17 @@ from unittest import mock, IsolatedAsyncioTestCase
 from tests import helpers as test_helpers
 import platform
 
-if platform.system == "Windows" and platform.python_version_tuple()[1] == "12":
-    raise unittest.SkipTest(
-        "skipping these tests because something with socketpair is failing\ninvestigate later"
-    )
-
 
 class NeoNodeTestCase(IsolatedAsyncioTestCase):
     @classmethod
     def setUpClass(cls) -> None:
+        if (
+            platform.system() == "Windows"
+            and platform.python_version_tuple()[1] == "12"
+        ):
+            raise unittest.SkipTest(
+                "skipping these tests bcause something with socketpair is failing for 2.12\ninvestigate later"
+            )
         # network_logger = logging.getLogger("neo3.network")
         # network_logger.setLevel(logging.DEBUG)
         # stdio_handler = logging.StreamHandler()
