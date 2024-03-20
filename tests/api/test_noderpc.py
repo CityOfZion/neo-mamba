@@ -706,6 +706,14 @@ class TestNeoRpcClient(unittest.IsolatedAsyncioTestCase):
         self.assertIn("bogus_message", str(context.exception))
         self.assertIn("bogus_data", str(context.exception))
 
+    async def test_findstorage_issue_neogo(self):
+        # test workaround for https://github.com/nspcc-dev/neo-go/issues/3370
+        captured = {"results": None, "next": 0, "truncated": False}
+        self.mock_response(captured)
+
+        x = [(k, v) async for k, v in self.client.find_states(types.UInt160.zero())]
+        self.assertEqual(0, len(x))
+
 
 class TestStackItem(unittest.TestCase):
     @classmethod

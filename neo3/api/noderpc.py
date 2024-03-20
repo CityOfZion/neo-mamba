@@ -930,10 +930,11 @@ class NeoRpcClient(RPCClient):
             response = await self._do_post(
                 "findstorage", [contract_hash, _prefix, start]
             )
-            for pair in response["results"]:
-                key = base64.b64decode(pair["key"])
-                value = base64.b64decode(pair["value"])
-                yield key, value
+            if response["results"] is not None:
+                for pair in response["results"]:
+                    key = base64.b64decode(pair["key"])
+                    value = base64.b64decode(pair["value"])
+                    yield key, value
             if not response["truncated"]:
                 break
             start = response["next"]
