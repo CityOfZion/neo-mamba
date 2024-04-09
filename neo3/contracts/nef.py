@@ -109,7 +109,7 @@ class NEF(serialization.ISerializable, interfaces.IJson):
         if reader.read_uint16() != 0:
             raise ValueError("Reserved bytes must be 0")
 
-        self.script = reader.read_var_bytes(max=512 * 1024)
+        self.script = reader.read_var_bytes(max=0xFFFF * 2)
         if len(self.script) == 0:
             raise ValueError("Deserialization error - Script can't be empty")
 
