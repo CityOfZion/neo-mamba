@@ -1064,9 +1064,7 @@ class NeoToken(NEP17Contract):
             `True` if successful. `False` otherwise.
         """
         sb = vm.ScriptBuilder()
-        sb.emit_contract_call_with_args(
-            self.hash, "registerCandidate", [public_key]
-        ).to_array()
+        sb.emit_contract_call_with_args(self.hash, "registerCandidate", [public_key])
         return ContractMethodResult(sb.to_array(), unwrap.as_bool)
 
     def candidate_unregister(
@@ -1082,9 +1080,7 @@ class NeoToken(NEP17Contract):
             `True` if successful. `False` otherwise.
         """
         sb = vm.ScriptBuilder()
-        sb.emit_contract_call_with_args(
-            self.hash, "registerCandidate", [public_key]
-        ).to_array()
+        sb.emit_contract_call_with_args(self.hash, "unregisterCandidate", [public_key])
         return ContractMethodResult(sb.to_array(), unwrap.as_bool)
 
     def candidate_vote(
