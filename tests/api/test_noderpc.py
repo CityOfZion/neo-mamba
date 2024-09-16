@@ -794,10 +794,8 @@ class TestStackItem(unittest.TestCase):
         script_hash = utils.address_to_script_hash(addr)
 
         si = api.StackItem(api.StackItemType.BYTE_STRING, script_hash.to_array())
-        value = si.as_uint160()
-
-        self.assertIsInstance(value, types.UInt160)
-        self.assertEqual(script_hash, value)
+        value = si.as_address()
+        self.assertEqual(addr, value)
 
         with self.assertRaises(ValueError) as context:
             self.si_int.as_address()
