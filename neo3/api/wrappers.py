@@ -463,7 +463,7 @@ class ChainFacade:
             append_system_fee: increase the calculated system fee with this amount.
 
         Returns:
-            a list with the results of all exected functions.
+            a list with the results of all executed functions.
 
         See Also:
             `test_invoke_multi` - free equivalent for read only operations or testing.
@@ -525,7 +525,7 @@ class ChainFacade:
             append_system_fee: increase the calculated system fee with this amount.
 
         Returns:
-            a transaction ID if accepted by the network. Acceptance is does not guarantee successful execution.
+            a transaction ID if accepted by the network. Acceptance does not guarantee successful execution.
             Acceptance means there are no transaction format errors. Use `invoke()` to wait for a receipt. The `state`
             field of the receipt indicates if the transaction script executed successfully.
 
@@ -575,7 +575,7 @@ class ChainFacade:
             append_system_fee: increase the calculated system fee with this amount.
 
         Returns:
-            a list with the results of all exected functions.
+            a list with the results of all executed functions.
 
         See Also:
             `test_invoke_raw` - free equivalent for read only operations or testing.
@@ -623,7 +623,7 @@ class ChainFacade:
 
     def add_signer(self, func: signing.SigningFunction, signer: verification.Signer):
         """
-        Add a `Signer` which will automatically be included when the various invoke functions.
+        Add a `Signer` that will automatically be included when the various invoke* functions are called.
         """
         self._signing_funcs.append(func)
         self.signers.append(signer)

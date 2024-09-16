@@ -1,5 +1,5 @@
 """
-Contract utilities for determing the contract hash, contract types, extracting public keys and signing treshold and more.
+Contract utilities for determining the contract hash, contract types, extracting public keys and signing threshold and more.
 """
 from typing import Type
 from collections.abc import Sequence
