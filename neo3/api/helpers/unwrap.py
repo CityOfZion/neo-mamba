@@ -116,7 +116,7 @@ def as_public_key(res: noderpc.ExecutionResult, idx: int = 0) -> cryptography.EC
         idx: the index in the result stack to fetch the stack item from.
 
     Raises:
-        ValueError: if the index is out of range, or the value cannot be converted to a bool.
+        ValueError: if the index is out of range, or the value cannot be converted to an ECPoint.
         ECCException: if the resulting key is not valid on the SECP256R1 curve.
     """
     return item(res, idx).as_public_key()

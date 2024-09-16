@@ -55,7 +55,7 @@ class TxBuilder:
 
     async def calculate_network_fee(self) -> None:
         """
-        Calculates and set the system fee. Requires at least one signer.
+        Calculate and set the network fee. Requires at least one signer.
         """
         if len(self.tx.witnesses) == 0:
             if len(self.tx.signers) == 0:
