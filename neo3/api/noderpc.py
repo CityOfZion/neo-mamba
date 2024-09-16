@@ -114,7 +114,7 @@ class GetVersionResponse:
 
         hf = {}
         for pair in p["hardforks"]:
-            hf.update({pair["name"]:pair["blockheight"]})
+            hf.update({pair["name"]: pair["blockheight"]})
 
         vp = VersionProtocol(
             p["addressversion"],
@@ -126,7 +126,7 @@ class GetVersionResponse:
             p["maxvaliduntilblockincrement"],
             p["memorypoolmaxtransactions"],
             p["initialgasdistribution"],
-            hf
+            hf,
         )
         wsport = json.get("wsport", None)
         return cls(
@@ -136,7 +136,7 @@ class GetVersionResponse:
             json["useragent"],
             vp,
             json["rpc"]["sessionenabled"],
-            json["rpc"]["maxiteratorresultitems"]
+            json["rpc"]["maxiteratorresultitems"],
         )
 
 
