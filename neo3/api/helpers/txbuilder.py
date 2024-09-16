@@ -47,11 +47,14 @@ class TxBuilder:
         res = await self.client.invoke_script(self.tx.script, self.tx.signers)
         self.tx.system_fee = res.gas_consumed
 
-    async def set_valid_until_block(self) -> None:
+    async def set_valid_until_block(self, blocks: int = 1500) -> None:
         """
         Set maximum time the transaction is valid in the mempool. Defaults to about 24h for a network with 15s blocktime.
+
+        Args:
+            blocks: until how many blocks from the current chain height is the transaction valid. Defaults to ~24 hours.
         """
-        self.tx.valid_until_block = await self.client.get_block_count() + 1500
+        self.tx.valid_until_block = await self.client.get_block_count() + blocks
 
     async def calculate_network_fee(self) -> None:
         """
