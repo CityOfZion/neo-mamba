@@ -25,6 +25,7 @@ Example:
 
 from __future__ import annotations
 from typing import Callable, Any, TypeVar, Optional, cast, Generic, TypeAlias
+from typing_extensions import deprecated
 from collections.abc import Sequence
 import asyncio
 from enum import IntEnum
@@ -1164,23 +1165,6 @@ class _NEP11Contract(_TokenContract):
         """
         return super(_NEP11Contract, self).decimals()
 
-    def total_owned_by(
-        self, owner: types.UInt160 | NeoAddress
-    ) -> ContractMethodResult[int]:
-        """
-        Get the total amount of NFTs owned for the given account.
-
-        Raises:
-            ValueError: if `owner` is an invalid NeoAddress format.
-        """
-        owner = _check_address_and_convert(owner)
-        script = (
-            vm.ScriptBuilder()
-            .emit_contract_call_with_args(self.hash, "balanceOf", [owner])
-            .to_array()
-        )
-        return ContractMethodResult(script, unwrap.as_int)
-
     def token_ids_owned_by(
         self, owner: types.UInt160 | NeoAddress
     ) -> ContractMethodResult[list[bytes]]:
@@ -1309,7 +1293,13 @@ class NEP11DivisibleContract(_NEP11Contract):
 
         return ContractMethodResult(sb.to_array(), process)
 
+    @deprecated("use total_owned_by", category=DeprecationWarning, stacklevel=2)
     def balance_of(
+        self, owner: types.UInt160 | NeoAddress, token_id: bytes
+    ) -> ContractMethodResult[int]:
+        return self.total_owned_by(owner, token_id)
+
+    def total_owned_by(
         self, owner: types.UInt160 | NeoAddress, token_id: bytes
     ) -> ContractMethodResult[int]:
         """
@@ -1324,7 +1314,15 @@ class NEP11DivisibleContract(_NEP11Contract):
         )
         return ContractMethodResult(sb.to_array(), unwrap.as_int)
 
+    @deprecated(
+        "use total_owned_by_friendly", category=DeprecationWarning, stacklevel=2
+    )
     def balance_of_friendly(
+        self, owner: types.UInt160 | NeoAddress, token_id: bytes
+    ) -> ContractMethodResult[float]:
+        return self.total_owned_by_friendly(owner, token_id)
+
+    def total_owned_by_friendly(
         self, owner: types.UInt160 | NeoAddress, token_id: bytes
     ) -> ContractMethodResult[float]:
         """
@@ -1354,6 +1352,23 @@ class NEP11DivisibleContract(_NEP11Contract):
 
 class NEP11NonDivisibleContract(_NEP11Contract):
     """Base class for non-divisible NFTs."""
+
+    def total_owned_by(
+        self, owner: types.UInt160 | NeoAddress
+    ) -> ContractMethodResult[int]:
+        """
+        Get the total amount of NFTs owned for the given account.
+
+        Raises:
+            ValueError: if `owner` is an invalid NeoAddress format.
+        """
+        owner = _check_address_and_convert(owner)
+        script = (
+            vm.ScriptBuilder()
+            .emit_contract_call_with_args(self.hash, "balanceOf", [owner])
+            .to_array()
+        )
+        return ContractMethodResult(script, unwrap.as_int)
 
     def transfer(
         self,
