@@ -558,6 +558,7 @@ class TestNeoRpcClient(unittest.IsolatedAsyncioTestCase):
             "wsport": 10334,
             "nonce": 1930156121,
             "useragent": user_agent,
+            "rpc": {"maxiteratorresultitems": 100, "sessionenabled": True},
             "protocol": {
                 "addressversion": 53,
                 "network": 860833102,
@@ -568,6 +569,12 @@ class TestNeoRpcClient(unittest.IsolatedAsyncioTestCase):
                 "maxtransactionsperblock": 512,
                 "memorypoolmaxtransactions": 50000,
                 "initialgasdistribution": 5200000000000000,
+                "hardforks": [
+                    {"name": "Aspidochelone", "blockheight": 1730000},
+                    {"name": "Basilisk", "blockheight": 4120000},
+                    {"name": "Cockatrice", "blockheight": 5450000},
+                    {"name": "Domovoi", "blockheight": 5570000},
+                ],
             },
         }
         self.mock_response(captured)

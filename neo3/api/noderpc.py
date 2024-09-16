@@ -91,6 +91,7 @@ class VersionProtocol:
     max_valid_until_block_increment: int
     memorypool_max_transactions: int
     initial_gas_distribution: int
+    hardforks: dict[str, int]
 
 
 @dataclass
@@ -104,10 +105,17 @@ class GetVersionResponse:
     nonce: int
     user_agent: str
     protocol: VersionProtocol
+    rpc_session_enabled: bool
+    rpc_max_iterator_results: int
 
     @classmethod
     def from_json(cls, json: dict):
         p = json["protocol"]
+
+        hf = {}
+        for pair in p["hardforks"]:
+            hf.update({pair["name"]: pair["blockheight"]})
+
         vp = VersionProtocol(
             p["addressversion"],
             p["network"],
@@ -118,6 +126,7 @@ class GetVersionResponse:
             p["maxvaliduntilblockincrement"],
             p["memorypoolmaxtransactions"],
             p["initialgasdistribution"],
+            hf,
         )
         wsport = json.get("wsport", None)
         return cls(
@@ -126,6 +135,8 @@ class GetVersionResponse:
             json["nonce"],
             json["useragent"],
             vp,
+            json["rpc"]["sessionenabled"],
+            json["rpc"]["maxiteratorresultitems"],
         )
 
 
