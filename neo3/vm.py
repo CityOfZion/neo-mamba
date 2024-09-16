@@ -241,6 +241,8 @@ class OpCode(IntEnum):
     ISNULL = 0xD8
     ISTYPE = 0xD9
     CONVERT = 0xDB
+    ABORTMSG = 0xE0
+    ASSERTMSG = 0xE1
 
     def __eq__(self, other):
         if super(OpCode, self).__eq__(other) is True:
