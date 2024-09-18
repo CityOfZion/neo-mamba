@@ -1005,6 +1005,7 @@ class NeoToken(NEP17Contract):
         )
         return ContractMethodResult(script, unwrap.as_int)
 
+    @deprecated("end argument is deprecated", stacklevel=2)
     def get_unclaimed_gas(
         self, account: types.UInt160 | NeoAddress, end: Optional[int] = None
     ) -> ContractMethodResult[int]:
@@ -1023,23 +1024,19 @@ class NeoToken(NEP17Contract):
             account = walletutils.address_to_script_hash(account)
 
         sb = vm.ScriptBuilder()
-        if end is not None:
-            sb.emit_contract_call_with_args(
-                self.hash, "unclaimedGas", [account, end]
-            ).to_array()
-            return ContractMethodResult(sb.to_array(), unwrap.as_int)
-        else:
-            sb.emit_contract_call(contract.CONTRACT_HASHES.LEDGER, "currentIndex")
-            # first argument to "unclaimedGas" (second is already on the stack by the "currentIndex" call
-            sb.emit_push(account)
-            # length of arguments
-            sb.emit_push(2)
-            sb.emit(vm.OpCode.PACK)
-            sb.emit_push(callflags.CallFlags.ALL)
-            sb.emit_push("unclaimedGas")
-            sb.emit_push(self.hash)
-            sb.emit_syscall(vm.Syscalls.SYSTEM_CONTRACT_CALL)
-            return ContractMethodResult(sb.to_array(), unwrap.as_int)
+        sb.emit_contract_call(contract.CONTRACT_HASHES.LEDGER, "currentIndex")
+        sb.emit_push(1)
+        sb.emit(vm.OpCode.ADD)
+        # first argument to "unclaimedGas" (second is already on the stack by the "currentIndex" call and ADD)
+        sb.emit_push(account)
+        # length of arguments
+        sb.emit_push(2)
+        sb.emit(vm.OpCode.PACK)
+        sb.emit_push(callflags.CallFlags.ALL)
+        sb.emit_push("unclaimedGas")
+        sb.emit_push(self.hash)
+        sb.emit_syscall(vm.Syscalls.SYSTEM_CONTRACT_CALL)
+        return ContractMethodResult(sb.to_array(), unwrap.as_int)
 
     def candidate_registration_price(self) -> ContractMethodResult[int]:
         """
