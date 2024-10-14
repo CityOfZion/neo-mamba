@@ -159,7 +159,7 @@ class ChainFacade:
         f: ContractMethodResult[ReturnType],
         *,
         signers: Optional[Sequence[verification.Signer]] = None,
-    ) -> ReturnType:
+    ) -> InvokeReceipt[ReturnType]:
         """
         Call a contract method in read-only mode.
         This does not persist any state on the actual chain and therefore does not require signing or paying GAS.
@@ -180,9 +180,9 @@ class ChainFacade:
         f: list[ContractMethodResult],
         *,
         signers: Optional[Sequence[verification.Signer]] = None,
-    ) -> Sequence:
+    ) -> InvokeReceipt[Sequence]:
         """
-        Call all contract methods in one go (concurrently) and return the list of results.
+        Call all contract methods in one go (concatenated in 1 script) and return the list of results.
 
         Args:
             f: list of functions to call.
@@ -193,8 +193,35 @@ class ChainFacade:
         """
         if signers is None:
             signers = self.signers
-        return await asyncio.gather(
-            *map(lambda c: self.test_invoke(c, signers=signers), f)
+        script = bytearray()
+        for call in f:  # type: ContractMethodResult
+            script.extend(call.script)
+
+        wrapped: ContractMethodResult[None] = ContractMethodResult(script)
+        receipt = await self.test_invoke_raw(wrapped, signers=signers)
+
+        results = []
+        stack_offset = 0
+        for call in f:
+            res_cpy = deepcopy(receipt.result)
+            # adjust the stack so that it becomes transparent for the post-processing functions.
+            res_cpy.stack = res_cpy.stack[
+                stack_offset : stack_offset + call.return_count
+            ]
+            if call.execution_processor is None:
+                results.append(res_cpy)
+            else:
+                results.append(call.execution_processor(res_cpy, 0))
+            stack_offset += call.return_count
+        return InvokeReceipt[Sequence](
+            receipt.tx_hash,
+            receipt.included_in_block,
+            receipt.confirmations,
+            receipt.gas_consumed,
+            receipt.state,
+            receipt.exception,
+            receipt.notifications,
+            results,
         )
 
     async def test_invoke_raw(
@@ -202,7 +229,7 @@ class ChainFacade:
         f: ContractMethodResult[ReturnType],
         *,
         signers: Optional[Sequence[verification.Signer]] = None,
-    ) -> noderpc.ExecutionResult:
+    ) -> InvokeReceipt[noderpc.ExecutionResult]:
         """
         Call a contract method in read-only mode.
         This does not persist any state on the actual chain and therefore does not require signing or paying GAS.
@@ -217,7 +244,8 @@ class ChainFacade:
         """
         if signers is None:
             signers = self.signers
-        return await self._test_invoke(f, signers=signers, return_raw=True)
+        res = await self._test_invoke(f, signers=signers, return_raw=True)
+        return cast(InvokeReceipt[noderpc.ExecutionResult], res)
 
     async def _test_invoke(
         self,
@@ -225,7 +253,7 @@ class ChainFacade:
         *,
         signers: Optional[Sequence[verification.Signer]] = None,
         return_raw: Optional[bool] = False,
-    ):
+    ) -> InvokeReceipt[ReturnType]:
         """
         Args:
             f:
@@ -234,9 +262,21 @@ class ChainFacade:
         """
         async with noderpc.NeoRpcClient(self.rpc_host) as client:
             res = await client.invoke_script(f.script, signers)
+
             if f.execution_processor is None or return_raw or res.state != "HALT":
-                return res
-            return f.execution_processor(res, 0)
+                result = res
+            else:
+                result = f.execution_processor(res, 0)
+            return InvokeReceipt[ReturnType](
+                types.UInt256.zero(),
+                -1,
+                -1,
+                res.gas_consumed,
+                res.state,
+                res.exception,
+                res.notifications,
+                result,
+            )
 
     async def invoke(
         self,
@@ -448,7 +488,7 @@ class ChainFacade:
         append_network_fee: int = 0,
         append_system_fee: int = 0,
         _post_processing: bool = True,
-    ) -> Sequence:
+    ) -> InvokeReceipt[Sequence]:
         """
         Call all contract methods (concatenated) in one go and persist results on the chain. Costs GAS.
         Waits for tx to be included in a block. Automatically post processes the execution results according to the
@@ -499,7 +539,16 @@ class ChainFacade:
             else:
                 results.append(call.execution_processor(res_cpy, 0))
             stack_offset += call.return_count
-        return results
+        return InvokeReceipt[Sequence](
+            receipt.tx_hash,
+            receipt.included_in_block,
+            receipt.confirmations,
+            receipt.execution.gas_consumed,
+            receipt.execution.state,
+            receipt.execution.exception,
+            receipt.execution.notifications,
+            results,
+        )
 
     async def invoke_multi_fast(
         self,
@@ -560,7 +609,7 @@ class ChainFacade:
         system_fee: int = 0,
         append_network_fee: int = 0,
         append_system_fee: int = 0,
-    ) -> Sequence:
+    ) -> InvokeReceipt[Sequence]:
         """
         Call all contract methods (concatenated) in one go and persist results on the chain. Costs GAS.
         Do not wait for tx to be included in a block. Do not post process the execution results according to
@@ -1288,7 +1337,6 @@ class NEP11DivisibleContract(_NEP11Contract):
 
         return ContractMethodResult(sb.to_array(), process)
 
-
     def total_owned_by(
         self, owner: types.UInt160 | NeoAddress, token_id: bytes
     ) -> ContractMethodResult[int]:
@@ -1303,7 +1351,6 @@ class NEP11DivisibleContract(_NEP11Contract):
             self.hash, "balanceOf", [owner, token_id]
         )
         return ContractMethodResult(sb.to_array(), unwrap.as_int)
-
 
     def total_owned_by_friendly(
         self, owner: types.UInt160 | NeoAddress, token_id: bytes

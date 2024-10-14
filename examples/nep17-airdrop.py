@@ -23,8 +23,8 @@ async def example_airdrop(neoxp: shared.NeoExpress):
 
     # Use the generic NEP17 class to wrap the token
     token = NEP17Contract(shared.coz_token_hash)
-    balance = await facade.test_invoke(token.balance_of(account.address))
-    print(f"Current COZ token balance: {balance}")
+    receipt = await facade.test_invoke(token.balance_of(account.address))
+    print(f"Current COZ token balance: {receipt.result}")
 
     # First we have to mint the tokens to our own wallet
     # We do this by sending NEO to the contract
@@ -46,8 +46,8 @@ async def example_airdrop(neoxp: shared.NeoExpress):
 
     print(receipt.result)
 
-    balance = await facade.test_invoke(token.balance_of(account.address))
-    print(f"New COZ token balance: {balance}")
+    receipt = await facade.test_invoke(token.balance_of(account.address))
+    print(f"New COZ token balance: {receipt.result}")
 
     # Now let's airdrop the tokens
     destination_addresses = [

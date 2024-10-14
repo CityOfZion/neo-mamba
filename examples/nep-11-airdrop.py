@@ -21,8 +21,8 @@ async def example_airdrop(neoxp: shared.NeoExpress):
 
     # Wrap the NFT contract
     ntf = NEP11NonDivisibleContract(shared.nep11_token_hash)
-    balance = len(await facade.test_invoke(ntf.token_ids_owned_by(account.address)))
-    print(f"Current NFT balance: {balance}")
+    receipt = await facade.test_invoke(ntf.token_ids_owned_by(account.address))
+    print(f"Current NFT balance: {len(receipt.result)}")
 
     # First we have to mint the NFTs to our own wallet
     # We do this by sending 10 GAS to the contract. We do this in 2 separate transactions because the NFT is
@@ -47,7 +47,8 @@ async def example_airdrop(neoxp: shared.NeoExpress):
         )
     )
     print(receipt.result)
-    token_ids = await facade.test_invoke(ntf.token_ids_owned_by(account.address))
+    receipt = await facade.test_invoke(ntf.token_ids_owned_by(account.address))
+    token_ids = receipt.result
     print(f"New NFT token balance: {len(token_ids)}, ids: {token_ids}")
 
     # Now let's airdrop the NFTs
