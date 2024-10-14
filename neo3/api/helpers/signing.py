@@ -86,3 +86,16 @@ def sign_insecure_with_multisig_account(
         acc.sign_multisig_tx(tx, password, ctx, details.network)
 
     return insecure_account_signer
+
+
+def no_signing() -> SigningFunction:
+    """
+    Dummy signing function to use with test invocations.
+    """
+
+    async def oh_noes(unused: transaction.Transaction, unused2: SigningDetails):
+        raise Exception(
+            "can't sign with dummy signing function. Did you add a test_signer to ChainFacade?"
+        )
+
+    return oh_noes
