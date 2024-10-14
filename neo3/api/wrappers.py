@@ -115,7 +115,7 @@ class InvokeReceipt(Generic[ReturnType]):
     exception: Optional[str]
     #: Smart contract notifications.
     notifications: list[noderpc.Notification]
-    #: Script excution result.
+    #: Script execution result.
     result: ReturnType
 
     def __repr__(self):
@@ -149,16 +149,15 @@ class ChainFacade:
         self._signing_func = None
         self.network = -1
         self.address_version = -1
-        self.signers: list[verification.Signer] = []
-        self._signing_funcs: list[signing.SigningFunction] = []
         self._receipt_retry_delay = receipt_retry_delay
         self._receipt_timeout = receipt_timeout
+        self._signing_pairs: list[SigningPair] = []
 
     async def test_invoke(
         self,
         f: ContractMethodResult[ReturnType],
         *,
-        signers: Optional[Sequence[verification.Signer]] = None,
+        signers: Optional[Sequence[SigningPair]] = None,
     ) -> InvokeReceipt[ReturnType]:
         """
         Call a contract method in read-only mode.
@@ -172,14 +171,14 @@ class ChainFacade:
             `invoke()` - persists state.
         """
         if signers is None:
-            signers = self.signers
+            signers = self._signing_pairs
         return await self._test_invoke(f, signers=signers)
 
     async def test_invoke_multi(
         self,
         f: list[ContractMethodResult],
         *,
-        signers: Optional[Sequence[verification.Signer]] = None,
+        signers: Optional[Sequence[SigningPair]] = None,
     ) -> InvokeReceipt[Sequence]:
         """
         Call all contract methods in one go (concatenated in 1 script) and return the list of results.
@@ -192,7 +191,7 @@ class ChainFacade:
             `invoke_multi()` - persists state.
         """
         if signers is None:
-            signers = self.signers
+            signers = self._signing_pairs
         script = bytearray()
         for call in f:  # type: ContractMethodResult
             script.extend(call.script)
@@ -228,7 +227,7 @@ class ChainFacade:
         self,
         f: ContractMethodResult[ReturnType],
         *,
-        signers: Optional[Sequence[verification.Signer]] = None,
+        signers: Optional[Sequence[SigningPair]] = None,
     ) -> InvokeReceipt[noderpc.ExecutionResult]:
         """
         Call a contract method in read-only mode.
@@ -243,7 +242,7 @@ class ChainFacade:
             `invoke_raw()` - persists state.
         """
         if signers is None:
-            signers = self.signers
+            signers = self._signing_pairs
         res = await self._test_invoke(f, signers=signers, return_raw=True)
         return cast(InvokeReceipt[noderpc.ExecutionResult], res)
 
@@ -251,7 +250,7 @@ class ChainFacade:
         self,
         f: ContractMethodResult[ReturnType],
         *,
-        signers: Optional[Sequence[verification.Signer]] = None,
+        signers: Optional[Sequence[SigningPair]] = None,
         return_raw: Optional[bool] = False,
     ) -> InvokeReceipt[ReturnType]:
         """
@@ -260,6 +259,10 @@ class ChainFacade:
             signers:
             return_raw: whether to post process the execution result or not.
         """
+        _signers = []
+        if signers is not None:
+            _signers = list(map(lambda p: p[1], signers))
+
         async with noderpc.NeoRpcClient(self.rpc_host) as client:
             res = await client.invoke_script(f.script, signers)
 
@@ -382,12 +385,10 @@ class ChainFacade:
             builder = txbuilder.TxBuilder(client, f.script)
             await builder.init()
 
-            if signers:
-                for func, signer in signers:
-                    builder.add_signer(func, signer)
-            else:
-                for func, signer in zip(self._signing_funcs, self.signers):
-                    builder.add_signer(func, signer)
+            if signers is None:
+                signers = self._signing_pairs
+            for func, signer in signers:
+                builder.add_signer(func, signer)
 
             await builder.set_valid_until_block()
 
@@ -408,7 +409,7 @@ class ChainFacade:
                 # reset the witnesses) and then at the end of the function we build_and_sign() again to have a valid
                 # signature over the right network_fee
 
-                # if there were no witnesses prior to signging, then we should restore that after the tmp signing
+                # if there were no witnesses prior to signing, then we should restore that after the tmp signing
                 reset_witnesses = len(builder.tx.witnesses) == 0
                 builder.tx.network_fee = 999
                 await builder.build_and_sign()
@@ -674,8 +675,13 @@ class ChainFacade:
         """
         Add a `Signer` that will automatically be included when the various invoke* functions are called.
         """
-        self._signing_funcs.append(func)
-        self.signers.append(signer)
+        self._signing_pairs.append((func, signer))
+
+    def add_test_signer(self, signer: verification.Signer):
+        """
+        Add a `Signer` that will automatically be included when the various test_invoke* functions are called.
+        """
+        self._signing_pairs.append((signing.no_signing(), signer))
 
     @classmethod
     def node_provider_mainnet(cls):
