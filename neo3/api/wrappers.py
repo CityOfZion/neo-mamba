@@ -25,7 +25,6 @@ Example:
 
 from __future__ import annotations
 from typing import Callable, Any, TypeVar, Optional, cast, Generic, TypeAlias
-from typing_extensions import deprecated
 from collections.abc import Sequence
 import asyncio
 from enum import IntEnum
@@ -1005,9 +1004,8 @@ class NeoToken(NEP17Contract):
         )
         return ContractMethodResult(script, unwrap.as_int)
 
-    @deprecated("end argument is deprecated", stacklevel=2)
     def get_unclaimed_gas(
-        self, account: types.UInt160 | NeoAddress, end: Optional[int] = None
+        self, account: types.UInt160 | NeoAddress
     ) -> ContractMethodResult[int]:
         """
         Get the amount of unclaimed GAS.
@@ -1290,11 +1288,6 @@ class NEP11DivisibleContract(_NEP11Contract):
 
         return ContractMethodResult(sb.to_array(), process)
 
-    @deprecated("use total_owned_by", category=DeprecationWarning, stacklevel=2)
-    def balance_of(
-        self, owner: types.UInt160 | NeoAddress, token_id: bytes
-    ) -> ContractMethodResult[int]:
-        return self.total_owned_by(owner, token_id)
 
     def total_owned_by(
         self, owner: types.UInt160 | NeoAddress, token_id: bytes
@@ -1311,13 +1304,6 @@ class NEP11DivisibleContract(_NEP11Contract):
         )
         return ContractMethodResult(sb.to_array(), unwrap.as_int)
 
-    @deprecated(
-        "use total_owned_by_friendly", category=DeprecationWarning, stacklevel=2
-    )
-    def balance_of_friendly(
-        self, owner: types.UInt160 | NeoAddress, token_id: bytes
-    ) -> ContractMethodResult[float]:
-        return self.total_owned_by_friendly(owner, token_id)
 
     def total_owned_by_friendly(
         self, owner: types.UInt160 | NeoAddress, token_id: bytes
