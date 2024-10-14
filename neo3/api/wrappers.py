@@ -146,13 +146,19 @@ class ChainFacade:
             receipt_timeout: maximum time to wait in seconds to find the transaction on the chain.
         """
         self.rpc_host = rpc_host
-        self.rpc_client = noderpc.NeoRpcClient(rpc_host)
+        self._rpc_client = None
         self._signing_func = None
         self.network = -1
         self.address_version = -1
         self._receipt_retry_delay = receipt_retry_delay
         self._receipt_timeout = receipt_timeout
         self._signing_pairs: list[SigningPair] = []
+
+    @property
+    def rpc_client(self) -> noderpc.NeoRpcClient:
+        if self._rpc_client is None:
+            self._rpc_client = noderpc.NeoRpcClient(self.rpc_host)
+        return self._rpc_client
 
     async def test_invoke(
         self,
