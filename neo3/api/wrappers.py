@@ -1065,11 +1065,11 @@ class NeoToken(NEP17Contract):
         sb.emit_contract_call_with_args(self.hash, "registerCandidate", [public_key])
         return ContractMethodResult(sb.to_array(), unwrap.as_bool)
 
-    def candidate_unregister(
+    def candidate_deregister(
         self, public_key: cryptography.ECPoint
     ) -> ContractMethodResult[bool]:
         """
-        Unregister as a consensus candidate.
+        Deregister as a consensus candidate.
 
         See Also:
             Account.public_key
