@@ -271,7 +271,7 @@ class ChainFacade:
             _signers = list(map(lambda p: p[1], signers))
 
         async with noderpc.NeoRpcClient(self.rpc_host) as client:
-            res = await client.invoke_script(f.script, signers)
+            res = await client.invoke_script(f.script, _signers)
 
             if f.execution_processor is None or return_raw or res.state != "HALT":
                 result = res
