@@ -42,7 +42,7 @@ async def example_transfer_other(neoxp: shared.NeoExpress):
     facade = ChainFacade(rpc_host=neoxp.rpc_host)
     facade.add_signer(
         sign_insecure_with_account(account, password="123"),
-        Signer(account.script_hash),  # default scope is CALLED_BY_ENTRY
+        Signer(account.script_hash),  # default scope is te/CALLED_BY_ENTRY
     )
 
     source = account.address

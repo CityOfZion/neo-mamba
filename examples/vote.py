@@ -22,7 +22,8 @@ async def example_vote(neoxp: shared.NeoExpress):
     # Dedicated Neo native contract wrapper
     neo = NeoToken()
     # get a list of candidates that can be voted on
-    candidates = await facade.test_invoke(neo.candidates_registered())
+    receipt = await facade.test_invoke(neo.candidates_registered())
+    candidates = receipt.result
     # the example chain only has 1 candidate, use that
     candidate_pk = candidates[0].public_key
 

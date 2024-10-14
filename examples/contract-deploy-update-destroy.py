@@ -38,8 +38,8 @@ async def main(neoxp: shared.NeoExpress):
     contract = GenericContract(contract_hash)
     print("Calling `add` with input 1, result is: ", end="")
     # using test_invoke here because we don't really care about the result being persisted to the chain
-    result = await facade.test_invoke(contract.call_function("add", [1]))
-    print(unwrap.as_int(result))
+    receipt = await facade.test_invoke(contract.call_function("add", [1]))
+    print(unwrap.as_int(receipt.result))
 
     print("Updating contract with version 2...", end="")
     nef_v2 = nef.NEF.from_file(files_path + "contract_v2.nef")
@@ -52,8 +52,8 @@ async def main(neoxp: shared.NeoExpress):
 
     print("Calling `add` with input 1, result is: ", end="")
     # Using test_invoke here because we don't really care about the result being persisted to the chain
-    result = await facade.test_invoke(contract.call_function("add", [1]))
-    print(unwrap.as_int(result))
+    receipt = await facade.test_invoke(contract.call_function("add", [1]))
+    print(unwrap.as_int(receipt.result))
 
     print("Destroying contract...", end="")
     # destroy also doesn't give any return value. So if it doesn't fail then it means success
