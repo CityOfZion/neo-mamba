@@ -867,7 +867,8 @@ class NEP17Contract(_TokenContract):
         self,
         source: types.UInt160 | NeoAddress,
         destination: types.UInt160 | NeoAddress,
-        amount,
+        amount: float,
+        decimals: int,
         data: Optional[noderpc.ContractParameter] = None,
     ):
         """
@@ -883,15 +884,12 @@ class NEP17Contract(_TokenContract):
         Raises:
             ValueError: if `source` or `destination` is an invalid NeoAddress format
         """
+        amount = int(amount * pow(10, decimals))
         source = _check_address_and_convert(source)
         destination = _check_address_and_convert(destination)
         sb = vm.ScriptBuilder()
         sb.emit_push(data)
-        sb.emit_push(10)  # multiplier base
-        sb.emit_contract_call(self.hash, "decimals")
-        sb.emit(vm.OpCode.POW)
         sb.emit_push(amount)
-        sb.emit(vm.OpCode.MUL)
         sb.emit_push(destination)
         sb.emit_push(source)
         sb.emit_push(4)
