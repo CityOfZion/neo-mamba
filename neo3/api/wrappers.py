@@ -146,7 +146,7 @@ class ChainFacade:
             receipt_timeout: maximum time to wait in seconds to find the transaction on the chain.
         """
         self.rpc_host = rpc_host
-        self._rpc_client = None
+        self._rpc_client: Optional[noderpc.NeoRpcClient] = None
         self._signing_func = None
         self.network = -1
         self.address_version = -1

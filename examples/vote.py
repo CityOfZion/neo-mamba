@@ -3,7 +3,7 @@ This example shows how to vote for your favourite consensus node
 """
 import asyncio
 from neo3.api.wrappers import ChainFacade, NeoToken
-from neo3.api.helpers.signing import sign_insecure_with_account
+from neo3.api.helpers.signing import sign_with_account
 from neo3.network.payloads.verification import Signer
 from examples import shared
 
@@ -15,7 +15,7 @@ async def example_vote(neoxp: shared.NeoExpress):
     # This is your interface for talking to the blockchain
     facade = ChainFacade(rpc_host=neoxp.rpc_host)
     facade.add_signer(
-        sign_insecure_with_account(account, password="123"),
+        sign_with_account(account),
         Signer(account.script_hash),
     )
 

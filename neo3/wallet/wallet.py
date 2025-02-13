@@ -13,7 +13,7 @@ from neo3.wallet import account
 from neo3.wallet import scrypt_parameters as scrypt
 
 
-class Wallet(interfaces.IJson):
+class Wallet:
     """
     Base container.
     """
@@ -84,18 +84,16 @@ class Wallet(interfaces.IJson):
         self.extra = extra if extra else {}
 
     def account_new(
-        self, password: str, label: Optional[str] = None, is_default=False
+        self, label: Optional[str] = None, is_default=False
     ) -> account.Account:
         """
         Create a new account and adds it in the wallet.
 
         Args:
-            password: the password to encrypt the account.
             label: optional label to identify the account.
             is_default: set the created account as the default.
         """
         account_ = account.Account(
-            password=password,
             watch_only=False,
             label=label,
             scrypt_parameters=self.scrypt,
@@ -167,7 +165,7 @@ class Wallet(interfaces.IJson):
             for account_ in self.accounts:
                 if not account_.is_watchonly and account_.public_key in public_keys:
                     # copy key information of the first matching account
-                    acc.encrypted_key = account_.encrypted_key
+                    acc.private_key = account_.private_key
                     acc.public_key = account_.public_key
                     acc.scrypt_parameters = account_.scrypt_parameters
                     break
@@ -180,7 +178,7 @@ class Wallet(interfaces.IJson):
                         account_.contract.script
                     )
                     if acc.public_key in public_keys:
-                        account_.encrypted_key = acc.encrypted_key
+                        account_.private_key = acc.private_key
                         account_.public_key = acc.public_key
                         acc.scrypt_parameters = account_.scrypt_parameters
                         break
@@ -256,35 +254,44 @@ class Wallet(interfaces.IJson):
         # returns the account with given label. None if the account is not found
         return next((acc for acc in self.accounts if acc.label == label), None)
 
-    def save(self):
+    def save(self, password: str) -> None:
         """
         Save the wallet.
-
-        This is called automatically when using the context manager.
 
         See Also:
             [DiskWallet](#neo3.wallet.wallet.DiskWallet)
         """
         pass
 
-    def to_json(self) -> dict:
+    def to_json(self, password: str) -> dict:
         """
         Convert object into JSON representation.
+
+        Args:
+            password: the passphrase to use to encrypt the private key of the accounts.
         """
         return {
             "name": self.name,
             "version": self.version,
             "scrypt": self.scrypt.to_json(),
-            "accounts": [self._account_to_json(acc) for acc in self.accounts],
+            "accounts": [
+                self._account_to_json(acc, password, self.scrypt)
+                for acc in self.accounts
+            ],
             "extra": self.extra if len(self.extra) > 0 else None,
         }
 
-    def _account_to_json(self, acc: account.Account) -> dict:
+    def _account_to_json(
+        self,
+        acc: account.Account,
+        password: str,
+        scrypt_params: Optional[scrypt.ScryptParameters] = None,
+    ) -> dict:
         is_default = (
             self._default_account is not None
             and self._default_account.address == acc.address
         )
-        json_account = acc.to_json()
+        json_account = acc.to_json(password, scrypt_params)
         json_account["isDefault"] = is_default
         return json_account
 
@@ -355,12 +362,6 @@ class Wallet(interfaces.IJson):
         with open(path, "r") as f:
             return cls.from_json(json.load(f), passwords)
 
-    def __enter__(self) -> Wallet:
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
-        self.save()
-
 
 class DiskWallet(Wallet):
     """
@@ -410,12 +411,12 @@ class DiskWallet(Wallet):
             extra=extra,
         )
 
-    def save(self) -> None:
+    def save(self, password: str) -> None:
         """
         Persist the wallet to disk.
         """
         with open(self.path, "w") as json_file:
-            json.dump(self.to_json(), json_file)
+            json.dump(self.to_json(password), json_file)
 
     @classmethod
     def default(
