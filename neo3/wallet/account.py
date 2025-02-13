@@ -187,10 +187,9 @@ class Account:
 
             if private_key is None:
                 key_pair = cryptography.KeyPair.generate()
-                self.private_key = key_pair.private_key
+                private_key = key_pair.private_key
             else:
                 key_pair = cryptography.KeyPair(private_key)
-                self.private_key = private_key
             contract_script = contractutils.create_signature_redeemscript(
                 key_pair.public_key
             )
@@ -203,6 +202,7 @@ class Account:
         self.public_key = public_key
         self.lock = lock
         self.scrypt_parameters = scrypt_parameters
+        self.private_key = private_key
 
         if isinstance(contract_, contract.Contract):
             contract_ = AccountContract.from_contract(contract_)
@@ -270,9 +270,7 @@ class Account:
         scope = scope if scope else verification.WitnessScope.CALLED_BY_ENTRY
         tx.signers.insert(0, verification.Signer(self.script_hash, scope))
 
-    def sign_tx(
-        self, tx: transaction.Transaction, magic: Optional[int] = None
-    ) -> None:
+    def sign_tx(self, tx: transaction.Transaction, magic: Optional[int] = None) -> None:
         """
         Helper function that signs the TX, adds the Witness and Sender.
 
@@ -388,14 +386,15 @@ class Account:
         """
         if self.is_watchonly:
             raise ValueError("Cannot sign transaction using a watch only account")
-        return cryptography.sign(data, self.private_key)
+        # mypy can't figure out that is_watchonly checks if private_key is None
+        return cryptography.sign(data, self.private_key) # type: ignore
 
     @classmethod
     def create_new(
         cls, scrypt_parameters: Optional[scrypt.ScryptParameters] = None
     ) -> Account:
         """
-        Instantiate and returns a new account encrypted using password.
+        Instantiate and returns a new account.
 
         Args:
             scrypt_parameters: supply custom Scrypt parameters.
@@ -503,7 +502,9 @@ class Account:
         """
         return cls(watch_only=True, address=address)
 
-    def to_json(self, password: str, scrypt_parameters: Optional[scrypt.ScryptParameters] = None) -> dict:
+    def to_json(
+        self, password: str, scrypt_parameters: Optional[scrypt.ScryptParameters] = None
+    ) -> dict:
         """
         Encode account into NEP-6 JSON format
 
@@ -515,7 +516,9 @@ class Account:
             "address": self.address,
             "label": self.label,
             "lock": self.lock,
-            "key": self.private_key_to_nep2(self.private_key, password, scrypt_parameters)
+            "key": self.private_key_to_nep2(
+                self.private_key, password, scrypt_parameters
+            ).decode("utf-8")
             if self.private_key is not None
             else None,
             "contract": self.contract.to_json() if self.contract is not None else None,
