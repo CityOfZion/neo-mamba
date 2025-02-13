@@ -268,7 +268,7 @@ class Wallet:
         Convert object into JSON representation.
 
         Args:
-            password: the passphrase to use to encrypt the private key.
+            password: the passphrase to use to encrypt the private key of the accounts.
         """
         return {
             "name": self.name,
