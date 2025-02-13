@@ -171,8 +171,7 @@ class Account:
         scrypt_parameters: Optional[scrypt.ScryptParameters] = None,
     ):
         """
-        Instantiate an account. This constructor should only be called directly when it's desired to create a new
-        account with a randomly generated private key, otherwise use the alternative constructors.
+        Do not call directly. Use the classmethods for creating an account.
         """
         public_key: Optional[cryptography.ECPoint] = None
         contract_script: Optional[bytes] = None
