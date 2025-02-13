@@ -386,7 +386,7 @@ class Account:
         if self.is_watchonly:
             raise ValueError("Cannot sign transaction using a watch only account")
         # mypy can't figure out that is_watchonly checks if private_key is None
-        return cryptography.sign(data, self.private_key) # type: ignore
+        return cryptography.sign(data, self.private_key)  # type: ignore
 
     @classmethod
     def create_new(
