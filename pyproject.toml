@@ -62,7 +62,7 @@ target-version = ['py311']
 version = { attr = "neo3.__version__" }
 
 [tool.bumpversion]
-current_version = "2.6.0"
+current_version = "2.7.0"
 commit = true
 tag = true
 
