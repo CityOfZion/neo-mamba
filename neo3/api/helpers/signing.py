@@ -20,7 +20,7 @@ class SigningDetails:
 SigningFunction = Callable[[transaction.Transaction, SigningDetails], Awaitable]
 
 
-def sign_insecure_with_account(acc: account.Account, password: str) -> SigningFunction:
+def sign_with_account(acc: account.Account) -> SigningFunction:
     """
     Sign and add a witness using the account and the provided account password.
     """
@@ -29,28 +29,12 @@ def sign_insecure_with_account(acc: account.Account, password: str) -> SigningFu
         tx: transaction.Transaction, details: SigningDetails
     ):
         # this will automatically add a witness
-        acc.sign_tx(tx, password, details.network)
+        acc.sign_tx(tx, details.network)
 
     return insecure_account_signer
 
 
-def sign_secure_with_account(
-    acc: account.Account, env_password_name: str
-) -> SigningFunction:
-    """
-    Sign and add a witness using the account. The account password is read from the environment variables.
-    """
-
-    async def insecure_account_signer(
-        tx: transaction.Transaction, details: SigningDetails
-    ):
-        # this will automatically add a witness
-        acc.sign_tx(tx, os.environ[env_password_name], details.network)
-
-    return insecure_account_signer
-
-
-def sign_secure_with_ledger() -> SigningFunction:
+def sign_with_ledger() -> SigningFunction:
     raise NotImplementedError
 
 
