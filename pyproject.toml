@@ -3,7 +3,8 @@ name = "neo-mamba"
 description = "Python SDK for the NEO 3 blockchain"
 readme = "README.rst"
 requires-python = ">= 3.11.0,<= 3.13"
-license = { file = "LICENSE.md" }
+license = 'MIT'
+license-files = ["LICENSE.md"]
 keywords = ["NEO", "NEO3", "blockchain", "SDK"]
 authors = [
     { name = "Erik van den Brink", email = "erik@coz.io" },
