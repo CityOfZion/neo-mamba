@@ -9,13 +9,13 @@ from neo3.network.payloads.verification import Signer
 from examples import shared
 
 
-async def example_airdrop(neoxp: shared.NeoExpress):
+async def example_airdrop(node: shared.ExampleNode):
     # This example shows how to airdrop NEP-17 tokens
     wallet = shared.user_wallet
     account = wallet.account_default
 
     # This is your interface for talking to the blockchain
-    facade = ChainFacade(rpc_host=neoxp.rpc_host)
+    facade = ChainFacade(rpc_host=node.rpc_host)
     facade.add_signer(
         sign_with_account(account),
         Signer(account.script_hash),  # default scope is CALLED_BY_ENTRY
@@ -66,5 +66,5 @@ async def example_airdrop(neoxp: shared.NeoExpress):
 
 
 if __name__ == "__main__":
-    with shared.NeoExpress() as neoxp:
-        asyncio.run(example_airdrop(neoxp))
+    with shared.ExampleNode() as local_node:
+        asyncio.run(example_airdrop(local_node))
