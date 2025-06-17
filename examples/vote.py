@@ -8,12 +8,12 @@ from neo3.network.payloads.verification import Signer
 from examples import shared
 
 
-async def example_vote(neoxp: shared.NeoExpress):
+async def example_vote(node: shared.ExampleNode):
     wallet = shared.user_wallet
     account = wallet.account_default
 
     # This is your interface for talking to the blockchain
-    facade = ChainFacade(rpc_host=neoxp.rpc_host)
+    facade = ChainFacade(rpc_host=node.rpc_host)
     facade.add_signer(
         sign_with_account(account),
         Signer(account.script_hash),
@@ -35,5 +35,5 @@ async def example_vote(neoxp: shared.NeoExpress):
 
 
 if __name__ == "__main__":
-    with shared.NeoExpress() as neoxp:
-        asyncio.run(example_vote(neoxp))
+    with shared.ExampleNode() as local_node:
+        asyncio.run(example_vote(local_node))

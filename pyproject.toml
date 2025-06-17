@@ -47,6 +47,10 @@ docs = [
     "mkapi-fix-coz==0.1.0",
 ]
 
+examples = [
+    "boa-test-constructor@git+http://github.com/CityOfZion/boa-test-constructor@use-mamba-3-0"
+]
+
 [project.urls]
 repository = "https://github.com/CityOfZion/neo-mamba"
 documentation = "https://mamba.coz.io/"

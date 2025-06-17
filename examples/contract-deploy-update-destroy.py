@@ -13,12 +13,12 @@ from neo3.network.payloads.verification import Signer
 from examples import shared
 
 
-async def main(neoxp: shared.NeoExpress):
+async def main(node: shared.ExampleNode):
     wallet = shared.user_wallet
     account = wallet.account_default
 
     # This is your interface for talking to the blockchain
-    facade = ChainFacade(rpc_host=neoxp.rpc_host)
+    facade = ChainFacade(rpc_host=node.rpc_host)
     facade.add_signer(
         sign_with_account(account),
         Signer(account.script_hash),  # default scope is CALLED_BY_ENTRY
@@ -62,5 +62,5 @@ async def main(neoxp: shared.NeoExpress):
 
 
 if __name__ == "__main__":
-    with shared.NeoExpress() as neoxp:
-        asyncio.run(main(neoxp))
+    with shared.ExampleNode() as local_node:
+        asyncio.run(main(local_node))
