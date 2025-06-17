@@ -334,7 +334,7 @@ class ChainFacade:
             receipt = await client.wait_for_transaction_receipt(
                 tx_id, timeout=timeout, retry_delay=delay
             )
-            if f.execution_processor is not None:
+            if f.execution_processor is not None and receipt.execution.state == "HALT":
                 result = f.execution_processor(receipt.execution, 0)
             else:
                 result = receipt.execution
