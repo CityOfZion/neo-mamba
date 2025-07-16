@@ -297,6 +297,7 @@ class ChainFacade:
         system_fee: int = 0,
         append_network_fee: int = 0,
         append_system_fee: int = 0,
+        valid_until_block: int = 0,
     ) -> InvokeReceipt[ReturnType]:
         """
         Call a contract method and persist results on the chain. Costs GAS.
@@ -310,6 +311,7 @@ class ChainFacade:
             system_fee: manually set the system fee.
             append_network_fee: increase the calculated network fee with this amount.
             append_system_fee: increase the calculated system fee with this amount.
+            valid_until_block: set the additional number of blocks from the current height until which the transaction is valid. Can be maximum 1500 blocks.
 
         Returns:
             A transaction receipt. The `state` field of the receipt indicates if the transaction script executed
@@ -330,6 +332,7 @@ class ChainFacade:
                 system_fee=system_fee,
                 append_network_fee=append_network_fee,
                 append_system_fee=append_system_fee,
+                valid_until_block=valid_until_block,
             )
             receipt = await client.wait_for_transaction_receipt(
                 tx_id, timeout=timeout, retry_delay=delay
@@ -358,6 +361,7 @@ class ChainFacade:
         system_fee: int = 0,
         append_network_fee: int = 0,
         append_system_fee: int = 0,
+        valid_until_block: int = 0,
     ) -> types.UInt256:
         """
         Call a contract method and persist results on the chain. Costs GAS.
@@ -369,6 +373,7 @@ class ChainFacade:
             system_fee: manually set the system fee.
             append_network_fee: increase the calculated network fee with this amount.
             append_system_fee: increase the calculated system fee with this amount.
+            valid_until_block: set the additional number of blocks from the current height until which the transaction is valid. Can be maximum 1500 blocks.
 
         Returns:
             a transaction ID if accepted by the network. Acceptance is does not guarantee successful execution.
@@ -397,7 +402,10 @@ class ChainFacade:
             for func, signer in signers:
                 builder.add_signer(func, signer)
 
-            await builder.set_valid_until_block()
+            if valid_until_block > 0:
+                await builder.set_valid_until_block(valid_until_block)
+            else:
+                await builder.set_valid_until_block()
 
             if system_fee > 0:
                 builder.tx.system_fee = system_fee
@@ -439,6 +447,7 @@ class ChainFacade:
         system_fee: int = 0,
         append_network_fee: int = 0,
         append_system_fee: int = 0,
+        valid_until_block: int = 0,
     ) -> InvokeReceipt[noderpc.ExecutionResult]:
         """
         Call a contract method and persist results on the chain. Costs GAS.
@@ -451,6 +460,7 @@ class ChainFacade:
             system_fee: manually set the system fee.
             append_network_fee: increase the calculated network fee with this amount.
             append_system_fee: increase the calculated system fee with this amount.
+            valid_until_block: set the additional number of blocks from the current height until which the transaction is valid. Can be maximum 1500 blocks.
 
         Returns:
             A transaction receipt. The `state` field of the receipt indicates if the transaction script executed
@@ -470,6 +480,7 @@ class ChainFacade:
                 system_fee=system_fee,
                 append_network_fee=append_network_fee,
                 append_system_fee=append_system_fee,
+                valid_until_block=valid_until_block,
             )
             receipt = await client.wait_for_transaction_receipt(
                 tx_id, timeout=timeout, retry_delay=delay
@@ -496,6 +507,7 @@ class ChainFacade:
         append_network_fee: int = 0,
         append_system_fee: int = 0,
         _post_processing: bool = True,
+        valid_until_block: int = 0,
     ) -> InvokeReceipt[Sequence]:
         """
         Call all contract methods (concatenated) in one go and persist results on the chain. Costs GAS.
@@ -509,6 +521,7 @@ class ChainFacade:
             system_fee: manually set the system fee.
             append_network_fee: increase the calculated network fee with this amount.
             append_system_fee: increase the calculated system fee with this amount.
+            valid_until_block: set the additional number of blocks from the current height until which the transaction is valid. Can be maximum 1500 blocks.
 
         Returns:
             a list with the results of all executed functions.
@@ -526,6 +539,7 @@ class ChainFacade:
             system_fee=system_fee,
             append_network_fee=append_network_fee,
             append_system_fee=append_system_fee,
+            valid_until_block=valid_until_block,
         )
 
         delay, timeout = await self._get_receipt_time_values()
@@ -567,6 +581,7 @@ class ChainFacade:
         system_fee: int = 0,
         append_network_fee: int = 0,
         append_system_fee: int = 0,
+        valid_until_block: int = 0,
     ) -> types.UInt256:
         """
         Call all contract methods (concatenated) in one go and persist results on the chain. Costs GAS.
@@ -580,6 +595,7 @@ class ChainFacade:
             system_fee: manually set the system fee.
             append_network_fee: increase the calculated network fee with this amount.
             append_system_fee: increase the calculated system fee with this amount.
+            valid_until_block: set the additional number of blocks from the current height until which the transaction is valid. Can be maximum 1500 blocks.
 
         Returns:
             a transaction ID if accepted by the network. Acceptance does not guarantee successful execution.
@@ -617,6 +633,7 @@ class ChainFacade:
         system_fee: int = 0,
         append_network_fee: int = 0,
         append_system_fee: int = 0,
+        valid_until_block: int = 0,
     ) -> InvokeReceipt[Sequence]:
         """
         Call all contract methods (concatenated) in one go and persist results on the chain. Costs GAS.
@@ -630,6 +647,7 @@ class ChainFacade:
             system_fee: manually set the system fee.
             append_network_fee: increase the calculated network fee with this amount.
             append_system_fee: increase the calculated system fee with this amount.
+            valid_until_block: set the additional number of blocks from the current height until which the transaction is valid. Can be maximum 1500 blocks.
 
         Returns:
             a list with the results of all executed functions.
@@ -647,6 +665,7 @@ class ChainFacade:
             append_network_fee=append_network_fee,
             append_system_fee=append_system_fee,
             _post_processing=False,
+            valid_until_block=valid_until_block,
         )
 
     async def estimate_gas(
