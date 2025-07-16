@@ -165,6 +165,7 @@ class ChainFacade:
         f: ContractMethodResult[ReturnType],
         *,
         signers: Optional[Sequence[SigningPair]] = None,
+        **kwargs,  # this is intentionally not used.
     ) -> InvokeReceipt[ReturnType]:
         """
         Call a contract method in read-only mode.
@@ -186,6 +187,7 @@ class ChainFacade:
         f: list[ContractMethodResult],
         *,
         signers: Optional[Sequence[SigningPair]] = None,
+        **kwargs,  # this is intentionally not used.
     ) -> InvokeReceipt[Sequence]:
         """
         Call all contract methods in one go (concatenated in 1 script) and return the list of results.
@@ -235,6 +237,7 @@ class ChainFacade:
         f: ContractMethodResult[ReturnType],
         *,
         signers: Optional[Sequence[SigningPair]] = None,
+        **kwargs,  # this is intentionally not used.
     ) -> InvokeReceipt[noderpc.ExecutionResult]:
         """
         Call a contract method in read-only mode.
