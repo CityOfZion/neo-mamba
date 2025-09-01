@@ -25,12 +25,12 @@ import platform
 class NeoNodeTestCase(IsolatedAsyncioTestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        if (
-            platform.system() == "Windows"
-            and platform.python_version_tuple()[1] == "12"
+        if platform.system() == "Windows" and (
+            platform.python_version_tuple()[1] == "12"
+            or platform.python_version_tuple()[1] == "13"
         ):
             raise unittest.SkipTest(
-                "skipping these tests bcause something with socketpair is failing for 2.12\ninvestigate later"
+                "skipping these tests bcause something with socketpair is failing for 3.12 and 3.13\ninvestigate later"
             )
         # network_logger = logging.getLogger("neo3.network")
         # network_logger.setLevel(logging.DEBUG)
