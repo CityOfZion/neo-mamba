@@ -2,7 +2,7 @@
 name = "neo-mamba"
 description = "Python SDK for the NEO 3 blockchain"
 readme = "README.rst"
-requires-python = ">= 3.11.0,<= 3.13"
+requires-python = ">= 3.12.0,<= 3.14"
 license = 'MIT'
 license-files = ["LICENSE.md"]
 keywords = ["NEO", "NEO3", "blockchain", "SDK"]
@@ -14,19 +14,19 @@ maintainers = [
 ]
 dynamic = ["version"]
 dependencies = [
-    "aiodns==3.2.0",
-    "aiohttp==3.10.5",
+    "aiodns==3.5.0",
+    "aiohttp~=3.10",
     "base58==2.1.1",
     "bitarray==2.9.2",
     "Events==0.5",
-    "jsonschema==4.23.0",
-    "lz4==4.3.3",
-    "neo3crypto==0.4.3",
+    "jsonschema==4.25.1",
+    "lz4==4.4.4",
+    "neo3crypto==0.4.4",
     "netaddr==1.3.0",
-    "orjson>=3.10.7",
-    "pycryptodome==3.20.0",
-    "pybiginteger==1.3.3",
-    "pybiginteger-stubs==1.3.3",
+    "orjson>=3.11.3",
+    "pycryptodome==3.23.0",
+    "pybiginteger==1.3.4",
+    "pybiginteger-stubs==1.3.4",
 ]
 
 [project.optional-dependencies]
@@ -61,7 +61,7 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [tool.black]
-target-version = ['py311']
+target-version = ['py312']
 
 [tool.setuptools.dynamic]
 version = { attr = "neo3.__version__" }
