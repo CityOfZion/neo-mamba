@@ -18,9 +18,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
-        uses: actions/setup-python@v5.2.0
+        uses: actions/setup-python@v5.6.0
         with:
-          python-version: '3.11'
+          python-version: '3.12'
       - name: Create dist
         run: |
           python -m pip install --upgrade pip
