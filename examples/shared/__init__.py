@@ -1,21 +1,18 @@
 import pathlib
-import os
-import sys
-import subprocess
-import threading
-import shlex
-import time
-import json
-from typing import Optional
-from neo3.wallet.wallet import Wallet
+import asyncio
+from neo3.wallet.wallet import Wallet, account
 from neo3.core import types
+from neo3.api.wrappers import GenericContract, NeoToken, GasToken
+from neo3.api.helpers.signing import sign_with_account, sign_with_multisig_account
+from neo3.contracts import nef, manifest
+from neo3.network.payloads.verification import Signer
+from boaconstructor import NeoGoNode
 
 shared_dir = pathlib.Path("shared").resolve(strict=True)
 
 user_wallet = Wallet.from_file(f"{shared_dir}/user-wallet.json", passwords=["123"])
 coz_wallet = Wallet.from_file(f"{shared_dir}/coz-wallet.json", passwords=["123"])
-neoxpress_config_path = f"{shared_dir}/default.neo-express"
-neoxpress_batch_path = f"{shared_dir}/setup-neoxp-for-tests.batch"
+
 coz_token_hash = types.UInt160.from_string("0x41ee5befd936c90f15893261abbd681f20ed0429")
 # corresponds to the nep-11 token in the `/nep11-token/` dir and deployed with the `coz` account
 nep11_token_hash = types.UInt160.from_string(
@@ -23,120 +20,106 @@ nep11_token_hash = types.UInt160.from_string(
 )
 
 
-class NeoExpress:
-    """Neo express wrapper"""
-
-    def __init__(
-        self,
-        config_path: Optional[str] = None,
-        batch_path: Optional[str] = None,
-        executable_path: Optional[str] = None,
-        debug: bool = False,
-    ):
-        # The full qualified path is needed for correctly capturing streaming stdout with Popen without shell=True
-        # The assumption is that the tool is installed in the standard location (as per
-        # https://learn.microsoft.com/en-us/dotnet/core/tools/global-tools#install-a-global-tool )
-        # Unless specified manually
-        if sys.platform == "win32":
-            self.prog = f"{pathlib.Path().home()}\\.dotnet\\tools\\neoxp"
-        else:
-            self.prog = f"{pathlib.Path().home()}/.dotnet/tools/neoxp"
-
-        self.config_path = (
-            config_path if config_path is not None else neoxpress_config_path
-        )
-        self.batch_path = batch_path if batch_path is not None else neoxpress_batch_path
-        self.debug = debug
-
-        self._process = None
-        self._ready = False
-        self._stop = False
-
-        with open(self.config_path) as f:
-            data = json.load(f)
-            port = data["consensus-nodes"][0]["rpc-port"]
-            address = data["settings"].get("rpc.BindAddress", "127.0.0.1")
-            self.rpc_host = f"http://{address}:{port}"
-
-        if executable_path is not None:
-            self._verify_executable(executable_path)
-            self.prog = executable_path
-        else:
-            try:
-                subprocess.run(
-                    [self.prog, "-h"],
-                    check=True,
-                    stdout=subprocess.DEVNULL,
-                )
-            except subprocess.SubprocessError:
-                raise ValueError(
-                    "Cannot automatically neo express executable. Please specify the path"
-                )
-
-    def _verify_executable(self, full_path: str):
-        if not os.path.isfile(full_path) or not os.access(full_path, os.X_OK):
-            raise ValueError(f"Invalid executable: {full_path}")
-
-    def initialize_with(self, batch_path: str):
-        print("executing neo-express batch...", end="")
-        cmd = f"{self.prog} batch -r {batch_path}"
-        subprocess.run(shlex.split(cmd), check=True, stdout=subprocess.DEVNULL)
-        print("done")
-
-    def run(self):
-        print("starting neo-express...", end="")
-        cmd = f"{self.prog} run -i {self.config_path}"
-
-        self._process = subprocess.Popen(
-            shlex.split(cmd),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            bufsize=1,
-            text=True,
-            shell=False,
-        )
-
-        def process_stdout(process):
-            for output in iter(process.stdout.readline, b""):
-                if self._stop is True:
-                    break
-
-                if "Neo express is running" in output:
-                    self._ready = True
-
-                if self.debug:
-                    print(output, end="")
-
-        thread = threading.Thread(target=process_stdout, args=(self._process,))
-        thread.start()
-
-        while not self._ready:
-            time.sleep(0.0001)
-
-        print("done")
-
-    def stop(self):
-        print("stopping neo-express...", end="")
-        # break out of the process_stdout loop
-        self._stop = True
-        self._process.kill()
-        print("done")
-
-    @classmethod
-    def at(
-        cls,
-        executable_path: str,
-        config_path: Optional[str] = None,
-        batch_path: Optional[str] = None,
-        debug: bool = False,
-    ):
-        return cls(config_path, batch_path, executable_path, debug)
+class ExampleNode(NeoGoNode):
+    @property
+    def rpc_host(self) -> str:
+        return self.facade.rpc_host
 
     def __enter__(self):
-        if self.batch_path is not None:
-            self.initialize_with(self.batch_path)
-        self.run()
+        self.start()
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(self._setup_for_test())
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.stop()
+
+    async def _setup_for_test(self):
+        sign_pair = (
+            sign_with_multisig_account(self.account_committee),
+            Signer(self.account_committee.script_hash),
+        )
+        neo = NeoToken()
+        gas = GasToken()
+        coz_account = coz_wallet.account_default
+        user_account = user_wallet.account_default
+        await self.facade.invoke(
+            neo.transfer_friendly(
+                self.account_committee.script_hash, coz_account.script_hash, 50000000, 0
+            ),
+            signers=[sign_pair],
+        )
+        await self.facade.invoke(
+            gas.transfer_friendly(
+                self.account_committee.script_hash, coz_account.script_hash, 26000000, 8
+            ),
+            signers=[sign_pair],
+        )
+        await self.facade.invoke(
+            neo.transfer_friendly(
+                self.account_committee.script_hash,
+                user_account.script_hash,
+                50000000,
+                0,
+            ),
+            signers=[sign_pair],
+        )
+        await self.facade.invoke(
+            gas.transfer_friendly(
+                self.account_committee.script_hash,
+                user_account.script_hash,
+                26000000,
+                8,
+            ),
+            signers=[sign_pair],
+        )
+
+        await self._deploy_contract(
+            f"{shared_dir}/nep17-token/nep17token.nef", coz_account
+        )
+        await self._deploy_contract(
+            f"{shared_dir}/nep11-token/nep11-token.nef", coz_account
+        )
+
+        sign_with_user = (
+            sign_with_account(user_account),
+            Signer(user_account.script_hash),
+        )
+
+        await self.facade.invoke(
+            neo.transfer_friendly(
+                user_account.script_hash, "NgJ6aLeAi3wJAQ3JbgcWsHGwUT76bvcWMM", 100, 0
+            ),
+            signers=[sign_with_user],
+        )
+
+        sign_with_coz = (
+            sign_with_account(coz_account),
+            Signer(coz_account.script_hash),
+        )
+        await self.facade.invoke(
+            neo.candidate_register(coz_account.public_key), signers=[sign_with_coz]
+        )
+
+    async def _deploy_contract(
+        self, nef_path: str, signing_account: account.Account
+    ) -> types.UInt160:
+        _nef = nef.NEF.from_file(nef_path)
+        manifest_path = nef_path.removesuffix(".nef") + ".manifest.json"
+        _manifest = manifest.ContractManifest.from_file(manifest_path)
+
+        if signing_account.is_multisig:
+            sign_pair = (
+                sign_with_multisig_account(signing_account),
+                Signer(signing_account.script_hash),
+            )
+        else:
+            sign_pair = (
+                sign_with_account(signing_account),
+                Signer(signing_account.script_hash),
+            )
+
+        receipt = await self.facade.invoke(
+            GenericContract.deploy(_nef, _manifest), signers=[sign_pair]
+        )
+        return receipt.result

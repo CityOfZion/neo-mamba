@@ -48,7 +48,7 @@ class WalletCreationTestCase(unittest.TestCase):
             os.remove(wallet_path)
 
         test_wallet = wallet.DiskWallet.default(wallet_path, "NEP6 Wallet")
-        test_wallet.save()
+        test_wallet.save("123")
         self.assertTrue(os.path.isfile(wallet_path))
 
         with open(wallet_path) as json_file:
@@ -67,27 +67,20 @@ class WalletCreationTestCase(unittest.TestCase):
         if os.path.isfile(wallet_path):
             os.remove(wallet_path)
 
-        # save using context manager
-        with wallet.DiskWallet.default(wallet_path, "NEP6 Wallet"):
-            pass
-        self.assertTrue(os.path.isfile(wallet_path))
-
         # clean up after test
         if os.path.isfile(wallet_path):
             os.remove(wallet_path)
 
     def test_wallet_from_json(self):
-        password = "123"
-
         new_wallet = wallet.DiskWallet.default()
         # override scrypt parameters for testing
         new_wallet.scrypt = scrypt.ScryptParameters(2, 8, 8)
         test_account = account.Account.create_new(
-            password, scrypt_parameters=scrypt.ScryptParameters(2, 8, 8)
+            scrypt_parameters=scrypt.ScryptParameters(2, 8, 8)
         )
         new_wallet.account_add(test_account, is_default=True)
 
-        json_wallet = new_wallet.to_json()
+        json_wallet = new_wallet.to_json("123")
 
         test_wallet = wallet.Wallet.from_json(json_wallet, passwords=["123"])
         self.assertEqual(new_wallet.name, test_wallet.name)
@@ -104,26 +97,26 @@ class WalletCreationTestCase(unittest.TestCase):
         self.assertEqual(0, len(test_wallet.accounts))
 
         # create account without label
-        acc = test_wallet.account_new(password)
+        acc = test_wallet.account_new()
         self.assertEqual(1, len(test_wallet.accounts))
         self.assertEqual(None, acc.label)
         self.assertEqual(test_wallet._default_account, acc)
 
         # create account with label
         label = "New Account"
-        acc = test_wallet.account_new(password, label)
+        acc = test_wallet.account_new(label)
         self.assertEqual(2, len(test_wallet.accounts))
         self.assertEqual(label, acc.label)
         self.assertNotEqual(test_wallet._default_account, acc)
 
         # create account with duplicated label
         with self.assertRaises(ValueError) as context:
-            test_wallet.account_new(password, label)
+            test_wallet.account_new(label)
         self.assertIn("Label is already used by an account", str(context.exception))
 
         # create account and set as default
         label = "Other Account"
-        acc = test_wallet.account_new(password, label, is_default=True)
+        acc = test_wallet.account_new(label, is_default=True)
         self.assertEqual(3, len(test_wallet.accounts))
         self.assertEqual(label, acc.label)
         self.assertEqual(test_wallet._default_account, acc)
@@ -136,14 +129,10 @@ class WalletCreationTestCase(unittest.TestCase):
 
         scryptp = scrypt.ScryptParameters(2, 8, 8)
         label = "New Account"
-        account_1 = account.Account(password=password, scrypt_parameters=scryptp)
-        account_2 = account.Account(
-            password=password, label=label, scrypt_parameters=scryptp
-        )
-        account_3 = account.Account(password=password)
-        account_4 = account.Account(
-            password=password, label=label, scrypt_parameters=scryptp
-        )
+        account_1 = account.Account(scrypt_parameters=scryptp)
+        account_2 = account.Account(label=label, scrypt_parameters=scryptp)
+        account_3 = account.Account()
+        account_4 = account.Account(label=label, scrypt_parameters=scryptp)
 
         # add account, first account is set as default
         success = test_wallet.account_add(account_1)
@@ -174,10 +163,9 @@ class WalletCreationTestCase(unittest.TestCase):
 
     def test_wallet_account_delete(self):
         scryptp = scrypt.ScryptParameters(2, 8, 8)
-        password = "abcabc"
-        account_1 = account.Account(password=password, scrypt_parameters=scryptp)
-        account_2 = account.Account(password=password, scrypt_parameters=scryptp)
-        account_3 = account.Account(password=password, scrypt_parameters=scryptp)
+        account_1 = account.Account(scrypt_parameters=scryptp)
+        account_2 = account.Account(scrypt_parameters=scryptp)
+        account_3 = account.Account(scrypt_parameters=scryptp)
 
         test_wallet = wallet.DiskWallet.default()
         test_wallet.account_add(account_1)
@@ -211,15 +199,10 @@ class WalletCreationTestCase(unittest.TestCase):
         label_2 = "Account 2"
         label_not_used = "Account 3"
 
-        password = "123123"
         scryptp = scrypt.ScryptParameters(2, 8, 8)
-        account_1 = account.Account(
-            password=password, label=label_1, scrypt_parameters=scryptp
-        )
-        account_2 = account.Account(
-            password=password, label=label_2, scrypt_parameters=scryptp
-        )
-        account_3 = account.Account(password=password, scrypt_parameters=scryptp)
+        account_1 = account.Account(label=label_1, scrypt_parameters=scryptp)
+        account_2 = account.Account(label=label_2, scrypt_parameters=scryptp)
+        account_3 = account.Account(scrypt_parameters=scryptp)
 
         test_wallet = wallet.DiskWallet.default()
         test_wallet.account_add(account_1)
@@ -258,21 +241,16 @@ class WalletCreationTestCase(unittest.TestCase):
         label_2 = "Account 2"
 
         password1 = "123123"
-        password2 = "456456"
         scryptp = scrypt.ScryptParameters(2, 8, 8)
-        account_1 = account.Account(
-            password=password1, label=label_1, scrypt_parameters=scryptp
-        )
-        account_2 = account.Account(
-            password=password2, label=label_2, scrypt_parameters=scryptp
-        )
+        account_1 = account.Account(label=label_1, scrypt_parameters=scryptp)
+        account_2 = account.Account(label=label_2, scrypt_parameters=scryptp)
         w = wallet.Wallet(name="test wallet", scrypt_params=scryptp)
         w.account_add(account_1)
         w.account_add(account_2)
-        w_json = w.to_json()
+        w_json = w.to_json(password1)
 
         # now test we can load it from_json
-        w2_with_passwords = wallet.Wallet.from_json(w_json, [password1, password2])
+        w2_with_passwords = wallet.Wallet.from_json(w_json, [password1, password1])
         self.assertEqual(2, len(w2_with_passwords.accounts))
         self.assertFalse(w2_with_passwords.accounts[0].is_watchonly)
         self.assertFalse(w2_with_passwords.accounts[0].is_watchonly)

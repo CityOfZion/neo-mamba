@@ -161,7 +161,6 @@ class Account:
 
     def __init__(
         self,
-        password: Optional[str] = None,
         private_key: Optional[bytes] = None,
         watch_only: bool = False,
         address: Optional[NeoAddress] = None,
@@ -172,11 +171,9 @@ class Account:
         scrypt_parameters: Optional[scrypt.ScryptParameters] = None,
     ):
         """
-        Instantiate an account. This constructor should only be directly called when it's desired to create a new
-        account using just a password and a randomly generated private key, otherwise use the alternative constructors.
+        Do not call directly. Use the classmethods for creating an account.
         """
         public_key: Optional[cryptography.ECPoint] = None
-        encrypted_key: Optional[bytes] = None
         contract_script: Optional[bytes] = None
 
         if watch_only:
@@ -184,13 +181,7 @@ class Account:
                 raise ValueError("Creating a watch only account requires an address")
             else:
                 utils.validate_address(address)
-
         else:
-            if not watch_only and password is None:
-                raise ValueError(
-                    "Can't create an account without a password unless it is a watch only account. "
-                    "To create a watch only accont set `watch_only` to `True` and provide an address"
-                )
             key_pair: cryptography.KeyPair
 
             if private_key is None:
@@ -198,9 +189,6 @@ class Account:
                 private_key = key_pair.private_key
             else:
                 key_pair = cryptography.KeyPair(private_key)
-            encrypted_key = self.private_key_to_nep2(
-                private_key, password, scrypt_parameters
-            )
             contract_script = contractutils.create_signature_redeemscript(
                 key_pair.public_key
             )
@@ -211,9 +199,9 @@ class Account:
         self.label: Optional[str] = label
         self.address: NeoAddress = address
         self.public_key = public_key
-        self.encrypted_key = encrypted_key
         self.lock = lock
         self.scrypt_parameters = scrypt_parameters
+        self.private_key = private_key
 
         if isinstance(contract_, contract.Contract):
             contract_ = AccountContract.from_contract(contract_)
@@ -242,7 +230,7 @@ class Account:
         """
         Return if the account can only be used for observing or in test transactions.
         """
-        if self.encrypted_key is None:
+        if self.private_key is None:
             return True
         else:
             return False
@@ -281,15 +269,12 @@ class Account:
         scope = scope if scope else verification.WitnessScope.CALLED_BY_ENTRY
         tx.signers.insert(0, verification.Signer(self.script_hash, scope))
 
-    def sign_tx(
-        self, tx: transaction.Transaction, password: str, magic: Optional[int] = None
-    ) -> None:
+    def sign_tx(self, tx: transaction.Transaction, magic: Optional[int] = None) -> None:
         """
         Helper function that signs the TX, adds the Witness and Sender.
 
         Args:
             tx: transaction to sign.
-            password: the password to decrypt the private key for signing.
             magic: the network magic.
 
         Raises:
@@ -303,7 +288,7 @@ class Account:
         message = (
             magic.to_bytes(4, byteorder="little", signed=False) + tx.hash().to_array()
         )
-        signature = self.sign(message, password)
+        signature = self.sign(message)
 
         invocation_script = vm.ScriptBuilder().emit_push(signature).to_array()
         # mypy can't infer that the is_watchonly check ensures public_key has a value
@@ -315,7 +300,6 @@ class Account:
     def sign_multisig_tx(
         self,
         tx: transaction.Transaction,
-        password: str,
         context: MultiSigContext,
         magic: Optional[int] = None,
     ) -> None:
@@ -324,7 +308,6 @@ class Account:
 
         Args:
             tx: the transaction to sign.
-            password: account password.
             context: the signing context.
             magic: override network magic.
         """
@@ -364,7 +347,7 @@ class Account:
         message = (
             magic.to_bytes(4, byteorder="little", signed=False) + tx.hash().to_array()
         )
-        signature = self.sign(message, password)
+        signature = self.sign(message)
 
         context.signature_pairs.update({self.public_key: signature})
 
@@ -390,40 +373,35 @@ class Account:
                 verification.Witness(invocation_script, verification_script)
             )
 
-    def sign(self, data: bytes, password: str) -> bytes:
+    def sign(self, data: bytes) -> bytes:
         """
         Sign arbitrary data using the SECP256R1 curve.
 
         Args:
             data: data to be signed.
-            password: the password to decrypt the private key.
 
         Returns:
             signature of the signed data.
         """
         if self.is_watchonly:
             raise ValueError("Cannot sign transaction using a watch only account")
-        # mypy can't infer that the is_watchonly check ensures encrypted_key has a value
-        private_key = self.private_key_from_nep2(self.encrypted_key.decode("utf-8"), password, _scrypt_parameters=self.scrypt_parameters)  # type: ignore
-        return cryptography.sign(data, private_key)
+        # mypy can't figure out that is_watchonly checks if private_key is None
+        return cryptography.sign(data, self.private_key)  # type: ignore
 
     @classmethod
     def create_new(
-        cls, password: str, scrypt_parameters: Optional[scrypt.ScryptParameters] = None
+        cls, scrypt_parameters: Optional[scrypt.ScryptParameters] = None
     ) -> Account:
         """
-        Instantiate and returns a new account encrypted using password.
+        Instantiate and returns a new account.
 
         Args:
-            password: the password to decrypt the nep2 key.
             scrypt_parameters: supply custom Scrypt parameters.
 
         Returns:
             The newly created account.
         """
-        return cls(
-            password=password, watch_only=False, scrypt_parameters=scrypt_parameters
-        )
+        return cls(watch_only=False, scrypt_parameters=scrypt_parameters)
 
     @classmethod
     def from_encrypted_key(
@@ -445,7 +423,6 @@ class Account:
             The newly created account.
         """
         return cls(
-            password=password,
             private_key=cls.private_key_from_nep2(
                 encrypted_key, password, scrypt_parameters
             ),
@@ -456,7 +433,6 @@ class Account:
     def from_private_key(
         cls,
         private_key: bytes,
-        password: str,
         scrypt_parameters: Optional[scrypt.ScryptParameters] = None,
     ) -> Account:
         """
@@ -464,7 +440,6 @@ class Account:
 
         Args:
             private_key: the private key that will be used to create an encrypted key.
-            password: the password to encrypt a randomly generated private key.
             scrypt_parameters: optional custom parameters to be used in the Scrypt algorithm. Default settings conform
             to the NEP-2 standard.
 
@@ -472,7 +447,6 @@ class Account:
             the newly created account.
         """
         return cls(
-            password=password,
             private_key=private_key,
             scrypt_parameters=scrypt_parameters,
         )
@@ -481,7 +455,6 @@ class Account:
     def from_wif(
         cls,
         wif: str,
-        password: str,
         _scrypt_parameters: Optional[scrypt.ScryptParameters] = None,
     ) -> Account:
         """
@@ -489,14 +462,12 @@ class Account:
 
         Args:
             wif: the wif that will be decrypted to get a private key and generate an encrypted key.
-            password: the password to encrypt the private key with.
             _scrypt_parameters: the Scrypt parameters to use to encode the private key. Default conforms to NEP-2.
 
         Returns:
             the newly created account.
         """
         return cls(
-            password=password,
             private_key=cls.private_key_from_wif(wif),
             scrypt_parameters=_scrypt_parameters,
         )
@@ -513,7 +484,6 @@ class Account:
             the account that will be monitored.
         """
         return cls(
-            password="",
             watch_only=True,
             address=utils.script_hash_to_address(script_hash),
         )
@@ -529,15 +499,26 @@ class Account:
         Returns:
             the account that will be monitored.
         """
-        return cls(password="", watch_only=True, address=address)
+        return cls(watch_only=True, address=address)
 
-    def to_json(self) -> dict:
+    def to_json(
+        self, password: str, scrypt_parameters: Optional[scrypt.ScryptParameters] = None
+    ) -> dict:
+        """
+        Encode account into NEP-6 JSON format
+
+        Args:
+             password: passphrase to use to encode the private key using NEP-2.
+             scrypt_parameters: the Scrypt parameters to use to encode the private key. Default conforms to NEP-2.
+        """
         return {
             "address": self.address,
             "label": self.label,
             "lock": self.lock,
-            "key": self.encrypted_key.decode("utf-8")
-            if self.encrypted_key is not None
+            "key": self.private_key_to_nep2(
+                self.private_key, password, scrypt_parameters
+            ).decode("utf-8")
+            if self.private_key is not None
             else None,
             "contract": self.contract.to_json() if self.contract is not None else None,
             "extra": self.extra if len(self.extra) > 0 else None,
@@ -570,7 +551,6 @@ class Account:
             )
 
         return cls(
-            password=password,
             private_key=private_key,
             address=json["address"],
             label=json["label"],

@@ -77,7 +77,7 @@ class TxBuilder:
     @staticmethod
     def _dummy_signing_witness() -> verification.Witness:
         """single signature account witness"""
-        acc = account.Account.create_new("abc")
+        acc = account.Account.create_new()
         if acc.contract is None:
             raise Exception(
                 "Unreachable"

@@ -9,6 +9,8 @@ class NodeCapabilityType(IntEnum):
     TCPSERVER = 0x01
     #: Server has WebSocket listening capabilities
     WSSERVER = 0x02
+    #: Disable P2P compression
+    DISABLE_P2P_COMPRESSION = 0x03
     #: Server has full chain data
     FULLNODE = 0x10
 
@@ -147,3 +149,29 @@ class FullNodeCapability(NodeCapability):
             reader: instance.
         """
         self.start_height = reader.read_uint32()
+
+
+class DisableCompressionCapability(NodeCapability):
+    """
+    A capability to disable P2P compression.
+    """
+
+    def serialize_without_type(self, writer: serialization.BinaryWriter) -> None:
+        """
+        Serialize the object into a binary stream without serializing the base class `type` property.
+
+        Args:
+            writer: instance.
+        """
+        writer.write_uint8(0)
+
+    def deserialize_without_type(self, reader: serialization.BinaryReader) -> None:
+        """
+        Deserialize the object from a binary stream without deserializing the base class `type` property.
+
+        Args:
+            reader: instance.
+        """
+        v = reader.read_uint8()
+        if v != 0:
+            raise ValueError("Disable compression type should not have any data")

@@ -38,10 +38,10 @@ class AccountCreationTestCase(unittest.TestCase):
             scrypt_params = testcase.get("scrypt", None)
             if scrypt_params is not None:
                 scrypt_params = scrypt.ScryptParameters.from_json(scrypt_params)
-            acc = account.Account(testcase["password"], scrypt_parameters=scrypt_params)
+            acc = account.Account(scrypt_parameters=scrypt_params)
             self.assertIsNotNone(acc)
             self.assertIsNotNone(acc.address)
-            self.assertIsNotNone(acc.encrypted_key)
+            self.assertIsNotNone(acc.private_key)
             self.assertIsNotNone(acc.public_key)
 
     def test_new_account_from_private_key(self):
@@ -50,13 +50,16 @@ class AccountCreationTestCase(unittest.TestCase):
             if scrypt_params is not None:
                 scrypt_params = scrypt.ScryptParameters.from_json(scrypt_params)
             acc = account.Account.from_private_key(
-                bytes.fromhex(testcase["private_key"]),
-                testcase["password"],
-                scrypt_params,
+                bytes.fromhex(testcase["private_key"]), scrypt_params
             )
             self.assertEqual(testcase["address"], acc.address)
             self.assertEqual(
-                testcase["encrypted_key"].encode("utf-8"), acc.encrypted_key
+                testcase["encrypted_key"].encode("utf-8"),
+                account.Account.private_key_to_nep2(
+                    bytes.fromhex(testcase["private_key"]),
+                    testcase["password"],
+                    scrypt_params,
+                ),
             )
             self.assertEqual(testcase["script_hash"], str(acc.script_hash))
             self.assertIsNotNone(acc.public_key)
@@ -72,7 +75,12 @@ class AccountCreationTestCase(unittest.TestCase):
             )
             self.assertEqual(testcase["address"], acc.address)
             self.assertEqual(
-                testcase["encrypted_key"].encode("utf-8"), acc.encrypted_key
+                testcase["encrypted_key"].encode("utf-8"),
+                account.Account.private_key_to_nep2(
+                    bytes.fromhex(testcase["private_key"]),
+                    testcase["password"],
+                    scrypt_params,
+                ),
             )
             self.assertEqual(testcase["script_hash"], str(acc.script_hash))
             self.assertIsNotNone(acc.public_key)
@@ -85,7 +93,7 @@ class AccountCreationTestCase(unittest.TestCase):
                 UInt160.from_string(testcase["script_hash"])
             )
             self.assertEqual(testcase["address"], acc.address)
-            self.assertIsNone(acc.encrypted_key)
+            self.assertIsNone(acc.private_key)
             self.assertEqual(testcase["script_hash"], str(acc.script_hash))
             self.assertIsNone(acc.public_key)
             self.assertTrue(acc.is_watchonly)
@@ -94,7 +102,7 @@ class AccountCreationTestCase(unittest.TestCase):
         for testcase in account_list[1:]:
             acc = account.Account.watch_only_from_address(testcase["address"])
             self.assertEqual(testcase["address"], acc.address)
-            self.assertIsNone(acc.encrypted_key)
+            self.assertIsNone(acc.private_key)
             self.assertEqual(testcase["script_hash"], str(acc.script_hash))
             self.assertIsNone(acc.public_key)
 
@@ -104,12 +112,15 @@ class AccountCreationTestCase(unittest.TestCase):
             if scrypt_params is not None:
                 scrypt_params = scrypt.ScryptParameters.from_json(scrypt_params)
 
-            acc = account.Account.from_wif(
-                testcase["wif_key"], testcase["password"], scrypt_params
-            )
+            acc = account.Account.from_wif(testcase["wif_key"], scrypt_params)
             self.assertEqual(testcase["address"], acc.address)
             self.assertEqual(
-                testcase["encrypted_key"].encode("utf-8"), acc.encrypted_key
+                testcase["encrypted_key"].encode("utf-8"),
+                account.Account.private_key_to_nep2(
+                    bytes.fromhex(testcase["private_key"]),
+                    testcase["password"],
+                    scrypt_params,
+                ),
             )
             self.assertEqual(testcase["script_hash"], str(acc.script_hash))
             self.assertIsNotNone(acc.public_key)
@@ -121,11 +132,3 @@ class AccountCreationTestCase(unittest.TestCase):
                     testcase["encrypted_key"], "wrong password"
                 )
             self.assertIn("Wrong passphrase", str(context.exception))
-
-    def test_new_account_no_password(self):
-        with self.assertRaises(ValueError) as context:
-            account.Account()
-        self.assertIn(
-            "Can't create an account without a password unless it is a watch only account",
-            str(context.exception),
-        )

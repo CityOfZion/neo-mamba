@@ -25,7 +25,6 @@ Example:
 
 from __future__ import annotations
 from typing import Callable, Any, TypeVar, Optional, cast, Generic, TypeAlias
-from typing_extensions import deprecated
 from collections.abc import Sequence
 import asyncio
 from enum import IntEnum
@@ -116,7 +115,7 @@ class InvokeReceipt(Generic[ReturnType]):
     exception: Optional[str]
     #: Smart contract notifications.
     notifications: list[noderpc.Notification]
-    #: Script excution result.
+    #: Script execution result.
     result: ReturnType
 
     def __repr__(self):
@@ -147,20 +146,27 @@ class ChainFacade:
             receipt_timeout: maximum time to wait in seconds to find the transaction on the chain.
         """
         self.rpc_host = rpc_host
+        self._rpc_client: Optional[noderpc.NeoRpcClient] = None
         self._signing_func = None
         self.network = -1
         self.address_version = -1
-        self.signers: list[verification.Signer] = []
-        self._signing_funcs: list[signing.SigningFunction] = []
         self._receipt_retry_delay = receipt_retry_delay
         self._receipt_timeout = receipt_timeout
+        self._signing_pairs: list[SigningPair] = []
+
+    @property
+    def rpc_client(self) -> noderpc.NeoRpcClient:
+        if self._rpc_client is None:
+            self._rpc_client = noderpc.NeoRpcClient(self.rpc_host)
+        return self._rpc_client
 
     async def test_invoke(
         self,
         f: ContractMethodResult[ReturnType],
         *,
-        signers: Optional[Sequence[verification.Signer]] = None,
-    ) -> ReturnType:
+        signers: Optional[Sequence[SigningPair]] = None,
+        **kwargs,  # this is intentionally not used.
+    ) -> InvokeReceipt[ReturnType]:
         """
         Call a contract method in read-only mode.
         This does not persist any state on the actual chain and therefore does not require signing or paying GAS.
@@ -173,17 +179,18 @@ class ChainFacade:
             `invoke()` - persists state.
         """
         if signers is None:
-            signers = self.signers
+            signers = self._signing_pairs
         return await self._test_invoke(f, signers=signers)
 
     async def test_invoke_multi(
         self,
         f: list[ContractMethodResult],
         *,
-        signers: Optional[Sequence[verification.Signer]] = None,
-    ) -> Sequence:
+        signers: Optional[Sequence[SigningPair]] = None,
+        **kwargs,  # this is intentionally not used.
+    ) -> InvokeReceipt[Sequence]:
         """
-        Call all contract methods in one go (concurrently) and return the list of results.
+        Call all contract methods in one go (concatenated in 1 script) and return the list of results.
 
         Args:
             f: list of functions to call.
@@ -193,17 +200,45 @@ class ChainFacade:
             `invoke_multi()` - persists state.
         """
         if signers is None:
-            signers = self.signers
-        return await asyncio.gather(
-            *map(lambda c: self.test_invoke(c, signers=signers), f)
+            signers = self._signing_pairs
+        script = bytearray()
+        for call in f:  # type: ContractMethodResult
+            script.extend(call.script)
+
+        wrapped: ContractMethodResult[None] = ContractMethodResult(script)
+        receipt = await self.test_invoke_raw(wrapped, signers=signers)
+
+        results = []
+        stack_offset = 0
+        for call in f:
+            res_cpy = deepcopy(receipt.result)
+            # adjust the stack so that it becomes transparent for the post-processing functions.
+            res_cpy.stack = res_cpy.stack[
+                stack_offset : stack_offset + call.return_count
+            ]
+            if call.execution_processor is None:
+                results.append(res_cpy)
+            else:
+                results.append(call.execution_processor(res_cpy, 0))
+            stack_offset += call.return_count
+        return InvokeReceipt[Sequence](
+            receipt.tx_hash,
+            receipt.included_in_block,
+            receipt.confirmations,
+            receipt.gas_consumed,
+            receipt.state,
+            receipt.exception,
+            receipt.notifications,
+            results,
         )
 
     async def test_invoke_raw(
         self,
         f: ContractMethodResult[ReturnType],
         *,
-        signers: Optional[Sequence[verification.Signer]] = None,
-    ) -> noderpc.ExecutionResult:
+        signers: Optional[Sequence[SigningPair]] = None,
+        **kwargs,  # this is intentionally not used.
+    ) -> InvokeReceipt[noderpc.ExecutionResult]:
         """
         Call a contract method in read-only mode.
         This does not persist any state on the actual chain and therefore does not require signing or paying GAS.
@@ -217,27 +252,44 @@ class ChainFacade:
             `invoke_raw()` - persists state.
         """
         if signers is None:
-            signers = self.signers
-        return await self._test_invoke(f, signers=signers, return_raw=True)
+            signers = self._signing_pairs
+        res = await self._test_invoke(f, signers=signers, return_raw=True)
+        return cast(InvokeReceipt[noderpc.ExecutionResult], res)
 
     async def _test_invoke(
         self,
         f: ContractMethodResult[ReturnType],
         *,
-        signers: Optional[Sequence[verification.Signer]] = None,
+        signers: Optional[Sequence[SigningPair]] = None,
         return_raw: Optional[bool] = False,
-    ):
+    ) -> InvokeReceipt[ReturnType]:
         """
         Args:
             f:
             signers:
             return_raw: whether to post process the execution result or not.
         """
+        _signers = []
+        if signers is not None:
+            _signers = list(map(lambda p: p[1], signers))
+
         async with noderpc.NeoRpcClient(self.rpc_host) as client:
-            res = await client.invoke_script(f.script, signers)
+            res = await client.invoke_script(f.script, _signers)
+
             if f.execution_processor is None or return_raw or res.state != "HALT":
-                return res
-            return f.execution_processor(res, 0)
+                result = res
+            else:
+                result = f.execution_processor(res, 0)
+            return InvokeReceipt[ReturnType](
+                types.UInt256.zero(),
+                -1,
+                -1,
+                res.gas_consumed,
+                res.state,
+                res.exception,
+                res.notifications,
+                result,
+            )
 
     async def invoke(
         self,
@@ -248,6 +300,7 @@ class ChainFacade:
         system_fee: int = 0,
         append_network_fee: int = 0,
         append_system_fee: int = 0,
+        valid_until_block: int = 0,
     ) -> InvokeReceipt[ReturnType]:
         """
         Call a contract method and persist results on the chain. Costs GAS.
@@ -261,6 +314,7 @@ class ChainFacade:
             system_fee: manually set the system fee.
             append_network_fee: increase the calculated network fee with this amount.
             append_system_fee: increase the calculated system fee with this amount.
+            valid_until_block: set the additional number of blocks from the current height until which the transaction is valid. Can be maximum 1500 blocks.
 
         Returns:
             A transaction receipt. The `state` field of the receipt indicates if the transaction script executed
@@ -281,11 +335,12 @@ class ChainFacade:
                 system_fee=system_fee,
                 append_network_fee=append_network_fee,
                 append_system_fee=append_system_fee,
+                valid_until_block=valid_until_block,
             )
             receipt = await client.wait_for_transaction_receipt(
                 tx_id, timeout=timeout, retry_delay=delay
             )
-            if f.execution_processor is not None:
+            if f.execution_processor is not None and receipt.execution.state == "HALT":
                 result = f.execution_processor(receipt.execution, 0)
             else:
                 result = receipt.execution
@@ -309,6 +364,7 @@ class ChainFacade:
         system_fee: int = 0,
         append_network_fee: int = 0,
         append_system_fee: int = 0,
+        valid_until_block: int = 0,
     ) -> types.UInt256:
         """
         Call a contract method and persist results on the chain. Costs GAS.
@@ -320,6 +376,7 @@ class ChainFacade:
             system_fee: manually set the system fee.
             append_network_fee: increase the calculated network fee with this amount.
             append_system_fee: increase the calculated system fee with this amount.
+            valid_until_block: set the additional number of blocks from the current height until which the transaction is valid. Can be maximum 1500 blocks.
 
         Returns:
             a transaction ID if accepted by the network. Acceptance is does not guarantee successful execution.
@@ -343,14 +400,15 @@ class ChainFacade:
             builder = txbuilder.TxBuilder(client, f.script)
             await builder.init()
 
-            if signers:
-                for func, signer in signers:
-                    builder.add_signer(func, signer)
-            else:
-                for func, signer in zip(self._signing_funcs, self.signers):
-                    builder.add_signer(func, signer)
+            if signers is None:
+                signers = self._signing_pairs
+            for func, signer in signers:
+                builder.add_signer(func, signer)
 
-            await builder.set_valid_until_block()
+            if valid_until_block > 0:
+                await builder.set_valid_until_block(valid_until_block)
+            else:
+                await builder.set_valid_until_block()
 
             if system_fee > 0:
                 builder.tx.system_fee = system_fee
@@ -369,7 +427,7 @@ class ChainFacade:
                 # reset the witnesses) and then at the end of the function we build_and_sign() again to have a valid
                 # signature over the right network_fee
 
-                # if there were no witnesses prior to signging, then we should restore that after the tmp signing
+                # if there were no witnesses prior to signing, then we should restore that after the tmp signing
                 reset_witnesses = len(builder.tx.witnesses) == 0
                 builder.tx.network_fee = 999
                 await builder.build_and_sign()
@@ -392,6 +450,7 @@ class ChainFacade:
         system_fee: int = 0,
         append_network_fee: int = 0,
         append_system_fee: int = 0,
+        valid_until_block: int = 0,
     ) -> InvokeReceipt[noderpc.ExecutionResult]:
         """
         Call a contract method and persist results on the chain. Costs GAS.
@@ -404,6 +463,7 @@ class ChainFacade:
             system_fee: manually set the system fee.
             append_network_fee: increase the calculated network fee with this amount.
             append_system_fee: increase the calculated system fee with this amount.
+            valid_until_block: set the additional number of blocks from the current height until which the transaction is valid. Can be maximum 1500 blocks.
 
         Returns:
             A transaction receipt. The `state` field of the receipt indicates if the transaction script executed
@@ -423,6 +483,7 @@ class ChainFacade:
                 system_fee=system_fee,
                 append_network_fee=append_network_fee,
                 append_system_fee=append_system_fee,
+                valid_until_block=valid_until_block,
             )
             receipt = await client.wait_for_transaction_receipt(
                 tx_id, timeout=timeout, retry_delay=delay
@@ -449,7 +510,8 @@ class ChainFacade:
         append_network_fee: int = 0,
         append_system_fee: int = 0,
         _post_processing: bool = True,
-    ) -> Sequence:
+        valid_until_block: int = 0,
+    ) -> InvokeReceipt[Sequence]:
         """
         Call all contract methods (concatenated) in one go and persist results on the chain. Costs GAS.
         Waits for tx to be included in a block. Automatically post processes the execution results according to the
@@ -462,6 +524,7 @@ class ChainFacade:
             system_fee: manually set the system fee.
             append_network_fee: increase the calculated network fee with this amount.
             append_system_fee: increase the calculated system fee with this amount.
+            valid_until_block: set the additional number of blocks from the current height until which the transaction is valid. Can be maximum 1500 blocks.
 
         Returns:
             a list with the results of all executed functions.
@@ -479,6 +542,7 @@ class ChainFacade:
             system_fee=system_fee,
             append_network_fee=append_network_fee,
             append_system_fee=append_system_fee,
+            valid_until_block=valid_until_block,
         )
 
         delay, timeout = await self._get_receipt_time_values()
@@ -500,7 +564,16 @@ class ChainFacade:
             else:
                 results.append(call.execution_processor(res_cpy, 0))
             stack_offset += call.return_count
-        return results
+        return InvokeReceipt[Sequence](
+            receipt.tx_hash,
+            receipt.included_in_block,
+            receipt.confirmations,
+            receipt.execution.gas_consumed,
+            receipt.execution.state,
+            receipt.execution.exception,
+            receipt.execution.notifications,
+            results,
+        )
 
     async def invoke_multi_fast(
         self,
@@ -511,6 +584,7 @@ class ChainFacade:
         system_fee: int = 0,
         append_network_fee: int = 0,
         append_system_fee: int = 0,
+        valid_until_block: int = 0,
     ) -> types.UInt256:
         """
         Call all contract methods (concatenated) in one go and persist results on the chain. Costs GAS.
@@ -524,6 +598,7 @@ class ChainFacade:
             system_fee: manually set the system fee.
             append_network_fee: increase the calculated network fee with this amount.
             append_system_fee: increase the calculated system fee with this amount.
+            valid_until_block: set the additional number of blocks from the current height until which the transaction is valid. Can be maximum 1500 blocks.
 
         Returns:
             a transaction ID if accepted by the network. Acceptance does not guarantee successful execution.
@@ -561,7 +636,8 @@ class ChainFacade:
         system_fee: int = 0,
         append_network_fee: int = 0,
         append_system_fee: int = 0,
-    ) -> Sequence:
+        valid_until_block: int = 0,
+    ) -> InvokeReceipt[Sequence]:
         """
         Call all contract methods (concatenated) in one go and persist results on the chain. Costs GAS.
         Do not wait for tx to be included in a block. Do not post process the execution results according to
@@ -574,6 +650,7 @@ class ChainFacade:
             system_fee: manually set the system fee.
             append_network_fee: increase the calculated network fee with this amount.
             append_system_fee: increase the calculated system fee with this amount.
+            valid_until_block: set the additional number of blocks from the current height until which the transaction is valid. Can be maximum 1500 blocks.
 
         Returns:
             a list with the results of all executed functions.
@@ -591,6 +668,7 @@ class ChainFacade:
             append_network_fee=append_network_fee,
             append_system_fee=append_system_fee,
             _post_processing=False,
+            valid_until_block=valid_until_block,
         )
 
     async def estimate_gas(
@@ -626,8 +704,13 @@ class ChainFacade:
         """
         Add a `Signer` that will automatically be included when the various invoke* functions are called.
         """
-        self._signing_funcs.append(func)
-        self.signers.append(signer)
+        self._signing_pairs.append((func, signer))
+
+    def add_test_signer(self, signer: verification.Signer):
+        """
+        Add a `Signer` that will automatically be included when the various test_invoke* functions are called.
+        """
+        self._signing_pairs.append((signing.no_signing(), signer))
 
     @classmethod
     def node_provider_mainnet(cls):
@@ -1003,9 +1086,8 @@ class NeoToken(NEP17Contract):
         )
         return ContractMethodResult(script, unwrap.as_int)
 
-    @deprecated("end argument is deprecated", stacklevel=2)
     def get_unclaimed_gas(
-        self, account: types.UInt160 | NeoAddress, end: Optional[int] = None
+        self, account: types.UInt160 | NeoAddress
     ) -> ContractMethodResult[int]:
         """
         Get the amount of unclaimed GAS.
@@ -1063,11 +1145,11 @@ class NeoToken(NEP17Contract):
         sb.emit_contract_call_with_args(self.hash, "registerCandidate", [public_key])
         return ContractMethodResult(sb.to_array(), unwrap.as_bool)
 
-    def candidate_unregister(
+    def candidate_deregister(
         self, public_key: cryptography.ECPoint
     ) -> ContractMethodResult[bool]:
         """
-        Unregister as a consensus candidate.
+        Deregister as a consensus candidate.
 
         See Also:
             Account.public_key
@@ -1288,12 +1370,6 @@ class NEP11DivisibleContract(_NEP11Contract):
 
         return ContractMethodResult(sb.to_array(), process)
 
-    @deprecated("use total_owned_by", category=DeprecationWarning, stacklevel=2)
-    def balance_of(
-        self, owner: types.UInt160 | NeoAddress, token_id: bytes
-    ) -> ContractMethodResult[int]:
-        return self.total_owned_by(owner, token_id)
-
     def total_owned_by(
         self, owner: types.UInt160 | NeoAddress, token_id: bytes
     ) -> ContractMethodResult[int]:
@@ -1308,14 +1384,6 @@ class NEP11DivisibleContract(_NEP11Contract):
             self.hash, "balanceOf", [owner, token_id]
         )
         return ContractMethodResult(sb.to_array(), unwrap.as_int)
-
-    @deprecated(
-        "use total_owned_by_friendly", category=DeprecationWarning, stacklevel=2
-    )
-    def balance_of_friendly(
-        self, owner: types.UInt160 | NeoAddress, token_id: bytes
-    ) -> ContractMethodResult[float]:
-        return self.total_owned_by_friendly(owner, token_id)
 
     def total_owned_by_friendly(
         self, owner: types.UInt160 | NeoAddress, token_id: bytes

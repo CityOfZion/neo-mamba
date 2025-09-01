@@ -3,26 +3,26 @@ This example shows how to send NFTs to multiple accounts in one go (airdrop).
 """
 import asyncio
 from neo3.api.wrappers import ChainFacade, GasToken, NEP11NonDivisibleContract
-from neo3.api.helpers.signing import sign_insecure_with_account
+from neo3.api.helpers.signing import sign_with_account
 from neo3.network.payloads.verification import Signer
 from examples import shared
 
 
-async def example_airdrop(neoxp: shared.NeoExpress):
+async def example_airdrop(node: shared.ExampleNode):
     wallet = shared.user_wallet
     account = wallet.account_default
 
     # This is your interface for talking to the blockchain
-    facade = ChainFacade(rpc_host=neoxp.rpc_host)
+    facade = ChainFacade(rpc_host=node.rpc_host)
     facade.add_signer(
-        sign_insecure_with_account(account, password="123"),
+        sign_with_account(account),
         Signer(account.script_hash),  # default scope is CALLED_BY_ENTRY
     )
 
     # Wrap the NFT contract
     ntf = NEP11NonDivisibleContract(shared.nep11_token_hash)
-    balance = len(await facade.test_invoke(ntf.token_ids_owned_by(account.address)))
-    print(f"Current NFT balance: {balance}")
+    receipt = await facade.test_invoke(ntf.token_ids_owned_by(account.address))
+    print(f"Current NFT balance: {len(receipt.result)}")
 
     # First we have to mint the NFTs to our own wallet
     # We do this by sending 10 GAS to the contract. We do this in 2 separate transactions because the NFT is
@@ -47,7 +47,8 @@ async def example_airdrop(neoxp: shared.NeoExpress):
         )
     )
     print(receipt.result)
-    token_ids = await facade.test_invoke(ntf.token_ids_owned_by(account.address))
+    receipt = await facade.test_invoke(ntf.token_ids_owned_by(account.address))
+    token_ids = receipt.result
     print(f"New NFT token balance: {len(token_ids)}, ids: {token_ids}")
 
     # Now let's airdrop the NFTs
@@ -63,9 +64,9 @@ async def example_airdrop(neoxp: shared.NeoExpress):
 
     for d in destination_addresses:
         nft = await facade.test_invoke(ntf.token_ids_owned_by(d))
-        print(f"Address: {d} owns NFT: {nft}")
+        print(f"Address: {d} owns NFT: {nft.result}")
 
 
 if __name__ == "__main__":
-    with shared.NeoExpress() as neoxp:
-        asyncio.run(example_airdrop(neoxp))
+    with shared.ExampleNode() as local_node:
+        asyncio.run(example_airdrop(local_node))
