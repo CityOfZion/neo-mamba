@@ -29,7 +29,7 @@ Relevant if you make use of the `ChainFacade` related classes.
 
 # test_invoke* `signer` parameter type change
 Relevant if you make use of the `ChainFacade` related classes.
-The old `signers` parameter changed from `Optional[Sequence[verification.Signer]] = None` to `signers: Optional[Sequence[SigningPair]] = None`.
+The old `signers` parameter changed from `Optional[Sequence[verification.Signer]] = None` to `Optional[Sequence[SigningPair]] = None`.
 This streamlines the parameter with the persisting `invoke` variants, allowing for easy switching.
 
 # removal of deprecated functions and parameters
