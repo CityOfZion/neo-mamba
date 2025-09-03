@@ -67,7 +67,7 @@ target-version = ['py312']
 version = { attr = "neo3.__version__" }
 
 [tool.bumpversion]
-current_version = "3.0.0"
+current_version = "3.0.1"
 commit = true
 tag = true
 
