@@ -48,7 +48,7 @@ docs = [
 ]
 
 examples = [
-    "boa-test-constructor@git+http://github.com/CityOfZion/boa-test-constructor@use-mamba-3-0"
+    "boa-test-constructor==v0.4.0"
 ]
 
 [project.urls]
