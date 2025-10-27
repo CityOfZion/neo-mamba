@@ -137,5 +137,3 @@ class AccountCreationTestCase(unittest.TestCase):
         wif = "L5kx9QRKG9dwzSJF72pgps1d2scJZjnECWoKuUGVsz2D1WRBEaJ7"
         acc = account.Account.from_wif(wif)
         self.assertEqual(wif, account.Account.private_key_to_wif(acc.private_key))
-        acc = account.Account.from_private_key(b"\x11" * 32)
-        print(account.Account.private_key_to_wif(acc.private_key))
