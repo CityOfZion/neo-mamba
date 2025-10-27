@@ -132,3 +132,8 @@ class AccountCreationTestCase(unittest.TestCase):
                     testcase["encrypted_key"], "wrong password"
                 )
             self.assertIn("Wrong passphrase", str(context.exception))
+
+    def test_to_wif(self):
+        wif = "L5kx9QRKG9dwzSJF72pgps1d2scJZjnECWoKuUGVsz2D1WRBEaJ7"
+        acc = account.Account.from_wif(wif)
+        self.assertEqual(wif, account.Account.private_key_to_wif(acc.private_key))

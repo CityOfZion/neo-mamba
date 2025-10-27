@@ -728,6 +728,10 @@ class Account:
         return private_key
 
     @staticmethod
+    def private_key_to_wif(private_key: bytes) -> str:
+        return base58.b58encode_check(WIF_PREFIX + private_key + WIF_SUFFIX).decode()
+
+    @staticmethod
     def _xor_bytes(a: bytes, b: bytes) -> bytes:
         """
         XOR on two bytes objects
