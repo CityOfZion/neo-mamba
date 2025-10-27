@@ -25,13 +25,11 @@ def sign_with_account(acc: account.Account) -> SigningFunction:
     Sign and add a witness using the account and the provided account password.
     """
 
-    async def insecure_account_signer(
-        tx: transaction.Transaction, details: SigningDetails
-    ):
+    async def account_signer(tx: transaction.Transaction, details: SigningDetails):
         # this will automatically add a witness
         acc.sign_tx(tx, details.network)
 
-    return insecure_account_signer
+    return account_signer
 
 
 def sign_with_ledger() -> SigningFunction:
@@ -59,14 +57,12 @@ def sign_with_multisig_account(acc: account.Account) -> SigningFunction:
         acc: a multi-signature account
     """
 
-    async def insecure_account_signer(
-        tx: transaction.Transaction, details: SigningDetails
-    ):
+    async def account_signer(tx: transaction.Transaction, details: SigningDetails):
         ctx = account.MultiSigContext()
         # this will automatically add a witness
         acc.sign_multisig_tx(tx, ctx, details.network)
 
-    return insecure_account_signer
+    return account_signer
 
 
 def no_signing() -> SigningFunction:
