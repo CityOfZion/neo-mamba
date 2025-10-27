@@ -123,7 +123,7 @@ Let's see how this looks in code and then break it down line-by-line.
 ```py3
 import asyncio
 from neo3.api.wrappers import ChainFacade, NeoToken
-from neo3.api.helpers.signing import sign_insecure_with_account
+from neo3.api.helpers.signing import sign_with_account
 from neo3.network.payloads.verification import Signer
 from neo3.wallet.wallet import Wallet
 
@@ -136,7 +136,7 @@ async def main():
     
     facade = ChainFacade.node_provider_mainnet()
     facade.add_signer(
-        sign_insecure_with_account(account, password="123"),
+        sign_with_account(account),
         Signer(account.script_hash)
     )
     
@@ -165,7 +165,7 @@ Next up is setting up and configuring the facade to automatically sign our trans
 ```py3 linenums="14"
 facade = ChainFacade.node_provider_mainnet()
 facade.add_signer(
-    sign_insecure_with_account(account, password="123"),
+    sign_with_account(account, password="123"),
     Signer(account.script_hash)
 )
 ```
