@@ -232,11 +232,12 @@ class BinaryReaderTestCase(unittest.TestCase):
         with serialization.BinaryReader(
             array_length + s1.to_array() + s2.to_array()
         ) as br:
-            objs = br.read_serializable_list(obj_type=SerializableObj, max=1)
-            self.assertIsInstance(objs, list)
-            self.assertTrue(1, len(objs))
-            for o in objs:
-                self.assertIsInstance(o, SerializableObj)
+            with self.assertRaises(ValueError) as context:
+                br.read_serializable_list(obj_type=SerializableObj, max=1)
+            self.assertIn(
+                "Stream indicates 2 'SerializableObj' objects but the expected is: 1",
+                str(context.exception),
+            )
 
     def test_length(self):
         input_data = b"\x02\x41\x42"
