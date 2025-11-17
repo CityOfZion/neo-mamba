@@ -357,13 +357,18 @@ class BinaryReader(object):
             obj_type: the object class to deserialize into.
             max: read up to `max` objects from the stream.
 
+        Raises:
+            ValueError: if stream object count exceeds `max` parameter.
+
         Returns:
             list[ISerializable]: list of deserialized objects.
         """
         obj_array = []
         count = self.read_var_int()
         if max and count > max:
-            count = max
+            raise ValueError(
+                f"Stream indicates {count} '{obj_type.__name__}' objects but the expected is: {max}"
+            )
 
         try:
             for _ in range(count):
