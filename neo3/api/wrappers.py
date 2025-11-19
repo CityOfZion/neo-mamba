@@ -690,12 +690,13 @@ class ChainFacade:
                 result = await client.get_version()
                 # 5 seems like a reasonable divider where on mainnet (with 15s blocks) at worst case
                 # the RPC server is queried 5 times.
-                delay = self._receipt_retry_delay = (
-                    result.protocol.ms_per_block / 1000
-                ) / 5
-                timeout = self._receipt_timeout = (
-                    (result.protocol.ms_per_block / 1000) * 2
-                ) + self._receipt_retry_delay
+                delay = (result.protocol.ms_per_block / 1000) / 5
+                if self._receipt_retry_delay is not None:
+                    delay = self._receipt_retry_delay
+
+                timeout = ((result.protocol.ms_per_block / 1000) * 2) + delay
+                if self._receipt_timeout is not None:
+                    timeout = self._receipt_timeout
                 return delay, timeout
         else:
             return self._receipt_retry_delay, self._receipt_timeout
