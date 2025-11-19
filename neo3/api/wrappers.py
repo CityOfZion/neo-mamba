@@ -138,15 +138,19 @@ class ChainFacade:
         rpc_host: str,
         receipt_retry_delay: Optional[float] = None,
         receipt_timeout: Optional[float] = None,
+        rpc_timeout: Optional[float] = None,
     ):
         """
         Args:
             rpc_host: Neo RPC node host address.
             receipt_retry_delay: time to wait in seconds between attempts to find the transaction on the chain.
             receipt_timeout: maximum time to wait in seconds to find the transaction on the chain.
+            rpc_timeout: maximum time to wait in seconds for a response from the node to an RPC request. Affects all
+            invoke_ and test_invoke functions.
         """
         self.rpc_host = rpc_host
         self._rpc_client: Optional[noderpc.NeoRpcClient] = None
+        self._rpc_timeout = rpc_timeout
         self._signing_func = None
         self.network = -1
         self.address_version = -1
@@ -157,7 +161,9 @@ class ChainFacade:
     @property
     def rpc_client(self) -> noderpc.NeoRpcClient:
         if self._rpc_client is None:
-            self._rpc_client = noderpc.NeoRpcClient(self.rpc_host)
+            self._rpc_client = noderpc.NeoRpcClient(
+                self.rpc_host, timeout=self._rpc_timeout
+            )
         return self._rpc_client
 
     async def test_invoke(
@@ -273,7 +279,9 @@ class ChainFacade:
         if signers is not None:
             _signers = list(map(lambda p: p[1], signers))
 
-        async with noderpc.NeoRpcClient(self.rpc_host) as client:
+        async with noderpc.NeoRpcClient(
+            self.rpc_host, timeout=self._rpc_timeout
+        ) as client:
             res = await client.invoke_script(f.script, _signers)
 
             if f.execution_processor is None or return_raw or res.state != "HALT":
@@ -327,7 +335,9 @@ class ChainFacade:
                            results.
         """
         delay, timeout = await self._get_receipt_time_values()
-        async with noderpc.NeoRpcClient(self.rpc_host) as client:
+        async with noderpc.NeoRpcClient(
+            self.rpc_host, timeout=self._rpc_timeout
+        ) as client:
             tx_id = await self.invoke_fast(
                 f,
                 signers=signers,
@@ -396,7 +406,9 @@ class ChainFacade:
         if system_fee > 0 and append_system_fee > 0:
             raise ValueError("system_fee and append_system_fee are mutually exclusive")
 
-        async with noderpc.NeoRpcClient(self.rpc_host) as client:
+        async with noderpc.NeoRpcClient(
+            self.rpc_host, timeout=self._rpc_timeout
+        ) as client:
             builder = txbuilder.TxBuilder(client, f.script)
             await builder.init()
 
@@ -475,7 +487,9 @@ class ChainFacade:
             `invoke_fast()` - does not wait for a receipt.
         """
         delay, timeout = await self._get_receipt_time_values()
-        async with noderpc.NeoRpcClient(self.rpc_host) as client:
+        async with noderpc.NeoRpcClient(
+            self.rpc_host, timeout=self._rpc_timeout
+        ) as client:
             tx_id = await self.invoke_fast(
                 f,
                 signers=signers,
@@ -546,7 +560,9 @@ class ChainFacade:
         )
 
         delay, timeout = await self._get_receipt_time_values()
-        async with noderpc.NeoRpcClient(self.rpc_host) as client:
+        async with noderpc.NeoRpcClient(
+            self.rpc_host, timeout=self._rpc_timeout
+        ) as client:
             receipt = await client.wait_for_transaction_receipt(
                 tx_id, timeout=timeout, retry_delay=delay
             )
@@ -680,13 +696,17 @@ class ChainFacade:
         """
         Estimate the gas price for calling the contract method.
         """
-        async with noderpc.NeoRpcClient(self.rpc_host) as client:
+        async with noderpc.NeoRpcClient(
+            self.rpc_host, timeout=self._rpc_timeout
+        ) as client:
             res = await client.invoke_script(f.script, signers)
             return res.gas_consumed
 
     async def _get_receipt_time_values(self) -> tuple[float, float]:
         if self._receipt_retry_delay is None or self._receipt_timeout is None:
-            async with noderpc.NeoRpcClient(self.rpc_host) as client:
+            async with noderpc.NeoRpcClient(
+                self.rpc_host, timeout=self._rpc_timeout
+            ) as client:
                 result = await client.get_version()
                 # 5 seems like a reasonable divider where on mainnet (with 15s blocks) at worst case
                 # the RPC server is queried 5 times.
