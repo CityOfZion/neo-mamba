@@ -1,6 +1,7 @@
 """
 Heartbeat payload with chain height information.
 """
+
 from __future__ import annotations
 from datetime import datetime
 from random import randint

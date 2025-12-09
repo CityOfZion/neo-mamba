@@ -1,6 +1,7 @@
 """
 Block payload and related classes.
 """
+
 from __future__ import annotations
 import hashlib
 from neo3.core import Size as s, serialization, types, utils, cryptography as crypto

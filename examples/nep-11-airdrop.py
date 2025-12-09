@@ -1,6 +1,7 @@
 """
 This example shows how to send NFTs to multiple accounts in one go (airdrop).
 """
+
 import asyncio
 from neo3.api.wrappers import ChainFacade, GasToken, NEP11NonDivisibleContract
 from neo3.api.helpers.signing import sign_with_account

@@ -1,6 +1,7 @@
 """
 NEO address utilities.
 """
+
 import base58
 from neo3.core import types, cryptography, utils as coreutils
 from neo3.wallet.types import NeoAddress

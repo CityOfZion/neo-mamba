@@ -1,6 +1,7 @@
 """
 P2P network sync manager.
 """
+
 from __future__ import annotations
 import asyncio
 import traceback

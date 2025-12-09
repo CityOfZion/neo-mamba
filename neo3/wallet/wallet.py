@@ -1,6 +1,7 @@
 """
 Containers following the NEP-6 wallet standard.
 """
+
 from __future__ import annotations
 import os.path
 import json

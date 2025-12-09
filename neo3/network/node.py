@@ -1,6 +1,7 @@
 """
 P2P node. Connects over TCP. Handles network messages.
 """
+
 from __future__ import annotations
 import asyncio
 import traceback

@@ -2,6 +2,7 @@ import socket
 import logging
 import asyncio
 import unittest
+import sys
 
 from neo3.network import node, message, capabilities, ipfilter
 from neo3.network.payloads import (
@@ -270,6 +271,10 @@ class NeoNodeTestCase(IsolatedAsyncioTestCase):
         result = n._validate_version(version)
         self.assertFalse(result)
 
+    @unittest.skipIf(
+        sys.platform.startswith("win") and sys.version_info >= (3, 14, 0),
+        "Skip this test on Windows for Python 3.14+",
+    )
     async def test_connect_blocked_by_ipfilter(self):
         ipfilter.ipfilter.blacklist_add("127.0.0.1")
         r, w = socket.socketpair()

@@ -75,7 +75,7 @@ class BinaryReaderTestCase(unittest.TestCase):
             self.assertEqual(input_data[0], b)
 
         # validate we read an unsigned byte
-        with serialization.BinaryReader(b"\xFF") as br:
+        with serialization.BinaryReader(b"\xff") as br:
             b = br.read_uint8()
             self.assertEqual(255, b)
 
@@ -87,12 +87,12 @@ class BinaryReaderTestCase(unittest.TestCase):
             self.assertEqual(int.from_bytes(input_data[:2], "little"), b)
 
         # validate we read as unsigned
-        with serialization.BinaryReader(b"\x01\xFF") as br:
+        with serialization.BinaryReader(b"\x01\xff") as br:
             b = br.read_uint16()
             self.assertEqual(65281, b)
 
     def test_read_int16(self):
-        input_data = b"\x01\xFF"
+        input_data = b"\x01\xff"
         with serialization.BinaryReader(input_data) as br:
             b = br.read_int16()
             self.assertEqual(-255, b)
@@ -105,12 +105,12 @@ class BinaryReaderTestCase(unittest.TestCase):
             self.assertEqual(int.from_bytes(input_data[:4], "little"), b)
 
         # validate we read as unsigned
-        with serialization.BinaryReader(b"\x01\x02\x03\xFF") as br:
+        with serialization.BinaryReader(b"\x01\x02\x03\xff") as br:
             b = br.read_uint32()
             self.assertEqual(4278387201, b)
 
     def test_read_int32(self):
-        with serialization.BinaryReader(b"\x01\x02\x03\xFF") as br:
+        with serialization.BinaryReader(b"\x01\x02\x03\xff") as br:
             b = br.read_int32()
             self.assertEqual(-16580095, b)
 
@@ -122,12 +122,12 @@ class BinaryReaderTestCase(unittest.TestCase):
             self.assertEqual(int.from_bytes(input_data[:8], "little"), b)
 
         # validate we read as unsigned
-        with serialization.BinaryReader(b"\x01\x02\x03\x04\x05\x06\x07\xFF") as br:
+        with serialization.BinaryReader(b"\x01\x02\x03\x04\x05\x06\x07\xff") as br:
             b = br.read_uint64()
             self.assertEqual(18376663423120507393, b)
 
     def test_read_int64(self):
-        with serialization.BinaryReader(b"\x01\x02\x03\x04\x05\x06\x07\xFF") as br:
+        with serialization.BinaryReader(b"\x01\x02\x03\x04\x05\x06\x07\xff") as br:
             b = br.read_int64()
             self.assertEqual(-70080650589044223, b)
 
@@ -138,31 +138,31 @@ class BinaryReaderTestCase(unittest.TestCase):
             self.assertEqual(0, b)
 
         # a value smaller than 0xFD is encoded in 1 byte
-        with serialization.BinaryReader(b"\xFC") as br:
+        with serialization.BinaryReader(b"\xfc") as br:
             b = br.read_var_int()
             self.assertEqual(252, b)
 
         # a value smaller than 0xFFFF is encoded in 3 bytes
-        input_data = b"\xfd\x01\xFF"
+        input_data = b"\xfd\x01\xff"
         with serialization.BinaryReader(input_data) as br:
             b = br.read_var_int()
             self.assertEqual(65281, b)
 
         # a value smaller than 0xFFFFFFFF is encoded in 5 bytes
-        input_data = b"\xfe\x01\x02\x03\xFF"
+        input_data = b"\xfe\x01\x02\x03\xff"
         with serialization.BinaryReader(input_data) as br:
             b = br.read_var_int()
             self.assertEqual(4278387201, b)
 
         # a value bigger than 0xFFFFFFFF is encoded in 9 bytes
-        input_data = b"\xff\x01\x02\x03\x04\x05\x06\x07\x08\xFF"
+        input_data = b"\xff\x01\x02\x03\x04\x05\x06\x07\x08\xff"
         with serialization.BinaryReader(input_data) as br:
             b = br.read_var_int()
             self.assertEqual(578437695752307201, b)
 
         # test reader with max size
         with self.assertRaises(ValueError) as context:
-            with serialization.BinaryReader(b"\xFC") as br:
+            with serialization.BinaryReader(b"\xfc") as br:
                 b = br.read_var_int(max=10)
         self.assertIn("Invalid format", str(context.exception))
 
@@ -264,46 +264,46 @@ class BinaryWriterTestCase(unittest.TestCase):
             bw.write_uint8(255)
             # this also validates signed vs unsigned. If it was signed it would need an extra \x00 to express the value
             # and would not fit in 1 byte
-            self.assertEqual(b"\xFF", bw._stream.getvalue())
+            self.assertEqual(b"\xff", bw._stream.getvalue())
 
     def test_write_uint16(self):
         with serialization.BinaryWriter() as bw:
             bw.write_uint16(0xFFFF)
             # this also validates signed vs unsigned. If it was signed it would need an extra \x00 to express the value
             # and would not fit in 2 bytes
-            self.assertEqual(b"\xFF\xFF", bw._stream.getvalue())
+            self.assertEqual(b"\xff\xff", bw._stream.getvalue())
 
     def test_write_uint32(self):
         with serialization.BinaryWriter() as bw:
             bw.write_uint32(0xFFFFFFFF)
             # this also validates signed vs unsigned. If it was signed it would need an extra \x00 to express the value
             # and would not fit in 4 bytes
-            self.assertEqual(b"\xFF\xFF\xFF\xFF", bw._stream.getvalue())
+            self.assertEqual(b"\xff\xff\xff\xff", bw._stream.getvalue())
 
     def test_write_uint64(self):
         with serialization.BinaryWriter() as bw:
             bw.write_uint64(0xFFFFFFFFFFFFFFFF)
             # this also validates signed vs unsigned. If it was signed it would need an extra \x00 to express the value
             # and would not fit in 8 bytes
-            self.assertEqual(b"\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF", bw._stream.getvalue())
+            self.assertEqual(b"\xff\xff\xff\xff\xff\xff\xff\xff", bw._stream.getvalue())
 
     def test_write_int16(self):
         with serialization.BinaryWriter() as bw:
             bw.write_int16(-1)
             # this also validates signed vs unsigned. If it was unsigned it would be without \x00
-            self.assertEqual(b"\xFF\xFF", bw._stream.getvalue())
+            self.assertEqual(b"\xff\xff", bw._stream.getvalue())
 
     def test_write_int32(self):
         with serialization.BinaryWriter() as bw:
             bw.write_int32(-1)
             # this also validates signed vs unsigned. If it was unsigned it would be without \x00
-            self.assertEqual(b"\xFF\xFF\xFF\xFF", bw._stream.getvalue())
+            self.assertEqual(b"\xff\xff\xff\xff", bw._stream.getvalue())
 
     def test_write_int64(self):
         with serialization.BinaryWriter() as bw:
             bw.write_int64(-1)
             # this also validates signed vs unsigned. If it was unsigned it would be without \x00
-            self.assertEqual(b"\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF", bw._stream.getvalue())
+            self.assertEqual(b"\xff\xff\xff\xff\xff\xff\xff\xff", bw._stream.getvalue())
 
     def test_write_var_string(self):
         with serialization.BinaryWriter() as bw:
@@ -327,7 +327,7 @@ class BinaryWriterTestCase(unittest.TestCase):
 
         with serialization.BinaryWriter() as bw:
             bw.write_var_int(65535)  # 0xFFFF edge
-            self.assertEqual(b"\xfd\xff\xFF", bw._stream.getvalue())
+            self.assertEqual(b"\xfd\xff\xff", bw._stream.getvalue())
 
         with serialization.BinaryWriter() as bw:
             bw.write_var_int(4294967295)  # 0xFFFFFFFF edge

@@ -65,7 +65,7 @@ class TestStdLibHelpers(unittest.TestCase):
         self.assertEqual(expected, results)
 
     def test_invalid(self):
-        data = b"\xFF"  # invalid stack item type
+        data = b"\xff"  # invalid stack item type
         with self.assertRaises(ValueError) as context:
             stdlib.binary_deserialize(data)
         self.assertIn("not a valid StackItemType", str(context.exception))

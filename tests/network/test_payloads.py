@@ -1075,7 +1075,7 @@ class TransactionAttributeTestCase(unittest.TestCase):
         self.assertIsInstance(ta, TestTXAttribute)
 
     def test_deserialization_from_failure(self):
-        stream_with_invalid_type = b"\xFF"
+        stream_with_invalid_type = b"\xff"
         with serialization.BinaryReader(stream_with_invalid_type) as reader:
             with self.assertRaises(ValueError) as context:
                 transaction.TransactionAttribute.deserialize_from(reader)

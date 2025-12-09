@@ -1,6 +1,7 @@
 """
 Local cache to hold objects for responding to `GETDATA` network payloads.
 """
+
 from __future__ import annotations
 from typing import Optional
 from neo3.network.payloads import inventory, block

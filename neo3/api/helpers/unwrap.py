@@ -4,6 +4,7 @@ such as `invoke_function()`, `invoke_script()`, `get_application_log_transaction
 
 Includes sanity checking.
 """
+
 from __future__ import annotations
 from neo3.api import noderpc
 from neo3 import vm
