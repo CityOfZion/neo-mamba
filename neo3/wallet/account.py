@@ -1,6 +1,7 @@
 """
 Classes to work with account key material.
 """
+
 from __future__ import annotations
 import base58  # type: ignore
 import base64
@@ -515,11 +516,13 @@ class Account:
             "address": self.address,
             "label": self.label,
             "lock": self.lock,
-            "key": self.private_key_to_nep2(
-                self.private_key, password, scrypt_parameters
-            ).decode("utf-8")
-            if self.private_key is not None
-            else None,
+            "key": (
+                self.private_key_to_nep2(
+                    self.private_key, password, scrypt_parameters
+                ).decode("utf-8")
+                if self.private_key is not None
+                else None
+            ),
             "contract": self.contract.to_json() if self.contract is not None else None,
             "extra": self.extra if len(self.extra) > 0 else None,
         }

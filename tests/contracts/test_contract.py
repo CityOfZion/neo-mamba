@@ -152,7 +152,7 @@ class ContractTestCase(unittest.TestCase):
         )
         # public key 2, but the key data is too short
         script += bytearray([int(vm.OpCode.PUSHDATA1)])
-        script += b"\xFF" * 10
+        script += b"\xff" * 10
         self.assertFalse(utils.is_multisig_contract(script))
 
     def test_is_multisig_contract_invalid_public_key_2(self):
@@ -260,7 +260,7 @@ class ContractTestCase(unittest.TestCase):
 
     def test_is_multisig_contract_invalid_sig_counts(self):
         # no valid signature length byte
-        script = b"\xFF" * 43
+        script = b"\xff" * 43
         self.assertFalse(utils.is_multisig_contract(script))
 
         # more than 1024 signatures

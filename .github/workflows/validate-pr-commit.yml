@@ -55,7 +55,7 @@ jobs:
       - uses: psf/black@stable
         with:
           options: '--check --target-version py313'
-          version: '23.9.1'
+          version: '25.12.0'
           src: "neo3/ examples/ tests/"
   type-checking:
     needs: setup

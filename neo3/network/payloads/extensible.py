@@ -1,6 +1,7 @@
 """
 Customizable payload.
 """
+
 from __future__ import annotations
 import hashlib
 from neo3.core import types, serialization, Size as s, utils

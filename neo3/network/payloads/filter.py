@@ -1,6 +1,7 @@
 """
 Bloomfilter payloads.
 """
+
 from __future__ import annotations
 from neo3.core import serialization, utils, Size as s, cryptography as crypto
 

@@ -1,6 +1,7 @@
 """
 Transaction payload and related classes.
 """
+
 from __future__ import annotations
 import hashlib
 import abc

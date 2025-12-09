@@ -1,6 +1,7 @@
 """
 Classes for managing transaction signers and signature scopes.
 """
+
 from __future__ import annotations
 import hashlib
 import abc

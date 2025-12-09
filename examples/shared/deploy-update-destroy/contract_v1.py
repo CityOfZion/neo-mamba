@@ -1,6 +1,7 @@
 """
-    This version of the contract has an `add` method that increases the value by 1.
+This version of the contract has an `add` method that increases the value by 1.
 """
+
 from typing import Any
 from boa3.builtin import NeoMetadata, metadata, public
 from boa3.builtin.nativecontract.contractmanagement import ContractManagement

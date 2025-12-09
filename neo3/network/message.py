@@ -1,6 +1,7 @@
 """
 P2P network message classes.
 """
+
 from __future__ import annotations
 import lz4.block  # type: ignore
 from enum import IntEnum, IntFlag

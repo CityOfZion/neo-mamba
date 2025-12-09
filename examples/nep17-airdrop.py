@@ -2,6 +2,7 @@
 This example shows how to send tokens to multiple accounts in one go.
 It will mint the "COZ Token"
 """
+
 import asyncio
 from neo3.api.wrappers import ChainFacade, NeoToken, NEP17Contract
 from neo3.api.helpers.signing import sign_with_account

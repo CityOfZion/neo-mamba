@@ -1,6 +1,7 @@
 """
 Contract utilities for determining the contract hash, contract types, extracting public keys and signing threshold and more.
 """
+
 from typing import Type
 from collections.abc import Sequence
 from neo3.core import types, utils as coreutils, cryptography

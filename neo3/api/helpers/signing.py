@@ -1,6 +1,7 @@
 """
 Signing functions for use with `ChainFacade.invoke`.
 """
+
 import os
 from dataclasses import dataclass
 from neo3.network.payloads import transaction

@@ -1,6 +1,7 @@
 """
 This example shows how to vote for your favourite consensus node
 """
+
 import asyncio
 from neo3.api.wrappers import ChainFacade, NeoToken
 from neo3.api.helpers.signing import sign_with_account

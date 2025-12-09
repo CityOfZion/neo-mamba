@@ -3,6 +3,7 @@ This files has 2 examples that show how to transfer NEP-17 tokens for a contract
 has an existing wrapper (like NEO) and how to transfer for any arbitrary contract that
 implements the NEP-17 standard
 """
+
 import asyncio
 from neo3.api.wrappers import ChainFacade, NeoToken, NEP17Contract
 from neo3.api.helpers.signing import sign_with_account

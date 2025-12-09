@@ -1,6 +1,7 @@
 """
 NEO Virtual Machine classes.
 """
+
 from __future__ import annotations
 import hashlib
 from enum import IntEnum
@@ -287,33 +288,25 @@ ContractParameter = Union[
 class ContractParameterArray(Protocol):
     """"""
 
-    def insert(self, index: int, value: ContractParameter) -> None:
-        ...
+    def insert(self, index: int, value: ContractParameter) -> None: ...
 
-    def __getitem__(self, i: int) -> ContractParameter:
-        ...
+    def __getitem__(self, i: int) -> ContractParameter: ...
 
-    def __setitem__(self, i: int, o: ContractParameter) -> None:
-        ...
+    def __setitem__(self, i: int, o: ContractParameter) -> None: ...
 
-    def __delitem__(self, i: int) -> None:
-        ...
+    def __delitem__(self, i: int) -> None: ...
 
 
 class ContractParameterDict(Protocol):
     """"""
 
-    def __setitem__(self, k: ContractParameter, v: ContractParameter) -> None:
-        ...
+    def __setitem__(self, k: ContractParameter, v: ContractParameter) -> None: ...
 
-    def __delitem__(self, v: ContractParameter) -> None:
-        ...
+    def __delitem__(self, v: ContractParameter) -> None: ...
 
-    def __getitem__(self, k: ContractParameter) -> ContractParameter:
-        ...
+    def __getitem__(self, k: ContractParameter) -> ContractParameter: ...
 
-    def __iter__(self) -> Iterator[ContractParameter]:
-        ...
+    def __iter__(self) -> Iterator[ContractParameter]: ...
 
 
 class ScriptBuilder:
@@ -710,7 +703,7 @@ class ScriptBuilder:
     def _pad_right(self, data: bytearray, length: int, is_negative: bool):
         if len(data) >= length:
             return
-        pad = b"\xFF" if is_negative else b"\x00"
+        pad = b"\xff" if is_negative else b"\x00"
         while len(data) != length:
             data.extend(pad)
 

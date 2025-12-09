@@ -1,6 +1,7 @@
 """
 NEP-14 Application Binary Interface classes.
 """
+
 from __future__ import annotations
 from typing import Optional
 from collections.abc import Sequence

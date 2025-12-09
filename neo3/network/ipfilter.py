@@ -1,8 +1,9 @@
-""" A module for filtering IPs via black and whitelists on P2P nodes (`NeoNode`).
+"""A module for filtering IPs via black and whitelists on P2P nodes (`NeoNode`).
 
 A global instance ``ipfilter`` can be imported directly from the module and is taken into account by default in the
 `NeoNode` class when connections are established.
 """
+
 from ipaddress import IPv4Network
 from contextlib import suppress
 from copy import deepcopy
