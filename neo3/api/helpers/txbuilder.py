@@ -47,8 +47,7 @@ class TxBuilder:
                 "fee calculation will be incorrect"
             )
         if _emit_log_marker:
-            res = await self.client.invoke_script(_log_marker_start())
-            print(res)
+            await self.client.invoke_script(_log_marker_start())
         res = await self.client.invoke_script(self.tx.script, self.tx.signers)
         if _emit_log_marker:
             await self.client.invoke_script(_log_marker_stop())
