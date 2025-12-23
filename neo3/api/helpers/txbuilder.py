@@ -6,6 +6,7 @@ from neo3.api import noderpc
 from neo3.api.helpers import signing
 from neo3.network.payloads import transaction, verification
 from neo3.wallet import account
+from neo3.vm import ScriptBuilder, Syscalls
 from typing import Optional
 
 
@@ -36,7 +37,7 @@ class TxBuilder:
         res = await self.client.get_version()
         self.network = res.protocol.network
 
-    async def calculate_system_fee(self) -> None:
+    async def calculate_system_fee(self, _emit_log_marker=False) -> None:
         """
         Calculates and set the system fee. Requires at least one signer.
         """
@@ -45,7 +46,12 @@ class TxBuilder:
                 "Need at least one signer (a.k.a the sender who pays for the transaction) or the "
                 "fee calculation will be incorrect"
             )
+        if _emit_log_marker:
+            res = await self.client.invoke_script(_log_marker_start())
+            print(res)
         res = await self.client.invoke_script(self.tx.script, self.tx.signers)
+        if _emit_log_marker:
+            await self.client.invoke_script(_log_marker_stop())
         self.tx.system_fee = res.gas_consumed
 
     async def set_valid_until_block(self, blocks: int = 1500) -> None:
@@ -130,3 +136,21 @@ class TxBuilder:
                 )
         self.tx.signers.append(signer)
         self.signing_funcs.append(func)
+
+
+START_IGNORE_RUNTIMELOG = "START_IGNORE_RUNTIMELOG"
+STOP_IGNORE_RUNTIMELOG = "STOP_IGNORE_RUNTIMELOG"
+
+
+def _log_marker_start() -> bytes:
+    sb = ScriptBuilder()
+    sb.emit_push(START_IGNORE_RUNTIMELOG)
+    sb.emit_syscall(Syscalls.SYSTEM_RUNTIME_LOG)
+    return sb.to_array()
+
+
+def _log_marker_stop() -> bytes:
+    sb = ScriptBuilder()
+    sb.emit_push(STOP_IGNORE_RUNTIMELOG)
+    sb.emit_syscall(Syscalls.SYSTEM_RUNTIME_LOG)
+    return sb.to_array()

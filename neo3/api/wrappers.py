@@ -157,6 +157,7 @@ class ChainFacade:
         self._receipt_retry_delay = receipt_retry_delay
         self._receipt_timeout = receipt_timeout
         self._signing_pairs: list[SigningPair] = []
+        self._emit_log_marker = False
 
     @property
     def rpc_client(self) -> noderpc.NeoRpcClient:
@@ -425,7 +426,7 @@ class ChainFacade:
             if system_fee > 0:
                 builder.tx.system_fee = system_fee
             else:
-                await builder.calculate_system_fee()
+                await builder.calculate_system_fee(self._emit_log_marker)
                 builder.tx.system_fee += append_system_fee
 
             if network_fee > 0:
