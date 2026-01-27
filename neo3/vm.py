@@ -895,17 +895,23 @@ class Syscalls:
     #: Get an entry from storage by a specified key.
     SYSTEM_STORAGE_GET = Syscall("System.Storage.Get", callflags.CallFlags.READ_STATES)
     #: Get an entry from local storage by a specified key.
-    SYSTEM_STORAGE_LOCAL_GET = Syscall("System.Storage.Local.Get", callflags.CallFlags.READ_STATES)
+    SYSTEM_STORAGE_LOCAL_GET = Syscall(
+        "System.Storage.Local.Get", callflags.CallFlags.READ_STATES
+    )
     #: Find entries from storage by a given a search prefix and search options.
     SYSTEM_STORAGE_FIND = Syscall(
         "System.Storage.Find", callflags.CallFlags.READ_STATES
     )
     #: Find entries from local storage by a given a search prefix and search options.
-    SYSTEM_STORAGE_LOCAL_FIND = Syscall("System.Storage.Local.Find", callflags.CallFlags.READ_STATES)
+    SYSTEM_STORAGE_LOCAL_FIND = Syscall(
+        "System.Storage.Local.Find", callflags.CallFlags.READ_STATES
+    )
     #: Persist an entry to storage under a specified key.
     SYSTEM_STORAGE_PUT = Syscall("System.Storage.Put", callflags.CallFlags.WRITE_STATES)
     #: Persist an entry to local storage under a specified key.
-    SYSTEM_STORAGE_LOCAL_PUT = Syscall("System.Storage.Local.Put", callflags.CallFlags.WRITE_STATES)
+    SYSTEM_STORAGE_LOCAL_PUT = Syscall(
+        "System.Storage.Local.Put", callflags.CallFlags.WRITE_STATES
+    )
     #: Delete an entry from storage under a specified key.
     SYSTEM_STORAGE_DELETE = Syscall(
         "System.Storage.Delete", callflags.CallFlags.WRITE_STATES
