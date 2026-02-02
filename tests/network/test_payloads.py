@@ -1278,19 +1278,6 @@ class TransactionTestCase(unittest.TestCase):
         tx.signers = []
         self.assertEqual(types.UInt160.zero(), tx.sender)
 
-    def test_protocol_magic(self):
-        # test proper initialization
-        tx = transaction.Transaction._serializable_init()
-        # test default
-        self.assertEqual(0x4F454E, tx.protocol_magic)
-        # test init supplied
-        tx = transaction.Transaction(0, 0, 0, 0, 0, protocol_magic=123)
-        self.assertEqual(123, tx.protocol_magic)
-        # test settings supplied
-        settings.network.magic = 456
-        tx = transaction.Transaction._serializable_init()
-        self.assertEqual(456, tx.protocol_magic)
-
     def test_scripthashes_for_verifying(self):
         tx = transaction.Transaction._serializable_init()
 

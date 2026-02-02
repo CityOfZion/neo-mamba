@@ -7,6 +7,7 @@ import hashlib
 import abc
 import base58  # type: ignore
 import base64
+import warnings
 from enum import Enum, IntEnum
 from typing import Optional, Type, TypeVar
 from neo3.core import Size as s, serialization, utils, types, interfaces
@@ -242,6 +243,12 @@ class Transaction(inventory.IInventory, interfaces.IJson):
         witnesses: Optional[list[verification.Witness]] = None,
         protocol_magic: Optional[int] = None,
     ):
+        if protocol_magic is not None:
+            warnings.warn(
+                "the `protocol_magic` parameter is deprecated and will be removed in v3.5",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         #: Transaction data structure version - for internal use
         self.version = version
         #: Random number
@@ -271,14 +278,6 @@ class Transaction(inventory.IInventory, interfaces.IJson):
         self.vm_state = vm.VMState.NONE
         #: The block height in which the transaction is included.
         self.block_height = 0
-        #: The network protocol magic number to use in the Transaction hash function. Defaults to 0x4F454E
-        #: Warning: changing this will change the TX hash
-        if protocol_magic:
-            self.protocol_magic = protocol_magic
-        elif settings.settings.network.magic is not None:
-            self.protocol_magic = settings.settings.network.magic
-        else:
-            self.protocol_magic = 0x4F454E
 
     def __len__(self):
         return (
