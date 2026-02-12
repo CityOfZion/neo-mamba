@@ -761,6 +761,10 @@ class GenericContract:
         self,
         name,
         args: Optional[noderpc.ContractParameter] = None,
+        call_flags: Optional[callflags.CallFlags] = None,
+        unwrap_iterator=False,
+        unwrap_limit=2000,
+        start_index=0,
     ) -> ContractMethodResult[noderpc.ExecutionResultResponse]:
         """
         Call a method on the contract.
@@ -768,13 +772,28 @@ class GenericContract:
         Args:
             name: the method name to call as defined in the manifest.
             args: optional list of arguments the function expects.
+            call_flags: call flags of the method called
+            unwrap_iterator: if the method returns an Iterator type (i.e. like NEP-11 Tokens()) it can be unwrapped
+            into an Array stack item avoiding the need to handle session iterators.
+            unwrap_limit: how many items to unwrap.
+            start_index: how many items to skip before starting to unwrap.
         """
+        sb = vm.ScriptBuilder()
+        params = [self.hash, name, call_flags]
         if args is None:
-            script = vm.ScriptBuilder().emit_contract_call(self.hash, name).to_array()
+            if unwrap_iterator:
+                params.extend([unwrap_limit, start_index])
+                script = sb.emit_contract_call_and_unwrap_iterator(*params).to_array()
+            else:
+                script = sb.emit_contract_call(*params).to_array()
         else:
-            sb = vm.ScriptBuilder()
-            sb.emit_contract_call_with_args(self.hash, name, args)
-            script = sb.to_array()
+            if unwrap_iterator:
+                params.extend([unwrap_limit, start_index])
+                script = sb.emit_contract_call_with_args_and_unwrap_iterator(
+                    *params
+                ).to_array()
+            else:
+                script = sb.emit_contract_call_with_args(*params).to_array()
         return ContractMethodResult(script)
 
     def update(
