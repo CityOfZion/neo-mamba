@@ -531,9 +531,11 @@ class ScriptBuilder:
         operation: str,
         args: ContractParameter,
         call_flags: Optional[callflags.CallFlags] = None,
+        unwrap_limit: int = 2000,
+        start_index: int = 0,
     ) -> ScriptBuilder:
         return self._emit_contract_call_and_unwrap_iterator(
-            script_hash, operation, args, call_flags
+            script_hash, operation, args, call_flags, unwrap_limit, start_index
         )
 
     def to_array(self) -> bytes:
