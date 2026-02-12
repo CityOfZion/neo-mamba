@@ -48,7 +48,7 @@ docs = [
 ]
 
 examples = [
-    "boa-test-constructor==v0.4.0"
+    "boa-test-constructor==v0.7.0"
 ]
 
 [project.urls]
