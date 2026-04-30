@@ -3,9 +3,9 @@ The `shared` package contains all the test data and wallets that are used to set
 
 **Requirements**
 
-Each example creates an isolated private chain allowing you to play with the code. This requires the `examples` depencencies
-to be installed. 
+Each example creates an isolated private chain allowing you to play with the code. This requires the `sctesting` dependencies
+to be installed. When installed from source you must also run `python scripts/download-node.py` once.
 
 ```shell
-pip install neo-mamba[examples]
+pip install neo-mamba[sctesting]
 ```
