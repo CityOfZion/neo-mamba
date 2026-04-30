@@ -49,14 +49,9 @@ docs = [
     "mkapi-fix-coz==0.1.0",
 ]
 
-examples = [
-    "boa-test-constructor==v0.7.0"
-]
-
 sctesting = [
    "requests",
    "PyYAML",
-
 ]
 
 [project.urls]
