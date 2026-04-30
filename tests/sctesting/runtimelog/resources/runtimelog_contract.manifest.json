@@ -1,0 +1,55 @@
+{
+    "name": "runtimelog_contract",
+    "groups": [],
+    "features": {},
+    "supportedstandards": [],
+    "abi": {
+        "methods": [
+            {
+                "name": "print_str",
+                "parameters": [
+                    {
+                        "name": "msg",
+                        "type": "String"
+                    }
+                ],
+                "returntype": "Void",
+                "offset": 0,
+                "safe": false
+            },
+            {
+                "name": "print_bytes",
+                "parameters": [
+                    {
+                        "name": "msg",
+                        "type": "ByteArray"
+                    }
+                ],
+                "returntype": "Void",
+                "offset": 11,
+                "safe": false
+            },
+            {
+                "name": "print_list",
+                "parameters": [
+                    {
+                        "name": "msg",
+                        "type": "Array"
+                    }
+                ],
+                "returntype": "Void",
+                "offset": 22,
+                "safe": false
+            }
+        ],
+        "events": []
+    },
+    "permissions": [
+        {
+            "contract": "*",
+            "methods": "*"
+        }
+    ],
+    "trusts": [],
+    "extra": null
+}

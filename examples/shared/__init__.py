@@ -6,7 +6,7 @@ from neo3.api.wrappers import GenericContract, NeoToken, GasToken
 from neo3.api.helpers.signing import sign_with_account, sign_with_multisig_account
 from neo3.contracts import nef, manifest
 from neo3.network.payloads.verification import Signer
-from boaconstructor import NeoGoNode
+from neo3.sctesting.node import NeoGoNode
 
 shared_dir = pathlib.Path("shared").resolve(strict=True)
 
@@ -27,8 +27,7 @@ class ExampleNode(NeoGoNode):
 
     def __enter__(self):
         self.start()
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(self._setup_for_test())
+        asyncio.run(self._setup_for_test())
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):

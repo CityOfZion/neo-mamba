@@ -39,6 +39,8 @@ dev = [
     "docutils==0.17.1",
     "mypy==1.7.1",
     "mypy-extensions==1.0.0",
+    "types-PyYAML",
+    "tomlkit==0.14.0",
 ]
 docs = [
     "mkdocs==1.4.1",
@@ -47,8 +49,9 @@ docs = [
     "mkapi-fix-coz==0.1.0",
 ]
 
-examples = [
-    "boa-test-constructor==v0.7.0"
+sctesting = [
+   "requests",
+   "PyYAML",
 ]
 
 [project.urls]
@@ -85,3 +88,6 @@ source = ["neo3"]
 
 [tool.coverage.report]
 omit = ["neo3/core/cryptography/ecc*"]
+
+[tool.neogo]
+tag = "v0.118.0"

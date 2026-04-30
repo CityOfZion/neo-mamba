@@ -73,7 +73,7 @@ black: ## apply black formatting
 	black neo3/ examples/ tests/
 
 build: ## create source distribution and wheel
-	python -m build
+	python -m build && python scripts/fix-wheels.py dist/
 
 version-major: ## bump the major version prior to release, auto commits and tag
 	bump-my-version bump major

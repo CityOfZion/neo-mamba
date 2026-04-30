@@ -1,0 +1,50 @@
+{
+  "name": "unittestwallet",
+  "version": "1.0",
+  "accounts": [
+    {
+      "address": "Nhfg3TbpwogLvDGVvAvqyThbsHgoSUKwtn",
+      "key": "6PYM8VdX3hY4B51UJxmm8D41RQMbpJT8aYHibyQ67gjkUPmvQgu51Y5UQR",
+      "label": "",
+      "contract": {
+        "script": "DCECs2Ir9AF73+MXxYrtX0x1PyBrfbiWBG+n13S7xL9/jcJBVuezJw==",
+        "parameters": [
+          {
+            "name": "parameter0",
+            "type": "Signature"
+          }
+        ],
+        "deployed": false
+      },
+      "lock": false,
+      "isDefault": true,
+      "extra": null
+    },
+    {
+      "address": "NfgHwwTi3wHAS8aFAN243C5vGbkYDpqLHP",
+      "key": "6PYM8VdX3hY4B51UJxmm8D41RQMbpJT8aYHibyQ67gjkUPmvQgu51Y5UQR",
+      "label": "",
+      "contract": {
+        "script": "EQwhArNiK/QBe9/jF8WK7V9MdT8ga324lgRvp9d0u8S/f43CEUGe0Nw6",
+        "parameters": [
+          {
+            "name": "parameter0",
+            "type": "Signature"
+          }
+        ],
+        "deployed": false
+      },
+      "lock": false,
+      "isDefault": false,
+      "extra": null
+    }
+  ],
+  "scrypt": {
+    "n": 2,
+    "r": 1,
+    "p": 1
+  },
+  "extra": {
+    "Tokens": null
+  }
+}
