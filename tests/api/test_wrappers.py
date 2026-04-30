@@ -1,8 +1,10 @@
 import unittest
 from typing import Optional, Any
 from aioresponses import aioresponses
+from neo3.contracts.callflags import CallFlags
 from neo3.core import types
-from neo3.api.wrappers import _check_address_and_convert, ChainFacade
+from neo3.api.wrappers import _check_address_and_convert, ChainFacade, GenericContract
+from neo3.vm import OpCode
 
 JSON = Any
 
@@ -103,3 +105,25 @@ class TestChainFacade(unittest.IsolatedAsyncioTestCase):
         delay, timeout = await facade._get_receipt_time_values()
         self.assertEqual(5.0, delay)
         self.assertEqual(1.0, timeout)
+
+
+class TestGenericContract(unittest.TestCase):
+    def test_call_function_adds_args(self):
+        g = GenericContract(types.UInt160.zero())
+        cmr = g.call_function("test_func", [2], call_flags=CallFlags.NONE)
+        self.assertEqual(cmr.script[0], OpCode.PUSH2)  # push int 2
+        self.assertEqual(cmr.script[1], OpCode.PUSH1)  # push PACK size
+        self.assertEqual(cmr.script[2], OpCode.PACK)  # push int 2
+        self.assertEqual(cmr.script[3], OpCode.PUSH0)  # CallFlags.NONE = 0
+
+    def test_call_function_skip_args(self):
+        g = GenericContract(types.UInt160.zero())
+        method_name = "test_func"
+        cmr = g.call_function(method_name, call_flags=CallFlags.NONE)
+        self.assertEqual(
+            cmr.script[0], OpCode.NEWARRAY0
+        )  # no args means we can create an empty array without having to pack
+        self.assertEqual(cmr.script[1], OpCode.PUSH0)  # CallFlags.NONE = 0
+        self.assertEqual(cmr.script[2], OpCode.PUSHDATA1)
+        self.assertEqual(cmr.script[3], len(method_name))
+        self.assertTrue(cmr.script[4:].startswith(b"test_func"))
