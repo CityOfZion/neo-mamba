@@ -787,6 +787,7 @@ class GenericContract:
             else:
                 script = sb.emit_contract_call(*params).to_array()
         else:
+            params.insert(2, args)
             if unwrap_iterator:
                 params.extend([unwrap_limit, start_index])
                 script = sb.emit_contract_call_with_args_and_unwrap_iterator(
