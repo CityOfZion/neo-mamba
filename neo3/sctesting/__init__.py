@@ -7,7 +7,7 @@ import inspect
 from typing import Optional, TypeVar, Type, Sequence, overload, Any
 from neo3.core import types, cryptography
 from neo3.wallet import account
-from neo3.api.wrappers import GenericContract, NEP17Contract, ChainFacade
+from neo3.api.wrappers import GenericContract, NEP17Contract, ChainFacade, InvokeReceipt
 from neo3.api import noderpc, StackItem
 from neo3.network.payloads.verification import Signer
 from neo3.api.helpers.signing import (
@@ -212,7 +212,7 @@ class SmartContractTestCase(unittest.IsolatedAsyncioTestCase):
     @classmethod
     async def deploy(
         cls, path_to_nef: str, signing_account: account.Account
-    ) -> types.UInt160:
+    ) -> tuple[types.UInt160, list[noderpc.Notification]]:
         # fix relative path resolving by looking up the call stack because the test might not get started from
         # the working directory that defines the tests e.g. when using `unittest discover`
         frame = inspect.stack()[1]
@@ -240,7 +240,15 @@ class SmartContractTestCase(unittest.IsolatedAsyncioTestCase):
         receipt = await cls.node.facade.invoke(
             GenericContract.deploy(_nef, _manifest), signers=[sign_pair]
         )
-        return receipt.result
+        if receipt.state == "FAULT":
+            exception = receipt.exception
+            if exception is not None and "ASSERT" in exception:
+                raise AssertException(cls._get_assert_reason(exception))
+            elif exception is not None and "ABORT" in exception:
+                raise AbortException(cls._get_assert_reason(exception))
+            else:
+                raise ValueError(exception)
+        return receipt.result, receipt.notifications
 
     @classmethod
     async def transfer(
