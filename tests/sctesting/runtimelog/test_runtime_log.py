@@ -17,7 +17,7 @@ class RuntimeLogTest(SmartContractTestCase):
     async def asyncSetupClass(cls) -> None:
         if (g := cls.node.wallet.account_get_by_label("committee")) is not None:
             cls.genesis = g
-        cls.contract_hash = await cls.deploy(
+        cls.contract_hash, _ = await cls.deploy(
             "resources/runtimelog_contract.nef", cls.genesis
         )
 
