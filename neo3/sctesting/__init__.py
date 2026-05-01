@@ -4,11 +4,11 @@ import asyncio
 import signal
 import re
 import inspect
-from typing import Optional, TypeVar, Type, Sequence, overload
+from typing import Optional, TypeVar, Type, Sequence, overload, Any
 from neo3.core import types, cryptography
 from neo3.wallet import account
 from neo3.api.wrappers import GenericContract, NEP17Contract, ChainFacade
-from neo3.api import noderpc
+from neo3.api import noderpc, StackItem
 from neo3.network.payloads.verification import Signer
 from neo3.api.helpers.signing import (
     sign_with_account,
@@ -36,6 +36,21 @@ class AbortException(Exception):
 # TODO: see how to test check_witness
 
 T = TypeVar("T")
+
+RawStack = list[StackItem]
+ReturnType = (
+    str
+    | int
+    | bool
+    | dict
+    | list
+    | types.UInt160
+    | types.UInt256
+    | bytes
+    | cryptography.ECPoint
+    | None
+    | RawStack
+)
 
 
 class SmartContractTestCase(unittest.IsolatedAsyncioTestCase):
@@ -115,7 +130,7 @@ class SmartContractTestCase(unittest.IsolatedAsyncioTestCase):
         signing_accounts: Optional[Sequence[account.Account]] = None,
         signers: Optional[Sequence[Signer]] = None,
         target_contract: Optional[types.UInt160] = None,
-    ) -> tuple[T, list[noderpc.Notification]]:
+    ) -> tuple[Any, list[noderpc.Notification]]:
         """
         Calls the contract specified by `contract_hash`
 
@@ -169,27 +184,28 @@ class SmartContractTestCase(unittest.IsolatedAsyncioTestCase):
         exec_result = receipt.result
         notifications = receipt.notifications
 
-        # Can't seem to get mypy to understand the return type of the first element in the tuple
         if return_type is str:
-            return unwrap.as_str(exec_result), notifications  # type: ignore
+            return unwrap.as_str(exec_result), notifications
         elif return_type is int:
-            return unwrap.as_int(exec_result), notifications  # type: ignore
+            return unwrap.as_int(exec_result), notifications
         elif return_type is bool:
-            return unwrap.as_bool(exec_result), notifications  # type: ignore
+            return unwrap.as_bool(exec_result), notifications
         elif return_type is dict:
-            return unwrap.as_dict(exec_result), notifications  # type: ignore
+            return unwrap.as_dict(exec_result), notifications
         elif return_type is list:
-            return unwrap.as_list(exec_result), notifications  # type: ignore
+            return unwrap.as_list(exec_result), notifications
         elif return_type is types.UInt160:
-            return unwrap.as_uint160(exec_result), notifications  # type: ignore
+            return unwrap.as_uint160(exec_result), notifications
         elif return_type is types.UInt256:
-            return unwrap.as_uint256(exec_result), notifications  # type: ignore
+            return unwrap.as_uint256(exec_result), notifications
         elif return_type is bytes:
-            return unwrap.as_bytes(exec_result), notifications  # type: ignore
+            return unwrap.as_bytes(exec_result), notifications
         elif return_type is cryptography.ECPoint:
-            return unwrap.as_public_key(exec_result), notifications  # type: ignore
+            return unwrap.as_public_key(exec_result), notifications
         elif return_type is None:
-            return unwrap.as_none(exec_result), notifications  # type: ignore
+            return unwrap.as_none(exec_result), notifications
+        elif return_type is RawStack:
+            return exec_result.stack, notifications
         else:
             raise ValueError(f"unsupported return_type: {return_type}")
 
