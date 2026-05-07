@@ -2,7 +2,7 @@
 
 import unittest
 
-from neo3.compiler import TypecheckError,compile_module
+from neo3.compiler import TypecheckError, compile_module
 from neo3.compiler.disassembler import disassemble
 
 
