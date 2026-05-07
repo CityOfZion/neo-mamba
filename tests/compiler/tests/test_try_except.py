@@ -1,6 +1,7 @@
 import unittest
 
-from neo3.compiler import TypecheckError, compile_function, disassemble
+from neo3.compiler import TypecheckError, compile_function
+from neo3.compiler.disassembler import disassemble
 
 TRY_L = 0x3C
 ENDTRY_L = 0x3E

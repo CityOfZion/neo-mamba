@@ -1,6 +1,7 @@
 import unittest
 
-from neo3.compiler import TypecheckError, compile_function, disassemble
+from neo3.compiler import TypecheckError, compile_function
+from neo3.compiler.disassembler import disassemble
 
 
 class TestDictCompBasic(unittest.TestCase):

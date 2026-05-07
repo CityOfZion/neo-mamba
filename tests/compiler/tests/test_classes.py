@@ -2,18 +2,9 @@
 
 import unittest
 
-from neo3.compiler import (
-    ClassType,
-    FieldInfo,
-    GetField,
-    MethodCall,
-    MethodCallStmt,
-    NewInstance,
-    SetField,
-    TypecheckError,
-    compile_module,
-    disassemble,
-)
+from neo3.compiler import TypecheckError,compile_module
+from neo3.compiler.disassembler import disassemble
+
 
 # ---------------------------------------------------------------------------
 # Helpers
