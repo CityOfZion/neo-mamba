@@ -1,0 +1,896 @@
+"""
+Neo3 Python Compiler — Phase 3
+Supports: integer arithmetic, local variables, return, if/else, while.
+
+Pipeline:
+    Python source -> AST -> TypedHIR -> CFG -> linearized bytecode
+"""
+
+from __future__ import annotations
+import ast
+import hashlib
+import json
+import os
+from typing import Optional
+
+from neo3.contracts.abi import (
+    ContractABI,
+    ContractEventDescriptor,
+    ContractMethodDescriptor,
+    ContractParameterDefinition,
+    ContractParameterType,
+)
+from neo3.contracts.contract import CONTRACT_HASHES as _CONTRACT_HASHES
+from neo3.contracts.manifest import ContractManifest
+from neo3.contracts.nef import NEF
+from neo3 import vm as _neo3_vm
+from neo3.core.types import UInt160 as _UInt160, UInt256 as _UInt256
+
+from ._constants import (
+    _STDLIB_HASH,
+    _SYSCALL_CONTRACT_CALL,
+    _SYSCALL_NOTIFY,
+    _SYSCALL_RUNTIME_LOG,
+    _SYSCALL_ITERATOR_NEXT,
+    _SYSCALL_ITERATOR_VALUE,
+    _SYSCALL_STORAGE_PUT,
+    _SYSCALL_STORAGE_DELETE,
+    _WRITE_SYSCALL_NAMES,
+    _COMPILETIME_MODULE,
+    _COMPILETIME_PARENT,
+    _COMPILER_PACKAGE_ROOT,
+    _FIND_OPTIONS_VALUES,
+    _CALL_FLAGS_VALUES,
+    _NAMED_CURVE_HASH_VALUES,
+    _ITERATOR_MODULE,
+    _UTILS_MODULE,
+    _TYPES_MODULE,
+    _RUNTIME_MODULE,
+    _SYSCALL_DECORATOR_MODULES,
+    _FindOptions_enum,
+    _CallFlags_enum,
+    _NamedCurveHash_enum,
+    _CONTRACT_HASHES,
+    _neo3_vm,
+    _UInt160,
+    _UInt256,
+)
+from .types import (
+    Type,
+    IntType,
+    BoolType,
+    BytesType,
+    BytearrayType,
+    StrType,
+    ListType,
+    DictType,
+    TupleType,
+    NoneType,
+    OptionalType,
+    ClassType,
+    AnyType,
+    IteratorType,
+    UInt160Type,
+    UInt256Type,
+    ECPointType,
+    UnionType,
+    TypecheckError,
+    _resolve_simple_type,
+    INT,
+    BOOL,
+    BYTES,
+    BYTEARRAY,
+    STR,
+    NONE,
+    ANY,
+    ITERATOR,
+    UINT160,
+    UINT256,
+    ECPOINT,
+    LIST_STR,
+    _BYTESLIKE,
+    _type_of_folded,
+)
+from .hir import (
+    IntLiteral,
+    BoolLiteral,
+    LocalLoad,
+    BinOp,
+    Compare,
+    BoolAnd,
+    BoolOr,
+    IfExp,
+    Not,
+    Negate,
+    Invert,
+    Abs,
+    Min,
+    Max,
+    Call,
+    BytesLiteral,
+    NewBuffer,
+    Len,
+    BytesFromHex,
+    SyscallCall,
+    NotifyCall,
+    BytesHex,
+    IntToBytes,
+    IntFromBytes,
+    Atoi,
+    Itoa,
+    StrSplit,
+    ContractCall,
+    DynamicContractCall,
+    TypeConvert,
+    Cast,
+    Index,
+    StrIndex,
+    StringLiteral,
+    Slice,
+    ListLiteral,
+    TupleLiteral,
+    DictLiteral,
+    HasKey,
+    DictKeys,
+    DictValues,
+    StaticLoad,
+    NoneLiteral,
+    IsNone,
+    IsType,
+    GetField,
+    NewInstance,
+    MethodCall,
+    LocalStore,
+    Return,
+    If,
+    While,
+    Break,
+    Continue,
+    ListAppend,
+    ReverseItems,
+    ItemStore,
+    TupleUnpack,
+    StaticStore,
+    CallStmt,
+    Assert,
+    Raise,
+    PrintStmt,
+    PrintListStmt,
+    AbortStmt,
+    TryExcept,
+    SetField,
+    MethodCallStmt,
+    Expr,
+    Stmt,
+    HIRFunction,
+    FieldInfo,
+    MethodInfo,
+    ClassInfo,
+    _TRIMMED_TX_CLASS_INFO,
+    _TRIMMED_BLOCK_CLASS_INFO,
+    _NEO_ACCOUNT_STATE_CLASS_INFO,
+    _CONTRACT_STATE_CLASS_INFO,
+    _is_subclass_of,
+    resolve_annotation,
+    _type_compatible,
+    _container_param_compatible,
+    _type_mismatch_msg,
+    _for_rewrite_continues,
+    _always_terminates,
+    _PublicMethodInfo,
+    _EventInfo,
+    _c3_mro,
+    _merge_fields,
+    _get_method_kind,
+    _walk_hir_node,
+    _collect_write_ops,
+)
+from .hir_builder import (
+    HIRBuilder,
+    _SyscallSpec,
+    _load_syscall_specs,
+    _find_module_file,
+    _eval_default_expr,
+    _try_fold_const_expr,
+    _infer_type_from_ast_expr,
+    _extract_syscall_decorator_name,
+    _is_public_decorator,
+    _extract_public_params,
+    _is_event_decorator,
+    _extract_event_info,
+    _literal_to_hir_expr,
+    _extract_display_name,
+    _has_display_name_decorator,
+    _extract_call_flags_dec,
+    _is_contract_decorator,
+    _extract_contract_hash,
+    _build_class_registry,
+    _stmt_name,
+    _mangle_prefix,
+    _collect_local_names,
+    _MangleTransformer,
+    _mangle_module_body,
+    _rename_function,
+    _load_module_stmts,
+    _resolve_imports,
+    _collect_module_statics,
+)
+from .cfg import (
+    StackOp,
+    StackInstr,
+    Ret,
+    Jump,
+    CondJump,
+    EndTry,
+    EndFinally,
+    BasicBlock,
+    CFG,
+    OpCode,
+)
+from .cfg_builder import CFGBuilder
+from .linearizer import (
+    Emitter,
+    Linearizer,
+    _emit_static_literal,
+    _emit_to_bytes_overflow_check_unsigned,
+    _emit_to_bytes_overflow_check_signed,
+    _emit_to_bytes_helper,
+)
+
+
+def _type_to_contract_param(t: Type) -> ContractParameterType:
+    if t is INT:
+        return ContractParameterType.INTEGER
+    if t is BOOL:
+        return ContractParameterType.BOOLEAN
+    if t is STR:
+        return ContractParameterType.STRING
+    if t is BYTES or t is BYTEARRAY:
+        return ContractParameterType.BYTEARRAY
+    if isinstance(t, ListType):
+        return ContractParameterType.ARRAY
+    if isinstance(t, TupleType):
+        return ContractParameterType.ARRAY
+    if isinstance(t, DictType):
+        return ContractParameterType.MAP
+    if t is NONE:
+        return ContractParameterType.VOID
+    if isinstance(t, OptionalType):
+        # Strip Optional — Neo VM treats all values as nullable; use the inner type
+        return _type_to_contract_param(t.inner)
+    if isinstance(t, UInt160Type):
+        return ContractParameterType.HASH160
+    if isinstance(t, UInt256Type):
+        return ContractParameterType.HASH256
+    if isinstance(t, ECPointType):
+        return ContractParameterType.PUBLICKEY
+    if isinstance(t, ClassType):
+        return ContractParameterType.ARRAY
+    return ContractParameterType.ANY
+
+
+def _compile_full(
+    source: str,
+    search_path: Optional[str] = None,
+    filename: Optional[str] = None,
+) -> tuple[bytes, list[_PublicMethodInfo], list[_EventInfo]]:
+    tree = ast.parse(source)
+
+    # Resolve imports: split import statements from the main body, load imported
+    # modules, and prepend their AST nodes so all passes see a flat merged tree.
+    import_nodes = [n for n in tree.body if isinstance(n, (ast.Import, ast.ImportFrom))]
+    main_body = [
+        n for n in tree.body if not isinstance(n, (ast.Import, ast.ImportFrom))
+    ]
+    ct_names: set[str] = set()
+    ct_modules: set[str] = set()
+    event_names: set[str] = set()
+    syscall_fn_specs: dict[str, _SyscallSpec] = {}
+    syscall_module_fn_specs: dict[str, dict[str, _SyscallSpec]] = {}
+    imported_builtin_classes: set[str] = set()
+    iterator_names: set[str] = set()
+    findoptions_names: set[str] = set()
+    callflags_names: set[str] = set()
+    namedcurvehash_names: set[str] = set()
+    dn_names: set[str] = set()
+    cf_dec_names: set[str] = set()
+    extra_stmts, module_names, aliases, mangle_registry, module_fn_maps = (
+        _resolve_imports(
+            import_nodes,
+            search_path,
+            seen=set(),
+            included=set(),
+            ct_names=ct_names,
+            ct_modules=ct_modules,
+            event_names=event_names,
+            syscall_fn_specs=syscall_fn_specs,
+            syscall_module_fn_specs=syscall_module_fn_specs,
+            imported_builtin_classes=imported_builtin_classes,
+            iterator_names=iterator_names,
+            findoptions_names=findoptions_names,
+            callflags_names=callflags_names,
+            namedcurvehash_names=namedcurvehash_names,
+            dn_names=dn_names,
+            cf_dec_names=cf_dec_names,
+            filename=filename,
+        )
+    )
+    # Build reverse map (mangled_name → original_name) for ABI name restoration
+    reverse_mangle: dict[str, str] = {
+        v: k for mm in mangle_registry.values() for k, v in mm.items()
+    }
+    tree.body = extra_stmts + main_body
+    iterator_extra: dict[str, Type] = {n: ITERATOR for n in iterator_names}
+
+    # Pass 1: Collect module-level static field declarations (anywhere in tree.body)
+    statics, static_inits, const_values = _collect_module_statics(
+        tree.body,
+        iterator_extra,
+        filename,
+        module_fn_maps=module_fn_maps,
+        module_names=module_names,
+    )
+
+    # Pass 2: Build class registry (may extend statics with class variables)
+    class_registry, statics, class_var_inits = _build_class_registry(
+        tree,
+        statics,
+        ct_names=ct_names,
+        ct_modules=ct_modules,
+        dn_names=dn_names,
+        cf_dec_names=cf_dec_names,
+        filename=filename,
+        module_fn_maps=module_fn_maps,
+        module_names=module_names,
+    )
+    static_inits.extend(class_var_inits)
+
+    # Inject pre-built class infos for types imported from neo3.sc.types / runtime
+    if "TrimmedTransaction" in imported_builtin_classes:
+        class_registry["TrimmedTransaction"] = _TRIMMED_TX_CLASS_INFO
+    if "NeoAccountState" in imported_builtin_classes:
+        class_registry["NeoAccountState"] = _NEO_ACCOUNT_STATE_CLASS_INFO
+    if "ContractState" in imported_builtin_classes:
+        class_registry["ContractState"] = _CONTRACT_STATE_CLASS_INFO
+    if "TrimmedBlock" in imported_builtin_classes:
+        class_registry["TrimmedBlock"] = _TRIMMED_BLOCK_CLASS_INFO
+
+    fn_nodes = [n for n in tree.body if isinstance(n, ast.FunctionDef)]
+
+    # Scan for @event-decorated functions; collect EventInfo, skip their compilation.
+    event_fn_specs: dict[str, _EventInfo] = {}
+    for fn in fn_nodes:
+        for d in fn.decorator_list:
+            if _is_event_decorator(d, event_names, ct_modules):
+                info = _extract_event_info(
+                    d,
+                    fn,
+                    class_registry,
+                    filename,
+                    iterator_extra,
+                    module_fn_maps=module_fn_maps,
+                    module_names=module_names,
+                )
+                event_fn_specs[fn.name] = info
+                break
+
+    # Scan user-defined functions for @syscall decorator.  These are compiled to
+    # direct SYSCALL opcodes; their bodies are skipped.
+    for fn in fn_nodes:
+        syscall_name = _extract_syscall_decorator_name(fn)
+        if syscall_name is not None and fn.name not in syscall_fn_specs:
+            h = hashlib.sha256(syscall_name.encode()).digest()[:4]
+            fn_filename = getattr(fn, "_src_file", filename)
+            params = [
+                resolve_annotation(
+                    a.annotation,
+                    class_registry,
+                    filename=fn_filename,
+                    module_fn_maps=module_fn_maps,
+                    module_names=module_names,
+                )
+                for a in fn.args.args
+            ]
+            ret = (
+                resolve_annotation(
+                    fn.returns,
+                    class_registry,
+                    filename=fn_filename,
+                    module_fn_maps=module_fn_maps,
+                    module_names=module_names,
+                )
+                if fn.returns is not None
+                else NONE
+            )
+            n = len(params)
+            syscall_fn_specs[fn.name] = _SyscallSpec(
+                hash=h,
+                params=params,
+                ret=ret,
+                push_order=list(reversed(range(n))),
+            )
+
+    # Identify @public functions/methods — decorator must originate from
+    # compiler.sc.compiletime (tracked via ct_names / ct_modules).
+    # Maps compiled_name → (abi_alias, safe).
+    public_decorators: dict[str, tuple[Optional[str], bool]] = {}
+    for fn in fn_nodes:
+        for d in fn.decorator_list:
+            if _is_public_decorator(d, ct_names, ct_modules):
+                public_decorators[fn.name] = _extract_public_params(d)
+                break
+
+    public_method_compiled: dict[str, tuple[Optional[str], bool]] = {}
+    for ci in class_registry.values():
+        for mi in ci.methods.values():
+            for d in mi.ast_node.decorator_list:
+                if _is_public_decorator(d, ct_names, ct_modules):
+                    public_method_compiled[mi.compiled_name] = _extract_public_params(d)
+                    break
+
+    # Catch any @public usage that was NOT recognised (import missing).
+    # A decorator whose name resolves to "public" but isn't from the compiletime
+    # module would just be silently ignored — raise a clear error instead.
+    def _looks_like_public(d: ast.expr) -> bool:
+        """True if the decorator *looks* like @public by name but was not recognised."""
+        if isinstance(d, ast.Name):
+            return d.id == "public"
+        if isinstance(d, ast.Attribute):
+            return d.attr == "public"
+        if isinstance(d, ast.Call):
+            f = d.func
+            return (isinstance(f, ast.Name) and f.id == "public") or (
+                isinstance(f, ast.Attribute) and f.attr == "public"
+            )
+        return False
+
+    for fn in fn_nodes:
+        for d in fn.decorator_list:
+            if _looks_like_public(d) and not _is_public_decorator(
+                d, ct_names, ct_modules
+            ):
+                raise TypecheckError(
+                    "'@public' requires 'from neo3.sc.compiletime import public'",
+                    lineno=getattr(d, "lineno", fn.lineno),
+                    col_offset=getattr(d, "col_offset", fn.col_offset),
+                    filename=getattr(fn, "_src_file", filename),
+                )
+    for ci in class_registry.values():
+        for mi in ci.methods.values():
+            for d in mi.ast_node.decorator_list:
+                if _looks_like_public(d) and not _is_public_decorator(
+                    d, ct_names, ct_modules
+                ):
+                    raise TypecheckError(
+                        "'@public' requires 'from neo3.sc.compiletime import public'",
+                        lineno=getattr(d, "lineno", mi.ast_node.lineno),
+                        col_offset=getattr(d, "col_offset", mi.ast_node.col_offset),
+                        filename=getattr(mi.ast_node, "_src_file", filename),
+                    )
+
+    if not fn_nodes and not class_registry:
+        raise TypecheckError("No function found", filename=filename)
+
+    # Pass 3: Collect all function + method signatures
+    signatures: dict[str, tuple[list[Type], Type]] = {}
+    func_defaults: dict[str, dict[int, Expr]] = {}
+    fn_origins: dict[str, tuple[Optional[str], Optional[int]]] = (
+        {}
+    )  # name → (file, lineno)
+
+    for fn_node in fn_nodes:
+        if fn_node.name in syscall_fn_specs:
+            continue  # @syscall wrapper — no body to compile; spec is already recorded
+        if fn_node.name in event_fn_specs:
+            continue  # @event emitter — no body to compile; spec is already recorded
+        if fn_node.name in ("abort", "call_contract"):
+            continue  # intrinsic stub — handled directly by HIRBuilder
+        fn_filename = getattr(fn_node, "_src_file", filename)
+        if fn_node.name in signatures:
+            orig_file, orig_line = fn_origins[fn_node.name]
+            orig_hint = (
+                f" (first defined in {orig_file} at line {orig_line})"
+                if orig_file
+                else ""
+            )
+            _display_name = reverse_mangle.get(fn_node.name, fn_node.name)
+            raise TypecheckError(
+                f"Import conflict: '{_display_name}' is already defined{orig_hint}; "
+                f"use 'from ... import {_display_name} as <alias>' to rename one",
+                lineno=fn_node.lineno,
+                col_offset=fn_node.col_offset,
+                filename=fn_filename,
+            )
+        if fn_node.returns is None:
+            _display_name = reverse_mangle.get(fn_node.name, fn_node.name)
+            raise TypecheckError(
+                f"Function '{_display_name}' missing return annotation",
+                lineno=fn_node.lineno,
+                col_offset=fn_node.col_offset,
+                filename=fn_filename,
+            )
+        return_type = resolve_annotation(
+            fn_node.returns,
+            class_registry,
+            extra_names=iterator_extra,
+            filename=fn_filename,
+            module_fn_maps=module_fn_maps,
+            module_names=module_names,
+        )
+        param_types: list[Type] = []
+        for arg in fn_node.args.args:
+            if arg.annotation is None:
+                raise TypecheckError(
+                    f"Argument '{arg.arg}' missing annotation",
+                    lineno=arg.lineno,
+                    col_offset=arg.col_offset,
+                    filename=fn_filename,
+                )
+            param_types.append(
+                resolve_annotation(
+                    arg.annotation,
+                    class_registry,
+                    extra_names=iterator_extra,
+                    filename=fn_filename,
+                    module_fn_maps=module_fn_maps,
+                    module_names=module_names,
+                )
+            )
+        signatures[fn_node.name] = (param_types, return_type)
+        fn_origins[fn_node.name] = (fn_filename, fn_node.lineno)
+        fn_defaults: dict[int, Expr] = {}
+        offset = len(fn_node.args.args) - len(fn_node.args.defaults)
+        for i, default_ast in enumerate(fn_node.args.defaults):
+            fn_defaults[offset + i] = _literal_to_hir_expr(
+                default_ast, filename=fn_filename
+            )
+        func_defaults[fn_node.name] = fn_defaults
+
+    # Collect method signatures (include 'self' as first param for instance methods)
+    own_method_nodes: set[int] = (
+        set()
+    )  # id() of ast nodes compiled under their defining class
+    for ci in class_registry.values():
+        if ci.contract_hash is not None:
+            # @contract interface: collect signatures for call-site type checking,
+            # but mark methods so they are not compiled as local functions.
+            for mi in ci.methods.values():
+                compiled = mi.compiled_name
+                if compiled in signatures:
+                    continue
+                fn_node = mi.ast_node
+                fn_filename = getattr(fn_node, "_src_file", filename)
+                if fn_node.returns is None:
+                    _cls_display = reverse_mangle.get(ci.name, ci.name)
+                    raise TypecheckError(
+                        f"@contract method '{_cls_display}.{mi.name}' missing return annotation",
+                        lineno=fn_node.lineno,
+                        col_offset=fn_node.col_offset,
+                        filename=fn_filename,
+                    )
+                return_type = resolve_annotation(
+                    fn_node.returns,
+                    class_registry,
+                    extra_names=iterator_extra,
+                    filename=fn_filename,
+                    module_fn_maps=module_fn_maps,
+                    module_names=module_names,
+                )
+                raw_params = list(fn_node.args.args)
+                param_types: list[Type] = []
+                for arg in raw_params:
+                    if arg.annotation is None:
+                        _cls_display = reverse_mangle.get(ci.name, ci.name)
+                        raise TypecheckError(
+                            f"@contract method '{_cls_display}.{mi.name}': "
+                            f"argument '{arg.arg}' missing annotation",
+                            lineno=arg.lineno,
+                            col_offset=arg.col_offset,
+                            filename=fn_filename,
+                        )
+                    param_types.append(
+                        resolve_annotation(
+                            arg.annotation,
+                            class_registry,
+                            extra_names=iterator_extra,
+                            filename=fn_filename,
+                            module_fn_maps=module_fn_maps,
+                            module_names=module_names,
+                        )
+                    )
+                signatures[compiled] = (param_types, return_type)
+            continue  # do not compile these methods
+
+        for mi in ci.methods.values():
+            # Only collect signature for methods defined in this class (not inherited)
+            compiled = mi.compiled_name
+            if compiled in signatures:
+                continue  # already collected (e.g. inherited and already processed)
+            fn_node = mi.ast_node
+            fn_filename = getattr(fn_node, "_src_file", filename)
+            own_method_nodes.add(id(fn_node))
+            if fn_node.returns is None and mi.name != "__init__":
+                raise TypecheckError(
+                    f"Method '{reverse_mangle.get(ci.name, ci.name)}.{mi.name}' missing return annotation",
+                    lineno=fn_node.lineno,
+                    col_offset=fn_node.col_offset,
+                    filename=fn_filename,
+                )
+            return_type = (
+                NoneType()
+                if fn_node.returns is None
+                else resolve_annotation(
+                    fn_node.returns,
+                    class_registry,
+                    extra_names=iterator_extra,
+                    filename=fn_filename,
+                    module_fn_maps=module_fn_maps,
+                    module_names=module_names,
+                )
+            )
+            raw_params = list(fn_node.args.args)
+            param_types = []
+            if mi.kind == "instance":
+                param_types.append(ClassType(ci.name))  # self
+                raw_params = raw_params[1:]
+            elif mi.kind == "class":
+                raw_params = raw_params[1:]  # skip cls
+            for arg in raw_params:
+                if arg.annotation is None:
+                    raise TypecheckError(
+                        f"Argument '{arg.arg}' missing annotation",
+                        lineno=arg.lineno,
+                        col_offset=arg.col_offset,
+                        filename=fn_filename,
+                    )
+                param_types.append(
+                    resolve_annotation(
+                        arg.annotation,
+                        class_registry,
+                        extra_names=iterator_extra,
+                        filename=fn_filename,
+                        module_fn_maps=module_fn_maps,
+                        module_names=module_names,
+                    )
+                )
+            signatures[compiled] = (param_types, return_type)
+            fn_defaults = {}
+            offset = len(fn_node.args.args) - len(fn_node.args.defaults)
+            for i, default_ast in enumerate(fn_node.args.defaults):
+                fn_defaults[offset + i] = _literal_to_hir_expr(
+                    default_ast, filename=fn_filename
+                )
+            func_defaults[compiled] = fn_defaults
+
+    # Pass 4: Build HIR + CFG
+    pairs = []
+
+    for fn_node in fn_nodes:
+        if fn_node.name in syscall_fn_specs:
+            continue  # @syscall wrapper — no body to compile
+        if fn_node.name in event_fn_specs:
+            continue  # @event emitter — no body to compile
+        if fn_node.name in ("abort", "call_contract"):
+            continue  # intrinsic stub — handled directly by HIRBuilder
+        fn_filename = getattr(fn_node, "_src_file", filename)
+        hir = HIRBuilder(
+            signatures,
+            statics=statics,
+            func_defaults=func_defaults,
+            class_registry=class_registry,
+            module_names=module_names,
+            aliases=aliases,
+            syscall_fn_specs=syscall_fn_specs,
+            syscall_module_fn_specs=syscall_module_fn_specs,
+            event_fn_specs=event_fn_specs,
+            iterator_names=iterator_names,
+            findoptions_names=findoptions_names,
+            callflags_names=callflags_names,
+            namedcurvehash_names=namedcurvehash_names,
+            module_fn_maps=module_fn_maps,
+            filename=fn_filename,
+        ).build(fn_node)
+        cfg = CFGBuilder(hir, class_registry=class_registry).build()
+        pairs.append((hir, cfg))
+
+    # Compile methods (once per defining class; skip inherited; skip @contract interfaces)
+    compiled_method_names: set[str] = set()
+    for ci in class_registry.values():
+        if ci.contract_hash is not None:
+            continue  # @contract interface — methods are not compiled as local functions
+        for mi in ci.methods.values():
+            if mi.compiled_name in compiled_method_names:
+                continue  # already compiled (inherited from parent)
+            compiled_method_names.add(mi.compiled_name)
+            fn_filename = getattr(mi.ast_node, "_src_file", filename)
+            hir = HIRBuilder(
+                signatures,
+                statics=statics,
+                func_defaults=func_defaults,
+                class_registry=class_registry,
+                current_class=ci.name,
+                module_names=module_names,
+                aliases=aliases,
+                syscall_fn_specs=syscall_fn_specs,
+                syscall_module_fn_specs=syscall_module_fn_specs,
+                event_fn_specs=event_fn_specs,
+                iterator_names=iterator_names,
+                findoptions_names=findoptions_names,
+                callflags_names=callflags_names,
+                namedcurvehash_names=namedcurvehash_names,
+                module_fn_maps=module_fn_maps,
+                filename=fn_filename,
+            ).build_method(mi.ast_node, mi.kind)
+            cfg = CFGBuilder(hir, class_registry=class_registry).build()
+            pairs.append((hir, cfg))
+
+    # @public(safe=True) callgraph check — walk HIR of each safe entry point and
+    # reject any that can reach a state-modifying storage syscall.
+    all_public = {**public_decorators, **public_method_compiled}
+    safe_fn_names = {fn_name for fn_name, (_, safe) in all_public.items() if safe}
+    if safe_fn_names:
+        hir_fn_map: dict[str, HIRFunction] = {hir.name: hir for hir, _ in pairs}
+        fn_node_by_name = {fn.name: fn for fn in fn_nodes}
+        for fn_name in safe_fn_names:
+            if fn_name not in hir_fn_map:
+                continue
+            write_ops = _collect_write_ops(
+                hir_fn_map[fn_name].body, hir_fn_map, visited={fn_name}
+            )
+            if write_ops:
+                op_name = write_ops[0]
+                _fn_node = fn_node_by_name.get(fn_name)
+                raise TypecheckError(
+                    f"Function '{fn_name}' is marked @public(safe=True) but calls the "
+                    f"state-modifying operation '{op_name}'. Either remove the write "
+                    f"operation or change to @public(safe=False).",
+                    lineno=_fn_node.lineno if _fn_node else None,
+                    col_offset=_fn_node.col_offset if _fn_node else None,
+                    filename=(
+                        getattr(_fn_node, "_src_file", filename)
+                        if _fn_node
+                        else filename
+                    ),
+                )
+
+    # Linearize all functions into a shared emitter
+    shared_em = Emitter()
+    call_fixups: list[tuple[int, int, str]] = []
+    func_offsets: dict[str, int] = {}
+
+    # Emit _initialize preamble if any static fields are declared
+    if statics:
+        func_offsets["_initialize"] = 0
+        shared_em.emit_opcode(OpCode.INITSSLOT)
+        shared_em.emit_byte(len(statics))
+        for slot, t, raw_val in static_inits:
+            _emit_static_literal(shared_em, raw_val, t, filename=filename)
+            shared_em.emit_opcode(OpCode.STSFLD)
+            shared_em.emit_byte(slot)
+        shared_em.emit_opcode(OpCode.RET)
+
+    for hir, cfg in pairs:
+        lin = Linearizer(cfg, hir, emitter=shared_em, call_fixups=call_fixups)
+        func_offsets[hir.name] = lin.generate_into()
+
+    # Emit int.to_bytes helper functions once for each variant referenced by the compiled code.
+    # We discover which variants are needed by scanning call_fixups for __to_bytes_* names.
+    needed_to_bytes = {
+        func_name
+        for _, _, func_name in call_fixups
+        if func_name.startswith("__to_bytes_")
+    }
+    for variant in sorted(needed_to_bytes):  # deterministic order
+        func_offsets[variant] = shared_em.pos()
+        if variant == "__to_bytes_little_unsigned":
+            _emit_to_bytes_helper(shared_em, "little", False)
+        elif variant == "__to_bytes_little_signed":
+            _emit_to_bytes_helper(shared_em, "little", True)
+        elif variant == "__to_bytes_big_unsigned":
+            _emit_to_bytes_helper(shared_em, "big", False)
+        elif variant == "__to_bytes_big_signed":
+            _emit_to_bytes_helper(shared_em, "big", True)
+
+    # Patch CALL_L fixups now that all function offsets are known
+    for placeholder_pos, call_opcode_pos, func_name in call_fixups:
+        if func_name not in func_offsets:
+            raise TypecheckError(f"Undefined function '{func_name}'", filename=filename)
+        shared_em.patch_i32(placeholder_pos, call_opcode_pos, func_offsets[func_name])
+
+    public_methods_info: list[_PublicMethodInfo] = []
+    if statics:
+        public_methods_info.append(
+            _PublicMethodInfo(name="_initialize", offset=0, params=[], return_type=NONE)
+        )
+    for hir, _ in pairs:
+        dec = public_decorators.get(hir.name) or public_method_compiled.get(hir.name)
+        if dec is None:
+            continue
+        alias, safe = dec
+        public_methods_info.append(
+            _PublicMethodInfo(
+                name=(
+                    alias
+                    if alias is not None
+                    else reverse_mangle.get(hir.name, hir.name)
+                ),
+                offset=func_offsets[hir.name],
+                params=list(hir.args),
+                return_type=hir.return_type,
+                safe=safe,
+            )
+        )
+
+    return shared_em.bytecode(), public_methods_info, list(event_fn_specs.values())
+
+
+def compile_module(
+    source: str,
+    search_path: Optional[str] = None,
+    filename: Optional[str] = None,
+) -> bytes:
+    bytecode, _, _ = _compile_full(source, search_path=search_path, filename=filename)
+    return bytecode
+
+
+def compile_function(source: str) -> bytes:
+    return compile_module(source)
+
+
+def compile_to_nef(source: str, output_path: str) -> None:
+    """Compile *source*, write <output_path> (.nef) and <stem>.manifest.json."""
+    abs_output = os.path.abspath(output_path)
+    search_path = os.path.dirname(abs_output)
+    src_file = os.path.splitext(abs_output)[0] + ".py"
+    script, public_methods, event_infos = _compile_full(
+        source, search_path=search_path, filename=src_file
+    )
+
+    # NEF
+    nef = NEF(compiler_name="hyper", script=script)
+    nef_path = os.path.splitext(output_path)[0] + ".nef"
+    try:
+        with open(nef_path, "wb") as f:
+            f.write(nef.to_array())
+    except OSError as e:
+        raise OSError(f"Failed to write NEF file '{nef_path}': {e}") from e
+
+    # Manifest
+    contract_name = os.path.splitext(os.path.basename(output_path))[0]
+    manifest_path = os.path.splitext(output_path)[0] + ".manifest.json"
+
+    methods = [
+        ContractMethodDescriptor(
+            name=m.name,
+            offset=m.offset,
+            parameters=[
+                ContractParameterDefinition(
+                    param_name, _type_to_contract_param(param_type)
+                )
+                for param_name, param_type in m.params
+            ],
+            return_type=_type_to_contract_param(m.return_type),
+            safe=m.safe,
+        )
+        for m in public_methods
+    ]
+    events = [
+        ContractEventDescriptor(
+            name=e.event_name,
+            parameters=[
+                ContractParameterDefinition(
+                    param_name, _type_to_contract_param(param_type)
+                )
+                for param_name, param_type in e.params
+            ],
+        )
+        for e in event_infos
+    ]
+    manifest = ContractManifest(contract_name)
+    manifest.abi = ContractABI(methods=methods, events=events)
+
+    try:
+        with open(manifest_path, "w", encoding="utf-8") as f:
+            json.dump(manifest.to_json(), f, indent=4)
+    except OSError as e:
+        raise OSError(f"Failed to write manifest file '{manifest_path}': {e}") from e
