@@ -7,6 +7,7 @@ from typing import Optional, Union
 TYPE SYSTEM
 """
 
+
 class _TypeBase:
     """Default predicate implementations for all compiler type objects."""
 

@@ -3,7 +3,9 @@ import unittest
 from neo3.vm import Syscalls, OpCode
 from neo3.compiler import TypecheckError, compile_function
 
-_SYSCALL_CONTRACT_CALL: bytes = Syscalls.get_by_name( "System.Contract.Call").number.to_bytes(4, "little")
+_SYSCALL_CONTRACT_CALL: bytes = Syscalls.get_by_name(
+    "System.Contract.Call"
+).number.to_bytes(4, "little")
 
 _SYSTEM_RUNTIME_LOG = b"\xcf\xe7\x47\x96"
 

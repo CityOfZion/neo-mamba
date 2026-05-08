@@ -111,7 +111,9 @@ from .cfg import (
 )
 
 _STDLIB_HASH: bytes = CONTRACT_HASHES.STD_LIB.to_array()  # 20-byte UInt160 LE
-_SYSCALL_CONTRACT_CALL: bytes = Syscalls.get_by_name("System.Contract.Call").number.to_bytes(4, "little")
+_SYSCALL_CONTRACT_CALL: bytes = Syscalls.get_by_name(
+    "System.Contract.Call"
+).number.to_bytes(4, "little")
 
 
 class CFGBuilder:

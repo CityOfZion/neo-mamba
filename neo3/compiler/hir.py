@@ -33,9 +33,15 @@ from .types import (
     LIST_STR,
 )
 
-_SYSCALL_NOTIFY: bytes = Syscalls.get_by_name("System.Runtime.Notify").number.to_bytes(4, "little")
-_SYSCALL_STORAGE_PUT: bytes = Syscalls.get_by_name("System.Storage.Local.Put").number.to_bytes(4, "little")
-_SYSCALL_STORAGE_DELETE: bytes = Syscalls.get_by_name("System.Storage.Local.Delete").number.to_bytes(4, "little")
+_SYSCALL_NOTIFY: bytes = Syscalls.get_by_name("System.Runtime.Notify").number.to_bytes(
+    4, "little"
+)
+_SYSCALL_STORAGE_PUT: bytes = Syscalls.get_by_name(
+    "System.Storage.Local.Put"
+).number.to_bytes(4, "little")
+_SYSCALL_STORAGE_DELETE: bytes = Syscalls.get_by_name(
+    "System.Storage.Local.Delete"
+).number.to_bytes(4, "little")
 
 # Map write-syscall hash → human-readable name used in error messages.
 _WRITE_SYSCALL_NAMES: dict[bytes, str] = {

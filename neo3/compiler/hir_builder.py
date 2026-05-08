@@ -135,8 +135,12 @@ _ITERATOR_MODULE = "neo3.sc.utils.iterator"
 _UTILS_MODULE = "neo3.sc.utils"
 _TYPES_MODULE = "neo3.sc.types"
 
-_SYSCALL_ITERATOR_NEXT: bytes = Syscalls.get_by_name("System.Iterator.Next").number.to_bytes(4, "little")
-_SYSCALL_ITERATOR_VALUE: bytes = Syscalls.get_by_name("System.Iterator.Value").number.to_bytes(4, "little")
+_SYSCALL_ITERATOR_NEXT: bytes = Syscalls.get_by_name(
+    "System.Iterator.Next"
+).number.to_bytes(4, "little")
+_SYSCALL_ITERATOR_VALUE: bytes = Syscalls.get_by_name(
+    "System.Iterator.Value"
+).number.to_bytes(4, "little")
 
 # The module that must be imported for the @public decorator to be recognised.
 _COMPILETIME_MODULE = "neo3.sc.compiletime"
@@ -168,7 +172,6 @@ _NAMED_CURVE_HASH_VALUES: dict[str, int] = {
 }
 
 
-
 @dataclasses.dataclass
 class _SyscallSpec:
     """Descriptor for a direct-SYSCALL function exposed via a Python import."""
@@ -179,7 +182,6 @@ class _SyscallSpec:
     push_order: list  # indices into params in VM push order (last = top of stack)
     defaults: Optional[dict[int, int]] = None  # param_index → default int value
     param_names: list = dataclasses.field(default_factory=list)  # Python param names
-
 
 
 class HIRBuilder:
@@ -3969,8 +3971,6 @@ class HIRBuilder:
                 self._err(f"Unsupported comparison: {op}")
 
 
-
-
 def _is_public_decorator(
     d: ast.expr,
     ct_names: set[str],
@@ -5676,6 +5676,7 @@ def _collect_module_statics(
         pending = still_pending
 
     return statics, static_inits, const_values
+
 
 def _extract_syscall_decorator_name(fn: ast.FunctionDef) -> Optional[str]:
     """Return the syscall interop-method name from a ``@syscall("name")`` decorator, or None.

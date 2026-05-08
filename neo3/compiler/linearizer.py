@@ -25,12 +25,18 @@ from .cfg import (
     BasicBlock,
     CFG,
     OpCode,
-    Terminator
+    Terminator,
 )
 
-_SYSCALL_NOTIFY: bytes = Syscalls.get_by_name("System.Runtime.Notify").number.to_bytes(4, "little")
-_SYSCALL_RUNTIME_LOG: bytes = Syscalls.get_by_name("System.Runtime.Log").number.to_bytes(4, "little")
-_SYSCALL_CONTRACT_CALL: bytes = Syscalls.get_by_name( "System.Contract.Call").number.to_bytes(4, "little")
+_SYSCALL_NOTIFY: bytes = Syscalls.get_by_name("System.Runtime.Notify").number.to_bytes(
+    4, "little"
+)
+_SYSCALL_RUNTIME_LOG: bytes = Syscalls.get_by_name(
+    "System.Runtime.Log"
+).number.to_bytes(4, "little")
+_SYSCALL_CONTRACT_CALL: bytes = Syscalls.get_by_name(
+    "System.Contract.Call"
+).number.to_bytes(4, "little")
 
 
 class Emitter:
@@ -155,7 +161,6 @@ class Emitter:
             A snapshot of the internal buffer as ``bytes``.
         """
         return bytes(self._buf)
-
 
 
 class Linearizer:
