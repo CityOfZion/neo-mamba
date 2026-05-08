@@ -1,7 +1,7 @@
 from __future__ import annotations
 import ast
 import dataclasses
-from typing import Any, Optional, Union
+from typing import Optional, Union
 
 from ._constants import _WRITE_SYSCALL_NAMES
 from .types import (
@@ -9,7 +9,6 @@ from .types import (
     IntType,
     BoolType,
     BytesType,
-    BytearrayType,
     StrType,
     ListType,
     DictType,
@@ -18,13 +17,8 @@ from .types import (
     OptionalType,
     ClassType,
     AnyType,
-    IteratorType,
-    UInt160Type,
-    UInt256Type,
-    ECPointType,
     UnionType,
     TypecheckError,
-    _resolve_simple_type,
     INT,
     BOOL,
     BYTES,
@@ -37,12 +31,7 @@ from .types import (
     UINT256,
     ECPOINT,
     LIST_STR,
-    _BYTESLIKE,
 )
-
-# ---------------------------------------------------------------------------
-# 2. TYPED HIR
-# ---------------------------------------------------------------------------
 
 
 @dataclasses.dataclass
@@ -1085,11 +1074,6 @@ def _always_terminates(stmts: list) -> bool:
     if isinstance(last, ast.If) and last.orelse:
         return _always_terminates(last.body) and _always_terminates(last.orelse)
     return False
-
-
-# ---------------------------------------------------------------------------
-# Moved from __init__.py
-# ---------------------------------------------------------------------------
 
 
 @dataclasses.dataclass

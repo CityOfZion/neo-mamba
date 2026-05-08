@@ -1,12 +1,10 @@
 from __future__ import annotations
-import dataclasses
 import itertools
-from typing import Any, Optional
+from typing import Optional
 
 from ._constants import (
     _STDLIB_HASH,
     _SYSCALL_CONTRACT_CALL,
-    _WRITE_SYSCALL_NAMES,
 )
 from .types import (
     Type,
@@ -15,18 +13,10 @@ from .types import (
     BytesType,
     BytearrayType,
     StrType,
-    ListType,
-    DictType,
-    TupleType,
     NoneType,
-    OptionalType,
-    ClassType,
-    AnyType,
-    IteratorType,
     UInt160Type,
     UInt256Type,
     ECPointType,
-    UnionType,
     TypecheckError,
     INT,
     BOOL,
@@ -35,10 +25,6 @@ from .types import (
     STR,
     NONE,
     ANY,
-    ITERATOR,
-    UINT160,
-    UINT256,
-    ECPOINT,
     LIST_STR,
 )
 from .hir import (
@@ -114,10 +100,6 @@ from .hir import (
     Stmt,
     HIRFunction,
     ClassInfo,
-    FieldInfo,
-    MethodInfo,
-    _type_compatible,
-    _type_mismatch_msg,
 )
 from .cfg import (
     StackOp,
@@ -133,10 +115,43 @@ from .cfg import (
 
 
 class CFGBuilder:
+    """Builds a Control Flow Graph (CFG) from a HIR function.
+
+    Walks HIR statement and expression nodes in a single pass, emitting
+    ``StackInstr`` instructions into ``BasicBlock`` objects and wiring blocks
+    together with ``Terminator`` nodes (``Jump``, ``CondJump``, ``Ret``, …).
+
+    The builder maintains a *current block* cursor that advances as control-flow
+    constructs (``If``, ``While``, ``TryExcept``, …) are lowered.
+    Short-circuit boolean operators and inline conditionals (``IfExp``) each
+    split control flow into extra blocks and reconverge at a join block.
+
+    Attributes:
+        _fn: The HIR function being compiled.
+        _class_registry: Optional mapping from class name to ``ClassInfo``,
+            used to resolve field offsets and constructor calls for user-defined
+            classes.
+        _cfg: The ``CFG`` being built.  Initially contains only the entry block.
+        _current: The basic block currently being populated.
+        _loop_break_target: Label of the exit block for the innermost loop,
+            or ``None`` when not inside a loop.
+        _loop_continue_target: Label of the header block for the innermost loop,
+            or ``None`` when not inside a loop.
+        _jump_targets: Set of all labels ever used as a jump target, used to
+            determine whether an exit block is reachable.
+    """
 
     def __init__(
         self, fn: HIRFunction, class_registry: Optional[dict[str, "ClassInfo"]] = None
     ):
+        """Initialise the builder for a single function.
+
+        Args:
+            fn: The HIR function whose body will be compiled.
+            class_registry: Mapping of class name to ``ClassInfo`` used when
+                compiling object-construction and field-access expressions.
+                May be ``None`` for functions that contain no class usage.
+        """
         self._fn = fn
         self._class_registry: Optional[dict[str, "ClassInfo"]] = class_registry
         self._counter = itertools.count()
@@ -147,6 +162,21 @@ class CFGBuilder:
         self._jump_targets: set[str] = set()  # all labels ever used as jump targets
 
     def build(self) -> CFG:
+        """Compile the function body and return the completed CFG.
+
+        Iterates over every top-level statement in ``_fn.body``, emitting
+        instructions into basic blocks.  If the final current block is still
+        open after all statements are processed, an implicit ``Ret`` is added
+        for void functions; non-void functions that fall off the end raise a
+        ``TypecheckError``.
+
+        Returns:
+            The fully-populated ``CFG`` for the function.
+
+        Raises:
+            TypecheckError: If a non-void function has no explicit ``return``
+                at the end of control flow.
+        """
         for stmt in self._fn.body:
             self._emit_stmt(stmt)
         if self._current.terminator is None:
@@ -161,13 +191,44 @@ class CFGBuilder:
         return self._cfg
 
     def _fresh(self, hint: str) -> str:
+        """Return a unique block label with *hint* as a human-readable prefix.
+
+        Args:
+            hint: Descriptive prefix for the generated label.
+
+        Returns:
+            A string of the form ``"<hint>_<n>"``, where ``<n>`` is a
+            monotonically increasing integer counter.
+        """
         return f"{hint}_{next(self._counter)}"
 
     def _emit(self, instr: StackInstr) -> None:
+        """Append *instr* to the current block's instruction list.
+
+        Args:
+            instr: The stack instruction to append.
+
+        Raises:
+            AssertionError: If the current block is already closed (has a
+                terminator).
+        """
         assert self._current.terminator is None, "Emitting into a closed block"
         self._current.instructions.append(instr)
 
     def _close(self, term: Terminator) -> None:
+        """Set the terminator for the current block and record its jump targets.
+
+        After this call the current block is *closed*; ``_emit`` must not be
+        called again without first switching to a new block via ``_switch``.
+
+        Args:
+            term: The terminator to attach.  Targets of ``Jump`` and
+                ``CondJump`` are added to ``_jump_targets`` so reachability
+                can be checked later.
+
+        Raises:
+            AssertionError: If the current block already has a terminator.
+        """
         assert self._current.terminator is None
         self._current.terminator = term
         match term:
@@ -178,9 +239,29 @@ class CFGBuilder:
                 self._jump_targets.add(f)
 
     def _switch(self, block: BasicBlock) -> None:
+        """Change the current insertion target to *block*.
+
+        Args:
+            block: The basic block that subsequent ``_emit`` calls will
+                populate.
+        """
         self._current = block
 
     def _emit_stmt(self, stmt: Stmt) -> None:
+        """Lower a single HIR statement into the current block.
+
+        Dispatches on the concrete ``Stmt`` subtype via a structural ``match``
+        statement.  Control-flow statements (``If``, ``While``, ``TryExcept``,
+        ``Break``, ``Continue``) create and wire new blocks; expression
+        statements and stores append ``StackInstr`` items to the current block.
+
+        Statements reached after the current block is already terminated (dead
+        code following an unconditional ``return`` or ``break``) are silently
+        dropped.
+
+        Args:
+            stmt: The HIR statement to compile.
+        """
         if self._current.terminator is not None:
             return
 
@@ -533,6 +614,27 @@ class CFGBuilder:
         t: Type,
         step_slots: Optional[tuple[int, int, int, int, int, int, int, int]] = None,
     ) -> None:
+        """Emit stack code for a slice expression ``v[start:stop:step]``.
+
+        The no-step case maps directly to NeoVM's ``LEFT`` / ``RIGHT`` /
+        ``SUBSTR`` opcodes.  The step case is lowered to two explicit loops: a
+        counting pass to compute the output length, then a fill pass that writes
+        bytes into a pre-allocated ``NEWBUFFER``.
+
+        Args:
+            v: The sequence being sliced.
+            start: Optional lower-bound expression (inclusive).
+            stop: Optional upper-bound expression (exclusive).
+            step: Optional step expression; when present *step_slots* must also
+                be provided.
+            t: The element type of *v*, used to decide whether a ``CONVERT``
+                is needed to restore the original type after slicing.
+            step_slots: Eight pre-allocated local slot indices
+                ``(slot_data, slot_start, slot_stop, slot_step, slot_count,
+                slot_result, slot_write_idx, slot_read_idx)`` used by the
+                stepped-slice loops.  Must not be ``None`` when *step* is not
+                ``None``.
+        """
         convert_op = 0x28 if isinstance(t, (BytesType, StrType)) else None
         if step is None:
             if start is None and stop is None:
@@ -677,6 +779,15 @@ class CFGBuilder:
                 self._emit(StackInstr(op="CONVERT", type=t, operand=convert_op))
 
     def _emit_expr(self, expr: Expr) -> None:
+        """Lower a single HIR expression, leaving its result on the NeoVM stack.
+
+        Dispatches on the concrete ``Expr`` subtype via a structural ``match``
+        statement.  After this call the evaluation stack has grown by exactly
+        one item whose value corresponds to *expr*.
+
+        Args:
+            expr: The HIR expression to compile.
+        """
         match expr:
             case IntLiteral(value=v):
                 self._emit(StackInstr(op="PUSH_INT", type=INT, operand=v))

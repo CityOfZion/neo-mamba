@@ -3,10 +3,9 @@ import ast
 import dataclasses
 from typing import Optional, Union
 
-# ---------------------------------------------------------------------------
-# 1. TYPE SYSTEM
-# ---------------------------------------------------------------------------
-
+"""
+TYPE SYSTEM
+"""
 
 class _TypeBase:
     """Default predicate implementations for all compiler type objects."""

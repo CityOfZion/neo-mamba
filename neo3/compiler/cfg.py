@@ -3,11 +3,7 @@ import dataclasses
 import enum
 from typing import Any, Literal, Optional
 
-from .types import Type, NONE, ANY
-
-# ---------------------------------------------------------------------------
-# 4. CFG
-# ---------------------------------------------------------------------------
+from .types import Type
 
 # All valid StackInstr op values.  Includes direct NeoVM opcode names (CAPS),
 # operator symbols mapped to opcodes (+, -, ==, …), lowercase semantic labels
@@ -160,11 +156,6 @@ class CFG:
         bb = BasicBlock(label=label)
         self.blocks[label] = bb
         return bb
-
-
-# ---------------------------------------------------------------------------
-# 6. OPCODES
-# ---------------------------------------------------------------------------
 
 
 class OpCode(enum.IntEnum):

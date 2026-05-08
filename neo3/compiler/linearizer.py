@@ -1,8 +1,8 @@
 from __future__ import annotations
 import ast
-import struct
-from typing import Any, Optional
+from typing import Optional
 
+from . import HIRFunction
 from ._constants import (
     _SYSCALL_RUNTIME_LOG,
     _SYSCALL_NOTIFY,
@@ -21,10 +21,8 @@ from .types import (
     BOOL,
     STR,
     BYTES,
-    NONE,
 )
 from .cfg import (
-    StackOp,
     StackInstr,
     Ret,
     Jump,
@@ -34,30 +32,72 @@ from .cfg import (
     BasicBlock,
     CFG,
     OpCode,
+    Terminator
 )
 
-# ---------------------------------------------------------------------------
-# 7. EMITTER
-# ---------------------------------------------------------------------------
-
-
 class Emitter:
+    """Mutable byte-buffer for assembling NeoVM bytecode.
+
+    Provides low-level helpers for appending opcodes, fixed-width integers,
+    and variable-length byte strings.  Jump instructions are emitted with
+    32-bit signed relative-offset placeholders that must be back-patched via
+    ``patch_i32`` once the target offset is known.
+
+    Attributes:
+        _buf: The raw byte accumulator.
+    """
+
     def __init__(self):
+        """Initialise an empty byte buffer."""
         self._buf = bytearray()
 
     def pos(self) -> int:
+        """Return the current write position (total bytes emitted so far).
+
+        Returns:
+            Current byte offset from the start of the buffer.
+        """
         return len(self._buf)
 
     def emit_opcode(self, op: OpCode) -> None:
+        """Append a single NeoVM opcode byte.
+
+        Args:
+            op: The opcode to emit.
+        """
         self._buf.append(int(op))
 
     def emit_byte(self, value: int) -> None:
+        """Append one byte, masking *value* to the low 8 bits.
+
+        Args:
+            value: Integer whose least-significant byte is appended.
+        """
         self._buf.append(value & 0xFF)
 
     def emit_raw(self, data: bytes) -> None:
+        """Append raw bytes directly to the buffer.
+
+        Args:
+            data: Byte sequence to append verbatim.
+        """
         self._buf.extend(data)
 
     def emit_push_int(self, value: int) -> None:
+        """Emit the smallest ``PUSHINT<N>`` instruction that fits *value*.
+
+        Selects among ``PUSHINT8``, ``PUSHINT16``, ``PUSHINT32``, and
+        ``PUSHINT64`` based on the signed range of *value*.  The operand is
+        written in little-endian byte order.
+
+        Args:
+            value: Signed integer to push.  Must fit within a 64-bit signed
+                range.
+
+        Raises:
+            NotImplementedError: If *value* does not fit in a 64-bit signed
+                integer.
+        """
         if -(1 << 7) <= value < (1 << 7):
             self.emit_opcode(OpCode.PUSHINT8)
             self.emit_raw(value.to_bytes(1, "little", signed=True))
@@ -90,6 +130,14 @@ class Emitter:
         )
 
     def emit_push_bytes(self, value: bytes) -> None:
+        """Emit a ``PUSHDATA<N>`` instruction for *value*.
+
+        Automatically selects ``PUSHDATA1``, ``PUSHDATA2``, or ``PUSHDATA4``
+        based on the length of *value*.
+
+        Args:
+            value: Byte string to push onto the NeoVM stack.
+        """
         n = len(value)
         if n <= 0xFF:
             self.emit_opcode(OpCode.PUSHDATA1)
@@ -103,15 +151,45 @@ class Emitter:
         self.emit_raw(value)
 
     def bytecode(self) -> bytes:
+        """Return the assembled bytecode as an immutable ``bytes`` object.
+
+        Returns:
+            A snapshot of the internal buffer as ``bytes``.
+        """
         return bytes(self._buf)
 
 
-# ---------------------------------------------------------------------------
-# 8. LINEARIZER  (CFG -> bytes)
-# ---------------------------------------------------------------------------
-
 
 class Linearizer:
+    """Lowers a CFG into linear NeoVM bytecode.
+
+    Takes a completed ``CFG`` (produced by ``CFGBuilder``) together with its
+    ``HIRFunction`` and emits the bytecode for a single function.  Blocks are
+    emitted in insertion order; unconditional jumps whose target is the
+    immediately-following block are elided as a fall-through optimisation.
+
+    Forward-reference jump offsets are filled with 4-byte placeholders and
+    back-patched in a second pass once all block offsets are known.
+
+    Two entry points are provided:
+
+    * ``generate()`` — stand-alone mode, returns the function's bytecode as
+      ``bytes``.
+    * ``generate_into()`` — multi-function mode, emits into a shared
+      ``Emitter`` and returns the function's start offset so cross-function
+      ``CALL_L`` targets can be resolved by the caller.
+
+    Attributes:
+        _cfg: The CFG to linearize.
+        _fn: The HIR function, providing local and argument counts for the
+            ``INITSLOT`` prologue.
+        _em: The byte buffer receiving the emitted bytecode.
+        _call_fixups: Module-level list for recording cross-function ``CALL_L``
+            placeholders.  ``None`` in stand-alone mode.
+        _offsets: Maps block label to its byte offset within the emitter.
+        _fixups: List of ``(placeholder_pos, jmp_opcode_pos, label)`` tuples
+            collected during emission and resolved in ``_patch_jumps``.
+    """
 
     def __init__(
         self,
@@ -120,6 +198,19 @@ class Linearizer:
         emitter: Optional[Emitter] = None,
         call_fixups: Optional[list] = None,
     ):
+        """Initialise the linearizer for a single function.
+
+        Args:
+            cfg: The control flow graph to convert to bytecode.
+            fn: The HIR function whose local and argument counts are used for
+                the ``INITSLOT`` prologue.
+            emitter: Shared ``Emitter`` to write into.  A fresh ``Emitter`` is
+                created when ``None`` (stand-alone mode).
+            call_fixups: Module-level mutable list for recording ``CALL_L``
+                placeholder positions that cannot be resolved immediately
+                because the callee may be emitted later.  ``None`` disables
+                cross-function fixup collection.
+        """
         self._cfg = cfg
         self._fn = fn
         self._em = emitter if emitter is not None else Emitter()
@@ -130,6 +221,12 @@ class Linearizer:
         )  # (placeholder_pos, jmp_opcode_pos, label)
 
     def _emit_function(self) -> None:
+        """Emit the function prologue and all basic blocks.
+
+        Emits an ``INITSLOT`` opcode (skipped when both local and argument
+        counts are zero, as that is illegal in NeoVM) followed by each basic
+        block in insertion order.
+        """
         num_locals = len(self._fn.locals)
         num_args = len(self._fn.args)
         if num_locals > 0 or num_args > 0:  # INITSLOT 0 0 is illegal in NeoVM
@@ -158,11 +255,29 @@ class Linearizer:
         return start
 
     def _emit_block(self, block: BasicBlock, next_label: Optional[str]) -> None:
+        """Emit all instructions and the terminator for *block*.
+
+        Args:
+            block: The basic block to emit.
+            next_label: Label of the block that will be emitted immediately
+                after this one, used for fall-through elimination.
+        """
         for instr in block.instructions:
             self._emit_instr(instr)
         self._emit_terminator(block.terminator, next_label)
 
     def _emit_instr(self, instr: StackInstr) -> None:
+        """Translate a single ``StackInstr`` into NeoVM bytes.
+
+        Dispatches on the string mnemonic in ``instr.op`` and writes the
+        corresponding opcode byte(s) and any operands into the emitter.
+
+        Args:
+            instr: The stack instruction to translate.
+
+        Raises:
+            NotImplementedError: If ``instr.op`` is not a recognised mnemonic.
+        """
         match instr.op:
             case "PUSH_INT":
                 self._em.emit_push_int(instr.operand)
@@ -362,6 +477,16 @@ class Linearizer:
                 raise NotImplementedError(f"Unknown StackInstr op: {instr.op}")
 
     def _emit_terminator(self, term: Terminator, next_label: Optional[str]) -> None:
+        """Emit the bytecode for a block terminator.
+
+        Unconditional ``Jump`` terminators whose target equals *next_label* are
+        omitted entirely (fall-through optimisation).
+
+        Args:
+            term: The terminator to emit.
+            next_label: Label of the next block in emission order, used to
+                detect fall-through opportunities.
+        """
         match term:
             case Ret():
                 self._em.emit_opcode(OpCode.RET)
@@ -385,13 +510,15 @@ class Linearizer:
                 self._em.emit_opcode(OpCode.ENDFINALLY)
 
     def _patch_jumps(self) -> None:
+        """Resolve all collected jump placeholders.
+
+        Iterates over ``_fixups`` and overwrites each 4-byte placeholder with
+        the correct signed 32-bit relative offset computed from the block
+        offsets recorded in ``_offsets``.
+        """
         for placeholder_pos, jmp_opcode_pos, label in self._fixups:
             self._em.patch_i32(placeholder_pos, jmp_opcode_pos, self._offsets[label])
 
-
-# ---------------------------------------------------------------------------
-# Moved from __init__.py
-# ---------------------------------------------------------------------------
 
 # 32-byte fill used by signed to_bytes helpers to sign-extend negative integers
 _TO_BYTES_NEG_FILL = b"\xff" * 32

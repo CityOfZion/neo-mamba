@@ -2,21 +2,12 @@ from __future__ import annotations
 import ast
 import dataclasses
 import hashlib
-import itertools
-import json
 import os
-from typing import Any, Optional, Union
+from typing import Optional, Union
 
 from ._constants import (
-    _STDLIB_HASH,
-    _SYSCALL_CONTRACT_CALL,
-    _SYSCALL_NOTIFY,
-    _SYSCALL_RUNTIME_LOG,
     _SYSCALL_ITERATOR_NEXT,
     _SYSCALL_ITERATOR_VALUE,
-    _SYSCALL_STORAGE_PUT,
-    _SYSCALL_STORAGE_DELETE,
-    _WRITE_SYSCALL_NAMES,
     _COMPILETIME_MODULE,
     _COMPILETIME_PARENT,
     _COMPILER_PACKAGE_ROOT,
@@ -26,12 +17,7 @@ from ._constants import (
     _ITERATOR_MODULE,
     _UTILS_MODULE,
     _TYPES_MODULE,
-    _RUNTIME_MODULE,
     _SYSCALL_DECORATOR_MODULES,
-    _FindOptions_enum,
-    _CallFlags_enum,
-    _NamedCurveHash_enum,
-    _neo3_vm,
     _UInt160,
     _UInt256,
 )
@@ -53,7 +39,6 @@ from .types import (
     UInt160Type,
     UInt256Type,
     ECPointType,
-    UnionType,
     TypecheckError,
     _resolve_simple_type,
     INT,
@@ -67,7 +52,6 @@ from .types import (
     UINT160,
     UINT256,
     ECPOINT,
-    LIST_STR,
     _BYTESLIKE,
     _type_of_folded,
 )
@@ -143,27 +127,17 @@ from .hir import (
     Expr,
     Stmt,
     HIRFunction,
-    FieldInfo,
     MethodInfo,
     ClassInfo,
-    _TRIMMED_TX_CLASS_INFO,
-    _TRIMMED_BLOCK_CLASS_INFO,
-    _NEO_ACCOUNT_STATE_CLASS_INFO,
-    _CONTRACT_STATE_CLASS_INFO,
-    _is_subclass_of,
     resolve_annotation,
     _type_compatible,
-    _container_param_compatible,
     _type_mismatch_msg,
     _for_rewrite_continues,
     _always_terminates,
-    _PublicMethodInfo,
     _EventInfo,
     _c3_mro,
     _merge_fields,
     _get_method_kind,
-    _walk_hir_node,
-    _collect_write_ops,
 )
 
 
@@ -179,283 +153,40 @@ class _SyscallSpec:
     param_names: list = dataclasses.field(default_factory=list)  # Python param names
 
 
-def _extract_syscall_decorator_name(fn: ast.FunctionDef) -> Optional[str]:
-    """Return the syscall interop-method name from a ``@syscall("name")`` decorator, or None.
-
-    Accepts any call-style decorator whose sole argument is a string constant,
-    regardless of what the function is named locally (``syscall``, ``ct.syscall``, etc.).
-    The body is trusted to be ``pass``; callers must validate separately.
-    """
-    for dec in fn.decorator_list:
-        if (
-            isinstance(dec, ast.Call)
-            and len(dec.args) == 1
-            and not dec.keywords
-            and isinstance(dec.args[0], ast.Constant)
-            and isinstance(dec.args[0].value, str)
-        ):
-            func = dec.func
-            if isinstance(func, ast.Name):
-                return dec.args[0].value
-            if isinstance(func, ast.Attribute) and func.attr == "syscall":
-                return dec.args[0].value
-    return None
-
-
-def _eval_default_expr(node: ast.expr) -> Optional[int]:
-    """Fold a function-default AST node to an integer, or return None.
-
-    Handles plain integer constants, ``FindOptions.<ATTR>``,
-    ``CallFlags.<ATTR>``, and ``NamedCurveHash.<ATTR>`` attribute accesses.
-    """
-    if isinstance(node, ast.Constant) and isinstance(node.value, int):
-        return node.value
-    if (
-        isinstance(node, ast.Attribute)
-        and isinstance(node.value, ast.Name)
-        and node.value.id == "FindOptions"
-        and node.attr in _FIND_OPTIONS_VALUES
-    ):
-        return _FIND_OPTIONS_VALUES[node.attr]
-    if (
-        isinstance(node, ast.Attribute)
-        and isinstance(node.value, ast.Name)
-        and node.value.id == "CallFlags"
-        and node.attr in _CALL_FLAGS_VALUES
-    ):
-        return _CALL_FLAGS_VALUES[node.attr]
-    if (
-        isinstance(node, ast.Attribute)
-        and isinstance(node.value, ast.Name)
-        and node.value.id == "NamedCurveHash"
-        and node.attr in _NAMED_CURVE_HASH_VALUES
-    ):
-        return _NAMED_CURVE_HASH_VALUES[node.attr]
-
-
-def _try_fold_const_expr(
-    node: ast.expr, const_values: dict
-) -> Optional[Union[int, bool, str, bytes]]:
-    """Try to evaluate a module-level expression as a compile-time constant.
-
-    Returns the Python value (int/bool/str/bytes) on success, None if the
-    expression cannot be fully resolved with the currently known *const_values*.
-    """
-    if isinstance(node, ast.Constant):
-        if isinstance(node.value, (bool, int, str, bytes)):
-            return node.value
-        return None
-    if isinstance(node, ast.Name):
-        return const_values.get(node.id)
-    if isinstance(node, ast.UnaryOp):
-        operand = _try_fold_const_expr(node.operand, const_values)
-        if operand is None:
-            return None
-        if (
-            isinstance(node.op, ast.USub)
-            and isinstance(operand, int)
-            and not isinstance(operand, bool)
-        ):
-            return -operand
-        if (
-            isinstance(node.op, ast.Invert)
-            and isinstance(operand, int)
-            and not isinstance(operand, bool)
-        ):
-            return ~operand
-        if isinstance(node.op, ast.UAdd) and isinstance(operand, int):
-            return operand
-        return None
-    if isinstance(node, ast.BinOp):
-        left = _try_fold_const_expr(node.left, const_values)
-        right = _try_fold_const_expr(node.right, const_values)
-        if left is None or right is None:
-            return None
-        op = node.op
-        try:
-            if isinstance(op, ast.Add):
-                return left + right  # works for int, str, bytes
-            if (
-                isinstance(op, ast.Sub)
-                and isinstance(left, int)
-                and isinstance(right, int)
-            ):
-                return left - right
-            if (
-                isinstance(op, ast.Mult)
-                and isinstance(left, int)
-                and isinstance(right, int)
-            ):
-                return left * right
-            if (
-                isinstance(op, ast.Pow)
-                and isinstance(left, int)
-                and isinstance(right, int)
-            ):
-                if right < 0:
-                    return None  # float result not supported
-                return left**right
-            if (
-                isinstance(op, ast.FloorDiv)
-                and isinstance(left, int)
-                and isinstance(right, int)
-            ):
-                return left // right
-            if (
-                isinstance(op, ast.Mod)
-                and isinstance(left, int)
-                and isinstance(right, int)
-            ):
-                return left % right
-            if (
-                isinstance(op, ast.BitAnd)
-                and isinstance(left, int)
-                and isinstance(right, int)
-            ):
-                return left & right
-            if (
-                isinstance(op, ast.BitOr)
-                and isinstance(left, int)
-                and isinstance(right, int)
-            ):
-                return left | right
-            if (
-                isinstance(op, ast.BitXor)
-                and isinstance(left, int)
-                and isinstance(right, int)
-            ):
-                return left ^ right
-            if (
-                isinstance(op, ast.LShift)
-                and isinstance(left, int)
-                and isinstance(right, int)
-            ):
-                return left << right
-            if (
-                isinstance(op, ast.RShift)
-                and isinstance(left, int)
-                and isinstance(right, int)
-            ):
-                return left >> right
-        except (ZeroDivisionError, OverflowError):
-            return None
-    return None
-
-
-def _infer_type_from_ast_expr(
-    node: ast.expr,
-    statics: "dict[str, tuple[int, Type]]",
-    registry: "dict[str, ClassInfo]",
-) -> "Optional[Type]":
-    """Best-effort type inference for an AST expression in the class pre-pass.
-
-    Resolves constants, simple name lookups (module statics), and attribute
-    accesses like ``ClassName.ATTR`` by consulting the already-built *statics*
-    and *registry* tables.  Returns ``None`` when the expression is too complex
-    to resolve without the full HIR machinery.
-    """
-    if isinstance(node, ast.Constant):
-        v = node.value
-        if v is None:
-            return NONE
-        if isinstance(v, bool):
-            return BOOL
-        if isinstance(v, int):
-            return INT
-        if isinstance(v, str):
-            return STR
-        if isinstance(v, bytes):
-            return BYTES
-        return None
-    if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
-        inner = _infer_type_from_ast_expr(node.operand, statics, registry)
-        return INT if isinstance(inner, IntType) else None
-    if isinstance(node, ast.Name):
-        entry = statics.get(node.id)
-        return entry[1] if entry is not None else None
-    if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name):
-        # ClassName.attr or module.name — resolve via statics first, then class_vars
-        mangled = f"{node.value.id}.{node.attr}"
-        entry = statics.get(mangled)
-        if entry is not None:
-            return entry[1]
-        cls_info = registry.get(node.value.id)
-        if cls_info is not None:
-            cv = cls_info.class_vars.get(node.attr)
-            if cv is not None:
-                return cv[1]
-        return None
-    if isinstance(node, ast.List) and not node.elts:
-        return ListType(ANY)
-    if isinstance(node, ast.Dict) and not node.keys:
-        return DictType(ANY, ANY)
-    if (
-        isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Attribute)
-        and node.func.attr == "to_bytes"
-    ):
-        return BYTES
-    return None
-
-
-def _find_module_file(module_name: str, base: str) -> Optional[str]:
-    """Return the ``__init__.py`` or ``.py`` path for *module_name* under *base*, or None."""
-    pkg = os.path.join(base, *module_name.split("."), "__init__.py")
-    if os.path.isfile(pkg):
-        return pkg
-    parts = module_name.split(".")
-    py = os.path.join(base, *parts[:-1], parts[-1] + ".py")
-    return py if os.path.isfile(py) else None
-
-
-def _load_syscall_specs(
-    module_name: str, search_path: Optional[str]
-) -> "dict[str, _SyscallSpec]":
-    """Read a ``@syscall``-decorated module and return ``fn_name → _SyscallSpec``.
-
-    Searches *search_path* first (if provided), then the compiler package root.
-    Only functions with a ``@syscall(...)`` decorator are included.
-    Integer defaults (including ``FindOptions.<ATTR>``) are extracted from the
-    function's default argument list.
-    """
-    stmts: list[ast.stmt] = []
-    bases = ([search_path] if search_path else []) + [_COMPILER_PACKAGE_ROOT]
-    for base in bases:
-        path = _find_module_file(module_name, base)
-        if path:
-            with open(path) as _f:
-                stmts = ast.parse(_f.read()).body
-            break
-    specs: dict[str, _SyscallSpec] = {}
-    for stmt in stmts:
-        if not isinstance(stmt, ast.FunctionDef):
-            continue
-        syscall_name = _extract_syscall_decorator_name(stmt)
-        if syscall_name is None:
-            continue
-        h = hashlib.sha256(syscall_name.encode()).digest()[:4]
-        params = [_resolve_simple_type(a.annotation) for a in stmt.args.args]
-        pnames = [a.arg for a in stmt.args.args]
-        ret = _resolve_simple_type(stmt.returns) if stmt.returns is not None else NONE
-        n = len(params)
-        d = len(stmt.args.defaults)
-        defaults: dict[int, int] = {}
-        for i, dnode in enumerate(stmt.args.defaults):
-            v = _eval_default_expr(dnode)
-            if v is not None:
-                defaults[n - d + i] = v
-        specs[stmt.name] = _SyscallSpec(
-            hash=h,
-            params=params,
-            ret=ret,
-            push_order=list(reversed(range(n))),
-            defaults=defaults if defaults else None,
-            param_names=pnames,
-        )
-    return specs
-
 
 class HIRBuilder:
+    """Converts a Python AST function into High-level Intermediate Representation (HIR).
+
+    One ``HIRBuilder`` instance is created per function.  Module-level state
+    (function signatures, static variables, class definitions, imported
+    syscall/event decorators, …) is injected via constructor arguments so that
+    multiple functions in the same module can share a consistent view of the
+    program.
+
+    Type checking is performed during the AST walk: every HIR expression node
+    carries an inferred ``Type``, and mismatches raise ``TypecheckError``.
+    Optional narrowing is applied for ``assert isinstance(x, T)`` guards and
+    ``is None`` / ``is not None`` checks at the top of ``if`` branches.
+
+    Attributes:
+        _signatures: Map from mangled function name to ``(arg_types, return_type)``.
+        _statics: Map from static variable name to ``(slot_index, type)``.
+        _func_defaults: Default HIR expressions keyed by mangled function name
+            and parameter index.
+        _class_registry: Optional map from class name to ``ClassInfo`` for
+            field lookups and method dispatch.
+        _current_class: Name of the class currently being compiled, or ``None``
+            for module-level functions.
+        _locals: Map from local variable name to ``(slot_index, type)`` for
+            the function being compiled.
+        _args: Map from argument name to ``(slot_index, type)`` for the
+            function being compiled.
+        _return_type: Declared return type of the current function.
+        _in_loop: ``True`` while the builder is processing a loop body.
+        _pre_stmts: Synthetic HIR statements prepended to the function body
+            before user-written statements (e.g. ``self``-extraction for
+            instance methods).
+    """
 
     def __init__(
         self,
@@ -476,6 +207,42 @@ class HIRBuilder:
         module_fn_maps: Optional[dict[str, dict[str, str]]] = None,
         filename: Optional[str] = None,
     ):
+        """Initialise the builder with module-level context for a single function.
+
+        Args:
+            signatures: Map from mangled function name to
+                ``(arg_types, return_type)`` for all functions visible in the
+                module.
+            statics: Map from static variable name to ``(slot_index, type)``.
+            func_defaults: Default HIR expressions keyed by mangled function
+                name and parameter index.
+            class_registry: Mapping of class name to ``ClassInfo`` for
+                field and method resolution.
+            current_class: Name of the class whose method is being compiled,
+                or ``None`` for module-level functions.
+            module_names: Set of module-alias names imported into the file,
+                used to recognise ``module.func(…)`` call patterns.
+            aliases: Map from local alias name to canonical type name for
+                type-annotation resolution (e.g. ``{"Container": "Box"}``).
+            syscall_fn_specs: Map from local function name to ``_SyscallSpec``
+                for functions decorated with ``@syscall``.
+            syscall_module_fn_specs: Map from module alias to a nested map of
+                function name to ``_SyscallSpec``, for namespace imports of
+                syscall functions.
+            event_fn_specs: Map from local function name to ``_EventInfo`` for
+                functions decorated with ``@event``.
+            iterator_names: Set of locally imported names that resolve to
+                ``IteratorType``, used during annotation resolution.
+            findoptions_names: Set of locally imported names that refer to
+                ``FindOptions`` constants (enables constant folding).
+            callflags_names: Set of locally imported names that refer to
+                ``CallFlags`` constants (enables constant folding).
+            namedcurvehash_names: Set of locally imported names that refer to
+                ``NamedCurveHash`` constants (enables constant folding).
+            module_fn_maps: Map from module alias to a map of Python function
+                name to mangled compiled name, used for cross-module calls.
+            filename: Source file path included in ``TypecheckError`` messages.
+        """
         self._signatures: dict[str, tuple[list[Type], Type]] = signatures or {}
         self._statics: dict[str, tuple[int, Type]] = statics or {}
         self._statics_current_types: dict[str, Type] = {
@@ -4174,9 +3941,6 @@ class HIRBuilder:
                 self._err(f"Unsupported comparison: {op}")
 
 
-# ---------------------------------------------------------------------------
-# Moved from __init__.py
-# ---------------------------------------------------------------------------
 
 
 def _is_public_decorator(
@@ -5884,3 +5648,278 @@ def _collect_module_statics(
         pending = still_pending
 
     return statics, static_inits, const_values
+
+def _extract_syscall_decorator_name(fn: ast.FunctionDef) -> Optional[str]:
+    """Return the syscall interop-method name from a ``@syscall("name")`` decorator, or None.
+
+    Accepts any call-style decorator whose sole argument is a string constant,
+    regardless of what the function is named locally (``syscall``, ``ct.syscall``, etc.).
+    The body is trusted to be ``pass``; callers must validate separately.
+    """
+    for dec in fn.decorator_list:
+        if (
+            isinstance(dec, ast.Call)
+            and len(dec.args) == 1
+            and not dec.keywords
+            and isinstance(dec.args[0], ast.Constant)
+            and isinstance(dec.args[0].value, str)
+        ):
+            func = dec.func
+            if isinstance(func, ast.Name):
+                return dec.args[0].value
+            if isinstance(func, ast.Attribute) and func.attr == "syscall":
+                return dec.args[0].value
+    return None
+
+
+def _eval_default_expr(node: ast.expr) -> Optional[int]:
+    """Fold a function-default AST node to an integer, or return None.
+
+    Handles plain integer constants, ``FindOptions.<ATTR>``,
+    ``CallFlags.<ATTR>``, and ``NamedCurveHash.<ATTR>`` attribute accesses.
+    """
+    if isinstance(node, ast.Constant) and isinstance(node.value, int):
+        return node.value
+    if (
+        isinstance(node, ast.Attribute)
+        and isinstance(node.value, ast.Name)
+        and node.value.id == "FindOptions"
+        and node.attr in _FIND_OPTIONS_VALUES
+    ):
+        return _FIND_OPTIONS_VALUES[node.attr]
+    if (
+        isinstance(node, ast.Attribute)
+        and isinstance(node.value, ast.Name)
+        and node.value.id == "CallFlags"
+        and node.attr in _CALL_FLAGS_VALUES
+    ):
+        return _CALL_FLAGS_VALUES[node.attr]
+    if (
+        isinstance(node, ast.Attribute)
+        and isinstance(node.value, ast.Name)
+        and node.value.id == "NamedCurveHash"
+        and node.attr in _NAMED_CURVE_HASH_VALUES
+    ):
+        return _NAMED_CURVE_HASH_VALUES[node.attr]
+
+
+def _try_fold_const_expr(
+    node: ast.expr, const_values: dict
+) -> Optional[Union[int, bool, str, bytes]]:
+    """Try to evaluate a module-level expression as a compile-time constant.
+
+    Returns the Python value (int/bool/str/bytes) on success, None if the
+    expression cannot be fully resolved with the currently known *const_values*.
+    """
+    if isinstance(node, ast.Constant):
+        if isinstance(node.value, (bool, int, str, bytes)):
+            return node.value
+        return None
+    if isinstance(node, ast.Name):
+        return const_values.get(node.id)
+    if isinstance(node, ast.UnaryOp):
+        operand = _try_fold_const_expr(node.operand, const_values)
+        if operand is None:
+            return None
+        if (
+            isinstance(node.op, ast.USub)
+            and isinstance(operand, int)
+            and not isinstance(operand, bool)
+        ):
+            return -operand
+        if (
+            isinstance(node.op, ast.Invert)
+            and isinstance(operand, int)
+            and not isinstance(operand, bool)
+        ):
+            return ~operand
+        if isinstance(node.op, ast.UAdd) and isinstance(operand, int):
+            return operand
+        return None
+    if isinstance(node, ast.BinOp):
+        left = _try_fold_const_expr(node.left, const_values)
+        right = _try_fold_const_expr(node.right, const_values)
+        if left is None or right is None:
+            return None
+        op = node.op
+        try:
+            if isinstance(op, ast.Add):
+                return left + right  # works for int, str, bytes
+            if (
+                isinstance(op, ast.Sub)
+                and isinstance(left, int)
+                and isinstance(right, int)
+            ):
+                return left - right
+            if (
+                isinstance(op, ast.Mult)
+                and isinstance(left, int)
+                and isinstance(right, int)
+            ):
+                return left * right
+            if (
+                isinstance(op, ast.Pow)
+                and isinstance(left, int)
+                and isinstance(right, int)
+            ):
+                if right < 0:
+                    return None  # float result not supported
+                return left**right
+            if (
+                isinstance(op, ast.FloorDiv)
+                and isinstance(left, int)
+                and isinstance(right, int)
+            ):
+                return left // right
+            if (
+                isinstance(op, ast.Mod)
+                and isinstance(left, int)
+                and isinstance(right, int)
+            ):
+                return left % right
+            if (
+                isinstance(op, ast.BitAnd)
+                and isinstance(left, int)
+                and isinstance(right, int)
+            ):
+                return left & right
+            if (
+                isinstance(op, ast.BitOr)
+                and isinstance(left, int)
+                and isinstance(right, int)
+            ):
+                return left | right
+            if (
+                isinstance(op, ast.BitXor)
+                and isinstance(left, int)
+                and isinstance(right, int)
+            ):
+                return left ^ right
+            if (
+                isinstance(op, ast.LShift)
+                and isinstance(left, int)
+                and isinstance(right, int)
+            ):
+                return left << right
+            if (
+                isinstance(op, ast.RShift)
+                and isinstance(left, int)
+                and isinstance(right, int)
+            ):
+                return left >> right
+        except (ZeroDivisionError, OverflowError):
+            return None
+    return None
+
+
+def _infer_type_from_ast_expr(
+    node: ast.expr,
+    statics: "dict[str, tuple[int, Type]]",
+    registry: "dict[str, ClassInfo]",
+) -> "Optional[Type]":
+    """Best-effort type inference for an AST expression in the class pre-pass.
+
+    Resolves constants, simple name lookups (module statics), and attribute
+    accesses like ``ClassName.ATTR`` by consulting the already-built *statics*
+    and *registry* tables.  Returns ``None`` when the expression is too complex
+    to resolve without the full HIR machinery.
+    """
+    if isinstance(node, ast.Constant):
+        v = node.value
+        if v is None:
+            return NONE
+        if isinstance(v, bool):
+            return BOOL
+        if isinstance(v, int):
+            return INT
+        if isinstance(v, str):
+            return STR
+        if isinstance(v, bytes):
+            return BYTES
+        return None
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
+        inner = _infer_type_from_ast_expr(node.operand, statics, registry)
+        return INT if isinstance(inner, IntType) else None
+    if isinstance(node, ast.Name):
+        entry = statics.get(node.id)
+        return entry[1] if entry is not None else None
+    if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name):
+        # ClassName.attr or module.name — resolve via statics first, then class_vars
+        mangled = f"{node.value.id}.{node.attr}"
+        entry = statics.get(mangled)
+        if entry is not None:
+            return entry[1]
+        cls_info = registry.get(node.value.id)
+        if cls_info is not None:
+            cv = cls_info.class_vars.get(node.attr)
+            if cv is not None:
+                return cv[1]
+        return None
+    if isinstance(node, ast.List) and not node.elts:
+        return ListType(ANY)
+    if isinstance(node, ast.Dict) and not node.keys:
+        return DictType(ANY, ANY)
+    if (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "to_bytes"
+    ):
+        return BYTES
+    return None
+
+
+def _find_module_file(module_name: str, base: str) -> Optional[str]:
+    """Return the ``__init__.py`` or ``.py`` path for *module_name* under *base*, or None."""
+    pkg = os.path.join(base, *module_name.split("."), "__init__.py")
+    if os.path.isfile(pkg):
+        return pkg
+    parts = module_name.split(".")
+    py = os.path.join(base, *parts[:-1], parts[-1] + ".py")
+    return py if os.path.isfile(py) else None
+
+
+def _load_syscall_specs(
+    module_name: str, search_path: Optional[str]
+) -> "dict[str, _SyscallSpec]":
+    """Read a ``@syscall``-decorated module and return ``fn_name → _SyscallSpec``.
+
+    Searches *search_path* first (if provided), then the compiler package root.
+    Only functions with a ``@syscall(...)`` decorator are included.
+    Integer defaults (including ``FindOptions.<ATTR>``) are extracted from the
+    function's default argument list.
+    """
+    stmts: list[ast.stmt] = []
+    bases = ([search_path] if search_path else []) + [_COMPILER_PACKAGE_ROOT]
+    for base in bases:
+        path = _find_module_file(module_name, base)
+        if path:
+            with open(path) as _f:
+                stmts = ast.parse(_f.read()).body
+            break
+    specs: dict[str, _SyscallSpec] = {}
+    for stmt in stmts:
+        if not isinstance(stmt, ast.FunctionDef):
+            continue
+        syscall_name = _extract_syscall_decorator_name(stmt)
+        if syscall_name is None:
+            continue
+        h = hashlib.sha256(syscall_name.encode()).digest()[:4]
+        params = [_resolve_simple_type(a.annotation) for a in stmt.args.args]
+        pnames = [a.arg for a in stmt.args.args]
+        ret = _resolve_simple_type(stmt.returns) if stmt.returns is not None else NONE
+        n = len(params)
+        d = len(stmt.args.defaults)
+        defaults: dict[int, int] = {}
+        for i, dnode in enumerate(stmt.args.defaults):
+            v = _eval_default_expr(dnode)
+            if v is not None:
+                defaults[n - d + i] = v
+        specs[stmt.name] = _SyscallSpec(
+            hash=h,
+            params=params,
+            ret=ret,
+            push_order=list(reversed(range(n))),
+            defaults=defaults if defaults else None,
+            param_names=pnames,
+        )
+    return specs
