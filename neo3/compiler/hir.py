@@ -2,8 +2,8 @@ from __future__ import annotations
 import ast
 import dataclasses
 from typing import Optional, Union
+from neo3.vm import Syscalls
 
-from ._constants import _WRITE_SYSCALL_NAMES
 from .types import (
     Type,
     IntType,
@@ -32,6 +32,16 @@ from .types import (
     ECPOINT,
     LIST_STR,
 )
+
+_SYSCALL_NOTIFY: bytes = Syscalls.get_by_name("System.Runtime.Notify").number.to_bytes(4, "little")
+_SYSCALL_STORAGE_PUT: bytes = Syscalls.get_by_name("System.Storage.Local.Put").number.to_bytes(4, "little")
+_SYSCALL_STORAGE_DELETE: bytes = Syscalls.get_by_name("System.Storage.Local.Delete").number.to_bytes(4, "little")
+
+# Map write-syscall hash → human-readable name used in error messages.
+_WRITE_SYSCALL_NAMES: dict[bytes, str] = {
+    _SYSCALL_STORAGE_PUT: "storage.put",
+    _SYSCALL_STORAGE_DELETE: "storage.delete",
+}
 
 
 @dataclasses.dataclass

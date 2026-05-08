@@ -1,6 +1,7 @@
 import unittest
 
-from neo3.compiler import CondJump, Jump, TypecheckError, compile_function
+from neo3.compiler import TypecheckError, compile_function
+from neo3.compiler.cfg import CondJump, Jump
 
 from tests.compiler.tests.helpers import _blocks_with, _build_cfg, _labels
 

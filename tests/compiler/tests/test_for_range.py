@@ -1,21 +1,16 @@
 import ast
 import unittest
 
-from neo3.compiler import (
-    CFGBuilder,
+from neo3.compiler import CFGBuilder, HIRBuilder, TypecheckError, compile_function
+from neo3.compiler.hir import (
     Compare,
     Continue,
-    HIRBuilder,
     If,
     LocalStore,
     TryExcept,
-    TypecheckError,
     While,
-    compile_function,
     _for_rewrite_continues,
 )
-
-from tests.compiler.tests.helpers import _build_cfg
 
 # ---------------------------------------------------------------------------
 # for i in range(...)
@@ -76,7 +71,7 @@ def f(n: int) -> int:
         s += i
     return s
 """
-        from neo3.compiler import INT
+        from neo3.compiler.types import INT
 
         tree = ast.parse(src)
         hir = HIRBuilder().build(tree.body[0])
@@ -241,7 +236,8 @@ class TestForRewriteContinuesInTry(unittest.TestCase):
     """Regression: continue inside try/except inside for skips index increment."""
 
     def _make_increment(self):
-        from neo3.compiler import IntLiteral, BinOp, LocalLoad, IntType
+        from neo3.compiler.hir import IntLiteral, BinOp, LocalLoad
+        from neo3.compiler.types import IntType
 
         return LocalStore(
             name="i",

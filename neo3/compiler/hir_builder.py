@@ -4,23 +4,14 @@ import dataclasses
 import hashlib
 import os
 from typing import Optional, Union
-
-from ._constants import (
-    _SYSCALL_ITERATOR_NEXT,
-    _SYSCALL_ITERATOR_VALUE,
-    _COMPILETIME_MODULE,
-    _COMPILETIME_PARENT,
-    _COMPILER_PACKAGE_ROOT,
-    _FIND_OPTIONS_VALUES,
-    _CALL_FLAGS_VALUES,
-    _NAMED_CURVE_HASH_VALUES,
-    _ITERATOR_MODULE,
-    _UTILS_MODULE,
-    _TYPES_MODULE,
-    _SYSCALL_DECORATOR_MODULES,
-    _UInt160,
-    _UInt256,
+from neo3.core.types import UInt160, UInt256
+from neo3.vm import Syscalls
+from neo3.sc.types import (
+    FindOptions as _FindOptions_enum,
+    CallFlags as _CallFlags_enum,
+    NamedCurveHash as _NamedCurveHash_enum,
 )
+
 from .types import (
     Type,
     IntType,
@@ -139,6 +130,43 @@ from .hir import (
     _merge_fields,
     _get_method_kind,
 )
+
+_ITERATOR_MODULE = "neo3.sc.utils.iterator"
+_UTILS_MODULE = "neo3.sc.utils"
+_TYPES_MODULE = "neo3.sc.types"
+
+_SYSCALL_ITERATOR_NEXT: bytes = Syscalls.get_by_name("System.Iterator.Next").number.to_bytes(4, "little")
+_SYSCALL_ITERATOR_VALUE: bytes = Syscalls.get_by_name("System.Iterator.Value").number.to_bytes(4, "little")
+
+# The module that must be imported for the @public decorator to be recognised.
+_COMPILETIME_MODULE = "neo3.sc.compiletime"
+_COMPILETIME_PARENT = "neo3.sc"  # for `from neo3.sc import compiletime`
+_COMPILER_PACKAGE_ROOT = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+)
+
+# Modules whose functions are @syscall-decorated; resolved dynamically from their
+# source files rather than via a hardcoded registry.
+_SYSCALL_DECORATOR_MODULES: frozenset[str] = frozenset(
+    {
+        "neo3.sc.runtime",
+        "neo3.sc.storage",
+    }
+)
+
+# FindOptions / CallFlags attribute → integer value.
+# Derived from the canonical enum definitions in neo3.sc.types rather
+# than being hardcoded, so they can never drift out of sync.
+_FIND_OPTIONS_VALUES: dict[str, int] = {
+    name: m.value for name, m in _FindOptions_enum.__members__.items()
+}
+_CALL_FLAGS_VALUES: dict[str, int] = {
+    name: m.value for name, m in _CallFlags_enum.__members__.items()
+}
+_NAMED_CURVE_HASH_VALUES: dict[str, int] = {
+    name: m.value for name, m in _NamedCurveHash_enum.__members__.items()
+}
+
 
 
 @dataclasses.dataclass
@@ -3200,7 +3228,7 @@ class HIRBuilder:
                         "UInt160.from_string() requires a string literal argument"
                     )
                 return TypeConvert(
-                    arg=BytesLiteral(_UInt160.from_string(arg.value).to_array()),
+                    arg=BytesLiteral(UInt160.from_string(arg.value).to_array()),
                     type=UINT160,
                 )
             case ast.Call(
@@ -3213,7 +3241,7 @@ class HIRBuilder:
                         "UInt256.from_string() requires a string literal argument"
                     )
                 return TypeConvert(
-                    arg=BytesLiteral(_UInt256.from_string(arg.value).to_array()),
+                    arg=BytesLiteral(UInt256.from_string(arg.value).to_array()),
                     type=UINT256,
                 )
             case ast.Call(func=ast.Name(id="UInt160"), args=[arg_node]):
@@ -4231,7 +4259,7 @@ def _extract_contract_hash(d: ast.expr, filename: Optional[str] = None) -> bytes
             col_offset=getattr(d, "col_offset", None),
             filename=filename,
         )
-    return _UInt160.from_string(arg.value).to_array()
+    return UInt160.from_string(arg.value).to_array()
 
 
 def _build_class_registry(

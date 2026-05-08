@@ -1,98 +1,79 @@
 import unittest
 
-from neo3.compiler import (
-    AnyType,
-    BoolType,
-    BytearrayType,
-    BytesType,
-    ClassType,
-    DictType,
-    ECPointType,
-    IntType,
-    IteratorType,
-    ListType,
-    NoneType,
-    OptionalType,
-    StrType,
-    TupleType,
-    TypecheckError,
-    UInt160Type,
-    UInt256Type,
-    UnionType,
-    compile_function,
-)
+from neo3.compiler import compile_function
+from neo3.compiler import types
 
 
 class TestTypePredicates(unittest.TestCase):
     """item-14: is_numeric() and is_byteslike() predicates on type objects."""
 
     def test_is_numeric_true_for_int(self):
-        self.assertTrue(IntType().is_numeric())
+        self.assertTrue(types.IntType().is_numeric())
 
     def test_is_numeric_true_for_bool(self):
-        self.assertTrue(BoolType().is_numeric())
+        self.assertTrue(types.BoolType().is_numeric())
 
     def test_is_numeric_false_for_str(self):
-        self.assertFalse(StrType().is_numeric())
+        self.assertFalse(types.StrType().is_numeric())
 
     def test_is_numeric_false_for_bytes(self):
-        self.assertFalse(BytesType().is_numeric())
+        self.assertFalse(types.BytesType().is_numeric())
 
     def test_is_numeric_false_for_bytearray(self):
-        self.assertFalse(BytearrayType().is_numeric())
+        self.assertFalse(types.BytearrayType().is_numeric())
 
     def test_is_numeric_false_for_list(self):
-        self.assertFalse(ListType(IntType()).is_numeric())
+        self.assertFalse(types.ListType(types.IntType()).is_numeric())
 
     def test_is_numeric_false_for_none(self):
-        self.assertFalse(NoneType().is_numeric())
+        self.assertFalse(types.NoneType().is_numeric())
 
     def test_is_numeric_false_for_any(self):
-        self.assertFalse(AnyType().is_numeric())
+        self.assertFalse(types.AnyType().is_numeric())
 
     def test_is_byteslike_true_for_bytes(self):
-        self.assertTrue(BytesType().is_byteslike())
+        self.assertTrue(types.BytesType().is_byteslike())
 
     def test_is_byteslike_true_for_bytearray(self):
-        self.assertTrue(BytearrayType().is_byteslike())
+        self.assertTrue(types.BytearrayType().is_byteslike())
 
     def test_is_byteslike_true_for_str(self):
-        self.assertTrue(StrType().is_byteslike())
+        self.assertTrue(types.StrType().is_byteslike())
 
     def test_is_byteslike_false_for_int(self):
-        self.assertFalse(IntType().is_byteslike())
+        self.assertFalse(types.IntType().is_byteslike())
 
     def test_is_byteslike_false_for_bool(self):
-        self.assertFalse(BoolType().is_byteslike())
+        self.assertFalse(types.BoolType().is_byteslike())
 
     def test_is_byteslike_false_for_list(self):
-        self.assertFalse(ListType(BytesType()).is_byteslike())
+        self.assertFalse(types.ListType(types.BytesType()).is_byteslike())
 
     def test_is_byteslike_false_for_none(self):
-        self.assertFalse(NoneType().is_byteslike())
+        self.assertFalse(types.NoneType().is_byteslike())
 
     def test_is_byteslike_false_for_uint160(self):
-        self.assertFalse(UInt160Type().is_byteslike())
+        self.assertFalse(types.UInt160Type().is_byteslike())
 
     def test_all_types_have_both_predicates(self):
         all_types = [
-            IntType(),
-            BoolType(),
-            BytesType(),
-            BytearrayType(),
-            StrType(),
-            ListType(IntType()),
-            DictType(IntType(), IntType()),
-            TupleType((IntType(),)),
-            NoneType(),
-            OptionalType(IntType()),
-            ClassType("Foo"),
-            AnyType(),
-            IteratorType(),
-            UInt160Type(),
-            UInt256Type(),
-            ECPointType(),
-            UnionType((IntType(), StrType())),
+            types.IntType(),
+            types.BoolType(),
+            types.BytesType(),
+            types.BytearrayType(),
+            types.StrType(),
+            types.ListType(types.IntType()),
+            types.DictType(types.IntType(), types.IntType()),
+            types.TupleType((types.IntType(),)),
+            types.NoneType(),
+            types.OptionalType(types.IntType()),
+            types.ClassType("Foo"),
+            types.AnyType(),
+            types.IteratorType(),
+            types.UInt160Type(),
+            types.UInt256Type(),
+            types.ECPointType(),
+            types.UnionType((types.IntType(), types.StrType())),
         ]
         for t in all_types:
             self.assertIsInstance(
@@ -128,7 +109,7 @@ from neo3.sc.types import ECPoint
 def f(n: int) -> ECPoint:
     return ECPoint(n)
 """
-        with self.assertRaises(TypecheckError):
+        with self.assertRaises(types.TypecheckError):
             compile_function(src)
 
     def test_ecpoint_to_array_compiles(self):
@@ -152,7 +133,7 @@ def f(b: bytes) -> bytes:
         # 11 bytes — too short for ECPoint (needs 33)
         lit = "b'" + "\\x00" * 11 + "'"
         src = f"from neo3.sc.types import ECPoint\ndef f() -> ECPoint:\n    return ECPoint({lit})\n"
-        with self.assertRaises(TypecheckError) as ctx:
+        with self.assertRaises(types.TypecheckError) as ctx:
             compile_function(src)
         self.assertIn("33", str(ctx.exception))
 
@@ -175,7 +156,7 @@ class TestUInt160(unittest.TestCase):
         # 10 bytes — too short
         lit = "b'" + "\\x00" * 10 + "'"
         src = f"from neo3.sc.types import UInt160\ndef f() -> UInt160:\n    return UInt160({lit})\n"
-        with self.assertRaises(TypecheckError) as ctx:
+        with self.assertRaises(types.TypecheckError) as ctx:
             compile_function(src)
         self.assertIn("20", str(ctx.exception))
 
@@ -200,7 +181,7 @@ class TestUInt256(unittest.TestCase):
         # 20 bytes — too short
         lit = "b'" + "\\x00" * 20 + "'"
         src = f"from neo3.sc.types import UInt256\ndef f() -> UInt256:\n    return UInt256({lit})\n"
-        with self.assertRaises(TypecheckError) as ctx:
+        with self.assertRaises(types.TypecheckError) as ctx:
             compile_function(src)
         self.assertIn("32", str(ctx.exception))
 

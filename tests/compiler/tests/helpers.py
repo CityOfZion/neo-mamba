@@ -1,7 +1,8 @@
 import ast as _ast
 from typing import Optional
 
-from neo3.compiler import CFGBuilder, ClassInfo, HIRBuilder
+from neo3.compiler import CFGBuilder, HIRBuilder
+from neo3.compiler.hir import ClassInfo
 
 
 def _build_cfg(source: str, class_registry: Optional[dict[str, ClassInfo]] = None):

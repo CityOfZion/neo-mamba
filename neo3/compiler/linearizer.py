@@ -1,15 +1,8 @@
-from __future__ import annotations
 import ast
-from typing import Optional
-
+from typing import Optional, TYPE_CHECKING
 from . import HIRFunction
-from ._constants import (
-    _SYSCALL_RUNTIME_LOG,
-    _SYSCALL_NOTIFY,
-    _SYSCALL_CONTRACT_CALL,
-    _UInt160,
-    _UInt256,
-)
+from neo3.core.types import UInt160, UInt256
+from neo3.vm import Syscalls
 from .types import (
     Type,
     NoneType,
@@ -34,6 +27,11 @@ from .cfg import (
     OpCode,
     Terminator
 )
+
+_SYSCALL_NOTIFY: bytes = Syscalls.get_by_name("System.Runtime.Notify").number.to_bytes(4, "little")
+_SYSCALL_RUNTIME_LOG: bytes = Syscalls.get_by_name("System.Runtime.Log").number.to_bytes(4, "little")
+_SYSCALL_CONTRACT_CALL: bytes = Syscalls.get_by_name( "System.Contract.Call").number.to_bytes(4, "little")
+
 
 class Emitter:
     """Mutable byte-buffer for assembling NeoVM bytecode.
@@ -557,13 +555,13 @@ def _emit_static_literal(
                 raise _loc_err(
                     f"Static field initialiser type mismatch: expected {expected_type}, got UInt160"
                 )
-            em.emit_push_bytes(_UInt160.from_string(s).to_array())
+            em.emit_push_bytes(UInt160.from_string(s).to_array())
         else:
             if not isinstance(expected_type, UInt256Type):
                 raise _loc_err(
                     f"Static field initialiser type mismatch: expected {expected_type}, got UInt256"
                 )
-            em.emit_push_bytes(_UInt256.from_string(s).to_array())
+            em.emit_push_bytes(UInt256.from_string(s).to_array())
         return
     if not isinstance(node, ast.Constant):
         raise _loc_err(

@@ -447,7 +447,7 @@ def go() -> int:
 
     def test_diamond_field_not_duplicated(self):
         # x must appear exactly once in D's field layout (not twice)
-        from neo3.compiler import _build_class_registry
+        from neo3.compiler.hir_builder import _build_class_registry
         import ast as _ast
 
         tree = _ast.parse(self._SRC)
@@ -458,7 +458,7 @@ def go() -> int:
 
     def test_diamond_mro_order(self):
         # C3 MRO for D(B,C) where B(A),C(A): D → B → C → A
-        from neo3.compiler import _build_class_registry
+        from neo3.compiler.hir_builder import _build_class_registry
         import ast as _ast
 
         tree = _ast.parse(self._SRC)
@@ -692,7 +692,7 @@ def assign_dog(d: Dog) -> None:
 
     def _get_registry(self):
         import ast as _ast
-        from neo3.compiler import _build_class_registry
+        from neo3.compiler.hir_builder import _build_class_registry
 
         tree = _ast.parse(self._SRC)
         registry, _, _ = _build_class_registry(tree, {})

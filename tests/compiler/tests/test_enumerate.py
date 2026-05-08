@@ -60,7 +60,7 @@ def f(lst: list[str]) -> int:
     # ------------------------------------------------------------------
 
     def test_enumerate_produces_while_loop(self):
-        from neo3.compiler import While
+        from neo3.compiler.hir import While
 
         src = """
 def f(lst: list[int]) -> int:

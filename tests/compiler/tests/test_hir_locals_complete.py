@@ -1,14 +1,9 @@
 import ast
 import unittest
 
-from neo3.compiler import (
-    CFGBuilder,
-    ClassInfo,
-    FieldInfo,
-    HIRBuilder,
-    IntType,
-    compile_function,
-)
+from neo3.compiler import CFGBuilder, HIRBuilder, compile_function
+from neo3.compiler.hir import ClassInfo, FieldInfo
+from neo3.compiler.types import IntType
 
 
 class TestHIRLocalsComplete(unittest.TestCase):

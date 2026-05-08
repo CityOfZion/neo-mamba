@@ -1,11 +1,8 @@
 from __future__ import annotations
 import itertools
 from typing import Optional
-
-from ._constants import (
-    _STDLIB_HASH,
-    _SYSCALL_CONTRACT_CALL,
-)
+from neo3.contracts.contract import CONTRACT_HASHES
+from neo3.vm import Syscalls
 from .types import (
     Type,
     IntType,
@@ -112,6 +109,9 @@ from .cfg import (
     BasicBlock,
     CFG,
 )
+
+_STDLIB_HASH: bytes = CONTRACT_HASHES.STD_LIB.to_array()  # 20-byte UInt160 LE
+_SYSCALL_CONTRACT_CALL: bytes = Syscalls.get_by_name("System.Contract.Call").number.to_bytes(4, "little")
 
 
 class CFGBuilder:
