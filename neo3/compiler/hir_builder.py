@@ -4569,10 +4569,19 @@ def _mangle_prefix(abs_path: str, search_path: str) -> str:
 
     Example: search_path=/project, abs_path=/project/usecase/user.py → "usecase_user_"
     """
-    rel = os.path.relpath(abs_path, search_path)
+    try:
+        rel = os.path.relpath(abs_path, search_path)
+    except ValueError:
+        # Windows raises ValueError when abs_path and search_path are on different
+        # drives (e.g. D:\tmp vs C:\...). Fall back to the absolute path.
+        rel = abs_path
     stem = os.path.splitext(rel)[0]
     prefix = (
-        stem.replace(os.sep, "_").replace("/", "_").replace("-", "_").replace(".", "_")
+        stem.replace(os.sep, "_")
+        .replace("/", "_")
+        .replace("-", "_")
+        .replace(".", "_")
+        .replace(":", "_")
     )
     return prefix + "_"
 

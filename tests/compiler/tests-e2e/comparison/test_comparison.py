@@ -1,4 +1,5 @@
 import asyncio
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -252,7 +253,8 @@ def f(a: str, b: str) -> bool:
     return a < b
 """
         with self.assertRaises(TypecheckError):
-            compile_to_nef(src, "/tmp/throwaway")
+            with tempfile.TemporaryDirectory() as _d:
+                compile_to_nef(src, str(Path(_d) / "throwaway"))
 
     def test_str_gt_is_compile_error(self) -> None:
         src = """
@@ -262,7 +264,8 @@ def f(a: str, b: str) -> bool:
     return a > b
 """
         with self.assertRaises(TypecheckError):
-            compile_to_nef(src, "/tmp/throwaway")
+            with tempfile.TemporaryDirectory() as _d:
+                compile_to_nef(src, str(Path(_d) / "throwaway"))
 
     def test_bytes_lt_is_compile_error(self) -> None:
         src = """
@@ -272,7 +275,8 @@ def f(a: bytes, b: bytes) -> bool:
     return a < b
 """
         with self.assertRaises(TypecheckError):
-            compile_to_nef(src, "/tmp/throwaway")
+            with tempfile.TemporaryDirectory() as _d:
+                compile_to_nef(src, str(Path(_d) / "throwaway"))
 
     def test_bytearray_le_is_compile_error(self) -> None:
         src = """
@@ -282,7 +286,8 @@ def f(a: bytearray, b: bytearray) -> bool:
     return a <= b
 """
         with self.assertRaises(TypecheckError):
-            compile_to_nef(src, "/tmp/throwaway")
+            with tempfile.TemporaryDirectory() as _d:
+                compile_to_nef(src, str(Path(_d) / "throwaway"))
 
     def test_str_bytes_cross_type_lt_is_compile_error(self) -> None:
         """Cross-type ordering was already rejected; this is a regression test."""
@@ -293,7 +298,8 @@ def f(a: str, b: bytes) -> bool:
     return a < b
 """
         with self.assertRaises(TypecheckError):
-            compile_to_nef(src, "/tmp/throwaway")
+            with tempfile.TemporaryDirectory() as _d:
+                compile_to_nef(src, str(Path(_d) / "throwaway"))
 
     def test_str_bytes_cross_type_eq_folds_to_false(self) -> None:
         """str == bytes folds to constant False at compile time."""
@@ -304,13 +310,8 @@ def f(a: str, b: bytes) -> bool:
     return a == b
 """
         # Should compile without error (constant fold) and always return False
-        compile_to_nef(src, "/tmp/throwaway_eq")
-        import os
-
-        for ext in (".nef", ".manifest.json"):
-            path = f"/tmp/throwaway_eq{ext}"
-            if os.path.exists(path):
-                os.unlink(path)
+        with tempfile.TemporaryDirectory() as _d:
+            compile_to_nef(src, str(Path(_d) / "throwaway_eq"))
 
 
 if __name__ == "__main__":
