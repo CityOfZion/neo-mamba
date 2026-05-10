@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, UTC
 
 
 class NodeWeight:
@@ -25,7 +25,7 @@ class NodeWeight:
         self.speed: list[float] = [self.SPEED_INIT_VALUE] * self.SPEED_RECORD_COUNT
         self.timeout_count = 0
         self.error_response_count = 0
-        now = datetime.utcnow().timestamp() * 1000  # milliseconds
+        now = datetime.now(UTC).timestamp() * 1000  # milliseconds
         self.request_time: list[float] = [now] * self.REQUEST_TIME_RECORD_COUNT
 
     def append_new_speed(self, speed: float) -> None:
@@ -51,7 +51,7 @@ class NodeWeight:
 
         self.request_time.pop(-1)
 
-        now = datetime.utcnow().timestamp() * 1000  # milliseconds
+        now = datetime.now(UTC).timestamp() * 1000  # milliseconds
         self.request_time.insert(0, now)
 
     def _avg_speed(self) -> float:
@@ -59,7 +59,7 @@ class NodeWeight:
 
     def _avg_request_time(self) -> float:
         avg_request_time: float = 0
-        now = datetime.utcnow().timestamp() * 1000  # milliseconds
+        now = datetime.now(UTC).timestamp() * 1000  # milliseconds
 
         for t in self.request_time:
             avg_request_time += now - t

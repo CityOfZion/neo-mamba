@@ -4,7 +4,7 @@ from unittest import IsolatedAsyncioTestCase, mock
 from neo3.network import node
 from neo3.network.convenience import syncmanager, nodemanager, requestinfo, flightinfo
 from neo3 import network_logger
-from datetime import datetime
+from datetime import datetime, UTC
 
 
 class SyncManagerUtilitiesTestCase(IsolatedAsyncioTestCase):
@@ -212,7 +212,7 @@ class SyncManagerCheckTimeoutTestCase(IsolatedAsyncioTestCase):
 
         # just for coverage
         flight.reset_start_time()
-        self.assertTrue(datetime.utcnow().timestamp() - flight.start_time < 0.1)
+        self.assertTrue(datetime.now(UTC).timestamp() - flight.start_time < 0.1)
 
 
 class DummyLedger:

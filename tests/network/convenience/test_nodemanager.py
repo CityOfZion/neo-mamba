@@ -8,7 +8,7 @@ from neo3.network.convenience import nodemanager, requestinfo
 from neo3.network.payloads import address, version, ping
 from neo3 import network_logger
 from neo3.settings import settings
-from datetime import datetime
+from datetime import datetime, UTC
 from copy import deepcopy
 from neo3.core import msgrouter
 
@@ -384,7 +384,7 @@ class NodeManagerTimedTestCase(IsolatedAsyncioTestCase):  # asynctest.ClockedTes
     async def test_monitor_node_height_disconnect_when_treshold_exceeded(self):
         # ensure we exceed the threshold
         self.node1.best_height_last_update = (
-            datetime.utcnow().timestamp() - self.nodemgr.MAX_HEIGHT_UPDATE_DURATION - 1
+            datetime.now(UTC).timestamp() - self.nodemgr.MAX_HEIGHT_UPDATE_DURATION - 1
         )
         self.nodemgr.nodes = [self.node1]
         with self.assertLogs(network_logger, "DEBUG") as context:

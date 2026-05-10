@@ -7,7 +7,7 @@ import asyncio
 import traceback
 import struct
 import string
-from datetime import datetime
+from datetime import datetime, UTC
 from neo3.network import message, capabilities, relaycache
 from neo3.network.ipfilter import ipfilter
 from neo3.network.convenience import nodeweight
@@ -44,7 +44,7 @@ class NeoNode:
         self.nodeweight = nodeweight.NodeWeight(self.nodeid)
         #: Best block height of node.
         self.best_height: int = 0
-        self.best_height_last_update = datetime.utcnow().timestamp()
+        self.best_height_last_update = datetime.now(UTC).timestamp()
 
         self._read_task: Optional[asyncio.Task] = None
 
@@ -340,7 +340,7 @@ class NeoNode:
                 f"from {self.best_height} to {payload.current_height}"
             )
             self.best_height = payload.current_height
-            self.best_height_last_update = datetime.utcnow().timestamp()
+            self.best_height_last_update = datetime.now(UTC).timestamp()
 
     def handler_transaction(self, msg: message.Message) -> None:
         """
@@ -767,7 +767,7 @@ class NeoNode:
             if isinstance(c, capabilities.FullNodeCapability):
                 # update nodes height indicator
                 self.best_height = c.start_height
-                self.best_height_last_update = datetime.utcnow().timestamp()
+                self.best_height_last_update = datetime.now(UTC).timestamp()
                 self.version = version
                 return True
         else:

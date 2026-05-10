@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, UTC
 
 
 class FlightInfo:
@@ -25,8 +25,8 @@ class FlightInfo:
         self.height = height
 
         #: float: UTC timestamp when the instance was created.
-        self.start_time: float = datetime.utcnow().timestamp()
+        self.start_time: float = datetime.now(UTC).timestamp()
 
     def reset_start_time(self) -> None:
         """Reset the flight start time."""
-        self.start_time = datetime.utcnow().timestamp()
+        self.start_time = datetime.now(UTC).timestamp()
