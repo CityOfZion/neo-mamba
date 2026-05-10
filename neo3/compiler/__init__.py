@@ -686,12 +686,21 @@ def _compile_full(
                 hir_fn_map[fn_name].body, hir_fn_map, visited={fn_name}
             )
             if write_ops:
-                op_name = write_ops[0]
+                op_name, op_lineno, op_col, op_file = write_ops[0]
+                op_loc_parts: list[str] = []
+                if op_file:
+                    op_loc_parts.append(op_file)
+                if op_lineno is not None:
+                    loc = f"line {op_lineno}"
+                    if op_col is not None:
+                        loc += f", col {op_col + 1}"
+                    op_loc_parts.append(loc)
+                op_loc = (" at " + ", ".join(op_loc_parts)) if op_loc_parts else ""
                 _fn_node = fn_node_by_name.get(fn_name)
                 raise TypecheckError(
                     f"Function '{fn_name}' is marked @public(safe=True) but calls the "
-                    f"state-modifying operation '{op_name}'. Either remove the write "
-                    f"operation or change to @public(safe=False).",
+                    f"state-modifying operation '{op_name}'{op_loc}. Either remove the "
+                    f"write operation or change to @public(safe=False).",
                     lineno=_fn_node.lineno if _fn_node else None,
                     col_offset=_fn_node.col_offset if _fn_node else None,
                     filename=(

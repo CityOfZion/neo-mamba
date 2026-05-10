@@ -1263,6 +1263,8 @@ class HIRBuilder:
             self._err(
                 f"{module}.{func}() takes {n_expected} argument(s) ({n_got} given)"
             )
+        _call_lineno = getattr(self._current_node, "lineno", None)
+        _call_col = getattr(self._current_node, "col_offset", None)
         visited: list = []
         for i, (arg_node, expected_type) in enumerate(zip(call_args, spec.params)):
             arg = self._visit_expr(arg_node)
@@ -1278,6 +1280,9 @@ class HIRBuilder:
             push_order=list(spec.push_order),
             type=spec.ret,
             is_stmt=is_stmt,
+            lineno=_call_lineno,
+            col_offset=_call_col,
+            filename=self._filename,
         )
 
     def _build_syscall_from_spec(
@@ -1322,6 +1327,8 @@ class HIRBuilder:
                     self._err(f"'{name}()' missing required argument '{pname}'")
                 slots[i] = ast.Constant(value=spec.defaults[i])
 
+        _call_lineno = getattr(self._current_node, "lineno", None)
+        _call_col = getattr(self._current_node, "col_offset", None)
         visited: list = []
         for i, (arg_node, expected_type) in enumerate(zip(slots, spec.params)):
             arg = self._visit_expr(arg_node)
@@ -1336,6 +1343,9 @@ class HIRBuilder:
             push_order=list(spec.push_order),
             type=spec.ret,
             is_stmt=is_stmt,
+            lineno=_call_lineno,
+            col_offset=_call_col,
+            filename=self._filename,
         )
 
     def _build_call_contract(

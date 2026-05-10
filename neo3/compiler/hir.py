@@ -203,6 +203,9 @@ class SyscallCall:
     push_order: list  # indices into args for VM push order
     type: Type  # NONE = void
     is_stmt: bool = False
+    lineno: Optional[int] = None
+    col_offset: Optional[int] = None
+    filename: Optional[str] = None
 
 
 @dataclasses.dataclass
@@ -1127,9 +1130,12 @@ def _get_method_kind(fn_node: ast.FunctionDef) -> str:
 
 
 def _walk_hir_node(
-    node: object, hir_fn_map: dict, visited: set[str], found: list[str]
+    node: object,
+    hir_fn_map: dict,
+    visited: set[str],
+    found: "list[tuple[str, Optional[int], Optional[int], Optional[str]]]",
 ) -> None:
-    """Recursively walk HIR nodes, collecting write-syscall op names into *found*."""
+    """Recursively walk HIR nodes, collecting write-syscall op info into *found*."""
     if node is None:
         return
     if isinstance(node, list):
@@ -1139,7 +1145,7 @@ def _walk_hir_node(
     if isinstance(node, SyscallCall):
         op = _WRITE_SYSCALL_NAMES.get(node.hash)
         if op:
-            found.append(op)
+            found.append((op, node.lineno, node.col_offset, node.filename))
         for arg in node.args:
             _walk_hir_node(arg, hir_fn_map, visited, found)
         return
@@ -1178,8 +1184,8 @@ def _walk_hir_node(
 
 def _collect_write_ops(
     stmts: list, hir_fn_map: dict[str, "HIRFunction"], visited: set[str]
-) -> list[str]:
-    """Walk HIR stmts/exprs and return names of state-modifying syscalls reachable from *stmts*."""
-    found: list[str] = []
+) -> "list[tuple[str, Optional[int], Optional[int], Optional[str]]]":
+    """Walk HIR stmts/exprs and return (op_name, lineno, col_offset, filename) tuples."""
+    found: list[tuple[str, Optional[int], Optional[int], Optional[str]]] = []
     _walk_hir_node(stmts, hir_fn_map, visited, found)
     return found
