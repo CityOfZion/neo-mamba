@@ -93,7 +93,7 @@ class NeoGoNode:
 
         def process_stdout(process):
             capture = True
-            for output in iter(process.stdout.readline, b""):
+            for output in iter(process.stdout.readline, ""):
                 if "RPC server already started" in output:
                     self._ready = True
                     # WARNING: do not terminate this loop. stdout must be read as long as the process lives otherwise
@@ -126,6 +126,10 @@ class NeoGoNode:
 
         if self._thread is not None and self._thread.is_alive():
             self._terminate = True
+            self._thread.join()
+
+        if self._process is not None and self._process.stdout is not None:
+            self._process.stdout.close()
         log.debug("stopped")
 
     def reset(self):
