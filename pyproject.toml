@@ -63,6 +63,9 @@ documentation = "https://mamba.coz.io/"
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools.packages.find]
+include = ["neo3*", "cli*"]
+
 [tool.black]
 target-version = ['py313']
 
@@ -83,6 +86,14 @@ replace = "__version__ = \"{new_version}\""
 check_untyped_defs = true
 disable_error_code = "func-returns-value"
 
+[[tool.mypy.overrides]]
+module = "neo3.sc.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "neo3.compiler.*"
+ignore_errors = true
+
 [tool.coverage.run]
 source = ["neo3"]
 
@@ -91,3 +102,6 @@ omit = ["neo3/core/cryptography/ecc*"]
 
 [tool.neogo]
 tag = "v0.118.0"
+
+[project.scripts]
+neo3-compile = "cli.compile:main"
