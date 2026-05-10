@@ -4,7 +4,7 @@ Node address information.
 
 from __future__ import annotations
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, UTC
 from netaddr import IPAddress  # type: ignore
 from enum import IntEnum
 from neo3.core import serialization, Size as s, utils
@@ -68,7 +68,7 @@ class NetworkAddress(serialization.ISerializable):
     ):
         """Create an instance."""
         if timestamp is None:
-            self.timestamp = int(datetime.utcnow().timestamp())
+            self.timestamp = int(datetime.now(UTC).timestamp())
         else:
             self.timestamp = timestamp
 

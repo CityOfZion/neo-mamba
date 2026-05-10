@@ -13,7 +13,7 @@ from neo3.network.payloads import address, ping
 from neo3.core import msgrouter
 from typing import Optional
 from contextlib import suppress
-from datetime import datetime
+from datetime import datetime, UTC
 
 
 def is_ip_address(hostname: str) -> bool:
@@ -409,7 +409,7 @@ class NodeManager(singleton._Singleton):
             task.add_done_callback(lambda fut: self.tasks.remove(fut))
 
     async def _monitor_node_height(self) -> None:
-        now = datetime.utcnow().timestamp()
+        now = datetime.now(UTC).timestamp()
         for node in self.nodes:
             if now - node.best_height_last_update > self.MAX_HEIGHT_UPDATE_DURATION:
                 logger.debug(

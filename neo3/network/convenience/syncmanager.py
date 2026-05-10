@@ -5,7 +5,7 @@ P2P network sync manager.
 from __future__ import annotations
 import asyncio
 import traceback
-from datetime import datetime
+from datetime import datetime, UTC
 from neo3.network.payloads import block
 from neo3.network.convenience import nodemanager, requestinfo, flightinfo
 from neo3.core import msgrouter
@@ -114,7 +114,7 @@ class SyncManager(singleton._Singleton):
             self.block_requests[block.index] = request_info
             return -2
 
-        now = datetime.utcnow().timestamp()
+        now = datetime.now(UTC).timestamp()
         delta_time = now - flight_info.start_time
         speed = (len(block) / 1024) / delta_time  # KB/s
 
@@ -146,7 +146,7 @@ class SyncManager(singleton._Singleton):
             return -1
 
         timedout_flights = dict()
-        now = datetime.utcnow().timestamp()
+        now = datetime.now(UTC).timestamp()
 
         # find outstanding requests that timed out
         for height, request_info in self.block_requests.items():

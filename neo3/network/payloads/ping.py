@@ -3,7 +3,7 @@ Heartbeat payload with chain height information.
 """
 
 from __future__ import annotations
-from datetime import datetime
+from datetime import datetime, UTC
 from random import randint
 from neo3.core import Size as s, serialization
 
@@ -13,7 +13,7 @@ class PingPayload(serialization.ISerializable):
         #: The current local chain height
         self.current_height = height
         #: The local time in UTC as a timestamp
-        self.timestamp = int(datetime.utcnow().timestamp())
+        self.timestamp = int(datetime.now(UTC).timestamp())
         #: Random number
         self.nonce = randint(100, 10000)
 

@@ -39,7 +39,7 @@ class VersionPayload(serialization.ISerializable):
         #: Protocol version of the node
         self.version = 0
         #: The UTC time when the node connected
-        self.timestamp = int(datetime.datetime.utcnow().timestamp())
+        self.timestamp = int(datetime.datetime.now(datetime.UTC).timestamp())
         #: A unique identifier for the node.
         self.nonce = nonce
         #: A node client description i.e. "NEO-MAMBA-V001"
