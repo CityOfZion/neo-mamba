@@ -1,11 +1,11 @@
-from __future__ import annotations
+__all__ = ["msgrouter", "Size"]
+
 from enum import IntEnum
-from events import Events  # type: ignore
-
-
-msgrouter = Events()
+from neo3.core._events import Events  # type: ignore
 
 # :noindex:
+
+msgrouter = Events()
 
 
 class Size(IntEnum):
