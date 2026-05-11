@@ -712,7 +712,7 @@ def main(x: int) -> int:
 
     def test_typing_extensions_silently_skipped(self):
         src = """
-from typing_extensions import Protocol
+from typing import Protocol
 
 from neo3.sc.compiletime import public
 @public

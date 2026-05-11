@@ -6,8 +6,7 @@ from neo3.core import types, cryptography
 from neo3.wallet import utils as walletutils
 from neo3.wallet.types import NeoAddress
 from neo3.api.helpers import stdlib
-from typing_extensions import Protocol
-from typing import Any
+from typing import Any, Protocol
 
 
 class PostProcessor(Protocol):
