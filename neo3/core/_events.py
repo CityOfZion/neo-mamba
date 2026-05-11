@@ -24,11 +24,11 @@ class _EventSlot:
         for f in tuple(self.targets):
             f(*a, **kw)
 
-    def __iadd__(self, f):
+    def __iadd__(self, f) -> "_EventSlot":
         self.targets.append(f)
         return self
 
-    def __isub__(self, f):
+    def __isub__(self, f) -> "_EventSlot":
         while f in self.targets:
             self.targets.remove(f)
         return self
@@ -82,7 +82,7 @@ class Events:
             else:
                 self.__events__ = events
 
-    def __getattr__(self, name):
+    def __getattr__(self, name) -> _EventSlot:
         if name.startswith("__"):
             raise AttributeError(
                 "type object '%s' has no attribute '%s'"
