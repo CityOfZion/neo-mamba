@@ -1,7 +1,7 @@
 __all__ = ["msgrouter", "Size"]
 
 from enum import IntEnum
-from _events import Events  # type: ignore
+from neo3.core._events import Events  # type: ignore
 
 # :noindex:
 
