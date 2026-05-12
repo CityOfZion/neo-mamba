@@ -1,5 +1,7 @@
 from __future__ import annotations
 import ast
+import base64
+import binascii
 import dataclasses
 import hashlib
 import os
@@ -6027,6 +6029,90 @@ def _ast_literal_to_python(
     )
 
 
+def _validate_ecpoint_hex(
+    val: str,
+    node: ast.expr,
+    filename: Optional[str] = None,
+) -> None:
+    """Raise TypecheckError if *val* is not a valid compressed ECPoint hex string."""
+    if len(val) != 66 or val[:2] not in ("02", "03"):
+        raise TypecheckError(
+            f"ContractManifest: invalid ECPoint '{val}': "
+            "must be 66 hex chars starting with '02' or '03'",
+            lineno=getattr(node, "lineno", None),
+            col_offset=getattr(node, "col_offset", None),
+            filename=filename,
+        )
+    try:
+        bytes.fromhex(val)
+    except ValueError:
+        raise TypecheckError(
+            f"ContractManifest: invalid ECPoint '{val}': contains non-hex characters",
+            lineno=getattr(node, "lineno", None),
+            col_offset=getattr(node, "col_offset", None),
+            filename=filename,
+        )
+
+
+def _validate_contract_descriptor(
+    val: str,
+    node: ast.expr,
+    filename: Optional[str] = None,
+) -> None:
+    """Raise TypecheckError if *val* is not a valid Permission contract descriptor."""
+    if val == "*":
+        return
+    if len(val) == 42 and val.startswith("0x"):
+        try:
+            bytes.fromhex(val[2:])
+            return
+        except ValueError:
+            pass
+        raise TypecheckError(
+            f"ContractManifest 'permissions.contract': invalid contract hash '{val}': "
+            "expected '0x' followed by 40 hex chars",
+            lineno=getattr(node, "lineno", None),
+            col_offset=getattr(node, "col_offset", None),
+            filename=filename,
+        )
+    if len(val) == 66 and val[:2] in ("02", "03"):
+        _validate_ecpoint_hex(val, node, filename)
+        return
+    raise TypecheckError(
+        f"ContractManifest 'permissions.contract': invalid value '{val}': "
+        "must be '*', '0x' + 40 hex chars (contract hash), "
+        "or 66 hex chars starting with '02'/'03' (ECPoint group)",
+        lineno=getattr(node, "lineno", None),
+        col_offset=getattr(node, "col_offset", None),
+        filename=filename,
+    )
+
+
+def _validate_group_signature(
+    val: str,
+    node: ast.expr,
+    filename: Optional[str] = None,
+) -> None:
+    """Raise TypecheckError if *val* is not a valid base64-encoded 64-byte signature."""
+    try:
+        sig = base64.b64decode(val, validate=True)
+    except binascii.Error:
+        raise TypecheckError(
+            f"ContractManifest 'groups.signature': invalid base64 string '{val}'",
+            lineno=getattr(node, "lineno", None),
+            col_offset=getattr(node, "col_offset", None),
+            filename=filename,
+        )
+    if len(sig) != 64:
+        raise TypecheckError(
+            f"ContractManifest 'groups.signature': decoded signature must be 64 bytes, "
+            f"got {len(sig)}",
+            lineno=getattr(node, "lineno", None),
+            col_offset=getattr(node, "col_offset", None),
+            filename=filename,
+        )
+
+
 def _extract_permissions_list(
     node: ast.expr,
     filename: Optional[str] = None,
@@ -6058,6 +6144,7 @@ def _extract_permissions_list(
                         col_offset=getattr(kw.value, "col_offset", None),
                         filename=filename,
                     )
+                _validate_contract_descriptor(val, kw.value, filename)
                 perm["contract"] = val
             elif kw.arg == "methods":
                 perm["methods"] = _ast_literal_to_python(
@@ -6105,6 +6192,10 @@ def _extract_groups_list(
                         col_offset=getattr(kw.value, "col_offset", None),
                         filename=filename,
                     )
+                if kw.arg == "pubkey":
+                    _validate_ecpoint_hex(val, kw.value, filename)
+                else:
+                    _validate_group_signature(val, kw.value, filename)
                 group[kw.arg] = val
             else:
                 raise TypecheckError(

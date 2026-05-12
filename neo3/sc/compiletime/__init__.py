@@ -39,7 +39,7 @@ class Group:
 
         Group(
             pubkey="02c0b60c995bc092e866f15a37c176bb59b7ebacf069ba94c38654a316479b7af4",
-            signature="QStMqFOmAqhDq3JbZHACdj2kgT0MJXHg3TbMaC2jwi0=",
+            signature="QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQQ==",
         )
     """
 

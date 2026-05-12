@@ -319,7 +319,7 @@ ContractManifest(
     groups=[
         Group(
             pubkey="02c0b60c995bc092e866f15a37c176bb59b7ebacf069ba94c38654a316479b7af4",
-            signature="QStMqFOmAqhDq3JbZHACdj2kgT0MJXHg3TbMaC2jwi0=",
+            signature="QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQQ==",
         )
     ]
 )
@@ -335,7 +335,8 @@ def x() -> int:
             "02c0b60c995bc092e866f15a37c176bb59b7ebacf069ba94c38654a316479b7af4",
         )
         self.assertEqual(
-            groups[0]["signature"], "QStMqFOmAqhDq3JbZHACdj2kgT0MJXHg3TbMaC2jwi0="
+            groups[0]["signature"],
+            "QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQQ==",
         )
 
     def test_abi_not_overwritten(self):
@@ -380,3 +381,45 @@ def x() -> int:
         with self.assertRaises(TypecheckError) as ctx:
             _write_contract(src)
         self.assertIn("unknown_field", str(ctx.exception))
+
+    def test_permission_invalid_contract_raises(self):
+        from neo3.compiler import TypecheckError
+
+        src = """
+from neo3.sc.compiletime import public, ContractManifest, Permission
+ContractManifest(permissions=[Permission(contract="notvalid")])
+@public
+def x() -> int:
+    return 1
+"""
+        with self.assertRaises(TypecheckError) as ctx:
+            _write_contract(src)
+        self.assertIn("permissions.contract", str(ctx.exception))
+
+    def test_group_invalid_pubkey_raises(self):
+        from neo3.compiler import TypecheckError
+
+        src = """
+from neo3.sc.compiletime import public, ContractManifest, Group
+ContractManifest(groups=[Group(pubkey="notahex", signature="QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQQ==")])
+@public
+def x() -> int:
+    return 1
+"""
+        with self.assertRaises(TypecheckError) as ctx:
+            _write_contract(src)
+        self.assertIn("ECPoint", str(ctx.exception))
+
+    def test_group_invalid_signature_raises(self):
+        from neo3.compiler import TypecheckError
+
+        src = """
+from neo3.sc.compiletime import public, ContractManifest, Group
+ContractManifest(groups=[Group(pubkey="02c0b60c995bc092e866f15a37c176bb59b7ebacf069ba94c38654a316479b7af4", signature="tooshort")])
+@public
+def x() -> int:
+    return 1
+"""
+        with self.assertRaises(TypecheckError) as ctx:
+            _write_contract(src)
+        self.assertIn("signature", str(ctx.exception))
