@@ -4862,6 +4862,7 @@ def _resolve_imports(
     namedcurvehash_names: Optional[set[str]] = None,
     dn_names: Optional[set[str]] = None,
     cf_dec_names: Optional[set[str]] = None,
+    manifest_cls_names: Optional[set[str]] = None,
     filename: Optional[str] = None,
     root_path: Optional[str] = None,
     stmts_registry: Optional[dict[str, list[ast.stmt]]] = None,
@@ -4927,6 +4928,9 @@ def _resolve_imports(
     )
     _dn_names = dn_names if dn_names is not None else set()
     _cf_dec_names = cf_dec_names if cf_dec_names is not None else set()
+    _manifest_cls_names = (
+        manifest_cls_names if manifest_cls_names is not None else set()
+    )
     # Project root for absolute import resolution. At the top-level call
     # root_path is None so _root == search_path (unchanged behaviour). In
     # recursive calls from _load_module_stmts, root_path is the project root
@@ -5256,12 +5260,17 @@ def _resolve_imports(
                         _event_names.add("event")
                         _dn_names.add("display_name")
                         _cf_dec_names.add("call_flags")
+                        _manifest_cls_names.add("ContractManifest")
                     elif alias.name == "display_name":
                         _dn_names.add(local)
                     elif alias.name == "call_flags":
                         _cf_dec_names.add(local)
                     elif alias.name == "event":
                         _event_names.add(local)
+                    elif alias.name == "ContractManifest":
+                        _manifest_cls_names.add(local)
+                    elif alias.name in ("Permission", "Group"):
+                        pass  # manifest helper classes; no compiler tracking needed
                     else:
                         _ct_names.add(local)
                 continue
@@ -5971,3 +5980,237 @@ def _load_syscall_specs(
             param_names=pnames,
         )
     return specs
+
+
+# ---------------------------------------------------------------------------
+# ContractManifest override extraction
+# ---------------------------------------------------------------------------
+
+
+def _ast_literal_to_python(
+    node: ast.expr,
+    field: str,
+    filename: Optional[str] = None,
+) -> object:
+    """Recursively convert an AST literal node to a plain Python value."""
+    if isinstance(node, ast.Constant):
+        return node.value
+    if isinstance(node, ast.List):
+        return [_ast_literal_to_python(e, field, filename) for e in node.elts]
+    if isinstance(node, ast.Dict):
+        result: dict = {}
+        for k, v in zip(node.keys, node.values):
+            if k is None:
+                raise TypecheckError(
+                    f"ContractManifest '{field}': dict unpacking (**) is not supported",
+                    lineno=getattr(node, "lineno", None),
+                    col_offset=getattr(node, "col_offset", None),
+                    filename=filename,
+                )
+            key = _ast_literal_to_python(k, field, filename)
+            if not isinstance(key, str):
+                raise TypecheckError(
+                    f"ContractManifest '{field}': dict keys must be string literals",
+                    lineno=getattr(k, "lineno", None),
+                    col_offset=getattr(k, "col_offset", None),
+                    filename=filename,
+                )
+            result[key] = _ast_literal_to_python(v, field, filename)
+        return result
+    if isinstance(node, ast.Tuple):
+        return tuple(_ast_literal_to_python(e, field, filename) for e in node.elts)
+    raise TypecheckError(
+        f"ContractManifest '{field}': expected a literal value (string, list, dict)",
+        lineno=getattr(node, "lineno", None),
+        col_offset=getattr(node, "col_offset", None),
+        filename=filename,
+    )
+
+
+def _extract_permissions_list(
+    node: ast.expr,
+    filename: Optional[str] = None,
+) -> list[dict]:
+    if not isinstance(node, ast.List):
+        raise TypecheckError(
+            "ContractManifest 'permissions': expected a list of Permission(...) calls",
+            lineno=getattr(node, "lineno", None),
+            col_offset=getattr(node, "col_offset", None),
+            filename=filename,
+        )
+    result = []
+    for elt in node.elts:
+        if not isinstance(elt, ast.Call):
+            raise TypecheckError(
+                "ContractManifest 'permissions': each element must be a Permission(...) call",
+                lineno=getattr(elt, "lineno", None),
+                col_offset=getattr(elt, "col_offset", None),
+                filename=filename,
+            )
+        perm: dict = {"contract": "*", "methods": "*"}
+        for kw in elt.keywords:
+            if kw.arg == "contract":
+                val = _ast_literal_to_python(kw.value, "permissions.contract", filename)
+                if not isinstance(val, str):
+                    raise TypecheckError(
+                        "ContractManifest 'permissions.contract': must be a string",
+                        lineno=getattr(kw.value, "lineno", None),
+                        col_offset=getattr(kw.value, "col_offset", None),
+                        filename=filename,
+                    )
+                perm["contract"] = val
+            elif kw.arg == "methods":
+                perm["methods"] = _ast_literal_to_python(
+                    kw.value, "permissions.methods", filename
+                )
+            else:
+                raise TypecheckError(
+                    f"ContractManifest 'permissions': unexpected keyword '{kw.arg}'",
+                    lineno=getattr(kw.value, "lineno", None),
+                    col_offset=getattr(kw.value, "col_offset", None),
+                    filename=filename,
+                )
+        result.append(perm)
+    return result
+
+
+def _extract_groups_list(
+    node: ast.expr,
+    filename: Optional[str] = None,
+) -> list[dict]:
+    if not isinstance(node, ast.List):
+        raise TypecheckError(
+            "ContractManifest 'groups': expected a list of Group(...) calls",
+            lineno=getattr(node, "lineno", None),
+            col_offset=getattr(node, "col_offset", None),
+            filename=filename,
+        )
+    result = []
+    for elt in node.elts:
+        if not isinstance(elt, ast.Call):
+            raise TypecheckError(
+                "ContractManifest 'groups': each element must be a Group(...) call",
+                lineno=getattr(elt, "lineno", None),
+                col_offset=getattr(elt, "col_offset", None),
+                filename=filename,
+            )
+        group: dict = {}
+        for kw in elt.keywords:
+            if kw.arg in ("pubkey", "signature"):
+                val = _ast_literal_to_python(kw.value, f"groups.{kw.arg}", filename)
+                if not isinstance(val, str):
+                    raise TypecheckError(
+                        f"ContractManifest 'groups.{kw.arg}': must be a string",
+                        lineno=getattr(kw.value, "lineno", None),
+                        col_offset=getattr(kw.value, "col_offset", None),
+                        filename=filename,
+                    )
+                group[kw.arg] = val
+            else:
+                raise TypecheckError(
+                    f"ContractManifest 'groups': unexpected keyword '{kw.arg}'",
+                    lineno=getattr(kw.value, "lineno", None),
+                    col_offset=getattr(kw.value, "col_offset", None),
+                    filename=filename,
+                )
+        for required in ("pubkey", "signature"):
+            if required not in group:
+                raise TypecheckError(
+                    f"ContractManifest 'groups': Group(...) missing required argument '{required}'",
+                    lineno=getattr(elt, "lineno", None),
+                    col_offset=getattr(elt, "col_offset", None),
+                    filename=filename,
+                )
+        result.append(group)
+    return result
+
+
+def _extract_manifest_call_kwargs(
+    call: ast.Call,
+    filename: Optional[str] = None,
+) -> dict:
+    result: dict = {}
+    for kw in call.keywords:
+        if kw.arg is None:
+            raise TypecheckError(
+                "ContractManifest does not support **kwargs unpacking",
+                lineno=getattr(call, "lineno", None),
+                col_offset=getattr(call, "col_offset", None),
+                filename=filename,
+            )
+        if kw.arg == "name":
+            val = _ast_literal_to_python(kw.value, "name", filename)
+            if not isinstance(val, str):
+                raise TypecheckError(
+                    "ContractManifest 'name': must be a string literal",
+                    lineno=getattr(kw.value, "lineno", None),
+                    col_offset=getattr(kw.value, "col_offset", None),
+                    filename=filename,
+                )
+            result["name"] = val
+        elif kw.arg == "groups":
+            result["groups"] = _extract_groups_list(kw.value, filename)
+        elif kw.arg == "supported_standards":
+            val = _ast_literal_to_python(kw.value, "supported_standards", filename)
+            if not isinstance(val, list):
+                raise TypecheckError(
+                    "ContractManifest 'supported_standards': must be a list of strings",
+                    lineno=getattr(kw.value, "lineno", None),
+                    col_offset=getattr(kw.value, "col_offset", None),
+                    filename=filename,
+                )
+            result["supportedstandards"] = val
+        elif kw.arg == "permissions":
+            result["permissions"] = _extract_permissions_list(kw.value, filename)
+        elif kw.arg == "trusts":
+            val = _ast_literal_to_python(kw.value, "trusts", filename)
+            result["trusts"] = val
+        elif kw.arg == "extra":
+            result["extra"] = _ast_literal_to_python(kw.value, "extra", filename)
+        else:
+            raise TypecheckError(
+                f"ContractManifest: unknown field '{kw.arg}'",
+                lineno=getattr(kw.value, "lineno", None),
+                col_offset=getattr(kw.value, "col_offset", None),
+                filename=filename,
+            )
+    return result
+
+
+def _extract_manifest_override(
+    body: list[ast.stmt],
+    manifest_cls_names: set[str],
+    filename: Optional[str] = None,
+) -> tuple[Optional[dict], list[ast.stmt]]:
+    """
+    Scan *body* for a top-level ``ContractManifest(...)`` call expression.
+
+    Returns ``(override_dict, filtered_body)`` where the manifest call statement
+    has been removed from *filtered_body*.  Returns ``(None, body)`` when no
+    call is present.
+    """
+    if not manifest_cls_names:
+        return None, body
+
+    found: Optional[dict] = None
+    filtered: list[ast.stmt] = []
+
+    for stmt in body:
+        if (
+            isinstance(stmt, ast.Expr)
+            and isinstance(stmt.value, ast.Call)
+            and isinstance(stmt.value.func, ast.Name)
+            and stmt.value.func.id in manifest_cls_names
+        ):
+            if found is not None:
+                raise TypecheckError(
+                    "ContractManifest(...) may appear at most once per contract module",
+                    lineno=stmt.lineno,
+                    col_offset=stmt.col_offset,
+                    filename=filename,
+                )
+            found = _extract_manifest_call_kwargs(stmt.value, filename=filename)
+        else:
+            filtered.append(stmt)
+
+    return found, filtered

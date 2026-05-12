@@ -1,4 +1,113 @@
+from typing import Optional
 from neo3.sc.types import UInt160
+
+
+class Permission:
+    """
+    Describes one outgoing call permission entry for the contract manifest.
+
+    Examples::
+
+        Permission()                          # allow any contract, any method
+        Permission(contract="*", methods="*") # same as above, explicit
+        Permission(
+            contract="0xd2a4cff31913016155e38e474a2c06d08be276cf",
+            methods=["transfer", "balanceOf"],
+        )
+    """
+
+    def __init__(self, contract: str = "*", methods: "str | list[str]" = "*"):
+        """
+        Args:
+            contract: target contract. Use ``"*"`` to allow calls to any
+                contract, ``"0x<40 hex chars>"`` to restrict to a specific
+                contract hash, or a 66-character hex-encoded ECPoint to
+                restrict to a group.
+            methods: allowed methods. Use ``"*"`` to allow any method, or
+                pass a list of method name strings to restrict to specific
+                methods.
+        """
+        self.contract = contract
+        self.methods = methods
+
+
+class Group:
+    """
+    Declares membership in a mutually trusted contract group.
+
+    Example::
+
+        Group(
+            pubkey="02c0b60c995bc092e866f15a37c176bb59b7ebacf069ba94c38654a316479b7af4",
+            signature="QStMqFOmAqhDq3JbZHACdj2kgT0MJXHg3TbMaC2jwi0=",
+        )
+    """
+
+    def __init__(self, pubkey: str, signature: str):
+        """
+        Args:
+            pubkey: hex-encoded compressed ECPoint (66 hex chars) of the group
+                member's public key.
+            signature: base64-encoded secp256r1 signature over the contract
+                hash, produced by the group member's private key.
+        """
+        self.pubkey = pubkey
+        self.signature = signature
+
+
+class ContractManifest:
+    """
+    Declare contract manifest fields at module scope.
+
+    The compiler extracts the keyword arguments and writes them to the
+    .manifest.json output.  Place exactly one call to this class at the top
+    level of your contract source file.
+
+    Example::
+
+        from neo3.sc.compiletime import ContractManifest, Permission
+
+        ContractManifest(
+            name="MyToken",
+            supported_standards=["NEP-17"],
+            permissions=[Permission(contract="*", methods="*")],
+            trusts=["*"],
+            extra={"Author": "Alice"},
+        )
+    """
+
+    def __init__(
+        self,
+        name: str = "",
+        groups: Optional[list[Group]] = None,
+        supported_standards: Optional[list[str]] = None,
+        permissions: Optional[list[Permission]] = None,
+        trusts: Optional[list[str]] = None,
+        extra: Optional[dict] = None,
+    ):
+        """
+        Args:
+            name: contract name. Defaults to the output file name when
+                omitted.
+            groups: list of ``Group`` entries declaring group membership.
+            supported_standards: list of NEP standard identifiers the contract
+                implements, e.g. ``["NEP-17"]``.
+            permissions: list of ``Permission`` entries controlling which
+                external contracts and methods this contract may call.
+                Defaults to allow-all when omitted.
+            trusts: which contracts or groups are trusted to call this
+                contract.  Pass ``["*"]`` to trust all, or a list of contract
+                hash / ECPoint hex strings to trust specific callers.
+            extra: arbitrary JSON-serialisable dict written verbatim to the
+                ``extra`` manifest field, e.g.
+                ``{"Author": "Alice", "Version": "1.0"}``.
+        """
+        self.name = name
+        self.groups = groups or []
+        self.supported_standards = supported_standards or []
+        self.permissions = permissions or []
+        self.trusts = trusts or []
+        self.extra = extra
 
 
 def syscall(name: str):

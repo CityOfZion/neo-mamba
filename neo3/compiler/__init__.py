@@ -62,6 +62,7 @@ from .hir_builder import (
     _build_class_registry,
     _collect_module_statics,
     _extract_event_info,
+    _extract_manifest_override,
     _extract_public_params,
     _extract_syscall_decorator_name,
     _is_event_decorator,
@@ -221,7 +222,7 @@ def _compile_full(
     source: str,
     search_path: Optional[str] = None,
     filename: Optional[str] = None,
-) -> tuple[bytes, list[_PublicMethodInfo], list[_EventInfo]]:
+) -> tuple[bytes, list[_PublicMethodInfo], list[_EventInfo], Optional[dict]]:
     tree = ast.parse(source)
 
     # Resolve imports: split import statements from the main body, load imported
@@ -242,6 +243,7 @@ def _compile_full(
     namedcurvehash_names: set[str] = set()
     dn_names: set[str] = set()
     cf_dec_names: set[str] = set()
+    manifest_cls_names: set[str] = set()
     extra_stmts, module_names, aliases, mangle_registry, module_fn_maps = (
         _resolve_imports(
             import_nodes,
@@ -260,6 +262,7 @@ def _compile_full(
             namedcurvehash_names=namedcurvehash_names,
             dn_names=dn_names,
             cf_dec_names=cf_dec_names,
+            manifest_cls_names=manifest_cls_names,
             filename=filename,
         )
     )
@@ -267,6 +270,11 @@ def _compile_full(
     reverse_mangle: dict[str, str] = {
         v: k for mm in mangle_registry.values() for k, v in mm.items()
     }
+    # Extract ContractManifest(...) override call and remove it from the body
+    # before any compilation pass sees it.
+    manifest_override, main_body = _extract_manifest_override(
+        main_body, manifest_cls_names, filename=filename
+    )
     tree.body = extra_stmts + main_body
     iterator_extra: dict[str, Type] = {n: ITERATOR for n in iterator_names}
 
@@ -778,7 +786,12 @@ def _compile_full(
             )
         )
 
-    return shared_em.bytecode(), public_methods_info, list(event_fn_specs.values())
+    return (
+        shared_em.bytecode(),
+        public_methods_info,
+        list(event_fn_specs.values()),
+        manifest_override,
+    )
 
 
 def compile_module(
@@ -786,7 +799,9 @@ def compile_module(
     search_path: Optional[str] = None,
     filename: Optional[str] = None,
 ) -> bytes:
-    bytecode, _, _ = _compile_full(source, search_path=search_path, filename=filename)
+    bytecode, _, _, _ = _compile_full(
+        source, search_path=search_path, filename=filename
+    )
     return bytecode
 
 
@@ -799,7 +814,7 @@ def compile_to_nef(source: str, output_path: str) -> None:
     abs_output = os.path.abspath(output_path)
     search_path = os.path.dirname(abs_output)
     src_file = os.path.splitext(abs_output)[0] + ".py"
-    script, public_methods, event_infos = _compile_full(
+    script, public_methods, event_infos, manifest_override = _compile_full(
         source, search_path=search_path, filename=src_file
     )
 
@@ -846,8 +861,12 @@ def compile_to_nef(source: str, output_path: str) -> None:
     manifest = ContractManifest(contract_name)
     manifest.abi = ContractABI(methods=methods, events=events)
 
+    manifest_json = manifest.to_json()
+    if manifest_override:
+        manifest_json.update(manifest_override)
+
     try:
         with open(manifest_path, "w", encoding="utf-8") as f:
-            json.dump(manifest.to_json(), f, indent=4)
+            json.dump(manifest_json, f, indent=4)
     except OSError as e:
         raise OSError(f"Failed to write manifest file '{manifest_path}': {e}") from e
