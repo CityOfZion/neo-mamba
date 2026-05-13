@@ -666,7 +666,7 @@ from entry import admin_fn
             main_path = _os.path.join(d, "contract.py")
             with open(main_path, "w") as f:
                 f.write(src)
-            _, public_methods, _ = _compile_full(src, search_path=d)
+            _, public_methods, _, _ = _compile_full(src, search_path=d)
             names = [m.name for m in public_methods]
             self.assertIn("admin_fn", names)
 
@@ -688,7 +688,7 @@ from neo3.sc.compiletime import public
 def main(x: int) -> int:
     return helper(x)
 """
-            _, public_methods, _ = _compile_full(src, search_path=d)
+            _, public_methods, _, _ = _compile_full(src, search_path=d)
             names = [m.name for m in public_methods]
             self.assertIn("main", names)
             self.assertNotIn("helper", names)

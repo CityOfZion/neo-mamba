@@ -221,3 +221,205 @@ class TestSafePublicWriteCheck(unittest.TestCase):
     def test_io_error_on_unwritable_nef(self):
         with self.assertRaises(OSError):
             compile_to_nef(_SRC, "/no/such/dir/out.nef")
+
+
+class TestContractManifestOverride(unittest.TestCase):
+    """ContractManifest(...) call overrides manifest fields in compile_to_nef output."""
+
+    def _compile(self, src: str) -> dict:
+        _, manifest = _write_contract(src)
+        return manifest
+
+    def test_name_override(self):
+        src = """
+from neo3.sc.compiletime import public, ContractManifest
+ContractManifest(name="MyToken")
+@public
+def x() -> int:
+    return 1
+"""
+        manifest = self._compile(src)
+        self.assertEqual(manifest["name"], "MyToken")
+
+    def test_supported_standards(self):
+        src = """
+from neo3.sc.compiletime import public, ContractManifest
+ContractManifest(supported_standards=["NEP-17", "NEP-11"])
+@public
+def x() -> int:
+    return 1
+"""
+        manifest = self._compile(src)
+        self.assertEqual(manifest["supportedstandards"], ["NEP-17", "NEP-11"])
+
+    def test_permissions_wildcard(self):
+        src = """
+from neo3.sc.compiletime import public, ContractManifest, Permission
+ContractManifest(permissions=[Permission(contract="*", methods="*")])
+@public
+def x() -> int:
+    return 1
+"""
+        manifest = self._compile(src)
+        perms = manifest["permissions"]
+        self.assertEqual(len(perms), 1)
+        self.assertEqual(perms[0]["contract"], "*")
+        self.assertEqual(perms[0]["methods"], "*")
+
+    def test_permissions_specific_methods(self):
+        src = """
+from neo3.sc.compiletime import public, ContractManifest, Permission
+ContractManifest(
+    permissions=[
+        Permission(
+            contract="0xd2a4cff31913016155e38e474a2c06d08be276cf",
+            methods=["transfer", "balanceOf"],
+        )
+    ]
+)
+@public
+def x() -> int:
+    return 1
+"""
+        manifest = self._compile(src)
+        perms = manifest["permissions"]
+        self.assertEqual(len(perms), 1)
+        self.assertEqual(
+            perms[0]["contract"],
+            "0xd2a4cff31913016155e38e474a2c06d08be276cf",
+        )
+        self.assertEqual(perms[0]["methods"], ["transfer", "balanceOf"])
+
+    def test_trusts_wildcard(self):
+        src = """
+from neo3.sc.compiletime import public, ContractManifest
+ContractManifest(trusts=["*"])
+@public
+def x() -> int:
+    return 1
+"""
+        manifest = self._compile(src)
+        self.assertEqual(manifest["trusts"], ["*"])
+
+    def test_extra(self):
+        src = """
+from neo3.sc.compiletime import public, ContractManifest
+ContractManifest(extra={"Author": "Alice", "Version": "1.0"})
+@public
+def x() -> int:
+    return 1
+"""
+        manifest = self._compile(src)
+        self.assertEqual(manifest["extra"], {"Author": "Alice", "Version": "1.0"})
+
+    def test_groups(self):
+        src = """
+from neo3.sc.compiletime import public, ContractManifest, Group
+ContractManifest(
+    groups=[
+        Group(
+            pubkey="02c0b60c995bc092e866f15a37c176bb59b7ebacf069ba94c38654a316479b7af4",
+            signature="QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQQ==",
+        )
+    ]
+)
+@public
+def x() -> int:
+    return 1
+"""
+        manifest = self._compile(src)
+        groups = manifest["groups"]
+        self.assertEqual(len(groups), 1)
+        self.assertEqual(
+            groups[0]["pubkey"],
+            "02c0b60c995bc092e866f15a37c176bb59b7ebacf069ba94c38654a316479b7af4",
+        )
+        self.assertEqual(
+            groups[0]["signature"],
+            "QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQQ==",
+        )
+
+    def test_abi_not_overwritten(self):
+        """Manifest override must not discard the ABI generated from @public methods."""
+        src = """
+from neo3.sc.compiletime import public, ContractManifest
+ContractManifest(name="Overridden", extra={"note": "test"})
+@public
+def add(a: int, b: int) -> int:
+    return a + b
+"""
+        manifest = self._compile(src)
+        self.assertEqual(manifest["name"], "Overridden")
+        names = [m["name"] for m in manifest["abi"]["methods"]]
+        self.assertIn("add", names)
+
+    def test_duplicate_manifest_call_raises(self):
+        from neo3.compiler import TypecheckError
+
+        src = """
+from neo3.sc.compiletime import public, ContractManifest
+ContractManifest(name="First")
+ContractManifest(name="Second")
+@public
+def x() -> int:
+    return 1
+"""
+        with self.assertRaises(TypecheckError) as ctx:
+            _write_contract(src)
+        self.assertIn("at most once", str(ctx.exception))
+
+    def test_unknown_field_raises(self):
+        from neo3.compiler import TypecheckError
+
+        src = """
+from neo3.sc.compiletime import public, ContractManifest
+ContractManifest(unknown_field="oops")
+@public
+def x() -> int:
+    return 1
+"""
+        with self.assertRaises(TypecheckError) as ctx:
+            _write_contract(src)
+        self.assertIn("unknown_field", str(ctx.exception))
+
+    def test_permission_invalid_contract_raises(self):
+        from neo3.compiler import TypecheckError
+
+        src = """
+from neo3.sc.compiletime import public, ContractManifest, Permission
+ContractManifest(permissions=[Permission(contract="notvalid")])
+@public
+def x() -> int:
+    return 1
+"""
+        with self.assertRaises(TypecheckError) as ctx:
+            _write_contract(src)
+        self.assertIn("permissions.contract", str(ctx.exception))
+
+    def test_group_invalid_pubkey_raises(self):
+        from neo3.compiler import TypecheckError
+
+        src = """
+from neo3.sc.compiletime import public, ContractManifest, Group
+ContractManifest(groups=[Group(pubkey="notahex", signature="QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQQ==")])
+@public
+def x() -> int:
+    return 1
+"""
+        with self.assertRaises(TypecheckError) as ctx:
+            _write_contract(src)
+        self.assertIn("ECPoint", str(ctx.exception))
+
+    def test_group_invalid_signature_raises(self):
+        from neo3.compiler import TypecheckError
+
+        src = """
+from neo3.sc.compiletime import public, ContractManifest, Group
+ContractManifest(groups=[Group(pubkey="02c0b60c995bc092e866f15a37c176bb59b7ebacf069ba94c38654a316479b7af4", signature="tooshort")])
+@public
+def x() -> int:
+    return 1
+"""
+        with self.assertRaises(TypecheckError) as ctx:
+            _write_contract(src)
+        self.assertIn("signature", str(ctx.exception))
