@@ -9,6 +9,7 @@ import ast
 import hashlib
 import json
 import os
+import warnings
 from typing import Optional
 
 from neo3.contracts.abi import (
@@ -20,6 +21,7 @@ from neo3.contracts.abi import (
 )
 from neo3.contracts.manifest import ContractManifest
 from neo3.contracts.nef import NEF
+from neo3.core.types import UInt160
 
 from .types import (
     Type,
@@ -32,6 +34,7 @@ from .types import (
     UInt160Type,
     UInt256Type,
     ECPointType,
+    CompilerWarning,
     TypecheckError,
     INT,
     BOOL,
@@ -55,6 +58,7 @@ from .hir import (
     _PublicMethodInfo,
     _EventInfo,
     _collect_write_ops,
+    _collect_contract_calls,
 )
 from .hir_builder import (
     HIRBuilder,
@@ -78,6 +82,35 @@ from .linearizer import (
     _emit_static_literal,
     _emit_to_bytes_helper,
 )
+
+# Strip internal compiler file/line info from CompilerWarning messages so the
+# output is useful to contract authors rather than compiler developers.
+_orig_formatwarning = warnings.formatwarning
+
+
+def _formatwarning(message, category, filename, lineno, line=None):
+    if issubclass(category, CompilerWarning):
+        return f"{category.__name__}: {message}\n"
+    return _orig_formatwarning(message, category, filename, lineno, line)
+
+
+warnings.formatwarning = _formatwarning
+
+
+def _loc(
+    filename: Optional[str], lineno: Optional[int], col_offset: Optional[int]
+) -> str:
+    """Return a 'file, line N, col M: ' prefix for warning messages, or '' if no info."""
+    parts: list[str] = []
+    if filename:
+        parts.append(filename)
+    if lineno is not None:
+        loc = f"line {lineno}"
+        if col_offset is not None:
+            loc += f", col {col_offset + 1}"
+        parts.append(loc)
+    return (", ".join(parts) + ": ") if parts else ""
+
 
 # ---------------------------------------------------------------------------
 # Pre-built class info for built-in NeoVM-mapped types
@@ -718,6 +751,85 @@ def _compile_full(
                     ),
                 )
 
+    # Permission validation: if the manifest overrides permissions with a non-trivial
+    # list, verify that every static external contract call is covered.
+    if manifest_override and "permissions" in manifest_override:
+        perms: list[dict] = manifest_override["permissions"]
+        has_full_wildcard = any(
+            p.get("contract") == "*" and p.get("methods") == "*" for p in perms
+        )
+        if not has_full_wildcard:
+            has_group = any(
+                p.get("contract", "").startswith(("02", "03")) for p in perms
+            )
+            if has_group:
+                for p in perms:
+                    if p.get("contract", "").startswith(("02", "03")):
+                        prefix = _loc(
+                            p.get("_filename"), p.get("_lineno"), p.get("_col_offset")
+                        )
+                        warnings.warn(
+                            f"{prefix}ContractManifest contains a group-based permission; "
+                            "external call permissions cannot be statically validated.",
+                            CompilerWarning,
+                            stacklevel=2,
+                        )
+            _perm_fn_map: dict[str, HIRFunction] = {h.name: h for h, _ in pairs}
+            all_ext_calls: list[tuple[bytes, str]] = []
+            all_dyn_locs: list[tuple[Optional[int], Optional[int], Optional[str]]] = []
+            for hir_fn, _ in pairs:
+                ext_calls, dyn_locs = _collect_contract_calls(hir_fn.body, _perm_fn_map)
+                all_ext_calls.extend(ext_calls)
+                all_dyn_locs.extend(dyn_locs)
+            seen_dyn: set[tuple] = set()
+            for dyn_lineno, dyn_col, dyn_file in all_dyn_locs:
+                key = (dyn_lineno, dyn_col, dyn_file)
+                if key in seen_dyn:
+                    continue
+                seen_dyn.add(key)
+                prefix = _loc(dyn_file, dyn_lineno, dyn_col)
+                warnings.warn(
+                    f"{prefix}call_contract() (dynamic dispatch) cannot be "
+                    "permission-validated at compile time.",
+                    CompilerWarning,
+                    stacklevel=2,
+                )
+            if not has_group:
+                permitted: list[tuple[Optional[bytes], Optional[list[str]]]] = []
+                for p in perms:
+                    c = p.get("contract", "*")
+                    m = p.get("methods", "*")
+                    p_hash = None if c == "*" else UInt160.from_string(c).to_array()
+                    p_methods = (
+                        None if m == "*" else (m if isinstance(m, list) else [m])
+                    )
+                    permitted.append((p_hash, p_methods))
+                missing: list[tuple[str, str]] = []
+                seen_calls: set[tuple[bytes, str]] = set()
+                for call_hash, call_method in all_ext_calls:
+                    key = (call_hash, call_method)
+                    if key in seen_calls:
+                        continue
+                    seen_calls.add(key)
+                    covered = any(
+                        (p_hash is None or p_hash == call_hash)
+                        and (p_methods is None or call_method in p_methods)
+                        for p_hash, p_methods in permitted
+                    )
+                    if not covered:
+                        hash_str = "0x" + call_hash[::-1].hex()
+                        missing.append((hash_str, call_method))
+                if missing:
+                    lines = [f"  {h}.{m}" for h, m in missing]
+                    raise TypecheckError(
+                        "ContractManifest permissions do not cover the following "
+                        "external contract calls:\n"
+                        + "\n".join(lines)
+                        + "\nAdd the missing permissions or use "
+                        "Permission(contract='*', methods='*').",
+                        filename=filename,
+                    )
+
     # Linearize all functions into a shared emitter
     shared_em = Emitter()
     call_fixups: list[tuple[int, int, str]] = []
@@ -863,6 +975,11 @@ def compile_to_nef(source: str, output_path: str) -> None:
 
     manifest_json = manifest.to_json()
     if manifest_override:
+        if "permissions" in manifest_override:
+            manifest_override["permissions"] = [
+                {k: v for k, v in p.items() if not k.startswith("_")}
+                for p in manifest_override["permissions"]
+            ]
         manifest_json.update(manifest_override)
 
     try:

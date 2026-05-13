@@ -182,6 +182,10 @@ LIST_STR = ListType(STR)
 _BYTESLIKE = (BytesType, BytearrayType, StrType, UInt160Type, UInt256Type, ECPointType)
 
 
+class CompilerWarning(UserWarning):
+    pass
+
+
 class TypecheckError(Exception):
     def __init__(
         self,
