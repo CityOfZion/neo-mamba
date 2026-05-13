@@ -820,7 +820,7 @@ def _compile_full(
                         hash_str = "0x" + call_hash[::-1].hex()
                         missing.append((hash_str, call_method))
                 if missing:
-                    lines = [f"  {h}.{m}" for h, m in missing]
+                    lines = [f"  Contract: {h} Method: {m}" for h, m in missing]
                     raise TypecheckError(
                         "ContractManifest permissions do not cover the following "
                         "external contract calls:\n"
