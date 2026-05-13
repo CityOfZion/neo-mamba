@@ -313,6 +313,9 @@ class DynamicContractCall:
     call_flags: "Expr"  # int (Integer)
     type: Type = dataclasses.field(default_factory=lambda: ANY)
     is_stmt: bool = False
+    lineno: Optional[int] = None
+    col_offset: Optional[int] = None
+    filename: Optional[str] = None
 
 
 @dataclasses.dataclass
@@ -1189,3 +1192,74 @@ def _collect_write_ops(
     found: list[tuple[str, Optional[int], Optional[int], Optional[str]]] = []
     _walk_hir_node(stmts, hir_fn_map, visited, found)
     return found
+
+
+def _walk_contract_calls(
+    node: object,
+    hir_fn_map: dict,
+    visited: set[str],
+    calls: "list[tuple[bytes, str]]",
+    dyn_locs: "list[tuple[Optional[int], Optional[int], Optional[str]]]",
+) -> None:
+    """Recursively walk HIR nodes, collecting ContractCall and DynamicContractCall info."""
+    if node is None:
+        return
+    if isinstance(node, list):
+        for item in node:
+            _walk_contract_calls(item, hir_fn_map, visited, calls, dyn_locs)
+        return
+    if isinstance(node, ContractCall):
+        calls.append((node.contract_hash, node.method))
+        for arg in node.args:
+            _walk_contract_calls(arg, hir_fn_map, visited, calls, dyn_locs)
+        return
+    if isinstance(node, DynamicContractCall):
+        dyn_locs.append((node.lineno, node.col_offset, node.filename))
+        return
+    if isinstance(node, (Call, CallStmt)):
+        fn_name = node.name
+        if fn_name not in visited and fn_name in hir_fn_map:
+            visited.add(fn_name)
+            _walk_contract_calls(
+                hir_fn_map[fn_name].body, hir_fn_map, visited, calls, dyn_locs
+            )
+        for arg in node.args:
+            _walk_contract_calls(arg, hir_fn_map, visited, calls, dyn_locs)
+        return
+    if isinstance(node, (MethodCall, MethodCallStmt)):
+        fn_name = node.compiled_name
+        if fn_name not in visited and fn_name in hir_fn_map:
+            visited.add(fn_name)
+            _walk_contract_calls(
+                hir_fn_map[fn_name].body, hir_fn_map, visited, calls, dyn_locs
+            )
+        _walk_contract_calls(node.obj, hir_fn_map, visited, calls, dyn_locs)
+        for arg in node.args:
+            _walk_contract_calls(arg, hir_fn_map, visited, calls, dyn_locs)
+        return
+    if isinstance(node, NewInstance):
+        init_name = f"{node.class_name}___init__"
+        if init_name not in visited and init_name in hir_fn_map:
+            visited.add(init_name)
+            _walk_contract_calls(
+                hir_fn_map[init_name].body, hir_fn_map, visited, calls, dyn_locs
+            )
+        for arg in node.args:
+            _walk_contract_calls(arg, hir_fn_map, visited, calls, dyn_locs)
+        return
+    if dataclasses.is_dataclass(node) and not isinstance(node, type):
+        for f in dataclasses.fields(node):
+            val = getattr(node, f.name)
+            if val is None or isinstance(val, (int, float, str, bool, bytes)):
+                continue
+            _walk_contract_calls(val, hir_fn_map, visited, calls, dyn_locs)
+
+
+def _collect_contract_calls(
+    stmts: list, hir_fn_map: dict[str, "HIRFunction"]
+) -> "tuple[list[tuple[bytes, str]], list[tuple[Optional[int], Optional[int], Optional[str]]]]":
+    """Walk HIR and return ([(contract_hash_le, method), ...], [(lineno, col_offset, filename), ...])."""
+    calls: list[tuple[bytes, str]] = []
+    dyn_locs: list[tuple[Optional[int], Optional[int], Optional[str]]] = []
+    _walk_contract_calls(stmts, hir_fn_map, set(), calls, dyn_locs)
+    return calls, dyn_locs

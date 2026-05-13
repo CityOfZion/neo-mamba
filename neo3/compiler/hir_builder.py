@@ -899,10 +899,15 @@ class HIRBuilder:
             case ast.Expr(
                 value=ast.Call(
                     func=ast.Name(id="call_contract"), args=cc_args, keywords=[]
-                )
+                ) as cc_node
             ):
                 # call_contract() used as a statement — result is discarded (DROP in CFGBuilder).
-                return self._build_call_contract(cc_args, is_stmt=True)
+                return self._build_call_contract(
+                    cc_args,
+                    is_stmt=True,
+                    lineno=cc_node.lineno,
+                    col_offset=cc_node.col_offset,
+                )
 
             case ast.Expr(
                 value=ast.Call(func=ast.Name(id=name), args=call_args, keywords=[])
@@ -1351,7 +1356,11 @@ class HIRBuilder:
         )
 
     def _build_call_contract(
-        self, pos_args: list[ast.expr], is_stmt: bool = False
+        self,
+        pos_args: list[ast.expr],
+        is_stmt: bool = False,
+        lineno: Optional[int] = None,
+        col_offset: Optional[int] = None,
     ) -> "DynamicContractCall":
         """Validate and build a DynamicContractCall node for the call_contract() intrinsic."""
         n = len(pos_args)
@@ -1380,7 +1389,15 @@ class HIRBuilder:
         else:
             cf = IntLiteral(15)  # CallFlags.ALL
         return DynamicContractCall(
-            script_hash=sh, method=m, args=a, call_flags=cf, type=ANY, is_stmt=is_stmt
+            script_hash=sh,
+            method=m,
+            args=a,
+            call_flags=cf,
+            type=ANY,
+            is_stmt=is_stmt,
+            lineno=lineno,
+            col_offset=col_offset,
+            filename=self._filename,
         )
 
     def _extract_none_check(self, test: ast.expr) -> Optional[tuple[str, bool]]:
@@ -3285,8 +3302,12 @@ class HIRBuilder:
                         f"ECPoint() requires exactly 33 bytes (got {len(arg.value)})"
                     )
                 return TypeConvert(arg=arg, type=ECPOINT)
-            case ast.Call(func=ast.Name(id="call_contract"), args=cc_args, keywords=[]):
-                return self._build_call_contract(cc_args)
+            case ast.Call(
+                func=ast.Name(id="call_contract"), args=cc_args, keywords=[]
+            ) as cc_node:
+                return self._build_call_contract(
+                    cc_args, lineno=cc_node.lineno, col_offset=cc_node.col_offset
+                )
             case ast.Call(
                 func=ast.Attribute(value=recv_node, attr="next"),
                 args=[],
@@ -6134,7 +6155,38 @@ def _extract_permissions_list(
                 filename=filename,
             )
         perm: dict = {"contract": "*", "methods": "*"}
+        # Handle positional args: Permission(contract, methods) → mapped by position
+        param_names = ["contract", "methods"]
+        perm_pos_filled: set[str] = set()
+        for i, arg in enumerate(elt.args):
+            if i >= len(param_names):
+                raise TypecheckError(
+                    "ContractManifest 'permissions': Permission(...) takes at most 2 positional arguments",
+                    lineno=getattr(arg, "lineno", None),
+                    col_offset=getattr(arg, "col_offset", None),
+                    filename=filename,
+                )
+            pname = param_names[i]
+            val = _ast_literal_to_python(arg, f"permissions.{pname}", filename)
+            if pname == "contract":
+                if not isinstance(val, str):
+                    raise TypecheckError(
+                        "ContractManifest 'permissions.contract': must be a string",
+                        lineno=getattr(arg, "lineno", None),
+                        col_offset=getattr(arg, "col_offset", None),
+                        filename=filename,
+                    )
+                _validate_contract_descriptor(val, arg, filename)
+            perm[pname] = val
+            perm_pos_filled.add(pname)
         for kw in elt.keywords:
+            if kw.arg in perm_pos_filled:
+                raise TypecheckError(
+                    f"ContractManifest 'permissions': Permission(...) got multiple values for argument '{kw.arg}'",
+                    lineno=getattr(kw.value, "lineno", None),
+                    col_offset=getattr(kw.value, "col_offset", None),
+                    filename=filename,
+                )
             if kw.arg == "contract":
                 val = _ast_literal_to_python(kw.value, "permissions.contract", filename)
                 if not isinstance(val, str):
@@ -6157,6 +6209,9 @@ def _extract_permissions_list(
                     col_offset=getattr(kw.value, "col_offset", None),
                     filename=filename,
                 )
+        perm["_lineno"] = getattr(elt, "lineno", None)
+        perm["_col_offset"] = getattr(elt, "col_offset", None)
+        perm["_filename"] = filename
         result.append(perm)
     return result
 
@@ -6182,7 +6237,40 @@ def _extract_groups_list(
                 filename=filename,
             )
         group: dict = {}
+        # Handle positional args: Group(pubkey, signature) → mapped by position
+        group_param_names = ["pubkey", "signature"]
+        group_pos_filled: set[str] = set()
+        for i, arg in enumerate(elt.args):
+            if i >= len(group_param_names):
+                raise TypecheckError(
+                    "ContractManifest 'groups': Group(...) takes at most 2 positional arguments",
+                    lineno=getattr(arg, "lineno", None),
+                    col_offset=getattr(arg, "col_offset", None),
+                    filename=filename,
+                )
+            pname = group_param_names[i]
+            val = _ast_literal_to_python(arg, f"groups.{pname}", filename)
+            if not isinstance(val, str):
+                raise TypecheckError(
+                    f"ContractManifest 'groups.{pname}': must be a string",
+                    lineno=getattr(arg, "lineno", None),
+                    col_offset=getattr(arg, "col_offset", None),
+                    filename=filename,
+                )
+            if pname == "pubkey":
+                _validate_ecpoint_hex(val, arg, filename)
+            else:
+                _validate_group_signature(val, arg, filename)
+            group[pname] = val
+            group_pos_filled.add(pname)
         for kw in elt.keywords:
+            if kw.arg in group_pos_filled:
+                raise TypecheckError(
+                    f"ContractManifest 'groups': Group(...) got multiple values for argument '{kw.arg}'",
+                    lineno=getattr(kw.value, "lineno", None),
+                    col_offset=getattr(kw.value, "col_offset", None),
+                    filename=filename,
+                )
             if kw.arg in ("pubkey", "signature"):
                 val = _ast_literal_to_python(kw.value, f"groups.{kw.arg}", filename)
                 if not isinstance(val, str):
@@ -6221,12 +6309,67 @@ def _extract_manifest_call_kwargs(
     filename: Optional[str] = None,
 ) -> dict:
     result: dict = {}
+    # Handle positional args mapped to parameter names by position
+    _manifest_param_names = [
+        "name",
+        "groups",
+        "supported_standards",
+        "permissions",
+        "trusts",
+        "extra",
+    ]
+    for i, arg in enumerate(call.args):
+        if i >= len(_manifest_param_names):
+            raise TypecheckError(
+                "ContractManifest takes at most 6 positional arguments",
+                lineno=getattr(arg, "lineno", None),
+                col_offset=getattr(arg, "col_offset", None),
+                filename=filename,
+            )
+        # Reuse the keyword-argument handling by synthesising a keyword node
+        kw_arg = _manifest_param_names[i]
+        if kw_arg == "name":
+            val = _ast_literal_to_python(arg, "name", filename)
+            if not isinstance(val, str):
+                raise TypecheckError(
+                    "ContractManifest 'name': must be a string literal",
+                    lineno=getattr(arg, "lineno", None),
+                    col_offset=getattr(arg, "col_offset", None),
+                    filename=filename,
+                )
+            result["name"] = val
+        elif kw_arg == "groups":
+            result["groups"] = _extract_groups_list(arg, filename)
+        elif kw_arg == "supported_standards":
+            val = _ast_literal_to_python(arg, "supported_standards", filename)
+            if not isinstance(val, list):
+                raise TypecheckError(
+                    "ContractManifest 'supported_standards': must be a list of strings",
+                    lineno=getattr(arg, "lineno", None),
+                    col_offset=getattr(arg, "col_offset", None),
+                    filename=filename,
+                )
+            result["supportedstandards"] = val
+        elif kw_arg == "permissions":
+            result["permissions"] = _extract_permissions_list(arg, filename)
+        elif kw_arg == "trusts":
+            result["trusts"] = _ast_literal_to_python(arg, "trusts", filename)
+        elif kw_arg == "extra":
+            result["extra"] = _ast_literal_to_python(arg, "extra", filename)
+    _manifest_pos_filled = set(_manifest_param_names[: len(call.args)])
     for kw in call.keywords:
         if kw.arg is None:
             raise TypecheckError(
                 "ContractManifest does not support **kwargs unpacking",
                 lineno=getattr(call, "lineno", None),
                 col_offset=getattr(call, "col_offset", None),
+                filename=filename,
+            )
+        if kw.arg in _manifest_pos_filled:
+            raise TypecheckError(
+                f"ContractManifest got multiple values for argument '{kw.arg}'",
+                lineno=getattr(kw.value, "lineno", None),
+                col_offset=getattr(kw.value, "col_offset", None),
                 filename=filename,
             )
         if kw.arg == "name":
