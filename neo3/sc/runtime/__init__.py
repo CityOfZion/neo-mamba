@@ -20,6 +20,14 @@ def get_entry_script_hash() -> (
     pass
 
 
+@syscall("System.Runtime.GetExecutingScriptHash")
+def get_executing_script_hash() -> UInt160:
+    """
+    Gets the script hash of the current context.
+    """
+    pass
+
+
 @syscall("System.Runtime.GetRandom")
 def get_random() -> int:
     pass
