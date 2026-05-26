@@ -38,3 +38,28 @@ class TestScriptContainer(SmartContractTestCase):
             "getrandom", return_type=int, signing_accounts=[self.genesis]
         )
         self.assertNotEqual(result1, result2)
+
+    async def test_burn_gas_reduces_gas_left(self) -> None:
+        burn_amount = 1_000_000
+        await self.call(
+            "gas_left_and_burn",
+            [burn_amount],
+            return_type=None,
+            signing_accounts=[self.genesis],
+        )
+        self.assertEqual(2, len(self.runtime_logs))
+        before = int(self.runtime_logs[0].msg)
+        after = int(self.runtime_logs[1].msg)
+        self.assertGreaterEqual(before - after, burn_amount)
+
+    async def test_get_time_returns_positive_int(self) -> None:
+        result, _ = await self.call(
+            "gettime", return_type=int, signing_accounts=[self.genesis]
+        )
+        self.assertGreater(result, 0)
+
+    async def test_get_invocation_counter_returns_one(self) -> None:
+        result, _ = await self.call(
+            "getinvocationcounter", return_type=int, signing_accounts=[self.genesis]
+        )
+        self.assertEqual(1, result)
