@@ -1,5 +1,5 @@
-from typing import Optional
-from neo3.sc.types import TrimmedTransaction, UInt160, ECPoint
+from typing import Optional, Any
+from neo3.sc.types import TrimmedTransaction, UInt160, ECPoint, CallFlags
 from neo3.sc.compiletime import syscall
 
 
@@ -87,5 +87,15 @@ def get_time() -> int:
 def get_invocation_counter() -> int:
     """
     Gets the number of times the current contract has been called during the execution
+    """
+    pass
+
+
+@syscall("System.Runtime.LoadScript")
+def load_script(
+    script: bytes, call_flags: CallFlags = CallFlags.NONE, args: Optional[list] = None
+) -> Any:
+    """
+    Loads a script at runtime
     """
     pass

@@ -247,6 +247,10 @@ def _resolve_simple_type(annotation: ast.expr) -> "Type":
                 return INT
             case "NamedCurveHash":
                 return INT
+            case "list":
+                return ListType(ANY)
+            case "Any":
+                return ANY
             case _:
                 return ClassType(annotation.id)
     if isinstance(annotation, ast.BinOp) and isinstance(annotation.op, ast.BitOr):

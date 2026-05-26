@@ -5,6 +5,7 @@ from neo3.sc.runtime import (
     burn_gas,
     get_time,
     get_invocation_counter,
+    load_script,
 )
 
 
@@ -30,3 +31,9 @@ def gettime() -> int:
 @public
 def getinvocationcounter() -> int:
     return get_invocation_counter()
+
+
+@public
+def run_add_script() -> int:
+    args: list = [1, 2]
+    return load_script(b"\x9e", args=args)  # opcode.ADD
