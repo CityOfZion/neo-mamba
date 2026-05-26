@@ -36,4 +36,4 @@ def getinvocationcounter() -> int:
 @public
 def run_add_script() -> int:
     args: list = [1, 2]
-    return load_script(b'\x9E', args=args) # opcode.ADD
+    return load_script(b"\x9e", args=args)  # opcode.ADD

@@ -90,8 +90,11 @@ def get_invocation_counter() -> int:
     """
     pass
 
+
 @syscall("System.Runtime.LoadScript")
-def load_script(script: bytes, call_flags: CallFlags = CallFlags.NONE, args: Optional[list] = None) -> Any:
+def load_script(
+    script: bytes, call_flags: CallFlags = CallFlags.NONE, args: Optional[list] = None
+) -> Any:
     """
     Loads a script at runtime
     """
