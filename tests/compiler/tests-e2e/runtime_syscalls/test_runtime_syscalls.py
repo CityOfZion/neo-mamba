@@ -63,3 +63,9 @@ class TestScriptContainer(SmartContractTestCase):
             "getinvocationcounter", return_type=int, signing_accounts=[self.genesis]
         )
         self.assertEqual(1, result)
+
+    async def test_load_script_executes_inner_script(self) -> None:
+        result, _ = await self.call(
+            "run_add_script", [], return_type=int, signing_accounts=[self.genesis]
+        )
+        self.assertEqual(3, result)
