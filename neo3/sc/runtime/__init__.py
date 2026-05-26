@@ -22,6 +22,9 @@ def get_entry_script_hash() -> (
 
 @syscall("System.Runtime.GetExecutingScriptHash")
 def get_executing_script_hash() -> UInt160:
+    """
+    Gets the script hash of the current context.
+    """
     pass
 
 
