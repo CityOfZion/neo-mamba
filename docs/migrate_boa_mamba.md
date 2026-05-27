@@ -6,6 +6,7 @@
 4. [Conversion utility functions](#conversion-utility-functions)
 5. [sc.runtime](#scruntime)
    - [Script values](#script-values)
+   - [various](#various)
 6. [Storage](#storage)
 
 ## Root package update
@@ -105,6 +106,11 @@ entry_script_hash
 executing_script_hash
 script_container
 ```
+
+### various
+Renamed and turned into functions instead of builtins
+`time` -> `get_time()`
+`invocation_counter` -> `get_invocation_counter()`
 
 **new**
 ```python
