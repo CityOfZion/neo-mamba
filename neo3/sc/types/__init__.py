@@ -237,3 +237,19 @@ class TrimmedBlock:
         self.primary_index: int = 0
         self.next_consensus: UInt160 = UInt160()
         self.transaction_count: int = 0
+
+
+class Notification:
+    """
+    Represents an in contract Notification.
+
+    Attributes:
+        script_hash (UInt160): the script hash of the notification sender (i.e. which smart contract).
+        event_name (str): the notification name.
+        state (list): the notification arguments.
+    """
+
+    def __init__(self):
+        self.script_hash: UInt160 = UInt160()
+        self.event_name: str = ""
+        self.state: list = []

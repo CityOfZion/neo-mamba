@@ -46,6 +46,7 @@ from .types import (
     UINT160,
     UINT256,
     ECPOINT,
+    ANY,
 )
 from .hir import (
     Call,
@@ -219,6 +220,28 @@ _CONTRACT_STATE_CLASS_INFO = ClassInfo(
     ),
 )
 
+_NOTIFICATION_FIELDS: dict[str, FieldInfo] = {
+    "script_hash": FieldInfo(name="script_hash", index=0, type=UINT160),
+    "event_name": FieldInfo(name="event_name", index=1, type=STR),
+    "state": FieldInfo(name="state", index=2, type=ListType(ANY)),
+}
+_NOTIFICATION_CLASS_INFO = ClassInfo(
+    name="Notification",
+    bases=[],
+    class_mro=[],
+    fields=_NOTIFICATION_FIELDS,
+    methods={},
+    class_vars={},
+    total_fields=3,
+    ast_node=ast.ClassDef(
+        name="Notification",
+        bases=[],
+        keywords=[],
+        body=[ast.Pass()],
+        decorator_list=[],
+    ),
+)
+
 
 def _type_to_contract_param(t: Type) -> ContractParameterType:
     if t is INT:
@@ -343,6 +366,8 @@ def _compile_full(
         class_registry["ContractState"] = _CONTRACT_STATE_CLASS_INFO
     if "TrimmedBlock" in imported_builtin_classes:
         class_registry["TrimmedBlock"] = _TRIMMED_BLOCK_CLASS_INFO
+    if "Notification" in imported_builtin_classes:
+        class_registry["Notification"] = _NOTIFICATION_CLASS_INFO
 
     fn_nodes = [n for n in tree.body if isinstance(n, ast.FunctionDef)]
 

@@ -260,6 +260,12 @@ def _resolve_simple_type(annotation: ast.expr) -> "Type":
     if (
         isinstance(annotation, ast.Subscript)
         and isinstance(annotation.value, ast.Name)
+        and annotation.value.id == "list"
+    ):
+        return ListType(_resolve_simple_type(annotation.slice))
+    if (
+        isinstance(annotation, ast.Subscript)
+        and isinstance(annotation.value, ast.Name)
         and annotation.value.id == "Optional"
     ):
         return OptionalType(_resolve_simple_type(annotation.slice))

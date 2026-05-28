@@ -1,5 +1,5 @@
 from typing import Optional, Any
-from neo3.sc.types import TrimmedTransaction, UInt160, ECPoint, CallFlags
+from neo3.sc.types import TrimmedTransaction, UInt160, ECPoint, CallFlags, Notification
 from neo3.sc.compiletime import syscall
 
 
@@ -97,5 +97,16 @@ def load_script(
 ) -> Any:
     """
     Loads a script at runtime
+    """
+    pass
+
+
+@syscall("System.Runtime.GetNotifications")
+def get_notifications(script_hash: Optional[UInt160] = None) -> list[Notification]:
+    """
+    Gets the notifications sent by the specified contract during the execution
+
+    Args:
+        script_hash: the contract to return notifications for. Omit to get all notifications.
     """
     pass
