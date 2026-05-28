@@ -5,7 +5,7 @@ import binascii
 import dataclasses
 import hashlib
 import os
-from typing import Optional, Union
+from typing import Any, Optional, Union
 from neo3.core.types import UInt160, UInt256
 from neo3.vm import Syscalls
 from neo3.sc.types import (
@@ -182,7 +182,9 @@ class _SyscallSpec:
     params: list  # expected arg Types in Python call order
     ret: Type  # NONE = void (statement only); anything else = expression
     push_order: list  # indices into params in VM push order (last = top of stack)
-    defaults: Optional[dict[int, int]] = None  # param_index → default int value
+    defaults: Optional[dict[int, Any]] = (
+        None  # param_index → default value (int or None)
+    )
     param_names: list = dataclasses.field(default_factory=list)  # Python param names
 
 
@@ -5336,6 +5338,10 @@ def _resolve_imports(
                         _syscall_fn_specs[local] = spec
                         if isinstance(spec.ret, ClassType):
                             _imported_builtin_classes.add(spec.ret.name)
+                        elif isinstance(spec.ret, ListType) and isinstance(
+                            spec.ret.elem, ClassType
+                        ):
+                            _imported_builtin_classes.add(spec.ret.elem.name)
                     elif alias.name in full_stmts_by_name:
                         # Regular function with a real body — bundle it.
                         fn_stmt: ast.FunctionDef = full_stmts_by_name[alias.name]
@@ -5415,6 +5421,8 @@ def _resolve_imports(
                         _imported_builtin_classes.add("NeoAccountState")
                     elif alias.name == "ContractState":
                         _imported_builtin_classes.add("ContractState")
+                    elif alias.name == "Notification":
+                        _imported_builtin_classes.add("Notification")
                     else:
                         raise TypecheckError(
                             f"Cannot import '{alias.name}' from '{_TYPES_MODULE}'",
@@ -5477,6 +5485,10 @@ def _resolve_imports(
                         _syscall_fn_specs.setdefault(_spec_name, _spec)
                         if isinstance(_spec.ret, ClassType):
                             _imported_builtin_classes.add(_spec.ret.name)
+                        elif isinstance(_spec.ret, ListType) and isinstance(
+                            _spec.ret.elem, ClassType
+                        ):
+                            _imported_builtin_classes.add(_spec.ret.elem.name)
                     module_names.add(local)
                 continue  # entire `from neo3.sc import ...` handled
             if node.level and node.level > 0:
@@ -5752,14 +5764,18 @@ def _extract_syscall_decorator_name(fn: ast.FunctionDef) -> Optional[str]:
     return None
 
 
-def _eval_default_expr(node: ast.expr) -> Optional[int]:
-    """Fold a function-default AST node to an integer, or return None.
+_UNRESOLVABLE = object()
 
-    Handles plain integer constants, ``FindOptions.<ATTR>``,
+
+def _eval_default_expr(node: ast.expr) -> Any:
+    """Fold a function-default AST node to its Python value, or return _UNRESOLVABLE.
+
+    Handles None, plain integer constants, ``FindOptions.<ATTR>``,
     ``CallFlags.<ATTR>``, and ``NamedCurveHash.<ATTR>`` attribute accesses.
     """
-    if isinstance(node, ast.Constant) and isinstance(node.value, int):
-        return node.value
+    if isinstance(node, ast.Constant):
+        if node.value is None or isinstance(node.value, int):
+            return node.value
     if (
         isinstance(node, ast.Attribute)
         and isinstance(node.value, ast.Name)
@@ -5781,6 +5797,7 @@ def _eval_default_expr(node: ast.expr) -> Optional[int]:
         and node.attr in _NAMED_CURVE_HASH_VALUES
     ):
         return _NAMED_CURVE_HASH_VALUES[node.attr]
+    return _UNRESOLVABLE
 
 
 def _try_fold_const_expr(
@@ -5989,10 +6006,10 @@ def _load_syscall_specs(
         ret = _resolve_simple_type(stmt.returns) if stmt.returns is not None else NONE
         n = len(params)
         d = len(stmt.args.defaults)
-        defaults: dict[int, int] = {}
+        defaults: dict[int, Any] = {}
         for i, dnode in enumerate(stmt.args.defaults):
             v = _eval_default_expr(dnode)
-            if v is not None:
+            if v is not _UNRESOLVABLE:
                 defaults[n - d + i] = v
         specs[stmt.name] = _SyscallSpec(
             hash=h,
