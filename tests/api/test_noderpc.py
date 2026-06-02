@@ -2,7 +2,7 @@ import unittest
 import base64
 from typing import Optional, Any
 import neo3crypto
-from aioresponses import aioresponses
+from aiointercept import aiointercept
 from neo3 import api
 from neo3.network.payloads import transaction, block, verification
 from neo3.core import types, cryptography
@@ -13,13 +13,13 @@ JSON = Any
 
 class TestNeoRpcClient(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
-        self.client = api.NeoRpcClient("localhost")
-        # CAREFULL THIS PATCHES ALL aiohttp CALLS!
-        self.helper = aioresponses()
-        self.helper.start()
+        
+        self.helper = aiointercept()
+        await self.helper.start()
+        self.client = api.NeoRpcClient(self.helper.server_url)
 
     async def asyncTearDown(self) -> None:
-        self.helper.stop()
+        await self.helper.stop()
         await self.client.close()
 
     def mock_response(
@@ -33,9 +33,9 @@ class TestNeoRpcClient(unittest.IsolatedAsyncioTestCase):
 
         if payload is not None:
             json = {"jsonrpc": "2.0", "id": 1, "result": payload}
-            self.helper.post("localhost", payload=json)
+            self.helper.post(self.helper.server_url, payload=json)
         else:
-            self.helper.post("localhost", exception=exc)
+            self.helper.post(self.helper.server_url, exception=exc)
 
     async def test_calculate_network_fee(self):
         self.mock_response({"networkfee": "123"})
@@ -707,7 +707,7 @@ class TestNeoRpcClient(unittest.IsolatedAsyncioTestCase):
                     "data": "bogus_data",
                 },
             }
-            self.helper.post("localhost", payload=error_response)
+            self.helper.post(self.helper.server_url, payload=error_response)
             await self.client.validate_address("abc")
         self.assertIn("-2146233086", str(context.exception))
         self.assertIn("bogus_message", str(context.exception))

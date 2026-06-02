@@ -1,6 +1,6 @@
 import unittest
 from typing import Optional, Any
-from aioresponses import aioresponses
+from aiointercept import aiointercept
 from neo3.contracts.callflags import CallFlags
 from neo3.core import types
 from neo3.api.wrappers import _check_address_and_convert, ChainFacade, GenericContract
@@ -35,11 +35,11 @@ class WrapperUtilsTest(unittest.TestCase):
 class TestChainFacade(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
         # CAREFULL THIS PATCHES ALL aiohttp CALLS!
-        self.helper = aioresponses()
-        self.helper.start()
+        self.helper = aiointercept()
+        await self.helper.start()
 
     async def asyncTearDown(self) -> None:
-        self.helper.stop()
+        await self.helper.stop()
 
     def mock_response(
         self, payload: Optional[JSON] = None, exc: Optional[Exception] = None
@@ -52,9 +52,9 @@ class TestChainFacade(unittest.IsolatedAsyncioTestCase):
 
         if payload is not None:
             json = {"jsonrpc": "2.0", "id": 1, "result": payload}
-            self.helper.post("localhost", payload=json)
+            self.helper.post(self.helper.server_url, payload=json)
         else:
-            self.helper.post("localhost", exception=exc)
+            self.helper.post(self.helper.server_url, exception=exc)
 
     async def test_receipt_retry_delay_and_timeout(self):
         user_agent = "/Neo:3.0.3/"
@@ -83,25 +83,25 @@ class TestChainFacade(unittest.IsolatedAsyncioTestCase):
             },
         }
         self.mock_response(get_version_captured)
-        facade = ChainFacade("localhost")
+        facade = ChainFacade(self.helper.server_url)
         delay, timeout = await facade._get_receipt_time_values()
         self.assertEqual(3.0, delay)
         self.assertEqual(33.0, timeout)
 
         self.mock_response(get_version_captured)
-        facade = ChainFacade("localhost", receipt_timeout=1)
+        facade = ChainFacade(self.helper.server_url, receipt_timeout=1)
         delay, timeout = await facade._get_receipt_time_values()
         self.assertEqual(3.0, delay)
         self.assertEqual(1.0, timeout)
 
         self.mock_response(get_version_captured)
-        facade = ChainFacade("localhost", receipt_retry_delay=5)
+        facade = ChainFacade(self.helper.server_url, receipt_retry_delay=5)
         delay, timeout = await facade._get_receipt_time_values()
         self.assertEqual(5.0, delay)
         self.assertEqual(35.0, timeout)
 
         self.mock_response(get_version_captured)
-        facade = ChainFacade("localhost", receipt_retry_delay=5, receipt_timeout=1)
+        facade = ChainFacade(self.helper.server_url, receipt_retry_delay=5, receipt_timeout=1)
         delay, timeout = await facade._get_receipt_time_values()
         self.assertEqual(5.0, delay)
         self.assertEqual(1.0, timeout)
