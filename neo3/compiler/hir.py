@@ -819,7 +819,14 @@ def resolve_annotation(
                 return ECPOINT
             case "Iterator":
                 return ITERATOR
-            case "FindOptions" | "CallFlags" | "NamedCurveHash":
+            case (
+                "FindOptions"
+                | "CallFlags"
+                | "NamedCurveHash"
+                | "WitnessScope"
+                | "WitnessRuleAction"
+                | "WitnessConditionType"
+            ):
                 return INT
             case "list" | "List":
                 return ListType(ANY)

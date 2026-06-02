@@ -1,5 +1,12 @@
 from typing import Optional, Any
-from neo3.sc.types import TrimmedTransaction, UInt160, ECPoint, CallFlags, Notification
+from neo3.sc.types import (
+    TrimmedTransaction,
+    UInt160,
+    ECPoint,
+    CallFlags,
+    Notification,
+    Signer,
+)
 from neo3.sc.compiletime import syscall
 
 
@@ -108,5 +115,14 @@ def get_notifications(script_hash: Optional[UInt160] = None) -> list[Notificatio
 
     Args:
         script_hash: the contract to return notifications for. Omit to get all notifications.
+    """
+    pass
+
+
+@syscall("System.Runtime.CurrentSigners")
+def get_current_signers() -> Optional[list[Signer]]:
+    """
+    Get the Signers of the current transaction,
+    or null if not related to a transaction execution (e.g. a test execution).
     """
     pass

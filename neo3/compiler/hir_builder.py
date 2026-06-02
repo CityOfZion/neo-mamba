@@ -12,6 +12,9 @@ from neo3.sc.types import (
     FindOptions as _FindOptions_enum,
     CallFlags as _CallFlags_enum,
     NamedCurveHash as _NamedCurveHash_enum,
+    WitnessScope as _WitnessScope_enum,
+    WitnessRuleAction as _WitnessRuleAction_enum,
+    WitnessConditionType as _WitnessConditionType_enum,
 )
 
 from .types import (
@@ -172,6 +175,15 @@ _CALL_FLAGS_VALUES: dict[str, int] = {
 _NAMED_CURVE_HASH_VALUES: dict[str, int] = {
     name: m.value for name, m in _NamedCurveHash_enum.__members__.items()
 }
+_WITNESS_SCOPE_VALUES: dict[str, int] = {
+    name: m.value for name, m in _WitnessScope_enum.__members__.items()
+}
+_WITNESS_RULE_ACTION_VALUES: dict[str, int] = {
+    name: m.value for name, m in _WitnessRuleAction_enum.__members__.items()
+}
+_WITNESS_CONDITION_TYPE_VALUES: dict[str, int] = {
+    name: m.value for name, m in _WitnessConditionType_enum.__members__.items()
+}
 
 
 @dataclasses.dataclass
@@ -238,6 +250,9 @@ class HIRBuilder:
         findoptions_names: Optional[set[str]] = None,
         callflags_names: Optional[set[str]] = None,
         namedcurvehash_names: Optional[set[str]] = None,
+        witnessscope_names: Optional[set[str]] = None,
+        witnessruleaction_names: Optional[set[str]] = None,
+        witnessconditiontype_names: Optional[set[str]] = None,
         module_fn_maps: Optional[dict[str, dict[str, str]]] = None,
         filename: Optional[str] = None,
     ):
@@ -273,6 +288,12 @@ class HIRBuilder:
                 ``CallFlags`` constants (enables constant folding).
             namedcurvehash_names: Set of locally imported names that refer to
                 ``NamedCurveHash`` constants (enables constant folding).
+            witnessscope_names: Set of locally imported names that refer to
+                ``WitnessScope`` constants (enables constant folding).
+            witnessruleaction_names: Set of locally imported names that refer to
+                ``WitnessRuleAction`` constants (enables constant folding).
+            witnessconditiontype_names: Set of locally imported names that refer to
+                ``WitnessConditionType`` constants (enables constant folding).
             module_fn_maps: Map from module alias to a map of Python function
                 name to mangled compiled name, used for cross-module calls.
             filename: Source file path included in ``TypecheckError`` messages.
@@ -306,6 +327,10 @@ class HIRBuilder:
         self._callflags_names: set[str] = callflags_names or set()
         # Set of local names that refer to NamedCurveHash (for constant folding)
         self._namedcurvehash_names: set[str] = namedcurvehash_names or set()
+        # Sets of local names that refer to Witness* enums (for constant folding)
+        self._witnessscope_names: set[str] = witnessscope_names or set()
+        self._witnessruleaction_names: set[str] = witnessruleaction_names or set()
+        self._witnessconditiontype_names: set[str] = witnessconditiontype_names or set()
         self._filename: Optional[str] = filename
         self._current_node: Optional[ast.AST] = None
         self._current_method_kind: str = "instance"
@@ -3092,6 +3117,24 @@ class HIRBuilder:
                 if attr_name not in _NAMED_CURVE_HASH_VALUES:
                     self._err(f"NamedCurveHash has no member '{attr_name}'")
                 return IntLiteral(_NAMED_CURVE_HASH_VALUES[attr_name])
+            case ast.Attribute(value=ast.Name(id=ws_name), attr=attr_name) if (
+                ws_name in self._witnessscope_names
+            ):
+                if attr_name not in _WITNESS_SCOPE_VALUES:
+                    self._err(f"WitnessScope has no member '{attr_name}'")
+                return IntLiteral(_WITNESS_SCOPE_VALUES[attr_name])
+            case ast.Attribute(value=ast.Name(id=wra_name), attr=attr_name) if (
+                wra_name in self._witnessruleaction_names
+            ):
+                if attr_name not in _WITNESS_RULE_ACTION_VALUES:
+                    self._err(f"WitnessRuleAction has no member '{attr_name}'")
+                return IntLiteral(_WITNESS_RULE_ACTION_VALUES[attr_name])
+            case ast.Attribute(value=ast.Name(id=wct_name), attr=attr_name) if (
+                wct_name in self._witnessconditiontype_names
+            ):
+                if attr_name not in _WITNESS_CONDITION_TYPE_VALUES:
+                    self._err(f"WitnessConditionType has no member '{attr_name}'")
+                return IntLiteral(_WITNESS_CONDITION_TYPE_VALUES[attr_name])
             # --- Module static read: abc.CONST ---
             case ast.Attribute(value=ast.Name(id=mod_name), attr=attr) if (
                 self._module_names
@@ -3704,11 +3747,14 @@ class HIRBuilder:
                     temp_slot=self._alloc_temp(f"inst_{name}", inst_type),
                 )
 
-            # --- IntEnum constructor: FindOptions(x), CallFlags(x), NamedCurveHash(x) → int identity ---
+            # --- IntEnum constructor: FindOptions(x), CallFlags(x), NamedCurveHash(x), Witness*(x) → int identity ---
             case ast.Call(func=ast.Name(id=name), args=[single_arg]) if name in (
                 "FindOptions",
                 "CallFlags",
                 "NamedCurveHash",
+                "WitnessScope",
+                "WitnessRuleAction",
+                "WitnessConditionType",
             ):
                 val = self._visit_expr(single_arg)
                 if not _type_compatible(val.type, INT, self._class_registry):
@@ -4759,6 +4805,9 @@ def _load_module_stmts(
     findoptions_names: Optional[set[str]] = None,
     callflags_names: Optional[set[str]] = None,
     namedcurvehash_names: Optional[set[str]] = None,
+    witnessscope_names: Optional[set[str]] = None,
+    witnessruleaction_names: Optional[set[str]] = None,
+    witnessconditiontype_names: Optional[set[str]] = None,
     syscall_fn_specs: Optional[dict[str, "_SyscallSpec"]] = None,
     syscall_module_fn_specs: Optional[dict[str, "dict[str, _SyscallSpec]"]] = None,
     caller_lineno: Optional[int] = None,
@@ -4826,6 +4875,9 @@ def _load_module_stmts(
         findoptions_names=findoptions_names,
         callflags_names=callflags_names,
         namedcurvehash_names=namedcurvehash_names,
+        witnessscope_names=witnessscope_names,
+        witnessruleaction_names=witnessruleaction_names,
+        witnessconditiontype_names=witnessconditiontype_names,
         syscall_fn_specs=syscall_fn_specs,
         syscall_module_fn_specs=syscall_module_fn_specs,
         filename=abs_path,
@@ -4885,6 +4937,9 @@ def _resolve_imports(
     findoptions_names: Optional[set[str]] = None,
     callflags_names: Optional[set[str]] = None,
     namedcurvehash_names: Optional[set[str]] = None,
+    witnessscope_names: Optional[set[str]] = None,
+    witnessruleaction_names: Optional[set[str]] = None,
+    witnessconditiontype_names: Optional[set[str]] = None,
     dn_names: Optional[set[str]] = None,
     cf_dec_names: Optional[set[str]] = None,
     manifest_cls_names: Optional[set[str]] = None,
@@ -4950,6 +5005,15 @@ def _resolve_imports(
     _callflags_names = callflags_names if callflags_names is not None else set()
     _namedcurvehash_names = (
         namedcurvehash_names if namedcurvehash_names is not None else set()
+    )
+    _witnessscope_names = (
+        witnessscope_names if witnessscope_names is not None else set()
+    )
+    _witnessruleaction_names = (
+        witnessruleaction_names if witnessruleaction_names is not None else set()
+    )
+    _witnessconditiontype_names = (
+        witnessconditiontype_names if witnessconditiontype_names is not None else set()
     )
     _dn_names = dn_names if dn_names is not None else set()
     _cf_dec_names = cf_dec_names if cf_dec_names is not None else set()
@@ -5041,6 +5105,9 @@ def _resolve_imports(
             findoptions_names=_findoptions_names,
             callflags_names=_callflags_names,
             namedcurvehash_names=_namedcurvehash_names,
+            witnessscope_names=_witnessscope_names,
+            witnessruleaction_names=_witnessruleaction_names,
+            witnessconditiontype_names=_witnessconditiontype_names,
             syscall_fn_specs=_syscall_fn_specs,
             syscall_module_fn_specs=_syscall_module_fn_specs,
             caller_lineno=lineno,
@@ -5078,6 +5145,9 @@ def _resolve_imports(
             findoptions_names=_findoptions_names,
             callflags_names=_callflags_names,
             namedcurvehash_names=_namedcurvehash_names,
+            witnessscope_names=_witnessscope_names,
+            witnessruleaction_names=_witnessruleaction_names,
+            witnessconditiontype_names=_witnessconditiontype_names,
             syscall_fn_specs=_syscall_fn_specs,
             syscall_module_fn_specs=_syscall_module_fn_specs,
             stmts_registry=stmts_registry,
@@ -5119,6 +5189,9 @@ def _resolve_imports(
             findoptions_names=_findoptions_names,
             callflags_names=_callflags_names,
             namedcurvehash_names=_namedcurvehash_names,
+            witnessscope_names=_witnessscope_names,
+            witnessruleaction_names=_witnessruleaction_names,
+            witnessconditiontype_names=_witnessconditiontype_names,
             syscall_fn_specs=_syscall_fn_specs,
             syscall_module_fn_specs=_syscall_module_fn_specs,
             stmts_registry=stmts_registry,
@@ -5212,6 +5285,21 @@ def _resolve_imports(
                     if as_name != orig:
                         _namedcurvehash_names.discard(orig)
                         _namedcurvehash_names.add(as_name)
+                    continue
+                if orig in _witnessscope_names:
+                    if as_name != orig:
+                        _witnessscope_names.discard(orig)
+                        _witnessscope_names.add(as_name)
+                    continue
+                if orig in _witnessruleaction_names:
+                    if as_name != orig:
+                        _witnessruleaction_names.discard(orig)
+                        _witnessruleaction_names.add(as_name)
+                    continue
+                if orig in _witnessconditiontype_names:
+                    if as_name != orig:
+                        _witnessconditiontype_names.discard(orig)
+                        _witnessconditiontype_names.add(as_name)
                     continue
                 raise TypecheckError(
                     f"Cannot import '{orig}' from '{mod_key}': name not found",
@@ -5342,6 +5430,12 @@ def _resolve_imports(
                             spec.ret.elem, ClassType
                         ):
                             _imported_builtin_classes.add(spec.ret.elem.name)
+                        elif (
+                            isinstance(spec.ret, OptionalType)
+                            and isinstance(spec.ret.inner, ListType)
+                            and isinstance(spec.ret.inner.elem, ClassType)
+                        ):
+                            _imported_builtin_classes.add(spec.ret.inner.elem.name)
                     elif alias.name in full_stmts_by_name:
                         # Regular function with a real body — bundle it.
                         fn_stmt: ast.FunctionDef = full_stmts_by_name[alias.name]
@@ -5423,6 +5517,24 @@ def _resolve_imports(
                         _imported_builtin_classes.add("ContractState")
                     elif alias.name == "Notification":
                         _imported_builtin_classes.add("Notification")
+                    elif alias.name == "Signer":
+                        _imported_builtin_classes.add("Signer")
+                    elif alias.name == "WitnessRule":
+                        _imported_builtin_classes.add("WitnessRule")
+                    elif alias.name == "WitnessCondition":
+                        _imported_builtin_classes.add("WitnessCondition")
+                    elif alias.name == "WitnessScope":
+                        _witnessscope_names.add(
+                            alias.asname if alias.asname else alias.name
+                        )
+                    elif alias.name == "WitnessRuleAction":
+                        _witnessruleaction_names.add(
+                            alias.asname if alias.asname else alias.name
+                        )
+                    elif alias.name == "WitnessConditionType":
+                        _witnessconditiontype_names.add(
+                            alias.asname if alias.asname else alias.name
+                        )
                     else:
                         raise TypecheckError(
                             f"Cannot import '{alias.name}' from '{_TYPES_MODULE}'",
@@ -5489,6 +5601,12 @@ def _resolve_imports(
                             _spec.ret.elem, ClassType
                         ):
                             _imported_builtin_classes.add(_spec.ret.elem.name)
+                        elif (
+                            isinstance(_spec.ret, OptionalType)
+                            and isinstance(_spec.ret.inner, ListType)
+                            and isinstance(_spec.ret.inner.elem, ClassType)
+                        ):
+                            _imported_builtin_classes.add(_spec.ret.inner.elem.name)
                     module_names.add(local)
                 continue  # entire `from neo3.sc import ...` handled
             if node.level and node.level > 0:
@@ -5627,6 +5745,21 @@ def _resolve_imports(
                             if as_name != orig:
                                 _namedcurvehash_names.discard(orig)
                                 _namedcurvehash_names.add(as_name)
+                            continue
+                        if orig in _witnessscope_names:
+                            if as_name != orig:
+                                _witnessscope_names.discard(orig)
+                                _witnessscope_names.add(as_name)
+                            continue
+                        if orig in _witnessruleaction_names:
+                            if as_name != orig:
+                                _witnessruleaction_names.discard(orig)
+                                _witnessruleaction_names.add(as_name)
+                            continue
+                        if orig in _witnessconditiontype_names:
+                            if as_name != orig:
+                                _witnessconditiontype_names.discard(orig)
+                                _witnessconditiontype_names.add(as_name)
                             continue
                         raise TypecheckError(
                             f"Cannot import '{orig}' from '{mod_key}': name not found",

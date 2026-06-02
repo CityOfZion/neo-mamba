@@ -242,6 +242,75 @@ _NOTIFICATION_CLASS_INFO = ClassInfo(
     ),
 )
 
+_WITNESS_CONDITION_FIELDS: dict[str, FieldInfo] = {
+    "type": FieldInfo(name="type", index=0, type=INT),
+}
+_WITNESS_CONDITION_CLASS_INFO = ClassInfo(
+    name="WitnessCondition",
+    bases=[],
+    class_mro=[],
+    fields=_WITNESS_CONDITION_FIELDS,
+    methods={},
+    class_vars={},
+    total_fields=1,
+    ast_node=ast.ClassDef(
+        name="WitnessCondition",
+        bases=[],
+        keywords=[],
+        body=[ast.Pass()],
+        decorator_list=[],
+    ),
+)
+
+_WITNESS_RULE_FIELDS: dict[str, FieldInfo] = {
+    "action": FieldInfo(name="action", index=0, type=INT),
+    "condition": FieldInfo(
+        name="condition", index=1, type=ClassType("WitnessCondition")
+    ),
+}
+_WITNESS_RULE_CLASS_INFO = ClassInfo(
+    name="WitnessRule",
+    bases=[],
+    class_mro=[],
+    fields=_WITNESS_RULE_FIELDS,
+    methods={},
+    class_vars={},
+    total_fields=2,
+    ast_node=ast.ClassDef(
+        name="WitnessRule",
+        bases=[],
+        keywords=[],
+        body=[ast.Pass()],
+        decorator_list=[],
+    ),
+)
+
+_SIGNER_FIELDS: dict[str, FieldInfo] = {
+    "account": FieldInfo(name="account", index=0, type=UINT160),
+    "scopes": FieldInfo(name="scopes", index=1, type=INT),
+    "allowed_contracts": FieldInfo(
+        name="allowed_contracts", index=2, type=ListType(UINT160)
+    ),
+    "allowed_groups": FieldInfo(name="allowed_groups", index=3, type=ListType(ECPOINT)),
+    "rules": FieldInfo(name="rules", index=4, type=ListType(ClassType("WitnessRule"))),
+}
+_SIGNER_CLASS_INFO = ClassInfo(
+    name="Signer",
+    bases=[],
+    class_mro=[],
+    fields=_SIGNER_FIELDS,
+    methods={},
+    class_vars={},
+    total_fields=5,
+    ast_node=ast.ClassDef(
+        name="Signer",
+        bases=[],
+        keywords=[],
+        body=[ast.Pass()],
+        decorator_list=[],
+    ),
+)
+
 
 def _type_to_contract_param(t: Type) -> ContractParameterType:
     if t is INT:
@@ -297,6 +366,9 @@ def _compile_full(
     findoptions_names: set[str] = set()
     callflags_names: set[str] = set()
     namedcurvehash_names: set[str] = set()
+    witnessscope_names: set[str] = set()
+    witnessruleaction_names: set[str] = set()
+    witnessconditiontype_names: set[str] = set()
     dn_names: set[str] = set()
     cf_dec_names: set[str] = set()
     manifest_cls_names: set[str] = set()
@@ -316,6 +388,9 @@ def _compile_full(
             findoptions_names=findoptions_names,
             callflags_names=callflags_names,
             namedcurvehash_names=namedcurvehash_names,
+            witnessscope_names=witnessscope_names,
+            witnessruleaction_names=witnessruleaction_names,
+            witnessconditiontype_names=witnessconditiontype_names,
             dn_names=dn_names,
             cf_dec_names=cf_dec_names,
             manifest_cls_names=manifest_cls_names,
@@ -368,6 +443,12 @@ def _compile_full(
         class_registry["TrimmedBlock"] = _TRIMMED_BLOCK_CLASS_INFO
     if "Notification" in imported_builtin_classes:
         class_registry["Notification"] = _NOTIFICATION_CLASS_INFO
+    if "WitnessCondition" in imported_builtin_classes:
+        class_registry["WitnessCondition"] = _WITNESS_CONDITION_CLASS_INFO
+    if "WitnessRule" in imported_builtin_classes:
+        class_registry["WitnessRule"] = _WITNESS_RULE_CLASS_INFO
+    if "Signer" in imported_builtin_classes:
+        class_registry["Signer"] = _SIGNER_CLASS_INFO
 
     fn_nodes = [n for n in tree.body if isinstance(n, ast.FunctionDef)]
 
@@ -701,6 +782,9 @@ def _compile_full(
             findoptions_names=findoptions_names,
             callflags_names=callflags_names,
             namedcurvehash_names=namedcurvehash_names,
+            witnessscope_names=witnessscope_names,
+            witnessruleaction_names=witnessruleaction_names,
+            witnessconditiontype_names=witnessconditiontype_names,
             module_fn_maps=module_fn_maps,
             filename=fn_filename,
         ).build(fn_node)
@@ -732,6 +816,9 @@ def _compile_full(
                 findoptions_names=findoptions_names,
                 callflags_names=callflags_names,
                 namedcurvehash_names=namedcurvehash_names,
+                witnessscope_names=witnessscope_names,
+                witnessruleaction_names=witnessruleaction_names,
+                witnessconditiontype_names=witnessconditiontype_names,
                 module_fn_maps=module_fn_maps,
                 filename=fn_filename,
             ).build_method(mi.ast_node, mi.kind)
