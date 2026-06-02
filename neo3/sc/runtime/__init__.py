@@ -120,9 +120,8 @@ def get_notifications(script_hash: Optional[UInt160] = None) -> list[Notificatio
 
 
 @syscall("System.Runtime.CurrentSigners")
-def get_current_signers() -> Optional[list[Signer]]:
+def get_current_signers() -> list[Signer]:
     """
-    Get the Signers of the current transaction,
-    or null if not related to a transaction execution (e.g. a test execution).
+    Get the Signers of the current transaction.
     """
     pass

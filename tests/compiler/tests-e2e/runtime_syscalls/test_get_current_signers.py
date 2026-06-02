@@ -38,9 +38,6 @@ class TestGetCurrentSigners(SmartContractTestCase):
         super().tearDownClass()
 
     async def test_get_current_signers_test_invoke(self) -> None:
-        # NeoGo includes a synthetic signer in test invocations (https://github.com/nspcc-dev/neo-go/issues/4290)
-        # On a standard Neo node without a transaction context this returns Null.
-        # TODO: update once neo-go is fixed
         result, _ = await self.call("signers", return_type=RawStack)
         self.assertEqual(1, len(result))
         signers = result[0].as_list()
