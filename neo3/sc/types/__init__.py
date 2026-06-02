@@ -1,6 +1,6 @@
 from neo3.api import StackItem, StackItemType
 from enum import IntEnum, IntFlag
-from typing import Any
+from typing import Any, Optional
 
 
 class FindOptions(IntFlag):
@@ -253,3 +253,121 @@ class Notification:
         self.script_hash: UInt160 = UInt160()
         self.event_name: str = ""
         self.state: list = []
+
+
+class WitnessRuleAction(IntEnum):
+    """
+    Witness rule execution.
+    """
+
+    DENY = 0
+    ALLOW = 1
+
+
+class WitnessRule:
+    """
+    Represents a witness rule.
+    """
+
+    def __init__(self):
+        self.action: WitnessRuleAction = WitnessRuleAction.DENY
+        self.condition: WitnessCondition = WitnessCondition()
+
+    @classmethod
+    def from_stackitem(cls, si: StackItem) -> "WitnessRule":
+        if si.type != StackItemType.ARRAY:
+            raise ValueError(
+                f"item is not of type '{StackItemType.ARRAY}' but of type '{si.type}'"
+            )
+        items = si.value
+        r = cls()
+        r.action = WitnessRuleAction(items[0].as_int())
+        r.condition = WitnessCondition.from_stackitem(items[1])
+        return r
+
+
+class WitnessConditionType(IntEnum):
+    """
+    Type of valid witness conditions.
+    """
+
+    BOOLEAN = 0x0
+    NOT = 0x01
+    AND = 0x2
+    OR = 0x03
+    SCRIPT_HASH = 0x18
+    GROUP = 0x19
+    CALLED_BY_ENTRY = 0x20
+    CALLED_BY_CONTRACT = 0x28
+    CALLED_BY_GROUP = 0x29
+
+
+class WitnessCondition:
+    """
+    Represents a witness condition.
+
+    """
+
+    def __init__(self):
+        self.type: WitnessConditionType = WitnessConditionType.BOOLEAN
+
+    @classmethod
+    def from_stackitem(cls, si: StackItem) -> "WitnessCondition":
+        if si.type != StackItemType.ARRAY:
+            raise ValueError(
+                f"item is not of type '{StackItemType.ARRAY}' but of type '{si.type}'"
+            )
+        items = si.value
+        c = cls()
+        c.type = WitnessConditionType(items[0].as_int())
+        return c
+
+
+class WitnessScope(IntFlag):
+    """
+    Flags that determine where in the system the signature is valid. Used by `CheckWitness()` sys call.
+    """
+
+    #: No Contract was witnessed. Only sign the transaction.
+    NONE = 0x0
+    #: Allow the witness if the current calling script hash equals the entry script hash into the virtual machine.
+    #: Using this prevents passing `CheckWitness()` in a smart contract called via another smart contract.
+    CALLED_BY_ENTRY = 0x01
+    #: Allow the witness if called from a smart contract that is whitelisted in the signer `allowed_contracts`
+    #: attribute.
+    CUSTOM_CONTRACTS = 0x10
+    #: Allow the witness if any public key is in the signer `allowed_groups` attribute is whitelisted in the contracts
+    #: manifest.groups array.
+    CUSTOM_GROUPS = 0x20
+    #: Allow the witness if the specified `Signer.rules` are satisfied
+    WITNESS_RULES = 0x40
+    #: Allow the witness in all context. Equal to NEO 2.x's default behaviour.
+    GLOBAL = 0x80
+
+
+class Signer:
+    """
+    A class that specifies the rules of who can pass `CheckWitness()` verifications in a smart contract.
+    """
+
+    def __init__(self):
+        self.account: UInt160 = UInt160()
+        self.scopes: WitnessScope = WitnessScope.NONE
+        self.allowed_contracts: list[UInt160] = []
+        self.allowed_groups: list[ECPoint] = []
+        self.rules: list[WitnessRule] = []
+
+    @classmethod
+    def from_stackitem(cls, si: StackItem) -> "Signer":
+        if si.type != StackItemType.ARRAY:
+            raise ValueError(
+                f"item is not of type '{StackItemType.ARRAY}' but of type '{si.type}'"
+            )
+        items = si.value
+        s = cls()
+        s.account = UInt160(items[0].as_bytes())
+        s.scopes = WitnessScope(items[1].as_int())
+        s.allowed_contracts = [UInt160(c.as_bytes()) for c in items[2].as_list()]
+        s.allowed_groups = [ECPoint(g.as_bytes()) for g in items[3].as_list()]
+        s.rules = [WitnessRule.from_stackitem(r) for r in items[4].as_list()]
+        return s
