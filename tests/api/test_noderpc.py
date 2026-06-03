@@ -13,7 +13,7 @@ JSON = Any
 
 class TestNeoRpcClient(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
-        
+
         self.helper = aiointercept()
         await self.helper.start()
         self.client = api.NeoRpcClient(self.helper.server_url)

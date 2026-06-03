@@ -101,7 +101,9 @@ class TestChainFacade(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(35.0, timeout)
 
         self.mock_response(get_version_captured)
-        facade = ChainFacade(self.helper.server_url, receipt_retry_delay=5, receipt_timeout=1)
+        facade = ChainFacade(
+            self.helper.server_url, receipt_retry_delay=5, receipt_timeout=1
+        )
         delay, timeout = await facade._get_receipt_time_values()
         self.assertEqual(5.0, delay)
         self.assertEqual(1.0, timeout)
