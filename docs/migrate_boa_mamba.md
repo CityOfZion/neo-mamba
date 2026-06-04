@@ -96,9 +96,11 @@ i = int.from_bytes(b'\x01', 'little')
 ```
 
 ## sc.runtime
+The following describes changes specific to the `neo3.sc.runtime` package.
 
 ### script values
 Renamed and turned into functions instead of builtins
+
 **old**
 ```python
 calling_script_hash
@@ -117,8 +119,8 @@ get_script_container()
 
 ### various
 Renamed and turned into functions instead of builtins
-`time` -> `get_time()`
-`invocation_counter` -> `get_invocation_counter()`
+- `time` -> `get_time()`
+- `invocation_counter` -> `get_invocation_counter()`
 
 # storage
 Storage `get()` now returns `Optional[bytes]`. 
