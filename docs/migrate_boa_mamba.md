@@ -107,11 +107,6 @@ executing_script_hash
 script_container
 ```
 
-### various
-Renamed and turned into functions instead of builtins
-`time` -> `get_time()`
-`invocation_counter` -> `get_invocation_counter()`
-
 **new**
 ```python
 get_calling_script_hash()
@@ -119,6 +114,11 @@ get_entry_script_hash()
 get_executing_script_hash()
 get_script_container()
 ```
+
+### various
+Renamed and turned into functions instead of builtins
+`time` -> `get_time()`
+`invocation_counter` -> `get_invocation_counter()`
 
 # storage
 Storage `get()` now returns `Optional[bytes]`. 
