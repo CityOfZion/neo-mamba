@@ -17,6 +17,10 @@ class FindOptions(IntFlag):
 
 
 class UInt160:
+    """
+    Represents a unique identifier for a Smart contract or regular account.
+    """
+
     def __init__(self, data: bytes = b""):
         self.data = data
 
@@ -36,6 +40,10 @@ class UInt160:
 
 
 class UInt256:
+    """
+    Represents a unique identifier for a Transaction or Block.
+    """
+
     def __init__(self, data: bytes = b""):
         self.data = data
 
@@ -135,7 +143,9 @@ class NeoAccountState:
 
 
 class ContractState:
-    """ """
+    """
+    Represents a smart contract on chain.
+    """
 
     def __init__(self):
         self.id: int = 0
@@ -208,7 +218,7 @@ class NamedCurveHash(IntEnum):
 
 class TrimmedBlock:
     """
-    Represents a Trimmedblock.
+    Represents a TrimmedBlock.
 
     For more details, see:
     https://developers.neo.org/docs/n3/foundation/Blocks
@@ -305,7 +315,6 @@ class WitnessConditionType(IntEnum):
 class WitnessCondition:
     """
     Represents a witness condition.
-
     """
 
     def __init__(self):

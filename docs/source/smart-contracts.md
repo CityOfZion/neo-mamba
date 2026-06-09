@@ -1,19 +1,19 @@
 # Smart contracts
 
-This document explains how to work with smart contracts. First we'll establish the mental model of working with 
+This document explains how to interact with smart contracts. First we'll establish the mental model of working with 
 blockchains. If you are already familiar with the NEO blockchain or talking to smart contracts on blockchains in general 
-you can go directly to the [interaction section](#interacting-with-smart-contracts). Next we'll look have a what comes 
+you can go directly to the [interaction section](#interacting-with-smart-contracts). Next we'll look at what comes 
 in to play in a basic smart contract interaction. Followed by that we build an understanding of how the wrappers work 
 before diving into the breakdown of a NEP-17 token transfer where all learned comes together.
 
 After reading this chapter you'll have an understanding of the major components involved in interacting with smart 
 contracts. You be able to do all common interactions with a smart contract of choice and have the foundational knowledge 
-that allows you to follow the [examples](https://github.com/CityOfZion/neo-mamba/tree/master/examples) on the Github repo.
+that allows you to follow the [examples](https://github.com/CityOfZion/neo-mamba/tree/master/examples) on the GitHub repo.
 
 ## What are smart contracts?
 
 Smart contracts are nothing more than programs of which the compiled code is stored on the blockchain. They 
-expose a public API which you can call to execute its functions, whether that be transfering
+expose a public API which you can call to execute its functions, whether that be transferring
 tokens, executing some algorithm or just reading stored data is up to the contract author. It is important to realise
 that the smart contract code does not live on your machine and is executed on a remote network (the blockchain). 
 
@@ -62,14 +62,14 @@ modifying transactions will be discussed. We'll also learn how to sign and pay t
 choice. For now let's first get a greater understanding of the various wrappers that exist.
 
 
-## Contract wrappers
+### Contract wrappers
 The smart contract wrappers are a key component in simplifying smart contract interaction. Like the facade they live in 
 the `neo3.api.wrappers` module. The NEO blockchain has a few native contracts build into the chain such as the NEO and 
 GAS tokens, but also contracts providing information regarding the chain configuration like the 
 [PolicyContract](https://github.com/neo-project/neo/blob/77ee2cc5b6ea371efdf3be506b173c6304b0fc01/src/Neo/SmartContract/Native/PolicyContract.cs#L22).
 For these kind of contracts specialised wrappers exist like `NeoToken`, `GasToken`, `PolicyContract` and `RoleContract`.
 
-### Types of smart contracts
+#### Types of smart contracts
 Technically speaking there are no types of smart contracts. However, they can implement standards that give 
 them compartalisable behaviour. For example implementing [NEP-11](https://github.com/neo-project/proposals/blob/master/nep-11.mediawiki) 
 gives NFT like behaviour, [NEP-17](https://github.com/neo-project/proposals/blob/master/nep-17.mediawiki) gives 
@@ -94,7 +94,7 @@ contract exposes additional functions beyond those from the standard then there 
 Lastly, if none of the existing wrappers suit the contract use `GenericContract` or better create your own wrapper on 
 top of `GenericContract`. 
 
-### Hierarchy
+#### Hierarchy
 
 In the previous section we described the various wrapper classes that can be used from most specialised to most generic. 
 The diagram below shows the structure
@@ -104,7 +104,7 @@ The diagram below shows the structure
 * Yellow are the most specialised wrappers.
 * White are building blocks and not intended to be used on their own. They are shown to make the picture complete.
 
-## Modifying chain state
+### Modifying chain state
 This section shows what it takes to modify chain state, specifically we'll show how to transfer a NEP-17 token (NEO) and 
 break down the steps and options.
 
@@ -118,7 +118,7 @@ State modifications always need to be communicated to the network using a [Trans
 This container will hold the `script` that executes the `transfer` action, signatures for 
 approval of the modification and has GAS attached to pay for the verification and execution fees. 
 
-### NEP-17 transfer example
+#### NEP-17 transfer example
 Let's see how this looks in code and then break it down line-by-line.
 ```py3
 import asyncio
@@ -146,7 +146,7 @@ async def main():
 if __name__ == "__main__":
     asyncio.run(main())
 ```
-#### Wallet account setup
+##### Wallet account setup
 Skipping the imports, startup boilerplate code and NeoToken wrapper creation (that we've seen before) we start here
 ```py3 linenums="11"
 wallet = Wallet.from_file("./path_to/mywallet.json")
@@ -160,7 +160,7 @@ wallet that we'll load from disk.
 !!! tip
     If you want to learn upfront how much gas a transaction will cost then use the `estimate_gas()` helper on the facade.
 
-#### Facade setup
+##### Facade setup
 Next up is setting up and configuring the facade to automatically sign our transaction(s).
 ```py3 linenums="14"
 facade = ChainFacade.node_provider_mainnet()
@@ -194,7 +194,7 @@ by the NSPCC.
     to limit the scope. This is useful if you want to realistically simulate your state changing calls.
     2. You can add multiple signers. The first signer added is considerd the `sender` and will pay for the fees.
 
-#### Invoke & receipt
+##### Invoke & receipt
 Now that we're done with the preparation we can perform the actual transfer.
 ```py3 linenums="21"
 print(await facade.invoke(neo.transfer(account.address, destination, 10)))
@@ -233,3 +233,191 @@ InvokeReceipt(
 !!! tip 
     If you would like to return immediatly and not wait for a receipt use `invoke_fast()` instead of `invoke()`. 
     This will return a transaction id.
+
+## Writing smart contracts
+
+The SDK includes a compiler that allows you to write smart contracts in a Python like language. What does "Python-like" mean?
+It looks like Python, it feels like Python but in reality it is a subset of Python that fits within the limitations of the 
+target blockchain. The key differences are as follows
+
+1. Only `int` support, no `float`s
+2. No `async` support
+3. All function signatures must be typed (both params and return value)
+4. No 3rd party imports besides from the `neo3.sc` package
+5. No `set()` support
+
+There are a few more smaller limitations that you might or might not encounter. If you do, the compiler will explain so
+in the error message.
+
+### Your first contract
+
+In the sample below we persist the value `Hello World` in the contract storage which can be retrieved at a later time.
+
+
+```py3 title="hello_world.py"
+from neo3.sc.compiletime import public
+from neo3.sc import storage
+
+
+@public
+def save_hello_world() ->  None:
+    storage.put(b'key', bytes("Hello World", encoding="utf-8"))
+
+@public
+def get_hello_world() -> str:
+    v = storage.get(b'key')
+    if v is None:
+        raise ValueError("Key not found! Call save_hello_world() first")
+    return str(v)
+```
+
+!!! note
+    Compile the code with `neo3-compile hello_world.py`.
+
+Let's unpack the example. The `@public` decorator tells the compiler that the function should be made callable from the 
+outside world. In the example `save_hello_world` and `get_hello_world` are the function names that will be exposed via a
+file called the manifest. This manifest is stored on the blockchain and tells what functions are public, what parameters
+they expect, what notifications it might emit etc.
+
+Smart contract storage is a key-value store. Here we hard code a key and a value for demonstration purposes. 
+```py3 linenums="7"
+    storage.put(b'key', bytes("Hello World", encoding="utf-8"))
+```
+All values must be bytes. That also means that upon retrieval we must convert them back as seen in line `14`. Had we not
+done that the compiler would complain with
+```shell linenums="0"
+line 14, col 12: Return type mismatch: expected str, got bytes
+```
+
+### _deploy
+
+The `_deploy` callback is a special method called upon first deployment or upon updating the smart contract on-chain. 
+The details are described in [NEP-29](https://github.com/neo-project/proposals/blob/master/nep-29.mediawiki).
+
+Rewriting the `hello_world` contract using this new functionality it becomes
+
+```py3 title="hello_world.py"
+from typing import Any
+from neo3.sc.compiletime import public
+from neo3.sc import storage
+
+
+@public
+def _deploy(data: Any, update: bool) ->  None:
+    storage.put(b'key', bytes("Hello World", encoding="utf-8"))
+
+@public
+def set_message(msg: str) -> None:
+    storage.put(b'key', bytes(msg, encoding="utf-8"))
+
+@public
+def get_message() -> str:
+    v = storage.get(b'key')
+    if v is None:
+        return ""
+    return str(v)
+```
+
+Now when the contract is first deployed the message `Hello World` will be stored. The message can be updated using 
+`set_message()` or retrieved using `get_message()`.
+
+!!! tip
+    The `update` param will be set to `true` when deploying a new version of the contract.
+
+### Examples
+
+The compiler's [E2E tests](https://github.com/CityOfZion/neo-mamba/tree/master/tests/compiler/tests-e2e) contain many smart contract
+examples for all the supported language features. More extensive examples such as a NEP-11 or NEP-17 Token will be added in the future.
+
+### Testing
+
+A smart contract testing framework is available via the `neo3.sctesting` package. It provides a test class derived from
+`unittest.IsolatedAsyncioTestCase` which spins up an in-memory [neo-go node](https://github.com/nspcc-dev/neo-go/) in the background to run tests
+against ensuring the results are the same as on the real network.
+
+#### Testing hello_world.py
+
+The code below tests the hello world contract. Perhaps try to run it, but be aware there is a (common) mistake. We'll solve
+that in the dissection that follows.
+
+```py3 title="test_hello_world.py"
+import asyncio
+from pathlib import Path
+from neo3.sctesting import SmartContractTestCase
+from neo3.compiler import compile_to_nef
+
+HERE = Path(__file__).parent
+source = (HERE / "hello_world.py")
+output = str(HERE / "hello_world")
+
+class TestAbort(SmartContractTestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        super().setUpClass()
+        asyncio.run(cls.asyncSetupClass())
+
+    @classmethod
+    async def asyncSetupClass(cls) -> None:
+        compile_to_nef(source.read_text(),output)
+        cls.genesis = cls.node.wallet.account_get_by_label("committee")
+        cls.contract_hash, _ = await cls.deploy(output + ".nef", cls.genesis)
+
+    async def test_get_message(self) -> None:
+        result, _ = await self.call("get_message", return_type=str)
+        self.assertEqual("Hello World", result)
+
+    async def test_set_message(self) -> None:
+        new_message = "Hello You"
+        await self.call("set_message", [new_message], return_type=None)
+        result, _ = await self.call("get_message", return_type=str)
+        self.assertEqual(new_message, result)
+```
+
+The first 14 lines are mandatory imports and boilerplate code. Let us start with
+```py3 linenums="16"
+    @classmethod
+    async def asyncSetupClass(cls) -> None:
+        compile_to_nef(source.read_text(),output)
+        cls.genesis = cls.node.wallet.account_get_by_label("committee")
+        cls.contract_hash, _ = await cls.deploy(output + ".nef", cls.genesis)
+```
+We start with a one time compilation of the source contract to a `.nef` file (a compiled smart contract) at line `18`.
+At line `20` that compiled contract is deployed to the in-memory running node. A deployment returns a unique identifier
+at which the contract can be reached, **assigning this to `cls.contract_hash` is critical**. After this point we can 
+start interacting with the contract.
+
+```py3 linenums="22"
+    async def test_get_message(self) -> None:
+        result, _ = await self.call("get_message", return_type=str)
+        self.assertEqual("Hello World", result)
+```
+This is the first test case where we test that the initial deployment correctly saved "Hello World" to the contract storage.
+The `self.call` is where we interact with the deployed smart contract (the one assigned to `cls.contract_hash`).
+
+!!! tip
+
+    If you want to call another contract specify the contract hash in the `target_contract` parameter of `call()`.
+
+The first argument is the function to call on the smart contract. We must add a `return_type`. 
+Set this to the native type you expect `get_message()` to return. Unfortunately there is a disconnect and some ambiguity 
+w.r.t. type information stored in the manifest, therefore `call()` needs some manual help such that the return value is 
+correctly converted.
+
+The next case tests setting a new message in the contract storage. This test case currently fails due to a common error.
+
+```py3 linenums="26"
+    async def test_set_message(self) -> None:
+        new_message = "Hello You"
+        await self.call("set_message", [new_message], return_type=None)
+        result, _ = await self.call("get_message", return_type=str)
+        self.assertEqual(new_message, result)
+```
+
+In order to persist storage you must sign a transaction. By default, the framework will use test transactions (non-persisting). 
+This works fine for reading state such as done in the first test case. In order to fix this test we must add a transaction
+signer via the `signing_accounts` as follows
+```py3
+await self.call("set_message", [new_message], return_type=None, signing_accounts=[self.genesis])
+```
+
+Try running the test again. This time it should pass.

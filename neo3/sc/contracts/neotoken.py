@@ -19,30 +19,12 @@ class NeoToken:
 
     @staticmethod
     def symbol() -> str:
-        """
-        Get the symbol of NEO.
-
-        Example:
-            >>> NeoToken.symbol()
-            'NEO'
-
-        Returns:
-            str: The NEO symbol.
-        """
+        """Get the token symbol"""
         pass
 
     @staticmethod
     def decimals() -> int:
-        """
-        Gets the number of decimals used by NEO.
-
-        Example:
-            >>> NeoToken.decimals()
-            0
-
-        Returns:
-            int: The number of decimals.
-        """
+        """Get the number of supported decimals."""
         pass
 
     @staticmethod
@@ -50,13 +32,6 @@ class NeoToken:
     def total_supply() -> int:
         """
         Get the total token supply deployed in the system.
-
-        Example:
-            >>> NeoToken.total_supply()
-            100000000
-
-        Returns:
-            int: The total token supply.
         """
         pass
 
@@ -64,17 +39,7 @@ class NeoToken:
     @display_name("balanceOf")
     def balance_of(account: UInt160) -> int:
         """
-        Get the current balance of an address.
-
-        Example:
-            >>> NeoToken.balance_of(UInt160(bytes(20)))
-            0
-
-        Args:
-            account (UInt160): The account address.
-
-        Returns:
-            int: The account balance.
+        Get the token balance for the given `account`.
         """
         pass
 
@@ -83,22 +48,14 @@ class NeoToken:
         from_address: UInt160, to_address: UInt160, amount: int, data: Any = None
     ) -> bool:
         """
-        Transfer the amount of NEO from one account to another.
-
-        If successful, this method fires the `Transfer` event and returns True,
+        Move `amount` of tokens from `from_account` to `to_account`. If successful a `Transfer` event is emitted
         even if the amount is 0 or the sender and receiver are the same.
 
-        Args:
-            from_address (UInt160): The sender's address.
-            to_address (UInt160): The receiver's address.
-            amount (int): The amount of NEO to transfer.
-            data (Any, optional): Additional data for the `onNEP17Payment` method.
-
         Returns:
-            bool: True if the transfer was successful, False otherwise.
+            `True` if successful.
 
-        Raises:
-            Exception: If address lengths are invalid or amount is negative.
+        Note:
+            If `to_account` is a smart contract with a `onNEP17Payment` handler then `data` will be passed to that handler.
         """
         pass
 
@@ -107,13 +64,6 @@ class NeoToken:
     def get_gas_per_block() -> int:
         """
         Get the amount of GAS generated per block.
-
-        Example:
-            >>> NeoToken.get_gas_per_block()
-            500000000
-
-        Returns:
-            int: The GAS generated per block.
         """
         pass
 
@@ -124,11 +74,8 @@ class NeoToken:
         Get the amount of unclaimed GAS for an account.
 
         Args:
-            account (UInt160): The account to check.
-            end (int): The block index used in the calculation.
-
-        Returns:
-            int: The amount of unclaimed GAS.
+            account: The account to check.
+            end: The block index used in the calculation.
         """
         pass
 
@@ -139,7 +86,7 @@ class NeoToken:
         Register an account as a candidate.
 
         Args:
-            pubkey (ECPoint): The public key of the account.
+            pubkey: The public key of the account.
 
         Returns:
             bool: True if registration succeeded, False otherwise.
@@ -153,7 +100,7 @@ class NeoToken:
         Unregister an account as a candidate.
 
         Args:
-            pubkey (ECPoint): The public key of the account.
+            pubkey: The public key of the account.
 
         Returns:
             bool: True if unregistration succeeded, False otherwise.
@@ -166,11 +113,14 @@ class NeoToken:
         Vote for a candidate.
 
         Args:
-            account (UInt160): The voting account.
-            vote_to (ECPoint): The candidate's public key.
+            account: The voting account.
+            vote_to: The candidate's public key.
 
         Returns:
             bool: True if the vote succeeded, False otherwise.
+
+        Note:
+            Set `vote_to` to `None` to remove a vote.
         """
         pass
 
@@ -181,24 +131,9 @@ class NeoToken:
         Get all registered candidates.
 
         Returns:
-            Iterator: An iterator of candidates.
+            An iterator of candidates.
         """
         pass
-
-    # @staticmethod
-    # def un_vote( account: UInt160) -> bool:
-    #     """
-    #     Remove a vote from a candidate.
-    #
-    #     Equivalent to calling vote(account, None).
-    #
-    #     Args:
-    #         account (UInt160): The account removing its vote.
-    #
-    #     Returns:
-    #         bool: True if the operation succeeded, False otherwise.
-    #     """
-    #     pass
 
     @staticmethod
     @display_name("getCandidates")
@@ -207,7 +142,7 @@ class NeoToken:
         Get all registered candidates and their vote counts.
 
         Returns:
-            list[tuple[ECPoint, int]]: A list of (public key, votes).
+            A list of (public key, votes).
         """
         pass
 
@@ -218,7 +153,7 @@ class NeoToken:
         Get the vote count for a specific candidate.
 
         Args:
-            pubkey (ECPoint): The candidate's public key.
+            pubkey: The candidate's public key.
 
         Returns:
             int: The number of votes, or -1 if not found.
@@ -232,7 +167,7 @@ class NeoToken:
         Get the list of committee members.
 
         Returns:
-            list[ECPoint]: The committee members' public keys.
+            The committee members' public keys.
         """
         pass
 
@@ -243,7 +178,7 @@ class NeoToken:
         Get the committee address.
 
         Returns:
-            UInt160: The committee address.
+            The committee address.
         """
         pass
 
@@ -254,7 +189,7 @@ class NeoToken:
         Get the fee required to register as a candidate.
 
         Returns:
-            int: The registration fee.
+            The registration fee.
         """
         pass
 
@@ -265,7 +200,7 @@ class NeoToken:
         Gets the validators for the next block.
 
         Returns:
-            list[ECPoint]: The validators' public keys.
+            The validators' public keys.
         """
         pass
 
@@ -276,9 +211,9 @@ class NeoToken:
         Get the latest state of an account.
 
         Args:
-            account (UInt160): The account to query.
+            account: The account to query.
 
         Returns:
-            NeoAccountState: The account state.
+            The account state.
         """
         pass

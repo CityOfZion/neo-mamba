@@ -5,7 +5,7 @@ from neo3.sc.utils.iterator import Iterator
 
 def abort(msg: Optional[str] = None) -> None:
     """
-    Aborts the execution of a smart contract. Using this will cancel the changes made on the blockchain by the
+    Abort the execution of a smart contract. Using this will cancel the changes made on the blockchain by the
     transaction.
 
     >>> abort()     # abort doesn't return anything by itself, but the execution will stop and the VMState will be FAULT
@@ -27,6 +27,12 @@ def call_contract(
     """
     Call a smart contract given the method and the arguments.
 
+    Args:
+        script_hash: The script hash of the target smart contract.
+        method: The name of the entry point in the target smart contract.
+        args: The specified method's arguments. Defaults to ().
+        call_flags: The CallFlags to be used to call the contract. Defaults to CallFlags.ALL.
+
     Example:
         >>> from neo3.sc.contracts import NeoToken
         >>> call_contract(
@@ -36,12 +42,6 @@ def call_contract(
         ... )
         100
 
-    Args:
-        script_hash (UInt160): The script hash of the target smart contract.
-        method (str): The name of the entry point in the target smart contract.
-        args (Sequence[Any], optional): The specified method's arguments. Defaults to ().
-        call_flags (CallFlags, optional): The CallFlags to be used to call the contract.
-            Defaults to CallFlags.ALL.
 
     Returns:
         Any: The result of the specified method.

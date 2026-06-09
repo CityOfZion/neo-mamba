@@ -17,18 +17,18 @@ class StdLib:
 
     @staticmethod
     def serialize(item: Any) -> bytes:
-        """Serialize *item* to its NeoVM binary representation."""
+        """Serialize `item` to its NeoVM binary representation."""
         pass
 
     @staticmethod
     def deserialize(data: bytes) -> Any:
-        """Deserialize NeoVM binary *data* back to a stack item."""
+        """Deserialize NeoVM binary `data` back to a stack item."""
         pass
 
     @staticmethod
     @display_name("jsonSerialize")
     def json_serialize(item: Any) -> str:
-        """Serialize *item* to a JSON string."""
+        """Serialize `item` to a JSON string."""
         pass
 
     @staticmethod
@@ -39,18 +39,18 @@ class StdLib:
 
     @staticmethod
     def itoa(value: int, base: int) -> str:
-        """Convert integer *value* to a string in the given *base* (10 or 16)."""
+        """Convert integer `value` to a string in the given `base` (10 or 16)."""
         pass
 
     @staticmethod
     def atoi(value: str, base: int) -> int:
-        """Parse a string *value* as an integer in the given *base* (10 or 16)."""
+        """Parse a string `value` as an integer in the given `base` (10 or 16)."""
         pass
 
     @staticmethod
     @display_name("hexEncode")
     def hex_encode(data: bytes) -> str:
-        """Encode *data* as a lowercase hex string."""
+        """Encode `data` as a lowercase hex string."""
         pass
 
     @staticmethod
@@ -62,7 +62,7 @@ class StdLib:
     @staticmethod
     @display_name("base64Encode")
     def base64_encode(data: bytes) -> str:
-        """Encode *data* as a Base64 string."""
+        """Encode `data` as a Base64 string."""
         pass
 
     @staticmethod
@@ -74,7 +74,7 @@ class StdLib:
     @staticmethod
     @display_name("base58Encode")
     def base58_encode(data: bytes) -> str:
-        """Encode *data* as a Base58 string."""
+        """Encode `data` as a Base58 string."""
         pass
 
     @staticmethod
@@ -86,7 +86,7 @@ class StdLib:
     @staticmethod
     @display_name("base58CheckEncode")
     def base58_check_encode(data: bytes) -> str:
-        """Encode *data* as a Base58Check string (with checksum)."""
+        """Encode `data` as a Base58Check string (with checksum)."""
         pass
 
     @staticmethod
@@ -98,23 +98,23 @@ class StdLib:
     @staticmethod
     @display_name("stringSplit")
     def string_split(s: str, separator: str, remove_empty_entries: bool) -> list:
-        """Split string *s* on *separator*."""
+        """Split string `s` on `separator`."""
         pass
 
     @staticmethod
     @display_name("memoryCompare")
     def memory_compare(a: bytes, b: bytes) -> int:
-        """Return negative, zero, or positive comparing byte strings *a* and *b*."""
+        """Return negative, zero, or positive comparing byte strings `a` and `b`."""
         pass
 
     @staticmethod
     @display_name("memorySearch")
     def memory_search(mem: bytes, pattern: bytes) -> int:
-        """Return the first index of *pattern* in *mem*, or -1 if not found."""
+        """Return the first index of *pattern* in `mem`, or -1 if not found."""
         pass
 
     @staticmethod
     @display_name("memorySearch")
     def memory_search_from(mem: bytes, pattern: bytes, start: int) -> int:
-        """Return the first index of *pattern* in *mem* starting at *start*, or -1."""
+        """Return the first index of `pattern` in `mem` starting at `start`, or -1."""
         pass

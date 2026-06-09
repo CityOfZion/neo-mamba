@@ -67,4 +67,5 @@ class LedgerContract:
     @call_flags(CallFlags.READ_STATES)
     @display_name("currentIndex")
     def get_current_index() -> int:
+        """Gets the index of the current block."""
         pass

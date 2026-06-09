@@ -1,5 +1,5 @@
 from typing import Optional
-from neo3.sc.types import UInt160
+from neo3.sc.types import UInt160, CallFlags
 
 
 class Permission:
@@ -87,20 +87,12 @@ class ContractManifest:
     ):
         """
         Args:
-            name: contract name. Defaults to the output file name when
-                omitted.
+            name: contract name. Defaults to the output file name when omitted.
             groups: list of ``Group`` entries declaring group membership.
-            supported_standards: list of NEP standard identifiers the contract
-                implements, e.g. ``["NEP-17"]``.
-            permissions: list of ``Permission`` entries controlling which
-                external contracts and methods this contract may call.
-                Defaults to allow-all when omitted.
-            trusts: which contracts or groups are trusted to call this
-                contract.  Pass ``["*"]`` to trust all, or a list of contract
-                hash / ECPoint hex strings to trust specific callers.
-            extra: arbitrary JSON-serialisable dict written verbatim to the
-                ``extra`` manifest field, e.g.
-                ``{"Author": "Alice", "Version": "1.0"}``.
+            supported_standards: list of NEP standard identifiers the contract implements, e.g. ``["NEP-17"]``.
+            permissions: list of ``Permission`` entries controlling which external contracts and methods this contract may call. Defaults to allow-all when omitted.
+            trusts: which contracts or groups are trusted to call this contract.  Pass ``["*"]`` to trust all, or a list of contract hash / ECPoint hex strings to trust specific callers.
+            extra: arbitrary JSON-serialisable dict written verbatim to the ``extra`` manifest field, e.g. ``{"Author": "Alice", "Version": "1.0"}``.
         """
         self.name = name
         self.groups = groups or []
@@ -114,8 +106,7 @@ def syscall(name: str):
     """
     Marks a function as a direct NeoVM syscall wrapper.
 
-    The compiler will emit a SYSCALL opcode with the interop hash of ``name``
-    instead of compiling the function body.  The body must be ``pass``.
+    The compiler will emit a SYSCALL opcode with the interop hash of ``name`` instead of compiling the function body. The body must be ``pass``.
 
     Args:
         name: NeoVM interop method name, e.g. ``"System.Runtime.GetScriptContainer"``.
@@ -133,10 +124,10 @@ def public(name: str = None, safe: bool = False):
 
     Args:
         name: custom identifier to be used in the abi.
-        safe: if True, the function is restricted to read-only operations and must not modify blockchain state (e.g., no storage writes). Defaults to False.
+        safe: if True, the function is restricted to read-only operations and must not modify blockchain state (e.g. no storage writes). Defaults to False.
 
     Examples:
-    >>> @public     # this method will be added to the abi
+    >>> @public
     ... def callable_function() -> bool:
     ...     return True
     {
@@ -147,7 +138,7 @@ def public(name: str = None, safe: bool = False):
         "returntype": "Boolean"
     }
 
-    >>> @public(name='callableFunction')     # the method will be added with the different name to the abi
+    >>> @public(name='callableFunction')
     ... def callable_function() -> bool:
     ...     return True
     {
@@ -158,7 +149,7 @@ def public(name: str = None, safe: bool = False):
         "returntype": "Boolean"
     }
 
-    >>> @public(safe=True)      # the method will be added with the safe flag to the abi
+    >>> @public(safe=True)
     ... def callable_function() -> bool:
     ...     return True
     {
@@ -181,10 +172,7 @@ def contract(script_hash: str):
     This decorator identifies a class that should be interpreted as an interface to an existing contract.
 
     Args:
-        script_hash: e.g. 0xd2a4cff31913016155e38e474a2c06d08be276cf
-
-    Returns:
-
+        script_hash: the contract unique identifier e.g. 0xd2a4cff31913016155e38e474a2c06d08be276cf
     """
 
     def decorator_wrapper(cls, *args, **kwargs):
@@ -196,21 +184,20 @@ def contract(script_hash: str):
 
 def display_name(name: str):
     """
-    This decorator identifies which methods from a contract interface should have a different identifier from the one
-    interfacing it. It only works in contract interface classes.
+    This decorator allows you to override the name of the entry point on the called contract. It only works in contract interface classes.
+
+    Args:
+        name: the entry point identifier from the called contract manifest.
 
     >>> @contract('0xd2a4cff31913016155e38e474a2c06d08be276cf')
     ... class GASInterface:
     ...     @staticmethod
     ...     @display_name('totalSupply')
-    ...     def total_supply() -> int:      # the smart contract will call "totalSupply", but when writing the script you can call this method whatever you want to
+    ...     def total_supply() -> int:      # the smart contract will call "totalSupply"
     ...         pass
     ... @public
     ... def main() -> int:
     ...     return GASInterface.total_supply()
-
-    :param name: Method identifier from the contract manifest.
-    :type name: str
     """
 
     def decorator_wrapper(*args, **kwargs):
@@ -219,7 +206,7 @@ def display_name(name: str):
     return decorator_wrapper
 
 
-def call_flags(flags: "CallFlags"):
+def call_flags(flags: CallFlags):
     """
     Override the CallFlags used when calling this @contract method.
 
@@ -237,7 +224,8 @@ def call_flags(flags: "CallFlags"):
     ...     def total_supply() -> int:
     ...         pass
 
-    :param flags: the ``CallFlags`` value (or int) to use for the SYSCALL.
+    Args:
+        flags: the ``CallFlags`` value to use for the SYSCALL.
     """
 
     def decorator_wrapper(*args, **kwargs):
@@ -251,11 +239,8 @@ def event(name: str, *, rename: list[tuple[str, str]] = None):
     A decorator to emit a notification.
 
     Args:
-        name:
-        rename:
-
-    Returns:
-
+        name: the name the event will have in the application logs when emitted
+        rename: allow you to rename how parameters show in the manifest. This can be used to overcome reserved keywords issues such as `from`.
     """
 
     def decorator_wrapper(*args, **kwargs):

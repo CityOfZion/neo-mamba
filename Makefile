@@ -60,7 +60,7 @@ coverage: ## check code coverage quickly with the default Python
 
 docs: ## generate Sphinx HTML documentation, including API docs
 	rm -rf docs/site/
-	mkdocs build -f docs/mkdocs.yml
+	NO_MKDOCS_2_WARNING=1 mkdocs build -f docs/mkdocs.yml
 	$(BROWSER) docs/site/index.html
 
 docs-deploy: ## manually deploy the docs to github pages
