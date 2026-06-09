@@ -1,9 +1,9 @@
 """
-Neo3 Python Compiler
-
-Pipeline:
-    Python source -> AST -> TypedHIR -> CFG -> linearized bytecode
+Compile smart contracts
 """
+
+# Pipeline:
+#    Python source -> AST -> TypedHIR -> CFG -> linearized bytecode
 
 import ast
 import hashlib

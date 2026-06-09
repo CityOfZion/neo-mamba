@@ -8,7 +8,7 @@ from neo3.sc.utils.iterator import Iterator
 @contract("0xfffdc93764dbaddd97c48f252a53ea4643faa3fd")
 class ContractManagement:
     """
-    A class used to represent the ContractManagement native contract.
+    Represents the ContractManagement native contract.
     """
 
     hash: UInt160

@@ -10,7 +10,6 @@ def get(key: bytes) -> Optional[bytes]:
     """
     Read a value from local contract storage.
 
-    Compiles to: SYSCALL System.Storage.Local.Get (hash 0xd58d5ee8)
     Requires CallFlags.READ_STATES.
 
     Returns the stored bytes, or None if the key does not exist.
@@ -23,7 +22,6 @@ def put(key: bytes, value: bytes) -> None:
     """
     Write a value to local contract storage.
 
-    Compiles to: SYSCALL System.Storage.Local.Put (hash 0x390ce30a)
     Requires CallFlags.WRITE_STATES.
     """
     pass
@@ -34,7 +32,6 @@ def delete(key: bytes) -> None:
     """
     Delete a value from local contract storage.
 
-    Compiles to: SYSCALL System.Storage.Local.Delete (hash 0x7554f594)
     Requires CallFlags.WRITE_STATES.
     """
     pass
@@ -42,6 +39,9 @@ def delete(key: bytes) -> None:
 
 @syscall("System.Storage.Local.Find")
 def find(prefix: bytes, options: FindOptions = FindOptions.NONE) -> Iterator:
+    """
+    Find entries in the contract storage.
+    """
     pass
 
 

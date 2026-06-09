@@ -17,7 +17,7 @@ class PolicyContract:
     @call_flags(CallFlags.READ_STATES)
     @display_name("getFeePerByte")
     def get_fee_per_byte() -> int:
-        """Return the fee per byte of network traffic (in GAS fractions)."""
+        """Return the fee per transaction byte."""
         pass
 
     @staticmethod
@@ -38,5 +38,5 @@ class PolicyContract:
     @call_flags(CallFlags.READ_STATES)
     @display_name("isBlocked")
     def is_blocked(account: UInt160) -> bool:
-        """Return True if *account* is blocked by policy."""
+        """Return True if `account` is blocked by policy."""
         pass

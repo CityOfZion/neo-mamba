@@ -19,21 +19,21 @@ class CryptoLib:
     @call_flags(CallFlags.NONE)
     @display_name("sha256")
     def sha256(data: bytes) -> bytes:
-        """Compute SHA-256 hash of *data*."""
+        """Compute SHA-256 hash of `data`."""
         pass
 
     @staticmethod
     @call_flags(CallFlags.NONE)
     @display_name("ripemd160")
     def ripemd160(data: bytes) -> bytes:
-        """Compute RIPEMD-160 hash of *data*."""
+        """Compute RIPEMD-160 hash of `data`."""
         pass
 
     @staticmethod
     @call_flags(CallFlags.NONE)
     @display_name("murmur32")
     def murmur32(data: bytes, seed: int) -> bytes:
-        """Compute Murmur32 hash of *data* with *seed*."""
+        """Compute Murmur32 hash of the `data` with `seed`."""
         pass
 
     @staticmethod
@@ -63,5 +63,9 @@ class CryptoLib:
     @call_flags(CallFlags.NONE)
     @display_name("bls12381Deserialize")
     def bls12381_deserialize(data: bytes) -> Any:
-        """Deserialize a BLS12-381 point."""
+        """Deserialize a BLS12-381 point.
+
+        Args:
+            data: the point in byte array format.
+        """
         pass

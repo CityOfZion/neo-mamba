@@ -24,6 +24,6 @@ class RoleManagement:
             index: the block index at which to query.
 
         Returns:
-            list: list of ECPoint values for the designated nodes.
+            list of ECPoint values for the designated nodes.
         """
         pass

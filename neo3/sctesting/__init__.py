@@ -1,3 +1,7 @@
+"""
+Smart contract testing framework
+"""
+
 import pathlib
 import unittest
 import asyncio
@@ -74,10 +78,16 @@ class SmartContractTestCase(unittest.IsolatedAsyncioTestCase):
 
     @property
     def facade(self) -> ChainFacade:
+        """
+        The facade connected to the underlying node
+        """
         return self.node.facade
 
     @property
     def runtime_logs(self) -> list[RuntimeLog]:
+        """
+        Get the runtime logs emitted during a call.
+        """
         return self.node.runtime_logs
 
     @classmethod
@@ -213,6 +223,9 @@ class SmartContractTestCase(unittest.IsolatedAsyncioTestCase):
     async def deploy(
         cls, path_to_nef: str, signing_account: account.Account
     ) -> tuple[types.UInt160, list[noderpc.Notification]]:
+        """
+        Deploy a smart contract.
+        """
         # fix relative path resolving by looking up the call stack because the test might not get started from
         # the working directory that defines the tests e.g. when using `unittest discover`
         frame = inspect.stack()[1]
@@ -261,6 +274,9 @@ class SmartContractTestCase(unittest.IsolatedAsyncioTestCase):
         signing_account: Optional[account.Account] = None,
         system_fee: int = 0,
     ) -> tuple[bool, list[noderpc.Notification]]:
+        """
+        Utility function to easily transfer NEP-17 tokens (i.e. from the genesis account to setup test scenarios).
+        """
         contract = NEP17Contract(token)
         if signing_account is None:
             signing_account = cls.node.account_committee
@@ -355,6 +371,10 @@ class SmartContractTestCase(unittest.IsolatedAsyncioTestCase):
 
 @dataclass
 class Nep17TransferEvent:
+    """
+    A decoded NEP-17 transfer event.
+    """
+
     source: types.UInt160
     destination: types.UInt160
     amount: int

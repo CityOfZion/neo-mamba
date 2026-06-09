@@ -255,11 +255,11 @@ class TestTypeConversions(SmartContractTestCase):
     # ------------------------------------------------------------------
 
     async def test_str_to_bytes_basic(self) -> None:
-        result, _ = await self.call("str_to_bytes", [b"hello"], return_type=bytes)
+        result, _ = await self.call("str_to_bytes", ["hello"], return_type=bytes)
         self.assertEqual(result, b"hello")
 
     async def test_str_to_bytes_empty(self) -> None:
-        result, _ = await self.call("str_to_bytes", [b""], return_type=bytes)
+        result, _ = await self.call("str_to_bytes", [""], return_type=bytes)
         self.assertEqual(result, b"")
 
     async def test_str_to_bytes_binary(self) -> None:
@@ -269,12 +269,12 @@ class TestTypeConversions(SmartContractTestCase):
         self.assertEqual(result, b"\x01\x02\x03")
 
     async def test_bytes_to_str_basic(self) -> None:
-        result, _ = await self.call("bytes_to_str", [b"hello"], return_type=bytes)
-        self.assertEqual(result, b"hello")
+        result, _ = await self.call("bytes_to_str", [b"hello"], return_type=str)
+        self.assertEqual("hello", result)
 
     async def test_bytes_to_str_empty(self) -> None:
-        result, _ = await self.call("bytes_to_str", [b""], return_type=bytes)
-        self.assertEqual(result, b"")
+        result, _ = await self.call("bytes_to_str", [b""], return_type=str)
+        self.assertEqual("", result)
 
     # ------------------------------------------------------------------
     # bytearray → bytes / str  (Buffer → ByteString)
