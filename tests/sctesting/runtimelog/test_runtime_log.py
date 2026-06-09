@@ -35,7 +35,6 @@ class RuntimeLogTest(SmartContractTestCase):
         self.assertEqual(1, len(self.runtime_logs))
         self.assertEqual(self.contract_hash, self.runtime_logs[0].contract)
         self.assertEqual(msg, self.runtime_logs[0].msg)
-        self.call()
 
     async def test_with_peristed_tx(self):
         msg = "msg3"
