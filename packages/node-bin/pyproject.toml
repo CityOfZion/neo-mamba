@@ -1,0 +1,39 @@
+[project]
+name = "neo-go-node"
+description = "Platform-specific neo-go binary"
+version = "0.119.0"
+requires-python = ">= 3.13.0,< 3.15"
+license = 'MIT'
+license-files = ["LICENSE.md"]
+keywords = ["NEO3", "blockchain", "node"]
+authors = [
+    { name = "Erik van den Brink", email = "erik@coz.io" },
+]
+maintainers = [
+    { name = "Erik van den Brink", email = "erik@coz.io" },
+]
+readme = {text = "Platform-specific neo-go binary distribution for neo-mamba. Not intended for direct use — install via `pip install neo-mamba[sctesting]`.", content-type = "text/markdown"}
+
+[project.optional-dependencies]
+dev = [
+   "build==1.0.3",
+   "requests",
+   "tomlkit==0.15.0",
+   "types-PyYAML",
+   "twine",
+   "wheel"
+]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["neo_go_node*"]
+
+[tool.setuptools.package-data]
+neo_go_node = ["bin/*"]
+
+[tool.neogo]
+tag = "v0.119.0"

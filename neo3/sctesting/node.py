@@ -15,7 +15,7 @@ from neo3.api.wrappers import ChainFacade
 from neo3.api.helpers.txbuilder import START_IGNORE_RUNTIMELOG, STOP_IGNORE_RUNTIMELOG
 from typing import Optional
 from dataclasses import dataclass
-
+from neo_go_node import get_binary_path
 
 log = logging.getLogger("neogo")
 log.addHandler(logging.StreamHandler(sys.stdout))
@@ -60,15 +60,10 @@ class NeoGoNode:
             )
 
         self.system = platform.system().lower()
-        self.prog = "neogo"
+        self.prog = str(get_binary_path())
         self.posix = True
         if self.system == "windows":
-            self.prog += ".exe"
             self.posix = False
-        if not self.data_dir.joinpath(self.prog).exists():
-            raise FileNotFoundError(
-                f"Internal required file '{self.prog}' not found. If you installed from source run this command once `python scripts/download-node.py`"
-            )
 
         self._thread: Optional[threading.Thread] = None
         self._process: Optional[subprocess.Popen[str]] = None
@@ -80,7 +75,7 @@ class NeoGoNode:
     def start(self):
         log.debug("starting")
 
-        cmd = f"{self.data_dir}/{self.prog} node --config-file {self.config_path} --relative-path {self.data_dir}"
+        cmd = f"{self.prog} node --config-file {self.config_path} --relative-path {self.data_dir}"
 
         self._process = subprocess.Popen(
             shlex.split(cmd, posix=self.posix),
