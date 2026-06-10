@@ -33,7 +33,7 @@ where = ["."]
 include = ["neo_go_node*"]
 
 [tool.setuptools.package-data]
-neo_go_node = ["bin/*"]
+neo_go_node = ["bin/*", "py.typed"]
 
 [tool.neogo]
 tag = "v0.119.0"
