@@ -15,7 +15,7 @@ from neo3.api.wrappers import ChainFacade
 from neo3.api.helpers.txbuilder import START_IGNORE_RUNTIMELOG, STOP_IGNORE_RUNTIMELOG
 from typing import Optional
 from dataclasses import dataclass
-from neo_go_node import get_binary_path
+from neo_go_node import get_binary_path  # type: ignore[import-untyped]
 
 log = logging.getLogger("neogo")
 log.addHandler(logging.StreamHandler(sys.stdout))

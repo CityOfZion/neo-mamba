@@ -69,6 +69,8 @@ def main():
                     data_dir = pathlib.Path(__file__).parent.parent.joinpath(
                         "neo_go_node/bin"
                     )
+                    data_dir.mkdir(parents=True, exist_ok=True)
+
                     binary_filename = f"{data_dir}/neogo"
                     if system == "windows":
                         binary_filename += ".exe"
