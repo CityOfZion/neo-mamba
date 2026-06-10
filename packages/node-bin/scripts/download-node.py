@@ -26,7 +26,8 @@ def chmod_plus_x(path):
 
 
 def main():
-    with open("../pyproject.toml") as f:
+    project_file = pathlib.Path(__file__).parent.parent.joinpath("pyproject.toml")
+    with open(project_file) as f:
         doc = parse(f.read())
         target_tag = doc["tool"]["neogo"]["tag"]
 
@@ -66,7 +67,7 @@ def main():
                         end="",
                     )
                     data_dir = pathlib.Path(__file__).parent.parent.joinpath(
-                        "neo3/sctesting/data"
+                        "neo_go_node/bin"
                     )
                     binary_filename = f"{data_dir}/neogo"
                     if system == "windows":

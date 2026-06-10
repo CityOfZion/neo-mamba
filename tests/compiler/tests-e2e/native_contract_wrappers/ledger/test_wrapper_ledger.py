@@ -50,12 +50,9 @@ class TestLedgerWrapper(SmartContractTestCase):
         result, _ = await self.call("get_block_exists", [0], return_type=bool)
         self.assertTrue(result)
 
-    async def test_get_block_faults_for_future_index(self) -> None:
-        # BUG in neo-go node: getBlock should return None for a non-existent block index,
-        # but instead faults the VM with "no block with index <N>".
-        # This test should be updated to assertFalse(result) once the neo-go node is fixed.
-        with self.assertRaises(Exception):
-            await self.call("get_block_exists", [999_999_999], return_type=bool)
+    async def test_get_block_for_future_index(self) -> None:
+        result, _ = await self.call("get_block_exists", [999_999_999], return_type=bool)
+        self.assertFalse(result)
 
     async def test_get_block_index_field_matches(self) -> None:
         result, _ = await self.call("get_block_index_field", [0], return_type=int)
