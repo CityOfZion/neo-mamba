@@ -33,9 +33,11 @@ def reset() -> None:
 def _write_contract(src: str, stem: str = "contract") -> tuple[bytes, dict]:
     """Compile *src* via compile_to_nef and return (nef_bytes, manifest_dict)."""
     with tempfile.TemporaryDirectory() as d:
-        out = os.path.join(d, f"{stem}.nef")
-        compile_to_nef(src, out)
-        with open(out, "rb") as f:
+        src_path = os.path.join(d, f"{stem}.py")
+        with open(src_path, "w", encoding="utf-8") as f:
+            f.write(src)
+        compile_to_nef(src_path)
+        with open(os.path.join(d, f"{stem}.nef"), "rb") as f:
             nef_bytes = f.read()
         with open(os.path.join(d, f"{stem}.manifest.json"), encoding="utf-8") as f:
             manifest = json.load(f)
@@ -141,9 +143,11 @@ class TestNefOutputFiles(unittest.TestCase):
 
     def test_both_files_created(self):
         with tempfile.TemporaryDirectory() as d:
-            out = os.path.join(d, "c.nef")
-            compile_to_nef(_SRC, out)
-            self.assertTrue(os.path.exists(out))
+            src_path = os.path.join(d, "c.py")
+            with open(src_path, "w", encoding="utf-8") as f:
+                f.write(_SRC)
+            compile_to_nef(src_path)
+            self.assertTrue(os.path.exists(os.path.join(d, "c.nef")))
             self.assertTrue(os.path.exists(os.path.join(d, "c.manifest.json")))
 
 
@@ -219,8 +223,12 @@ class TestSafePublicWriteCheck(unittest.TestCase):
         self.assertIsInstance(self._compile(src), bytes)
 
     def test_io_error_on_unwritable_nef(self):
-        with self.assertRaises(OSError):
-            compile_to_nef(_SRC, "/no/such/dir/out.nef")
+        with tempfile.TemporaryDirectory() as d:
+            src_path = os.path.join(d, "out.py")
+            with open(src_path, "w", encoding="utf-8") as f:
+                f.write(_SRC)
+            with self.assertRaises(OSError):
+                compile_to_nef(src_path, output_dir="/no/such/dir")
 
 
 class TestContractManifestOverride(unittest.TestCase):

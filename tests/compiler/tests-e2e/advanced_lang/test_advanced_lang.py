@@ -17,9 +17,7 @@ class TestAdvancedLang(SmartContractTestCase):
 
     @classmethod
     async def asyncSetupClass(cls) -> None:
-        compile_to_nef(
-            (HERE / "advanced_lang.py").read_text(), str(HERE / "advanced_lang")
-        )
+        compile_to_nef(HERE / "advanced_lang.py")
         cls.genesis = cls.node.wallet.account_get_by_label("committee")
         cls.contract_hash, _ = await cls.deploy("./advanced_lang.nef", cls.genesis)
         # _initialize is called automatically by the node before each method invocation.

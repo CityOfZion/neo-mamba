@@ -22,10 +22,7 @@ class TestGetCurrentSigners(SmartContractTestCase):
 
     @classmethod
     async def asyncSetupClass(cls) -> None:
-        compile_to_nef(
-            (HERE / "get_current_signers.py").read_text(),
-            str(HERE / "get_current_signers"),
-        )
+        compile_to_nef(HERE / "get_current_signers.py")
         cls.genesis = cls.node.wallet.account_get_by_label("committee")
         cls.contract_hash, _ = await cls.deploy(
             "./get_current_signers.nef", cls.genesis

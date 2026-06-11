@@ -4,7 +4,7 @@ from pathlib import Path
 
 from neo3.sctesting import SmartContractTestCase
 
-from neo3.compiler import TypecheckError, compile_to_nef
+from neo3.compiler import TypecheckError, compile_module, compile_to_nef
 
 HERE = Path(__file__).parent
 
@@ -17,7 +17,7 @@ class TestBitwise(SmartContractTestCase):
 
     @classmethod
     async def asyncSetupClass(cls) -> None:
-        compile_to_nef((HERE / "bitwise.py").read_text(), str(HERE / "bitwise"))
+        compile_to_nef(HERE / "bitwise.py")
         cls.genesis = cls.node.wallet.account_get_by_label("committee")
         cls.contract_hash, _ = await cls.deploy("./bitwise.nef", cls.genesis)
 
@@ -189,7 +189,7 @@ def f(b: bool) -> int:
     return ~b
 """
         with self.assertRaises(TypecheckError):
-            compile_to_nef(src, "/tmp/throwaway")
+            compile_module(src)
 
     def test_and_on_str_is_compile_error(self) -> None:
         src = """
@@ -199,7 +199,7 @@ def f(a: str, b: str) -> str:
     return a & b
 """
         with self.assertRaises(TypecheckError):
-            compile_to_nef(src, "/tmp/throwaway")
+            compile_module(src)
 
 
 if __name__ == "__main__":

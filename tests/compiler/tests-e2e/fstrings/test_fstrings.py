@@ -17,10 +17,7 @@ class TestFStrings(SmartContractTestCase):
 
     @classmethod
     async def asyncSetupClass(cls) -> None:
-        compile_to_nef(
-            (HERE / "fstrings.py").read_text(),
-            str(HERE / "fstrings"),
-        )
+        compile_to_nef(HERE / "fstrings.py")
         cls.genesis = cls.node.wallet.account_get_by_label("committee")
         cls.contract_hash, _ = await cls.deploy("./fstrings.nef", cls.genesis)
 

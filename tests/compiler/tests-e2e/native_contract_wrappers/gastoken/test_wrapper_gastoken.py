@@ -20,10 +20,7 @@ class TestGasTokenWrapper(SmartContractTestCase):
 
     @classmethod
     async def asyncSetupClass(cls) -> None:
-        compile_to_nef(
-            (HERE / "wrapper_gastoken.py").read_text(),
-            str(HERE / "wrapper_gastoken"),
-        )
+        compile_to_nef(HERE / "wrapper_gastoken.py")
         cls.genesis = cls.node.wallet.account_get_by_label("committee")
         cls.contract_hash, _ = await cls.deploy("./wrapper_gastoken.nef", cls.genesis)
 

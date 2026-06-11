@@ -17,7 +17,7 @@ class TestImports(SmartContractTestCase):
 
     @classmethod
     async def asyncSetupClass(cls) -> None:
-        compile_to_nef((HERE / "main.py").read_text(), str(HERE / "main"))
+        compile_to_nef(HERE / "main.py")
         cls.genesis = cls.node.wallet.account_get_by_label("committee")
         cls.contract_hash, _ = await cls.deploy("./main.nef", cls.genesis)
 

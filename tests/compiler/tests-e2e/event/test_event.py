@@ -18,10 +18,7 @@ class TestEvent(SmartContractTestCase):
 
     @classmethod
     async def asyncSetupClass(cls) -> None:
-        compile_to_nef(
-            (HERE / "event.py").read_text(),
-            str(HERE / "event"),
-        )
+        compile_to_nef(HERE / "event.py")
         g = cls.node.wallet.account_get_by_label("committee")
         if g is not None:
             cls.genesis = g

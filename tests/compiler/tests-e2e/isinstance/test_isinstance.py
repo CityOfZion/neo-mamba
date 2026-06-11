@@ -4,7 +4,7 @@ from pathlib import Path
 
 from neo3.sctesting import SmartContractTestCase
 
-from neo3.compiler import TypecheckError, compile_to_nef
+from neo3.compiler import TypecheckError, compile_to_nef, compile_module
 
 HERE = Path(__file__).parent
 
@@ -17,10 +17,7 @@ class TestIsinstance(SmartContractTestCase):
 
     @classmethod
     async def asyncSetupClass(cls) -> None:
-        compile_to_nef(
-            (HERE / "isinstance_checks.py").read_text(),
-            str(HERE / "isinstance_checks"),
-        )
+        compile_to_nef(HERE / "isinstance_checks.py")
         cls.genesis = cls.node.wallet.account_get_by_label("committee")
         cls.contract_hash, _ = await cls.deploy("./isinstance_checks.nef", cls.genesis)
 
@@ -149,23 +146,20 @@ class TestIsinstance(SmartContractTestCase):
 
     def test_tuple_of_types_rejected(self) -> None:
         with self.assertRaises(TypecheckError):
-            compile_to_nef(
+            compile_module(
                 "from neo3.sc.compiletime import public\n@public\ndef f(x: int) -> bool:\n    return isinstance(x, (int, str))\n",
-                "/tmp/throwaway",
             )
 
     def test_list_type_rejected(self) -> None:
         with self.assertRaises(TypecheckError):
-            compile_to_nef(
+            compile_module(
                 "from neo3.sc.compiletime import public\n@public\ndef f(x: list[int]) -> bool:\n    return isinstance(x, list[int])\n",
-                "/tmp/throwaway",
             )
 
     def test_dict_type_rejected(self) -> None:
         with self.assertRaises(TypecheckError):
-            compile_to_nef(
+            compile_module(
                 "from neo3.sc.compiletime import public\n@public\ndef f(x: dict[str, int]) -> bool:\n    return isinstance(x, dict[str, int])\n",
-                "/tmp/throwaway",
             )
 
 

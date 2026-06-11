@@ -3,7 +3,7 @@ from pathlib import Path
 
 from neo3.sctesting import SmartContractTestCase
 
-from neo3.compiler import TypecheckError, compile_to_nef
+from neo3.compiler import TypecheckError, compile_module, compile_to_nef
 
 HERE = Path(__file__).parent
 
@@ -16,10 +16,7 @@ class TestIntToBytes(SmartContractTestCase):
 
     @classmethod
     async def asyncSetupClass(cls) -> None:
-        compile_to_nef(
-            (HERE / "int_to_bytes.py").read_text(),
-            str(HERE / "int_to_bytes"),
-        )
+        compile_to_nef(HERE / "int_to_bytes.py")
         cls.genesis = cls.node.wallet.account_get_by_label("committee")
         cls.contract_hash, _ = await cls.deploy("./int_to_bytes.nef", cls.genesis)
 
@@ -210,24 +207,21 @@ class TestIntToBytes(SmartContractTestCase):
 
     def test_constant_overflow_unsigned(self) -> None:
         with self.assertRaises(TypecheckError):
-            compile_to_nef(
+            compile_module(
                 "from neo3.sc.compiletime import public\n"
                 "@public\ndef f() -> bytes:\n    return (256).to_bytes(1, 'little')\n",
-                "/tmp/throwaway",
             )
 
     def test_constant_overflow_signed(self) -> None:
         with self.assertRaises(TypecheckError):
-            compile_to_nef(
+            compile_module(
                 "from neo3.sc.compiletime import public\n"
                 "@public\ndef f() -> bytes:\n    return (128).to_bytes(1, 'little', signed=True)\n",
-                "/tmp/throwaway",
             )
 
     def test_constant_negative_unsigned(self) -> None:
         with self.assertRaises(TypecheckError):
-            compile_to_nef(
+            compile_module(
                 "from neo3.sc.compiletime import public\n"
                 "@public\ndef f() -> bytes:\n    return (-1).to_bytes(1, 'little')\n",
-                "/tmp/throwaway",
             )

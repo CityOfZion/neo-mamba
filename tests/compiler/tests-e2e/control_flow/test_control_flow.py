@@ -17,9 +17,7 @@ class TestControlFlow(SmartContractTestCase):
 
     @classmethod
     async def asyncSetupClass(cls) -> None:
-        compile_to_nef(
-            (HERE / "control_flow.py").read_text(), str(HERE / "control_flow")
-        )
+        compile_to_nef(HERE / "control_flow.py")
         cls.genesis = cls.node.wallet.account_get_by_label("committee")
         cls.contract_hash, _ = await cls.deploy("./control_flow.nef", cls.genesis)
 

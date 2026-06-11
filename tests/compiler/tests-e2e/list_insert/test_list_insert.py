@@ -4,7 +4,7 @@ from pathlib import Path
 
 from neo3.sctesting import SmartContractTestCase
 
-from neo3.compiler import TypecheckError, compile_to_nef
+from neo3.compiler import TypecheckError, compile_module, compile_to_nef
 
 HERE = Path(__file__).parent
 
@@ -17,10 +17,7 @@ class TestListInsert(SmartContractTestCase):
 
     @classmethod
     async def asyncSetupClass(cls) -> None:
-        compile_to_nef(
-            (HERE / "list_insert.py").read_text(),
-            str(HERE / "list_insert"),
-        )
+        compile_to_nef(HERE / "list_insert.py")
         cls.genesis = cls.node.wallet.account_get_by_label("committee")
         cls.contract_hash, _ = await cls.deploy("./list_insert.nef", cls.genesis)
 
@@ -72,26 +69,23 @@ class TestListInsert(SmartContractTestCase):
 
     def test_insert_on_non_list_rejected(self) -> None:
         with self.assertRaises(TypecheckError):
-            compile_to_nef(
+            compile_module(
                 "from neo3.sc.compiletime import public\n"
-                "@public\ndef f() -> None:\n    s: str = 'hello'\n    s.insert(0, 'x')\n",
-                "/tmp/throwaway_insert",
+                "@public\ndef f() -> None:\n    s: str = 'hello'\n    s.insert(0, 'x')\n"
             )
 
     def test_insert_non_int_index_rejected(self) -> None:
         with self.assertRaises(TypecheckError):
-            compile_to_nef(
+            compile_module(
                 "from neo3.sc.compiletime import public\n"
-                "@public\ndef f() -> None:\n    lst: list[int] = [1, 2]\n    lst.insert('a', 3)\n",
-                "/tmp/throwaway_insert",
+                "@public\ndef f() -> None:\n    lst: list[int] = [1, 2]\n    lst.insert('a', 3)\n"
             )
 
     def test_insert_type_mismatch_rejected(self) -> None:
         with self.assertRaises(TypecheckError):
-            compile_to_nef(
+            compile_module(
                 "from neo3.sc.compiletime import public\n"
-                "@public\ndef f() -> None:\n    lst: list[int] = [1, 2]\n    lst.insert(0, 'x')\n",
-                "/tmp/throwaway_insert",
+                "@public\ndef f() -> None:\n    lst: list[int] = [1, 2]\n    lst.insert(0, 'x')\n"
             )
 
 

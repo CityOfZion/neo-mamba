@@ -27,10 +27,7 @@ class TestNeoTokenWrapper(SmartContractTestCase):
 
     @classmethod
     async def asyncSetupClass(cls) -> None:
-        compile_to_nef(
-            (HERE / "wrapper_neotoken.py").read_text(),
-            str(HERE / "wrapper_neotoken"),
-        )
+        compile_to_nef(HERE / "wrapper_neotoken.py")
         g = cls.node.wallet.account_get_by_label("committee")
         if g is not None:
             cls.genesis = g

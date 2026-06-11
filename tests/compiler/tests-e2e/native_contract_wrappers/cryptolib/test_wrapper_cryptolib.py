@@ -39,10 +39,7 @@ class TestCryptoLibWrapper(SmartContractTestCase):
 
     @classmethod
     async def asyncSetupClass(cls) -> None:
-        compile_to_nef(
-            (HERE / "wrapper_cryptolib.py").read_text(),
-            str(HERE / "wrapper_cryptolib"),
-        )
+        compile_to_nef(HERE / "wrapper_cryptolib.py")
         cls.genesis = cls.node.wallet.account_get_by_label("committee")
         cls.contract_hash, _ = await cls.deploy("./wrapper_cryptolib.nef", cls.genesis)
 

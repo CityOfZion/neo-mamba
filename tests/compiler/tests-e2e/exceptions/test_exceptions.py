@@ -4,7 +4,7 @@ from pathlib import Path
 
 from neo3.sctesting import AssertException, SmartContractTestCase
 
-from neo3.compiler import TypecheckError, compile_to_nef
+from neo3.compiler import TypecheckError, compile_to_nef, compile_module
 
 HERE = Path(__file__).parent
 
@@ -17,10 +17,7 @@ class TestExceptions(SmartContractTestCase):
 
     @classmethod
     async def asyncSetupClass(cls) -> None:
-        compile_to_nef(
-            (HERE / "exceptions.py").read_text(),
-            str(HERE / "exceptions"),
-        )
+        compile_to_nef(HERE / "exceptions.py")
         cls.genesis = cls.node.wallet.account_get_by_label("committee")
         cls.contract_hash, _ = await cls.deploy("./exceptions.nef", cls.genesis)
 
@@ -135,30 +132,26 @@ class TestExceptions(SmartContractTestCase):
 
     def test_typed_except_rejected(self) -> None:
         with self.assertRaises(TypecheckError):
-            compile_to_nef(
+            compile_module(
                 "from neo3.sc.compiletime import public\n@public\ndef f() -> int:\n    try:\n        return 1\n    except ValueError:\n        return 2\n",
-                "/tmp/throwaway",
             )
 
     def test_typed_except_with_binding_rejected(self) -> None:
         with self.assertRaises(TypecheckError):
-            compile_to_nef(
+            compile_module(
                 "from neo3.sc.compiletime import public\n@public\ndef f() -> int:\n    try:\n        return 1\n    except Exception as e:\n        return 2\n",
-                "/tmp/throwaway",
             )
 
     def test_multiple_handlers_rejected(self) -> None:
         with self.assertRaises(TypecheckError):
-            compile_to_nef(
+            compile_module(
                 "from neo3.sc.compiletime import public\n@public\ndef f() -> int:\n    try:\n        return 1\n    except:\n        return 2\n    except:\n        return 3\n",
-                "/tmp/throwaway",
             )
 
     def test_try_else_rejected(self) -> None:
         with self.assertRaises(TypecheckError):
-            compile_to_nef(
+            compile_module(
                 "from neo3.sc.compiletime import public\n@public\ndef f() -> int:\n    try:\n        return 1\n    except:\n        return 2\n    else:\n        return 3\n",
-                "/tmp/throwaway",
             )
 
 

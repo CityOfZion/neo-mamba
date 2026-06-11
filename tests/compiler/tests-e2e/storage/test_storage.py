@@ -17,10 +17,7 @@ class TestStorage(SmartContractTestCase):
 
     @classmethod
     async def asyncSetupClass(cls) -> None:
-        compile_to_nef(
-            (HERE / "storage.py").read_text(),
-            str(HERE / "storage"),
-        )
+        compile_to_nef(HERE / "storage.py")
         cls.genesis = cls.node.wallet.account_get_by_label("committee")
         cls.contract_hash, _ = await cls.deploy("./storage.nef", cls.genesis)
 

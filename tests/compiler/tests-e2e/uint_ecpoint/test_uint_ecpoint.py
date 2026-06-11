@@ -21,10 +21,7 @@ class TestUIntECPoint(SmartContractTestCase):
 
     @classmethod
     async def asyncSetupClass(cls) -> None:
-        compile_to_nef(
-            (HERE / "uint_ecpoint.py").read_text(),
-            str(HERE / "uint_ecpoint"),
-        )
+        compile_to_nef(HERE / "uint_ecpoint.py")
         cls.genesis = cls.node.wallet.account_get_by_label("committee")
         cls.contract_hash, _ = await cls.deploy("./uint_ecpoint.nef", cls.genesis)
 

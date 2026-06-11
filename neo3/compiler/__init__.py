@@ -8,8 +8,8 @@ Compile smart contracts
 import ast
 import hashlib
 import json
-import os
 import warnings
+from pathlib import Path
 from typing import Optional
 
 from neo3.contracts.abi import (
@@ -1023,6 +1023,21 @@ def compile_module(
     search_path: Optional[str] = None,
     filename: Optional[str] = None,
 ) -> bytes:
+    """Compile a Python smart-contract module to NeoVM bytecode.
+
+    Args:
+        source: Python source code as a string (e.g. ``Path("contract.py").read_text()``).
+            Not a file path.
+        search_path: Directory used to resolve ``import`` statements in `source`.
+            Defaults to the current working directory when ``None``.
+        filename: Absolute path of the originating ``.py`` file.  Used only for
+            error-message locations and anchoring relative imports; the file does
+            not need to exist on disk.  When ``None``, import-related errors will
+            not include a file name.
+
+    Returns:
+        Raw NeoVM bytecode.
+    """
     bytecode, _, _, _ = _compile_full(
         source, search_path=search_path, filename=filename
     )
@@ -1030,21 +1045,52 @@ def compile_module(
 
 
 def compile_function(source: str) -> bytes:
+    """Compile a single Python function (or short snippet) to NeoVM bytecode.
+
+    Convenience wrapper around :func:`compile_module` for small, self-contained
+    pieces of code that do not import other modules.
+
+    Args:
+        source: Python source code as a string.  Import statements are not
+            resolved; use :func:`compile_module` if the code has imports.
+
+    Returns:
+        Raw NeoVM bytecode.
+    """
     return compile_module(source)
 
 
-def compile_to_nef(source: str, output_path: str) -> None:
-    """Compile *source*, write <output_path> (.nef) and <stem>.manifest.json."""
-    abs_output = os.path.abspath(output_path)
-    search_path = os.path.dirname(abs_output)
-    src_file = os.path.splitext(abs_output)[0] + ".py"
+def compile_to_nef(
+    input_file: str | Path,
+    output_dir: Optional[str | Path] = None,
+) -> None:
+    """Compile a Python smart contract and write the NEF and manifest files.
+
+    Args:
+        input_file: Path to the ``.py`` smart-contract source file.
+        output_dir: Directory where the output files are written.  Defaults to
+            the same directory as `input_file`.  The output filenames are always
+            derived from the input file stem:
+
+            * ``<stem>.nef`` — the compiled Neo Executable Format binary.
+            * ``<stem>.manifest.json`` — the contract ABI manifest.
+
+    Raises:
+        OSError: If `input_file` cannot be read or either output file cannot
+            be written.
+    """
+    src_path = Path(input_file).resolve()
+    source = src_path.read_text(encoding="utf-8")
+    search_path = str(src_path.parent)
+    out_dir = Path(output_dir).resolve() if output_dir is not None else src_path.parent
+    stem = src_path.stem
     script, public_methods, event_infos, manifest_override = _compile_full(
-        source, search_path=search_path, filename=src_file
+        source, search_path=search_path, filename=str(src_path)
     )
 
     # NEF
-    nef = NEF(compiler_name="hyper", script=script)
-    nef_path = os.path.splitext(output_path)[0] + ".nef"
+    nef = NEF(compiler_name="neo-mamba", script=script)
+    nef_path = out_dir / f"{stem}.nef"
     try:
         with open(nef_path, "wb") as f:
             f.write(nef.to_array())
@@ -1052,8 +1098,8 @@ def compile_to_nef(source: str, output_path: str) -> None:
         raise OSError(f"Failed to write NEF file '{nef_path}': {e}") from e
 
     # Manifest
-    contract_name = os.path.splitext(os.path.basename(output_path))[0]
-    manifest_path = os.path.splitext(output_path)[0] + ".manifest.json"
+    contract_name = stem
+    manifest_path = out_dir / f"{stem}.manifest.json"
 
     methods = [
         ContractMethodDescriptor(
