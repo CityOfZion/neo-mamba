@@ -16,10 +16,7 @@ class TestExecutingScriptHash(SmartContractTestCase):
 
     @classmethod
     async def asyncSetupClass(cls) -> None:
-        compile_to_nef(
-            (HERE / "executing_script_hash.py").read_text(),
-            str(HERE / "executing_script_hash"),
-        )
+        compile_to_nef(HERE / "executing_script_hash.py")
         cls.genesis = cls.node.wallet.account_get_by_label("committee")
         cls.contract_hash, _ = await cls.deploy(
             "./executing_script_hash.nef", cls.genesis

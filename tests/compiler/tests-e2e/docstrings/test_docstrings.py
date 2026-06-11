@@ -17,10 +17,7 @@ class TestDocstrings(SmartContractTestCase):
 
     @classmethod
     async def asyncSetupClass(cls) -> None:
-        compile_to_nef(
-            (HERE / "docstrings.py").read_text(),
-            str(HERE / "docstrings"),
-        )
+        compile_to_nef(HERE / "docstrings.py")
         cls.genesis = cls.node.wallet.account_get_by_label("committee")
         cls.contract_hash, _ = await cls.deploy("./docstrings.nef", cls.genesis)
 

@@ -17,10 +17,7 @@ class TestOptionalNarrowing(SmartContractTestCase):
 
     @classmethod
     async def asyncSetupClass(cls) -> None:
-        compile_to_nef(
-            (HERE / "optional_narrowing.py").read_text(),
-            str(HERE / "optional_narrowing"),
-        )
+        compile_to_nef(HERE / "optional_narrowing.py")
         cls.genesis = cls.node.wallet.account_get_by_label("committee")
         cls.contract_hash, _ = await cls.deploy("./optional_narrowing.nef", cls.genesis)
 

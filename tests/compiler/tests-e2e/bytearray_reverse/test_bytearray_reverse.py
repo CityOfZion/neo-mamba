@@ -17,10 +17,7 @@ class TestBytearrayReverse(SmartContractTestCase):
 
     @classmethod
     async def asyncSetupClass(cls) -> None:
-        compile_to_nef(
-            (HERE / "bytearray_reverse.py").read_text(),
-            str(HERE / "bytearray_reverse"),
-        )
+        compile_to_nef(HERE / "bytearray_reverse.py")
         cls.genesis = cls.node.wallet.account_get_by_label("committee")
         cls.contract_hash, _ = await cls.deploy("./bytearray_reverse.nef", cls.genesis)
 

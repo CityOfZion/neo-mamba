@@ -1,11 +1,10 @@
 import asyncio
-import tempfile
 import unittest
 from pathlib import Path
 
 from neo3.sctesting import SmartContractTestCase
 
-from neo3.compiler import TypecheckError, compile_to_nef
+from neo3.compiler import TypecheckError, compile_module, compile_to_nef
 
 HERE = Path(__file__).parent
 
@@ -18,7 +17,7 @@ class TestComparison(SmartContractTestCase):
 
     @classmethod
     async def asyncSetupClass(cls) -> None:
-        compile_to_nef((HERE / "comparison.py").read_text(), str(HERE / "comparison"))
+        compile_to_nef(HERE / "comparison.py")
         cls.genesis = cls.node.wallet.account_get_by_label("committee")
         cls.contract_hash, _ = await cls.deploy("./comparison.nef", cls.genesis)
 
@@ -253,8 +252,7 @@ def f(a: str, b: str) -> bool:
     return a < b
 """
         with self.assertRaises(TypecheckError):
-            with tempfile.TemporaryDirectory() as _d:
-                compile_to_nef(src, str(Path(_d) / "throwaway"))
+            compile_module(src)
 
     def test_str_gt_is_compile_error(self) -> None:
         src = """
@@ -264,8 +262,7 @@ def f(a: str, b: str) -> bool:
     return a > b
 """
         with self.assertRaises(TypecheckError):
-            with tempfile.TemporaryDirectory() as _d:
-                compile_to_nef(src, str(Path(_d) / "throwaway"))
+            compile_module(src)
 
     def test_bytes_lt_is_compile_error(self) -> None:
         src = """
@@ -275,8 +272,7 @@ def f(a: bytes, b: bytes) -> bool:
     return a < b
 """
         with self.assertRaises(TypecheckError):
-            with tempfile.TemporaryDirectory() as _d:
-                compile_to_nef(src, str(Path(_d) / "throwaway"))
+            compile_module(src)
 
     def test_bytearray_le_is_compile_error(self) -> None:
         src = """
@@ -286,8 +282,7 @@ def f(a: bytearray, b: bytearray) -> bool:
     return a <= b
 """
         with self.assertRaises(TypecheckError):
-            with tempfile.TemporaryDirectory() as _d:
-                compile_to_nef(src, str(Path(_d) / "throwaway"))
+            compile_module(src)
 
     def test_str_bytes_cross_type_lt_is_compile_error(self) -> None:
         """Cross-type ordering was already rejected; this is a regression test."""
@@ -298,8 +293,7 @@ def f(a: str, b: bytes) -> bool:
     return a < b
 """
         with self.assertRaises(TypecheckError):
-            with tempfile.TemporaryDirectory() as _d:
-                compile_to_nef(src, str(Path(_d) / "throwaway"))
+            compile_module(src)
 
     def test_str_bytes_cross_type_eq_folds_to_false(self) -> None:
         """str == bytes folds to constant False at compile time."""
@@ -310,8 +304,7 @@ def f(a: str, b: bytes) -> bool:
     return a == b
 """
         # Should compile without error (constant fold) and always return False
-        with tempfile.TemporaryDirectory() as _d:
-            compile_to_nef(src, str(Path(_d) / "throwaway_eq"))
+        compile_module(src)
 
 
 if __name__ == "__main__":

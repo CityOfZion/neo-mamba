@@ -4,7 +4,7 @@ from pathlib import Path
 
 from neo3.sctesting import SmartContractTestCase
 
-from neo3.compiler import TypecheckError, compile_to_nef
+from neo3.compiler import TypecheckError, compile_module, compile_to_nef
 
 HERE = Path(__file__).parent
 
@@ -17,7 +17,7 @@ class TestArithmetic(SmartContractTestCase):
 
     @classmethod
     async def asyncSetupClass(cls) -> None:
-        compile_to_nef((HERE / "arithmetic.py").read_text(), str(HERE / "arithmetic"))
+        compile_to_nef(HERE / "arithmetic.py")
         cls.genesis = cls.node.wallet.account_get_by_label("committee")
         cls.contract_hash, _ = await cls.deploy("./arithmetic.nef", cls.genesis)
 
@@ -226,7 +226,7 @@ def f(x: int) -> int:
     return x ** -1
 """
         with self.assertRaises(TypecheckError):
-            compile_to_nef(src, "/tmp/throwaway")
+            compile_module(src)
 
     # ------------------------------------------------------------------
     # abs

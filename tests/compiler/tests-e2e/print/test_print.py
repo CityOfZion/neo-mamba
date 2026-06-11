@@ -17,10 +17,7 @@ class TestPrint(SmartContractTestCase):
 
     @classmethod
     async def asyncSetupClass(cls) -> None:
-        compile_to_nef(
-            (HERE / "print.py").read_text(),
-            str(HERE / "print"),
-        )
+        compile_to_nef(HERE / "print.py")
         cls.genesis = cls.node.wallet.account_get_by_label("committee")
         cls.contract_hash, _ = await cls.deploy("./print.nef", cls.genesis)
 
@@ -55,10 +52,7 @@ class TestPrintList(SmartContractTestCase):
 
     @classmethod
     async def asyncSetupClass(cls) -> None:
-        compile_to_nef(
-            (HERE / "print.py").read_text(),
-            str(HERE / "print"),
-        )
+        compile_to_nef(HERE / "print.py")
         cls.genesis = cls.node.wallet.account_get_by_label("committee")
         cls.contract_hash, _ = await cls.deploy("./print.nef", cls.genesis)
 

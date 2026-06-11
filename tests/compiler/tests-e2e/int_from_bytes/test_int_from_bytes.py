@@ -34,10 +34,7 @@ class TestIntFromBytes(SmartContractTestCase):
 
     @classmethod
     async def asyncSetupClass(cls) -> None:
-        compile_to_nef(
-            (HERE / "int_from_bytes.py").read_text(),
-            str(HERE / "int_from_bytes"),
-        )
+        compile_to_nef(HERE / "int_from_bytes.py")
         cls.genesis = cls.node.wallet.account_get_by_label("committee")
         cls.contract_hash, _ = await cls.deploy("./int_from_bytes.nef", cls.genesis)
 

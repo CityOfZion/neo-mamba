@@ -4,7 +4,7 @@ from pathlib import Path
 
 from neo3.sctesting import SmartContractTestCase
 
-from neo3.compiler import TypecheckError, compile_to_nef
+from neo3.compiler import TypecheckError, compile_module, compile_to_nef
 
 HERE = Path(__file__).parent
 
@@ -17,9 +17,7 @@ class TestBooleanLogic(SmartContractTestCase):
 
     @classmethod
     async def asyncSetupClass(cls) -> None:
-        compile_to_nef(
-            (HERE / "boolean_logic.py").read_text(), str(HERE / "boolean_logic")
-        )
+        compile_to_nef(HERE / "boolean_logic.py")
         cls.genesis = cls.node.wallet.account_get_by_label("committee")
         cls.contract_hash, _ = await cls.deploy("./boolean_logic.nef", cls.genesis)
 
@@ -243,7 +241,7 @@ def f(x: int, y: int) -> bool:
     return x and y
 """
         with self.assertRaises(TypecheckError):
-            compile_to_nef(src, "/tmp/throwaway")
+            compile_module(src)
 
     def test_or_with_int_operands_is_compile_error(self) -> None:
         src = """
@@ -253,7 +251,7 @@ def f(x: int, y: int) -> bool:
     return x or y
 """
         with self.assertRaises(TypecheckError):
-            compile_to_nef(src, "/tmp/throwaway")
+            compile_module(src)
 
     def test_not_with_int_operand_is_compile_error(self) -> None:
         src = """
@@ -263,7 +261,7 @@ def f(x: int) -> bool:
     return not x
 """
         with self.assertRaises(TypecheckError):
-            compile_to_nef(src, "/tmp/throwaway")
+            compile_module(src)
 
 
 if __name__ == "__main__":

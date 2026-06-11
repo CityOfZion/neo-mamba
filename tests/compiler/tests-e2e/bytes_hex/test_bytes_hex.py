@@ -17,10 +17,7 @@ class TestBytesHex(SmartContractTestCase):
 
     @classmethod
     async def asyncSetupClass(cls) -> None:
-        compile_to_nef(
-            (HERE / "bytes_hex.py").read_text(),
-            str(HERE / "bytes_hex"),
-        )
+        compile_to_nef(HERE / "bytes_hex.py")
         cls.genesis = cls.node.wallet.account_get_by_label("committee")
         cls.contract_hash, _ = await cls.deploy("./bytes_hex.nef", cls.genesis)
 

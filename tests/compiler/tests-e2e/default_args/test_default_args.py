@@ -4,7 +4,7 @@ from pathlib import Path
 
 from neo3.sctesting import SmartContractTestCase
 
-from neo3.compiler import TypecheckError, compile_to_nef
+from neo3.compiler import TypecheckError, compile_module, compile_to_nef
 
 HERE = Path(__file__).parent
 
@@ -17,10 +17,7 @@ class TestDefaultArgs(SmartContractTestCase):
 
     @classmethod
     async def asyncSetupClass(cls) -> None:
-        compile_to_nef(
-            (HERE / "default_args.py").read_text(),
-            str(HERE / "default_args"),
-        )
+        compile_to_nef(HERE / "default_args.py")
         cls.genesis = cls.node.wallet.account_get_by_label("committee")
         cls.contract_hash, _ = await cls.deploy("./default_args.nef", cls.genesis)
 
@@ -118,14 +115,12 @@ class TestDefaultArgs(SmartContractTestCase):
 
     def test_non_literal_default_rejected(self) -> None:
         with self.assertRaises(TypecheckError):
-            compile_to_nef(
+            compile_module(
                 "from neo3.sc.compiletime import public\n@public\ndef f(x: int = some_var) -> int:\n    return x\n",
-                "/tmp/throwaway",
             )
 
     def test_nested_function_rejected(self) -> None:
         with self.assertRaises(TypecheckError):
-            compile_to_nef(
+            compile_module(
                 "from neo3.sc.compiletime import public\n@public\ndef outer(x: int) -> int:\n    def inner(y: int) -> int:\n        return y\n    return inner(x)\n",
-                "/tmp/throwaway",
             )

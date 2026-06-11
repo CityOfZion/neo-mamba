@@ -4,7 +4,7 @@ from pathlib import Path
 
 from neo3.sctesting import SmartContractTestCase
 
-from neo3.compiler import TypecheckError, compile_to_nef
+from neo3.compiler import TypecheckError, compile_to_nef, compile_module
 
 HERE = Path(__file__).parent
 
@@ -17,10 +17,7 @@ class TestComprehensions(SmartContractTestCase):
 
     @classmethod
     async def asyncSetupClass(cls) -> None:
-        compile_to_nef(
-            (HERE / "comprehensions.py").read_text(),
-            str(HERE / "comprehensions"),
-        )
+        compile_to_nef(HERE / "comprehensions.py")
         cls.genesis = cls.node.wallet.account_get_by_label("committee")
         cls.contract_hash, _ = await cls.deploy("./comprehensions.nef", cls.genesis)
 
@@ -122,44 +119,38 @@ class TestComprehensions(SmartContractTestCase):
 
     def test_list_comp_multiple_generators_rejected(self) -> None:
         with self.assertRaises(TypecheckError):
-            compile_to_nef(
-                "from neo3.sc.compiletime import public\n@public\ndef f(a: list[int], b: list[int]) -> list[int]:\n    return [x for x in a for y in b]\n",
-                "/tmp/throwaway",
+            compile_module(
+                "from neo3.sc.compiletime import public\n@public\ndef f(a: list[int], b: list[int]) -> list[int]:\n    return [x for x in a for y in b]\n"
             )
 
     def test_list_comp_nested_rejected(self) -> None:
         with self.assertRaises(TypecheckError):
-            compile_to_nef(
-                "from neo3.sc.compiletime import public\n@public\ndef f(a: list[int]) -> list[int]:\n    return [[x for x in a] for _ in a]\n",
-                "/tmp/throwaway",
+            compile_module(
+                "from neo3.sc.compiletime import public\n@public\ndef f(a: list[int]) -> list[int]:\n    return [[x for x in a] for _ in a]\n"
             )
 
     def test_list_comp_non_list_iterable_rejected(self) -> None:
         with self.assertRaises(TypecheckError):
-            compile_to_nef(
-                "from neo3.sc.compiletime import public\n@public\ndef f(d: dict[str, int]) -> list[str]:\n    return [k for k in d]\n",
-                "/tmp/throwaway",
+            compile_module(
+                "from neo3.sc.compiletime import public\n@public\ndef f(d: dict[str, int]) -> list[str]:\n    return [k for k in d]\n"
             )
 
     def test_list_comp_non_bool_filter_rejected(self) -> None:
         with self.assertRaises(TypecheckError):
-            compile_to_nef(
-                "from neo3.sc.compiletime import public\n@public\ndef f(lst: list[int]) -> list[int]:\n    return [x for x in lst if x + 1]\n",
-                "/tmp/throwaway",
+            compile_module(
+                "from neo3.sc.compiletime import public\n@public\ndef f(lst: list[int]) -> list[int]:\n    return [x for x in lst if x + 1]\n"
             )
 
     def test_dict_comp_multiple_generators_rejected(self) -> None:
         with self.assertRaises(TypecheckError):
-            compile_to_nef(
-                "from neo3.sc.compiletime import public\n@public\ndef f(a: list[int], b: list[int]) -> dict[int, int]:\n    return {x: y for x in a for y in b}\n",
-                "/tmp/throwaway",
+            compile_module(
+                "from neo3.sc.compiletime import public\n@public\ndef f(a: list[int], b: list[int]) -> dict[int, int]:\n    return {x: y for x in a for y in b}\n"
             )
 
     def test_dict_comp_non_bool_filter_rejected(self) -> None:
         with self.assertRaises(TypecheckError):
-            compile_to_nef(
-                "from neo3.sc.compiletime import public\n@public\ndef f(lst: list[int]) -> dict[int, int]:\n    return {x: x for x in lst if x + 1}\n",
-                "/tmp/throwaway",
+            compile_module(
+                "from neo3.sc.compiletime import public\n@public\ndef f(lst: list[int]) -> dict[int, int]:\n    return {x: x for x in lst if x + 1}\n"
             )
 
 

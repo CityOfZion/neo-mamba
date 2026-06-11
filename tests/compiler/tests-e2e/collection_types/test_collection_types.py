@@ -17,9 +17,7 @@ class TestCollectionTypes(SmartContractTestCase):
 
     @classmethod
     async def asyncSetupClass(cls) -> None:
-        compile_to_nef(
-            (HERE / "collection_types.py").read_text(), str(HERE / "collection_types")
-        )
+        compile_to_nef(HERE / "collection_types.py")
         cls.genesis = cls.node.wallet.account_get_by_label("committee")
         cls.contract_hash, _ = await cls.deploy("./collection_types.nef", cls.genesis)
 

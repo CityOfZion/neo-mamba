@@ -4,7 +4,7 @@ from pathlib import Path
 
 from neo3.sctesting import SmartContractTestCase
 
-from neo3.compiler import TypecheckError, compile_to_nef
+from neo3.compiler import TypecheckError, compile_module, compile_to_nef
 
 HERE = Path(__file__).parent
 
@@ -17,10 +17,7 @@ class TestTypeConversions(SmartContractTestCase):
 
     @classmethod
     async def asyncSetupClass(cls) -> None:
-        compile_to_nef(
-            (HERE / "type_conversions.py").read_text(),
-            str(HERE / "type_conversions"),
-        )
+        compile_to_nef(HERE / "type_conversions.py")
         cls.genesis = cls.node.wallet.account_get_by_label("committee")
         cls.contract_hash, _ = await cls.deploy("./type_conversions.nef", cls.genesis)
 
@@ -328,76 +325,66 @@ class TestTypeConversions(SmartContractTestCase):
 
     def test_int_from_list_is_compile_error(self) -> None:
         with self.assertRaises(TypecheckError):
-            compile_to_nef(
+            compile_module(
                 "from neo3.sc.compiletime import public\n@public\ndef f(x: list[int]) -> int:\n    return int(x)\n",
-                "/tmp/throwaway",
             )
 
     def test_int_from_dict_is_compile_error(self) -> None:
         with self.assertRaises(TypecheckError):
-            compile_to_nef(
+            compile_module(
                 "from neo3.sc.compiletime import public\n@public\ndef f(x: dict[str, int]) -> int:\n    return int(x)\n",
-                "/tmp/throwaway",
             )
 
     def test_int_from_optional_is_compile_error(self) -> None:
         with self.assertRaises(TypecheckError):
-            compile_to_nef(
+            compile_module(
                 "from typing import Optional\n"
                 "from neo3.sc.compiletime import public\n@public\ndef f(x: Optional[int]) -> int:\n    return int(x)\n",
-                "/tmp/throwaway",
             )
 
     def test_bool_from_list_is_compile_error(self) -> None:
         with self.assertRaises(TypecheckError):
-            compile_to_nef(
+            compile_module(
                 "from neo3.sc.compiletime import public\n@public\ndef f(x: list[int]) -> bool:\n    return bool(x)\n",
-                "/tmp/throwaway",
             )
 
     def test_bool_from_optional_is_compile_error(self) -> None:
         with self.assertRaises(TypecheckError):
-            compile_to_nef(
+            compile_module(
                 "from typing import Optional\n"
                 "from neo3.sc.compiletime import public\n@public\ndef f(x: Optional[bool]) -> bool:\n    return bool(x)\n",
-                "/tmp/throwaway",
             )
 
     def test_str_from_list_is_compile_error(self) -> None:
         with self.assertRaises(TypecheckError):
-            compile_to_nef(
+            compile_module(
                 "from neo3.sc.compiletime import public\n@public\ndef f(x: list[int]) -> str:\n    return str(x)\n",
-                "/tmp/throwaway",
             )
 
     def test_str_from_optional_is_compile_error(self) -> None:
         with self.assertRaises(TypecheckError):
-            compile_to_nef(
+            compile_module(
                 "from typing import Optional\n"
                 "from neo3.sc.compiletime import public\n@public\ndef f(x: Optional[str]) -> str:\n    return str(x)\n",
-                "/tmp/throwaway",
             )
 
     def test_bytes_from_list_is_compile_error(self) -> None:
         with self.assertRaises(TypecheckError):
-            compile_to_nef(
+            compile_module(
                 "from neo3.sc.compiletime import public\n@public\ndef f(x: list[int]) -> bytes:\n    return bytes(x)\n",
-                "/tmp/throwaway",
             )
 
     def test_bytes_from_dict_is_compile_error(self) -> None:
         with self.assertRaises(TypecheckError):
-            compile_to_nef(
+            compile_module(
                 "from neo3.sc.compiletime import public\n@public\ndef f(x: dict[str, int]) -> bytes:\n    return bytes(x)\n",
-                "/tmp/throwaway",
             )
 
     def test_bytes_from_optional_is_compile_error(self) -> None:
         with self.assertRaises(TypecheckError):
-            compile_to_nef(
+            compile_module(
                 "from typing import Optional\n"
                 "from neo3.sc.compiletime import public\n@public\ndef f(x: Optional[bytes]) -> bytes:\n    return bytes(x)\n",
-                "/tmp/throwaway",
             )
 
 

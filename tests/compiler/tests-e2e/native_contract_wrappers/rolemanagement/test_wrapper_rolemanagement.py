@@ -21,10 +21,7 @@ class TestRoleManagementWrapper(SmartContractTestCase):
 
     @classmethod
     async def asyncSetupClass(cls) -> None:
-        compile_to_nef(
-            (HERE / "wrapper_rolemanagement.py").read_text(),
-            str(HERE / "wrapper_rolemanagement"),
-        )
+        compile_to_nef(HERE / "wrapper_rolemanagement.py")
         cls.genesis = cls.node.wallet.account_get_by_label("committee")
         cls.contract_hash, _ = await cls.deploy(
             "./wrapper_rolemanagement.nef", cls.genesis

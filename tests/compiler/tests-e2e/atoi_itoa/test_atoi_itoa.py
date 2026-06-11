@@ -17,10 +17,7 @@ class TestAtoiItoa(SmartContractTestCase):
 
     @classmethod
     async def asyncSetupClass(cls) -> None:
-        compile_to_nef(
-            (HERE / "atoi_itoa.py").read_text(),
-            str(HERE / "atoi_itoa"),
-        )
+        compile_to_nef(HERE / "atoi_itoa.py")
         cls.genesis = cls.node.wallet.account_get_by_label("committee")
         cls.contract_hash, _ = await cls.deploy("./atoi_itoa.nef", cls.genesis)
 

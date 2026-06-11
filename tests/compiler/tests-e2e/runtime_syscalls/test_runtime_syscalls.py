@@ -17,10 +17,7 @@ class TestScriptContainer(SmartContractTestCase):
 
     @classmethod
     async def asyncSetupClass(cls) -> None:
-        compile_to_nef(
-            (HERE / "runtime_syscalls.py").read_text(),
-            str(HERE / "runtime_syscalls"),
-        )
+        compile_to_nef(HERE / "runtime_syscalls.py")
         cls.genesis = cls.node.wallet.account_get_by_label("committee")
         cls.contract_hash, _ = await cls.deploy("./runtime_syscalls.nef", cls.genesis)
 

@@ -4,7 +4,7 @@ from pathlib import Path
 
 from neo3.sctesting import AbortException, SmartContractTestCase
 
-from neo3.compiler import TypecheckError, compile_to_nef
+from neo3.compiler import TypecheckError, compile_module, compile_to_nef
 
 HERE = Path(__file__).parent
 
@@ -17,10 +17,7 @@ class TestAbort(SmartContractTestCase):
 
     @classmethod
     async def asyncSetupClass(cls) -> None:
-        compile_to_nef(
-            (HERE / "abort.py").read_text(),
-            str(HERE / "abort"),
-        )
+        compile_to_nef(HERE / "abort.py")
         cls.genesis = cls.node.wallet.account_get_by_label("committee")
         cls.contract_hash, _ = await cls.deploy("./abort.nef", cls.genesis)
 
@@ -56,20 +53,18 @@ class TestAbort(SmartContractTestCase):
 
     def test_abort_wrong_arg_type_raises_compile_error(self) -> None:
         with self.assertRaises(TypecheckError):
-            compile_to_nef(
+            compile_module(
                 "from neo3.sc.compiletime import public\n"
                 "from neo3.sc.utils import abort\n"
                 "@public\ndef f() -> None:\n    abort(123)\n",
-                "/tmp/throwaway_abort",
             )
 
     def test_abort_too_many_args_raises_compile_error(self) -> None:
         with self.assertRaises(TypecheckError):
-            compile_to_nef(
+            compile_module(
                 "from neo3.sc.compiletime import public\n"
                 "from neo3.sc.utils import abort\n"
                 "@public\ndef f() -> None:\n    abort('a', 'b')\n",
-                "/tmp/throwaway_abort",
             )
 
 

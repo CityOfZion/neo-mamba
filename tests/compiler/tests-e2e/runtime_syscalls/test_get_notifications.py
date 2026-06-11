@@ -17,14 +17,8 @@ class TestGetNotifications(SmartContractTestCase):
 
     @classmethod
     async def asyncSetupClass(cls) -> None:
-        compile_to_nef(
-            (HERE / "helper_notifier.py").read_text(),
-            str(HERE / "helper_notifier"),
-        )
-        compile_to_nef(
-            (HERE / "get_notifications.py").read_text(),
-            str(HERE / "get_notifications"),
-        )
+        compile_to_nef(HERE / "helper_notifier.py")
+        compile_to_nef(HERE / "get_notifications.py")
         cls.genesis = cls.node.wallet.account_get_by_label("committee")
         cls.helper_hash, _ = await cls.deploy("./helper_notifier.nef", cls.genesis)
         cls.contract_hash, _ = await cls.deploy("./get_notifications.nef", cls.genesis)
