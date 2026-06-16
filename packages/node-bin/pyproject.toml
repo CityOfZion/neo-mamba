@@ -1,7 +1,7 @@
 [project]
 name = "neo-go-node"
 description = "Platform-specific neo-go binary"
-version = "0.119.0"
+version = "0.120.0"
 requires-python = ">= 3.13.0,< 3.15"
 license = 'MIT'
 license-files = ["LICENSE.md"]
@@ -36,4 +36,4 @@ include = ["neo_go_node*"]
 neo_go_node = ["bin/*", "py.typed"]
 
 [tool.neogo]
-tag = "v0.119.0"
+tag = "v0.120.0"
