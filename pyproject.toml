@@ -52,7 +52,7 @@ docs = [
 sctesting = [
     "requests",
     "PyYAML",
-    "neo-go-node==0.119.0"
+    "neo-go-node==0.120.0"
 ]
 
 [project.urls]
