@@ -25,7 +25,7 @@ neo-mamba
 
 This project is for you if you're looking to use Python to
 
-* Deploy smart contracts
+* Create, test and deploy smart contracts
 * Transfer NEP-11 and NEP-17 tokens
 * Vote for your favourite consensus node
 * Interact with on-chain smart contracts
@@ -38,11 +38,9 @@ In order to interact with the chain and obtain information it relies heavily on 
 
 Please report any issues on `Github <https://github.com/CityOfZion/neo-mamba/issues>`_ or submit ideas how to improve the SDK.
 
-Also check out our Python smart contract compiler `Boa <https://github.com/CityOfZion/neo3-boa>`_ !
-
 Installation and usage
 ----------------------
-Installation instructions, how to interact with smart contracts as well as API reference documentation can be found at
+Installation instructions, how to build, test and interact with smart contracts as well as API reference documentation can be found at
 https://mamba.coz.io/
 
 Developing or contributing
