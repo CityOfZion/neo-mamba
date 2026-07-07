@@ -15,12 +15,15 @@ def cmd_version(_: argparse.Namespace) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="neo3",
+        prog="mamba",
         description="NEO smart contract toolchain",
     )
     parser.set_defaults(func=None)
 
     subparsers = parser.add_subparsers(title="commands", metavar="<command>")
+
+    create_parser = subparsers.add_parser("create", help="Create a new dApp with a smart contract and tests")
+    create_parser.set_defaults(func=scaffold_init)
 
     version_parser = subparsers.add_parser("version", help="Print the SDK version")
     version_parser.set_defaults(func=cmd_version)
