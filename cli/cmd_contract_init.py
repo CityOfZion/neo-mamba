@@ -63,7 +63,6 @@ class TestAbort(SmartContractTestCase):
 
 
 def scaffold_init(args: argparse.Namespace) -> int:
-    """neo3 contract init <name>"""
     name = args.name
     contract_path = Path(f"{name}.py")
     test_path = Path(f"test_{name}.py")
