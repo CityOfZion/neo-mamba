@@ -272,7 +272,7 @@ def get_hello_world() -> str:
 ```
 
 !!! note
-    Compile the code with `neo3 contract compile hello_world.py`.
+    Compile the code with `mamba contract compile hello_world.py`.
 
 Let's unpack the example. The `@public` decorator tells the compiler that the function should be made callable from the 
 outside world. In the example `save_hello_world` and `get_hello_world` are the function names that will be exposed via a

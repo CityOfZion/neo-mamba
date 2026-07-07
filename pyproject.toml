@@ -102,4 +102,4 @@ source = ["neo3"]
 omit = ["neo3/core/cryptography/ecc*"]
 
 [project.scripts]
-neo3 = "cli.__init__:main"
+mamba = "cli.__init__:main"
