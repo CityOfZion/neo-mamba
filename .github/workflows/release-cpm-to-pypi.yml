@@ -1,0 +1,62 @@
+name: Release cpm-bin to PyPi
+
+on:
+  workflow_dispatch:
+    inputs:
+      pypi-target:
+        description: Deploy to PyPi [Main] or [Test]
+        required: true
+        default: 'Main'
+
+jobs:
+  build-and-release:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Install dependencies
+        working-directory: packages/cpm-bin
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .[dev]
+
+      - name: Download node binary
+        run: python packages/cpm-bin/scripts/download-cpm.py
+
+      - name: Build wheel
+        working-directory: packages/cpm-bin
+        run: python -m build --wheel
+
+      - name: Fix wheels
+        working-directory: packages/cpm-bin
+        run: python scripts/fix-wheels.py dist/
+
+      - name: Validate dist
+        working-directory: packages/cpm-bin
+        run: twine check dist/*
+
+      - if: github.event.inputs.pypi-target == 'Main'
+        name: Publish to PyPi
+        working-directory: packages/cpm-bin
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+        run: twine upload dist/*
+
+      - if: github.event.inputs.pypi-target == 'Test'
+        name: Publish to Test-PyPi
+        working-directory: packages/cpm-bin
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_TEST_API_TOKEN }}
+        run: twine upload --repository testpypi dist/*
