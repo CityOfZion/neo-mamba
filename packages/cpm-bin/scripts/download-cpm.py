@@ -5,7 +5,6 @@ import os
 import stat
 import pathlib
 from tomlkit import parse
-import os
 import tarfile
 import zipfile
 
@@ -75,9 +74,6 @@ def main():
                     )
                     data_dir.mkdir(parents=True, exist_ok=True)
 
-                    # binary_filename = f"{data_dir}/tmp.tar.gz"
-                    # if system == "windows":
-                    #     binary_filename = f"{data_dir}/tmp.zip"
                     binary_filename = f"{data_dir}/tmp"
                     with open(binary_filename, "wb") as f:
                         for chunk in r.iter_content(chunk_size=1024):
