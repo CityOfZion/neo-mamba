@@ -32,6 +32,8 @@ jobs:
 
       - name: Download node binary
         run: python packages/node-bin/scripts/download-node.py
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build wheel
         working-directory: packages/node-bin

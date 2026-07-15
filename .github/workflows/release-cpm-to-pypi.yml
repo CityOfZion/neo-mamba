@@ -32,6 +32,9 @@ jobs:
 
       - name: Download node binary
         run: python packages/cpm-bin/scripts/download-cpm.py
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 
       - name: Build wheel
         working-directory: packages/cpm-bin
