@@ -1,4 +1,4 @@
-name: Release node-bin to PyPi
+name: Release cpm-bin to PyPi
 
 on:
   workflow_dispatch:
