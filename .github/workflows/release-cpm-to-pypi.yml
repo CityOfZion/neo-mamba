@@ -35,7 +35,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-
       - name: Build wheel
         working-directory: packages/cpm-bin
         run: python -m build --wheel
