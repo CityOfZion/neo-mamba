@@ -23,6 +23,7 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(title="commands", metavar="<command>")
 
     create_parser = subparsers.add_parser("create", help="Create a new dApp with a smart contract and tests")
+    create_parser.add_argument("name", metavar="<name>", help="Name of the new dApp")
     create_parser.set_defaults(func=scaffold_init)
 
     version_parser = subparsers.add_parser("version", help="Print the SDK version")
