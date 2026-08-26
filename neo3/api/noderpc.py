@@ -108,6 +108,8 @@ class GetVersionResponse:
     protocol: VersionProtocol
     rpc_session_enabled: bool
     rpc_max_iterator_results: int
+    standby_committee: Optional[list[str]]
+    seed_list: Optional[list[str]]
 
     @classmethod
     def from_json(cls, json: dict):
