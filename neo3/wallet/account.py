@@ -751,6 +751,88 @@ class Account:
             res.append(a[i] ^ b[i])
         return bytes(res)
 
+    def token_add(self, token_hash: types.UInt160) -> bool:
+        """
+        Add a token to track for this account.
+
+        Args:
+            token_hash: the script hash of the token contract.
+
+        Returns:
+            True if added, False if already exists.
+        """
+        if "tokens" not in self.extra:
+            self.extra["tokens"] = []
+
+        token_hash_str = str(token_hash)
+        if token_hash_str in self.extra["tokens"]:
+            return False
+
+        self.extra["tokens"].append(token_hash_str)
+        return True
+
+    def token_delete(self, token_hash: types.UInt160) -> bool:
+        """
+        Remove a token from this account.
+
+        Args:
+            token_hash: the script hash of the token contract.
+
+        Returns:
+            True if deleted, False if not found.
+        """
+        if "tokens" not in self.extra:
+            return False
+
+        token_hash_str = str(token_hash)
+        if token_hash_str not in self.extra["tokens"]:
+            return False
+
+        self.extra["tokens"].remove(token_hash_str)
+        return True
+
+    async def token_delete_by_name(self, token_name: str, rpc_host: str) -> bool:
+        """
+        Remove a token by its name.
+
+        Queries each tracked token contract via RPC to find the matching name/symbol.
+
+        Args:
+            token_name: the name/symbol of the token to remove.
+            rpc_host: the RPC host URL to query token information.
+
+        Returns:
+            True if deleted, False if not found.
+        """
+        if "tokens" not in self.extra:
+            return False
+
+        # Import here to avoid circular dependency at module level
+        from neo3.api import wrappers, noderpc
+
+        # Iterate through stored tokens to find matching symbol
+        async with noderpc.NeoRpcClient(rpc_host) as client:
+            for token_hash_str in self.extra["tokens"]:
+                try:
+                    token_hash = types.UInt160.from_string(token_hash_str)
+                    token_contract = wrappers.NEP17Contract(token_hash)
+
+                    # Query the token symbol
+                    result = await client.invoke_script(
+                        token_contract.symbol().script, []
+                    )
+
+                    if result.state == "HALT" and len(result.stack) > 0:
+                        symbol = result.stack[0].as_str()
+                        if symbol == token_name:
+                            self.extra["tokens"].remove(token_hash_str)
+                            return True
+                except Exception:
+                    # Skip tokens that fail to query
+                    continue
+
+        return False
+
     def _validate_tx(self, tx: transaction.Transaction) -> None:
         """
         Helper to validate properties before signing
