@@ -81,6 +81,55 @@ def f() -> int:
         with self.assertRaises(TypecheckError):
             compile_function(src)
 
+    def test_empty_list_unannotated_then_homogeneous_append_return(self):
+        src = """
+def f() -> list[int]:
+    r = []
+    r.append(1)
+    r.append(2)
+    return r
+"""
+        bc = compile_function(src)
+        self.assertIsInstance(bc, bytes)
+
+    def test_empty_list_unannotated_then_heterogeneous_append_raises(self):
+        src = """
+def f() -> list[int]:
+    r = []
+    r.append(1)
+    r.append("x")
+    return r
+"""
+        with self.assertRaises(TypecheckError) as ctx:
+            compile_function(src)
+        self.assertIn(".append() type mismatch", str(ctx.exception))
+
+    def test_heterogeneous_literal_unannotated_return_raises(self):
+        src = """
+def f() -> list[int]:
+    r = [1, "a"]
+    return r
+"""
+        with self.assertRaises(TypecheckError):
+            compile_function(src)
+
+    def test_never_mutated_empty_list_unannotated_return(self):
+        src = """
+def f() -> list[int]:
+    r = []
+    return r
+"""
+        bc = compile_function(src)
+        self.assertIsInstance(bc, bytes)
+
+    def test_return_empty_list_literal_non_int_element(self):
+        src = """
+def f() -> list[str]:
+    return []
+"""
+        bc = compile_function(src)
+        self.assertIsInstance(bc, bytes)
+
     def test_list_literal_cfg_ops(self):
         src = """
 def f() -> int:

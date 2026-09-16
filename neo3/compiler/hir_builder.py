@@ -31,6 +31,7 @@ from .types import (
     OptionalType,
     ClassType,
     AnyType,
+    ElasticAnyType,
     IteratorType,
     UInt160Type,
     UInt256Type,
@@ -44,6 +45,7 @@ from .types import (
     STR,
     NONE,
     ANY,
+    ELASTIC_ANY,
     ITERATOR,
     UINT160,
     UINT256,
@@ -777,6 +779,7 @@ class HIRBuilder:
                         self._err("bare 'return' not supported in non-void functions")
                     return Return(value=NoneLiteral(), type=NONE)
                 expr = self._visit_expr(val)
+                expr = self._resolve_elastic_or_empty(expr, self._return_type)
                 if not _type_compatible(
                     expr.type, self._return_type, self._class_registry
                 ):
@@ -812,6 +815,7 @@ class HIRBuilder:
                 if not isinstance(obj.type, ListType):
                     self._err(".append() only supported on list[T]")
                 arg = self._visit_expr(arg_node)
+                obj = self._narrow_elastic_list_elem(obj, arg.type)
                 if not _type_compatible(arg.type, obj.type.elem, self._class_registry):
                     self._err(
                         f".append() type mismatch: expected {obj.type.elem}, got {arg.type}"
@@ -832,6 +836,7 @@ class HIRBuilder:
                 if not isinstance(idx.type, IntType):
                     self._err(".insert() index must be int")
                 val = self._visit_expr(val_node)
+                obj = self._narrow_elastic_list_elem(obj, val.type)
                 if not _type_compatible(val.type, obj.type.elem, self._class_registry):
                     self._err(
                         f".insert() type mismatch: expected {obj.type.elem}, got {val.type}"
@@ -896,6 +901,9 @@ class HIRBuilder:
                 container = self._visit_expr(ctr_node)
                 if isinstance(container.type, DictType):
                     key = self._visit_expr(idx_node)
+                    container = self._narrow_elastic_dict_kv(
+                        container, new_key=key.type, new_val=None
+                    )
                     if not _type_compatible(
                         key.type, container.type.key, self._class_registry
                     ):
@@ -903,6 +911,9 @@ class HIRBuilder:
                             f"dict key type mismatch: expected {container.type.key}, got {key.type}"
                         )
                     value = self._visit_expr(val_node)
+                    container = self._narrow_elastic_dict_kv(
+                        container, new_key=None, new_val=value.type
+                    )
                     if not _type_compatible(
                         value.type, container.type.val, self._class_registry
                     ):
@@ -915,6 +926,7 @@ class HIRBuilder:
                     if not isinstance(index.type, IntType):
                         self._err("list index must be int")
                     value = self._visit_expr(val_node)
+                    container = self._narrow_elastic_list_elem(container, value.type)
                     if not _type_compatible(
                         value.type, container.type.elem, self._class_registry
                     ):
@@ -1502,6 +1514,110 @@ class HIRBuilder:
         if isinstance(test.ops[0], ast.IsNot):
             return (name, False)  # is not None
         return None
+
+    def _narrow_elastic_list_elem(self, obj: Expr, new_elem: Type) -> Expr:
+        """If obj is a LocalLoad of a list local whose elem type is still
+        ElasticAnyType, and new_elem is concrete (not itself Any-ish), permanently
+        narrow that local's recorded type and return an updated LocalLoad.
+        Otherwise return obj unchanged."""
+        if not isinstance(obj, LocalLoad) or not isinstance(obj.type, ListType):
+            return obj
+        if not isinstance(obj.type.elem, ElasticAnyType) or isinstance(
+            new_elem, AnyType
+        ):
+            return obj
+        new_type = ListType(new_elem)
+        slot, _ = self._locals[obj.name]
+        self._locals[obj.name] = (slot, new_type)
+        self._local_orig_types[obj.name] = new_type
+        return dataclasses.replace(obj, type=new_type)
+
+    def _narrow_elastic_dict_kv(
+        self, obj: Expr, new_key: Optional[Type], new_val: Optional[Type]
+    ) -> Expr:
+        """Independently narrow whichever of a dict local's key/val components is
+        still ElasticAnyType. Pass None for a component not being observed by the
+        current statement."""
+        if not isinstance(obj, LocalLoad) or not isinstance(obj.type, DictType):
+            return obj
+        cur = obj.type
+        resolved_key = cur.key
+        if (
+            new_key is not None
+            and isinstance(cur.key, ElasticAnyType)
+            and not isinstance(new_key, AnyType)
+        ):
+            resolved_key = new_key
+        resolved_val = cur.val
+        if (
+            new_val is not None
+            and isinstance(cur.val, ElasticAnyType)
+            and not isinstance(new_val, AnyType)
+        ):
+            resolved_val = new_val
+        if resolved_key is cur.key and resolved_val is cur.val:
+            return obj
+        new_type = DictType(resolved_key, resolved_val)
+        slot, _ = self._locals[obj.name]
+        self._locals[obj.name] = (slot, new_type)
+        self._local_orig_types[obj.name] = new_type
+        return dataclasses.replace(obj, type=new_type)
+
+    def _resolve_elastic_or_empty(self, expr: Expr, declared: Type) -> Expr:
+        """Coerce an expr flowing into a concrete-type-expecting context when it is
+        (a) a bare empty list/dict literal (placeholder type — always safe to adopt
+            the declared shape), or
+        (b) a LocalLoad of a local whose recorded type still carries
+            ElasticAnyType component(s) — permanently resolving that local's state,
+            exactly as a mutation would have.
+        Falls through unchanged otherwise, including for genuinely-heterogeneous
+        locals (plain AnyType, not ElasticAnyType), so those still correctly fail
+        the caller's subsequent _type_compatible check."""
+        if (
+            isinstance(expr, ListLiteral)
+            and not expr.elements
+            and isinstance(declared, ListType)
+        ):
+            return dataclasses.replace(expr, type=declared)
+        if (
+            isinstance(expr, DictLiteral)
+            and not expr.pairs
+            and isinstance(declared, DictType)
+        ):
+            return dataclasses.replace(expr, type=declared)
+        if isinstance(expr, LocalLoad) and expr.name in self._locals:
+            slot, cur_type = self._locals[expr.name]
+            if (
+                isinstance(cur_type, ListType)
+                and isinstance(cur_type.elem, ElasticAnyType)
+                and isinstance(declared, ListType)
+            ):
+                self._locals[expr.name] = (slot, declared)
+                self._local_orig_types[expr.name] = declared
+                return dataclasses.replace(expr, type=declared)
+            if (
+                isinstance(cur_type, DictType)
+                and isinstance(declared, DictType)
+                and (
+                    isinstance(cur_type.key, ElasticAnyType)
+                    or isinstance(cur_type.val, ElasticAnyType)
+                )
+            ):
+                new_key = (
+                    declared.key
+                    if isinstance(cur_type.key, ElasticAnyType)
+                    else cur_type.key
+                )
+                new_val = (
+                    declared.val
+                    if isinstance(cur_type.val, ElasticAnyType)
+                    else cur_type.val
+                )
+                new_type = DictType(new_key, new_val)
+                self._locals[expr.name] = (slot, new_type)
+                self._local_orig_types[expr.name] = new_type
+                return dataclasses.replace(expr, type=new_type)
+        return expr
 
     def _set_local_type(self, name: str, new_type: Type) -> Type:
         """Temporarily update the type of a local/arg; return the old type for restoration."""
@@ -2589,10 +2705,7 @@ class HIRBuilder:
             self._err(f"'{name}' must have a value")
         declared = self._resolve_annotation(ann)
         expr = self._visit_expr(val)
-        if isinstance(expr, ListLiteral) and not expr.elements:
-            expr = dataclasses.replace(expr, type=declared)
-        if isinstance(expr, DictLiteral) and not expr.pairs:
-            expr = dataclasses.replace(expr, type=declared)
+        expr = self._resolve_elastic_or_empty(expr, declared)
         if not _type_compatible(expr.type, declared, self._class_registry):
             self._err(_type_mismatch_msg(f"assigning '{name}'", declared, expr.type))
         if name in self._args:
@@ -2626,9 +2739,11 @@ class HIRBuilder:
                     f"'{name}: Optional[<type>] = None' or '{name}: NoneType = None'."
                 )
             if isinstance(expr, ListLiteral) and not expr.elements:
-                expr = dataclasses.replace(expr, type=ListType(ANY))
+                expr = dataclasses.replace(expr, type=ListType(ELASTIC_ANY))
             if isinstance(expr, DictLiteral) and not expr.pairs:
-                expr = dataclasses.replace(expr, type=DictType(ANY, ANY))
+                expr = dataclasses.replace(
+                    expr, type=DictType(ELASTIC_ANY, ELASTIC_ANY)
+                )
             inferred = expr.type
             slot = len(self._locals)
             self._locals[name] = (slot, inferred)
@@ -2659,6 +2774,7 @@ class HIRBuilder:
             )
         slot, declared = self._locals[name]
         expr = self._visit_expr(val)
+        expr = self._resolve_elastic_or_empty(expr, declared)
         if not _type_compatible(expr.type, declared, self._class_registry):
             self._err(_type_mismatch_msg(f"reassigning '{name}'", declared, expr.type))
         return LocalStore(name=name, slot=slot, value=expr, type=declared)
@@ -2724,10 +2840,7 @@ class HIRBuilder:
         if val is None:
             self._err(f"Field '{fname}' must have a value")
         expr = self._visit_expr(val)
-        if isinstance(expr, ListLiteral) and not expr.elements:
-            expr = dataclasses.replace(expr, type=fi.type)
-        if isinstance(expr, DictLiteral) and not expr.pairs:
-            expr = dataclasses.replace(expr, type=fi.type)
+        expr = self._resolve_elastic_or_empty(expr, fi.type)
         if not _type_compatible(expr.type, fi.type, self._class_registry):
             self._err(
                 _type_mismatch_msg(f"assigning field '{fname}'", fi.type, expr.type)

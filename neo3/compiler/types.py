@@ -117,6 +117,17 @@ class AnyType(_TypeBase):
 
 
 @dataclasses.dataclass(frozen=True)
+class ElasticAnyType(AnyType):
+    """Placeholder elem/key/val type for an empty list/dict literal whose concrete
+    type has not yet been observed via mutation or an expected target type.
+    isinstance(x, AnyType) still matches it everywhere, so all existing permissive
+    Any-handling is unaffected; only code that explicitly checks
+    isinstance(x, ElasticAnyType) narrows/resolves it, as opposed to a genuinely
+    heterogeneous literal's plain AnyType, which stays rejected against a
+    concrete declared type."""
+
+
+@dataclasses.dataclass(frozen=True)
 class IteratorType(_TypeBase):
     def __str__(self):
         return "Iterator"
@@ -174,6 +185,7 @@ BYTEARRAY = BytearrayType()
 STR = StrType()
 NONE = NoneType()
 ANY = AnyType()
+ELASTIC_ANY = ElasticAnyType()
 ITERATOR = IteratorType()
 UINT160 = UInt160Type()
 UINT256 = UInt256Type()
