@@ -166,6 +166,127 @@ def main(n: int) -> int:
             self.assertIsInstance(result, bytes)
 
 
+class TestTypeAliasImport(unittest.TestCase):
+    """from module import <PEP-695 type alias>"""
+
+    def test_plain_import(self):
+        with tempfile.TemporaryDirectory() as d:
+            _write(
+                d,
+                "shared.py",
+                """
+from typing import Any
+type ExportDict = dict[str, Any]
+""",
+            )
+            src = """
+from shared import ExportDict
+
+from neo3.sc.compiletime import public
+@public
+def x() -> ExportDict:
+    return {}
+"""
+            result = compile_module(src, search_path=d)
+            self.assertIsInstance(result, bytes)
+
+    def test_import_as_alias(self):
+        """Aliased import used as a local variable annotation.
+
+        Note: using an aliased import name as a function return/parameter
+        annotation hits a separate, pre-existing gap (signature collection
+        in `_compile_full`'s Pass 3 resolves annotations without applying
+        import aliases at all — reproducible with a plain aliased class
+        import too) that's out of scope for this fix.
+        """
+        with tempfile.TemporaryDirectory() as d:
+            _write(
+                d,
+                "shared.py",
+                """
+from typing import Any
+type ExportDict = dict[str, Any]
+""",
+            )
+            src = """
+from shared import ExportDict as ED
+
+from neo3.sc.compiletime import public
+@public
+def x() -> int:
+    d: ED = {}
+    return len(d)
+"""
+            result = compile_module(src, search_path=d)
+            self.assertIsInstance(result, bytes)
+
+    def test_diamond_import(self):
+        """Two modules both import the same alias; the second import hits the
+        already-bundled validation path (mangle_registry lookup) rather than
+        the first-bundle path."""
+        with tempfile.TemporaryDirectory() as d:
+            _write(
+                d,
+                "shared.py",
+                """
+from typing import Any
+type ExportDict = dict[str, Any]
+""",
+            )
+            _write(
+                d,
+                "mod_a.py",
+                """
+from shared import ExportDict
+
+def a() -> ExportDict:
+    return {}
+""",
+            )
+            _write(
+                d,
+                "mod_b.py",
+                """
+from shared import ExportDict
+
+def b() -> ExportDict:
+    return {}
+""",
+            )
+            src = """
+from mod_a import a
+from mod_b import b
+
+from neo3.sc.compiletime import public
+@public
+def x() -> int:
+    return len(a()) + len(b())
+"""
+            result = compile_module(src, search_path=d)
+            self.assertIsInstance(result, bytes)
+
+    def test_wildcard_import(self):
+        with tempfile.TemporaryDirectory() as d:
+            _write(
+                d,
+                "shared.py",
+                """
+from typing import Any
+type ExportDict = dict[str, Any]
+""",
+            )
+            src = """
+from shared import *
+
+from neo3.sc.compiletime import public
+@public
+def x() -> ExportDict:
+    return {}
+"""
+            result = compile_module(src, search_path=d)
+            self.assertIsInstance(result, bytes)
+
+
 class TestImportModule(unittest.TestCase):
     """import module  →  module.name(...)"""
 

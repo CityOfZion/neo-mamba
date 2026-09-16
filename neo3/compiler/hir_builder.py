@@ -4794,6 +4794,8 @@ def _stmt_name(stmt: ast.stmt) -> Optional[str]:
         return stmt.name
     if isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name):
         return stmt.target.id
+    if isinstance(stmt, ast.TypeAlias):
+        return stmt.name.id
     return None
 
 
@@ -5047,7 +5049,15 @@ def _load_module_stmts(
     # Build mangle_map for this module's own top-level definitions.
     prefix = _mangle_prefix(abs_path, search_path)
     local_names = {_stmt_name(s) for s in body if _stmt_name(s) is not None}
-    mangle_map: dict[str, str] = {n: prefix + n for n in local_names}
+    # `type X = ...` aliases are resolved via a flat, module-agnostic registry
+    # (see _compile_full's PEP-695 alias pass), so they must keep their plain
+    # name rather than being mangled — map them to themselves instead so they
+    # still appear in mangle_registry (needed for already-bundled re-import
+    # validation) without ever being renamed.
+    type_alias_names = {s.name.id for s in body if isinstance(s, ast.TypeAlias)}
+    mangle_map: dict[str, str] = {
+        n: (n if n in type_alias_names else prefix + n) for n in local_names
+    }
     # Also include names imported by this module (_aliases) so that re-exports
     # from __init__.py files are visible to callers.  Own definitions take
     # precedence (mangle_map is the right operand and wins on key collision).
