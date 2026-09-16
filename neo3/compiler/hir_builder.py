@@ -248,6 +248,7 @@ class HIRBuilder:
         syscall_module_fn_specs: Optional[dict[str, "dict[str, _SyscallSpec]"]] = None,
         event_fn_specs: Optional[dict[str, "_EventInfo"]] = None,
         iterator_names: Optional[set[str]] = None,
+        type_aliases: Optional[dict[str, Type]] = None,
         findoptions_names: Optional[set[str]] = None,
         callflags_names: Optional[set[str]] = None,
         namedcurvehash_names: Optional[set[str]] = None,
@@ -283,6 +284,8 @@ class HIRBuilder:
                 functions decorated with ``@event``.
             iterator_names: Set of locally imported names that resolve to
                 ``IteratorType``, used during annotation resolution.
+            type_aliases: Map from module-level ``type X = ...`` alias name to
+                its resolved ``Type``, used during annotation resolution.
             findoptions_names: Set of locally imported names that refer to
                 ``FindOptions`` constants (enables constant folding).
             callflags_names: Set of locally imported names that refer to
@@ -318,10 +321,12 @@ class HIRBuilder:
         )
         # Maps local function name → _EventInfo for @event-decorated functions
         self._event_fn_specs: dict[str, "_EventInfo"] = event_fn_specs or {}
-        # Maps imported local name → IteratorType for type annotation resolution
+        # Maps imported local name → IteratorType, and module-level `type X = ...`
+        # alias name → resolved Type, for type annotation resolution
         self._iterator_extra: dict[str, Type] = {
             n: ITERATOR for n in (iterator_names or set())
         }
+        self._iterator_extra.update(type_aliases or {})
         # Set of local names that refer to FindOptions (for constant folding)
         self._findoptions_names: set[str] = findoptions_names or set()
         # Set of local names that refer to CallFlags (for constant folding)
@@ -1312,6 +1317,8 @@ class HIRBuilder:
                 self._err("nested function definitions are not supported")
             case ast.ClassDef():
                 self._err("nested class definitions are not supported")
+            case ast.TypeAlias():
+                self._err("type alias statements are only supported at module level")
             case _:
                 self._err(f"Unsupported statement: {ast.dump(node)}")
 
@@ -4382,6 +4389,7 @@ def _build_class_registry(
     filename: Optional[str] = None,
     module_fn_maps: Optional[dict[str, dict[str, str]]] = None,
     module_names: Optional[set] = None,
+    extra_names: Optional[dict[str, Type]] = None,
 ) -> tuple[
     dict[str, ClassInfo], dict[str, tuple[int, Type]], list[tuple[int, Type, ast.expr]]
 ]:
@@ -4545,6 +4553,7 @@ def _build_class_registry(
                 vartype = resolve_annotation(
                     item.annotation,
                     registry,
+                    extra_names=extra_names,
                     filename=getattr(node, "_src_file", filename),
                     module_fn_maps=module_fn_maps,
                     module_names=module_names,
@@ -4597,6 +4606,7 @@ def _build_class_registry(
                         ftype = resolve_annotation(
                             stmt.annotation,
                             registry,
+                            extra_names=extra_names,
                             filename=src_file,
                             module_fn_maps=module_fn_maps,
                             module_names=module_names,
