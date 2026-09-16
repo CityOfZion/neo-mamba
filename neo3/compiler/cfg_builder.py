@@ -188,7 +188,10 @@ class CFGBuilder:
                 )  # implicit RET for void functions that fall off the end
             else:
                 raise TypecheckError(
-                    f"Block '{self._current.label}' has no terminator (missing return?)"
+                    f"function '{self._fn.name}' expects {self._fn.return_type} "
+                    "returned. Missing return statement?",
+                    lineno=self._fn.lineno,
+                    filename=self._fn.filename,
                 )
         return self._cfg
 

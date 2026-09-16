@@ -506,6 +506,8 @@ class HIRBuilder:
             return_type=self._return_type,
             locals=dict(self._locals),
             body=body,
+            lineno=node.lineno,
+            filename=self._filename,
         )
 
     def build(self, node: ast.FunctionDef) -> HIRFunction:
@@ -538,6 +540,8 @@ class HIRBuilder:
             return_type=self._return_type,
             locals=dict(self._locals),
             body=body,
+            lineno=node.lineno,
+            filename=self._filename,
         )
 
     def _resolve_aliases_in_stmt(self, node: "ast.stmt") -> "ast.stmt":

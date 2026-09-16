@@ -727,6 +727,8 @@ class HIRFunction:
     return_type: Type
     locals: dict[str, tuple[int, Type]]
     body: list[Stmt]
+    lineno: Optional[int] = None
+    filename: Optional[str] = None
 
 
 @dataclasses.dataclass
