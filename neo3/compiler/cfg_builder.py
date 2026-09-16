@@ -66,6 +66,7 @@ from .hir import (
     HasKey,
     DictKeys,
     DictValues,
+    DictGet,
     StaticLoad,
     NoneLiteral,
     IsNone,
@@ -1082,6 +1083,36 @@ class CFGBuilder:
             case DictValues(container=ctr, type=t):
                 self._emit_expr(ctr)
                 self._emit(StackInstr(op="VALUES", type=t))
+
+            case DictGet(container=ctr, key=key, default=default, type=t):
+                # if key in container: container[key] else: default
+                # Evaluate container/key once, duplicate them (OVER, OVER) so HASKEY
+                # can consume a copy while the originals remain for PICKITEM.
+                then_lbl = self._fresh("dget_then")
+                else_lbl = self._fresh("dget_else")
+                join_lbl = self._fresh("dget_join")
+
+                self._emit_expr(ctr)
+                self._emit_expr(key)
+                self._emit(StackInstr(op="OVER", type=ctr.type))
+                self._emit(StackInstr(op="OVER", type=key.type))
+                self._emit(StackInstr(op="HASKEY", type=BOOL))
+                self._close(CondJump(true_target=then_lbl, false_target=else_lbl))
+
+                then_bb = self._cfg.new_block(then_lbl)
+                self._switch(then_bb)
+                self._emit(StackInstr(op="PICKITEM", type=t))
+                self._close(Jump(target=join_lbl))
+
+                else_bb = self._cfg.new_block(else_lbl)
+                self._switch(else_bb)
+                self._emit(StackInstr(op="DROP", type=key.type))
+                self._emit(StackInstr(op="DROP", type=ctr.type))
+                self._emit_expr(default)
+                self._close(Jump(target=join_lbl))
+
+                join_bb = self._cfg.new_block(join_lbl)
+                self._switch(join_bb)
             case StaticLoad(slot=slot, type=t):
                 self._emit(StackInstr(op="LDSFLD", type=t, operand=slot))
             case NoneLiteral():

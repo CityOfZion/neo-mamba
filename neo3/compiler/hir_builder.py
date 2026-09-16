@@ -93,6 +93,7 @@ from .hir import (
     HasKey,
     DictKeys,
     DictValues,
+    DictGet,
     StaticLoad,
     NoneLiteral,
     IsNone,
@@ -354,6 +355,47 @@ class HIRBuilder:
         raise TypecheckError(
             msg, lineno=lineno, col_offset=col, filename=self._filename
         )
+
+    def _build_dict_method_call(
+        self, obj: "Expr", meth_name: str, call_args: "list[ast.expr]"
+    ) -> "Expr":
+        """Build the HIR for d.keys() / d.values() / d.get(key[, default])."""
+        if not isinstance(obj.type, DictType):
+            self._err(f"Unknown method '{meth_name}' on {obj.type}")
+        if meth_name in ("keys", "values"):
+            if call_args:
+                self._err(f"'{meth_name}' takes no arguments")
+            if meth_name == "keys":
+                return DictKeys(container=obj, type=ListType(obj.type.key))
+            return DictValues(container=obj, type=ListType(obj.type.val))
+        if meth_name == "get":
+            if not (1 <= len(call_args) <= 2):
+                self._err(
+                    f"'get' takes 1 or 2 arguments, got {len(call_args)}"
+                )
+            key = self._visit_expr(call_args[0])
+            if not _type_compatible(key.type, obj.type.key, self._class_registry):
+                self._err(
+                    f"dict key type mismatch: expected {obj.type.key}, got {key.type}"
+                )
+            if len(call_args) == 2:
+                default = self._visit_expr(call_args[1])
+                if not _type_compatible(
+                    default.type, obj.type.val, self._class_registry
+                ):
+                    self._err(
+                        f"'get' default type mismatch: expected {obj.type.val}, got {default.type}"
+                    )
+                return DictGet(
+                    container=obj, key=key, default=default, type=obj.type.val
+                )
+            return DictGet(
+                container=obj,
+                key=key,
+                default=NoneLiteral(),
+                type=OptionalType(obj.type.val),
+            )
+        self._err(f"Unknown method '{meth_name}' on {obj.type}")
 
     def _alloc_temp(self, hint: str, t: Type) -> int:
         """Append a synthetic temp slot to the function's local table and return its index."""
@@ -3689,31 +3731,16 @@ class HIRBuilder:
                             args=visited_m,
                             type=return_type,
                         )
-                # Fall through to dict .keys()/.values() or error
-                if not isinstance(obj.type, DictType) or meth_name not in (
-                    "keys",
-                    "values",
-                ):
-                    self._err(f"Unknown method '{meth_name}' on {obj.type}")
-                if call_args:
-                    self._err(f"'{meth_name}' takes no arguments")
-                if meth_name == "keys":
-                    return DictKeys(container=obj, type=ListType(obj.type.key))
-                return DictValues(container=obj, type=ListType(obj.type.val))
+                # Fall through to dict .keys()/.values()/.get() or error
+                return self._build_dict_method_call(obj, meth_name, call_args)
 
             case ast.Call(
-                func=ast.Attribute(value=obj_node, attr=attr), args=[], keywords=[]
+                func=ast.Attribute(value=obj_node, attr=attr),
+                args=call_args,
+                keywords=[],
             ):
                 obj = self._visit_expr(obj_node)
-                if not isinstance(obj.type, DictType):
-                    self._err(f"Unknown method '{attr}' on {obj.type}")
-                match attr:
-                    case "keys":
-                        return DictKeys(container=obj, type=ListType(obj.type.key))
-                    case "values":
-                        return DictValues(container=obj, type=ListType(obj.type.val))
-                    case _:
-                        self._err(f"Unknown method '{attr}' on {obj.type}")
+                return self._build_dict_method_call(obj, attr, call_args)
 
             # --- NewInstance: ClassName(args) ---
             case ast.Call(func=ast.Name(id=name), args=call_args) if (

@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from neo3.sc.compiletime import public
 
@@ -219,6 +219,30 @@ def dict_items_keys_in_order() -> list[int]:
     for k, v in d.items():
         result.append(k)
     return result
+
+
+@public
+def dict_get_present() -> int:
+    d: dict[str, int] = {"abc": 1, "def": 2}
+    return d.get("abc", 0)
+
+
+@public
+def dict_get_missing_default() -> int:
+    d: dict[str, int] = {"abc": 1, "def": 2}
+    return d.get("xyz", 0)
+
+
+@public
+def dict_get_no_default_present() -> Optional[int]:
+    d: dict[str, int] = {"abc": 1}
+    return d.get("abc")
+
+
+@public
+def dict_get_no_default_missing() -> Optional[int]:
+    d: dict[str, int] = {"abc": 1}
+    return d.get("xyz")
 
 
 # ── Dict[str, Any] — heterogeneous values ────────────────────────
