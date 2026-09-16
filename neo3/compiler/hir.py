@@ -421,6 +421,16 @@ class DictValues:
 
 
 @dataclasses.dataclass
+class DictGet:
+    """d.get(key) / d.get(key, default) — HASKEY-guarded PICKITEM with a fallback value."""
+
+    container: "Expr"
+    key: "Expr"
+    default: "Expr"
+    type: Type  # val_t, or Optional[val_t] when no default was given
+
+
+@dataclasses.dataclass
 class StaticLoad:
     """Load a module-level static field onto the stack."""
 
@@ -520,6 +530,7 @@ Expr = Union[
     HasKey,
     DictKeys,
     DictValues,
+    DictGet,
     StaticLoad,
     NoneLiteral,
     IsNone,
