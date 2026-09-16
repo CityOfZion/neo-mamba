@@ -370,9 +370,7 @@ class HIRBuilder:
             return DictValues(container=obj, type=ListType(obj.type.val))
         if meth_name == "get":
             if not (1 <= len(call_args) <= 2):
-                self._err(
-                    f"'get' takes 1 or 2 arguments, got {len(call_args)}"
-                )
+                self._err(f"'get' takes 1 or 2 arguments, got {len(call_args)}")
             key = self._visit_expr(call_args[0])
             if not _type_compatible(key.type, obj.type.key, self._class_registry):
                 self._err(
