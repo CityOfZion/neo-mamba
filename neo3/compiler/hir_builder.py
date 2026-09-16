@@ -4794,6 +4794,12 @@ def _stmt_name(stmt: ast.stmt) -> Optional[str]:
         return stmt.name
     if isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name):
         return stmt.target.id
+    if (
+        isinstance(stmt, ast.Assign)
+        and len(stmt.targets) == 1
+        and isinstance(stmt.targets[0], ast.Name)
+    ):
+        return stmt.targets[0].id
     if isinstance(stmt, ast.TypeAlias):
         return stmt.name.id
     return None
@@ -4925,6 +4931,19 @@ def _mangle_module_body(
                 simple=orig_ann.simple,
             )
             ast.copy_location(stmt, orig_ann)
+        elif (
+            isinstance(stmt, ast.Assign)
+            and len(stmt.targets) == 1
+            and isinstance(stmt.targets[0], ast.Name)
+            and stmt.targets[0].id in mangle_map
+        ):
+            orig_assign = stmt
+            new_tgt = ast.Name(
+                id=mangle_map[orig_assign.targets[0].id], ctx=ast.Store()
+            )
+            ast.copy_location(new_tgt, orig_assign.targets[0])
+            stmt = ast.Assign(targets=[new_tgt], value=orig_assign.value)
+            ast.copy_location(stmt, orig_assign)
         result.append(stmt)
     return result
 
