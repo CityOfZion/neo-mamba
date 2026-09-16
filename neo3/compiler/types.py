@@ -211,8 +211,7 @@ class TypecheckError(Exception):
             parts.append(loc)
         prefix = ", ".join(parts)
         msg = super().__str__()
-        full = f"{prefix}: {msg}" if prefix else msg
-        return f"neo3: {full}"
+        return f"{prefix}: {msg}" if prefix else msg
 
 
 def _resolve_simple_type(annotation: ast.expr) -> "Type":
