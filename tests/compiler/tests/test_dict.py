@@ -120,6 +120,33 @@ def f(lst: list[int]) -> int:
         with self.assertRaises((TypecheckError, TypeError)):
             compile_function(src)
 
+    def test_empty_dict_unannotated_then_item_assign_return(self):
+        src = """
+def f() -> dict[str, int]:
+    d = {}
+    d["a"] = 1
+    return d
+"""
+        bc = compile_function(src)
+        self.assertIsInstance(bc, bytes)
+
+    def test_never_mutated_empty_dict_unannotated_return(self):
+        src = """
+def f() -> dict[str, int]:
+    d = {}
+    return d
+"""
+        bc = compile_function(src)
+        self.assertIsInstance(bc, bytes)
+
+    def test_return_empty_dict_literal_non_int_value(self):
+        src = """
+def f() -> dict[str, str]:
+    return {}
+"""
+        bc = compile_function(src)
+        self.assertIsInstance(bc, bytes)
+
 
 class TestDictIndex(unittest.TestCase):
 
