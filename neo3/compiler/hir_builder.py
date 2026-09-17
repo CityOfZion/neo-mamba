@@ -3968,9 +3968,7 @@ class HIRBuilder:
                         if not value.type.is_byteslike() and not isinstance(
                             value.type, ListType
                         ):
-                            self._err(
-                                "slicing requires bytes, bytearray, str, or list"
-                            )
+                            self._err("slicing requires bytes, bytearray, str, or list")
                         step = None
                         if st is not None:
                             step = self._visit_expr(st)
