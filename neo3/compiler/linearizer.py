@@ -401,6 +401,10 @@ class Linearizer:
                 self._em.emit_opcode(OpCode.NEWARRAY)
             case "APPEND":
                 self._em.emit_opcode(OpCode.APPEND)
+            case "POPITEM":
+                self._em.emit_opcode(OpCode.POPITEM)
+            case "REMOVE":
+                self._em.emit_opcode(OpCode.REMOVE)
             case "NEWMAP":
                 self._em.emit_opcode(OpCode.NEWMAP)
             case "HASKEY":

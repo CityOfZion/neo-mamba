@@ -383,6 +383,14 @@ class ListSlice:
 
 
 @dataclasses.dataclass
+class ListPop:
+    """lst.pop() (no index) used as an expression; compiles to POPITEM."""
+
+    container: "Expr"
+    type: Type  # container.type.elem
+
+
+@dataclasses.dataclass
 class ListLiteral:
     """[e1, e2, ...] — homogeneous list literal."""
 
@@ -535,6 +543,8 @@ Expr = Union[
     StrIndex,
     StringLiteral,
     Slice,
+    ListSlice,
+    ListPop,
     ListLiteral,
     TupleLiteral,
     DictLiteral,
@@ -616,6 +626,25 @@ class ItemStore:
     container: Expr  # ListType or DictType
     index: Expr  # IntType for list; key type for dict
     value: Expr  # must match container element/value type
+
+
+@dataclasses.dataclass(frozen=True)
+class ListPopStmt:
+    """lst.pop() (no index) used as a bare statement; result discarded. Compiles to POPITEM+DROP."""
+
+    container: Expr
+
+
+@dataclasses.dataclass(frozen=True)
+class ListRemove:
+    """Removes lst[index] without returning it; compiles to REMOVE.
+
+    Used both for bare "lst.pop(i)" statements and as the tail of the
+    pop(i)-used-as-expression desugar (see HirBuilder._desugar_list_pop_index).
+    """
+
+    container: Expr
+    index: Expr  # already normalized for negative indices by the caller
 
 
 @dataclasses.dataclass(frozen=True)
@@ -724,6 +753,8 @@ Stmt = Union[
     ListAppend,
     ReverseItems,
     ItemStore,
+    ListPopStmt,
+    ListRemove,
     TupleUnpack,
     StaticStore,
     CallStmt,

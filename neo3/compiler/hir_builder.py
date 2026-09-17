@@ -90,6 +90,7 @@ from .hir import (
     StringLiteral,
     Slice,
     ListSlice,
+    ListPop,
     ListLiteral,
     TupleLiteral,
     DictLiteral,
@@ -113,6 +114,8 @@ from .hir import (
     ListAppend,
     ReverseItems,
     ItemStore,
+    ListPopStmt,
+    ListRemove,
     TupleUnpack,
     StaticStore,
     CallStmt,
@@ -367,7 +370,21 @@ class HIRBuilder:
     def _build_dict_method_call(
         self, obj: "Expr", meth_name: str, call_args: "list[ast.expr]"
     ) -> "Expr":
-        """Build the HIR for d.keys() / d.values() / d.get(key[, default])."""
+        """Build the HIR for d.keys() / d.values() / d.get(key[, default]), or lst.pop()."""
+        if isinstance(obj.type, ListType) and meth_name == "pop":
+            if len(call_args) == 0:
+                return ListPop(container=obj, type=obj.type.elem)
+            if len(call_args) == 1:
+                idx = self._visit_expr(call_args[0])
+                if not isinstance(idx.type, IntType):
+                    self._err(".pop() index must be int")
+                stmts, val_expr = self._desugar_list_pop_index(
+                    obj, idx, want_value=True
+                )
+                self._pre_stmts.extend(stmts)
+                assert val_expr is not None
+                return val_expr
+            self._err(".pop() takes at most 1 argument")
         if not isinstance(obj.type, DictType):
             self._err(f"Unknown method '{meth_name}' on {obj.type}")
         if meth_name in ("keys", "values"):
@@ -474,6 +491,57 @@ class HIRBuilder:
             ),
             ItemStore(container=lst_load, index=idx_load, value=val_load),
         ]
+
+    def _desugar_list_pop_index(
+        self, obj: "Expr", idx: "Expr", want_value: bool
+    ) -> "tuple[list[Stmt], Optional[Expr]]":
+        """Desugar lst.pop(idx), normalizing a negative idx like Python, via temps.
+
+        Container/index are captured in temps because the normalized index
+        expression references them twice (once to test idx < 0, once to add
+        len(lst)); re-evaluating the original expressions a second time would
+        be wrong if they have side effects.
+
+        stmts:  lst_t = obj; idx_t = idx
+                normalized = idx_t < 0 ? idx_t + len(lst_t) : idx_t
+                [val_t = lst_t[normalized]]   # only if want_value
+                ListRemove(lst_t, normalized)
+        Returns (stmts, LocalLoad(val_t) if want_value else None).
+        """
+        assert isinstance(obj.type, ListType)
+        elem_t = obj.type.elem
+
+        name_lst, slot_lst = self._alloc_named_temp("pop_lst", obj.type)
+        name_idx, slot_idx = self._alloc_named_temp("pop_idx", INT)
+        lst_load = LocalLoad(name=name_lst, type=obj.type)
+        idx_load = LocalLoad(name=name_idx, type=INT)
+
+        stmts: list[Stmt] = [
+            LocalStore(name=name_lst, slot=slot_lst, value=obj, type=obj.type),
+            LocalStore(name=name_idx, slot=slot_idx, value=idx, type=INT),
+        ]
+        normalized_idx: Expr = IfExp(
+            condition=Compare(left=idx_load, op="<", right=IntLiteral(0)),
+            then_expr=BinOp(left=idx_load, op="+", right=Len(lst_load), type=INT),
+            else_expr=idx_load,
+            type=INT,
+        )
+
+        result_expr: Optional[Expr] = None
+        if want_value:
+            name_val, slot_val = self._alloc_named_temp("pop_val", elem_t)
+            stmts.append(
+                LocalStore(
+                    name=name_val,
+                    slot=slot_val,
+                    value=Index(value=lst_load, index=normalized_idx, type=elem_t),
+                    type=elem_t,
+                )
+            )
+            result_expr = LocalLoad(name=name_val, type=elem_t)
+
+        stmts.append(ListRemove(container=lst_load, index=normalized_idx))
+        return stmts, result_expr
 
     def _display(self, name: str) -> str:
         return self._name_display.get(name, name)
@@ -854,6 +922,27 @@ class HIRBuilder:
                 if not isinstance(obj.type, (BytearrayType, ListType)):
                     self._err(".reverse() only supported on bytearray and list[T]")
                 return ReverseItems(container=obj)
+
+            case ast.Expr(
+                value=ast.Call(
+                    func=ast.Attribute(value=obj_node, attr="pop"),
+                    args=pop_args,
+                    keywords=[],
+                )
+            ) if (
+                len(pop_args) <= 1
+            ):
+                obj = self._visit_expr(obj_node)
+                if not isinstance(obj.type, ListType):
+                    self._err(".pop() only supported on list[T]")
+                if len(pop_args) == 0:
+                    return ListPopStmt(container=obj)
+                idx = self._visit_expr(pop_args[0])
+                if not isinstance(idx.type, IntType):
+                    self._err(".pop() index must be int")
+                stmts, _ = self._desugar_list_pop_index(obj, idx, want_value=False)
+                self._pre_stmts.extend(stmts)
+                return None
 
             case ast.Assign(targets=[ast.Tuple(elts=tgt_nodes)], value=val_node):
                 rhs = self._visit_expr(val_node)
@@ -1277,7 +1366,7 @@ class HIRBuilder:
             ) if not (
                 # don't intercept list mutator methods — handled above
                 meth_name
-                in ("append", "insert")
+                in ("append", "insert", "pop")
             ):
                 obj = self._visit_expr(obj_node)
                 if not isinstance(obj.type, ClassType) or self._class_registry is None:
