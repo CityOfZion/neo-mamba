@@ -298,5 +298,89 @@ def f(data: bytes) -> bytes:
         self.assertIn(0xB9, bc)  # MIN — clamps stop to len(data)
 
 
+class TestSliceList(unittest.TestCase):
+
+    def test_list_slice_start_compiles(self):
+        src = """
+def f(data: list[int], start: int) -> list[int]:
+    return data[start:]
+"""
+        bc = compile_function(src)
+        self.assertIsInstance(bc, bytes)
+        self.assertIn(0xCE, bc)  # PICKITEM
+        self.assertIn(0xCF, bc)  # APPEND
+        self.assertIn(0xC2, bc)  # NEWARRAY0
+
+    def test_list_slice_no_byte_fastpath_opcodes(self):
+        # Lists have no LEFT/RIGHT/SUBSTR analogue — must not appear for a list slice.
+        src = """
+def f(data: list[int], start: int) -> list[int]:
+    return data[start:]
+"""
+        bc = compile_function(src)
+        self.assertNotIn(0x8D, bc)  # LEFT
+        self.assertNotIn(0x8E, bc)  # RIGHT
+        self.assertNotIn(0x8C, bc)  # SUBSTR
+
+    def test_list_slice_stop_compiles(self):
+        src = """
+def f(data: list[int], stop: int) -> list[int]:
+    return data[:stop]
+"""
+        bc = compile_function(src)
+        self.assertIsInstance(bc, bytes)
+
+    def test_list_slice_start_stop_compiles(self):
+        src = """
+def f(data: list[int], start: int, stop: int) -> list[int]:
+    return data[start:stop]
+"""
+        bc = compile_function(src)
+        self.assertIsInstance(bc, bytes)
+
+    def test_list_slice_with_step_compiles(self):
+        src = """
+def f(data: list[int], start: int, stop: int, step: int) -> list[int]:
+    return data[start:stop:step]
+"""
+        bc = compile_function(src)
+        self.assertIsInstance(bc, bytes)
+
+    def test_list_slice_cfg_op_is_call(self):
+        src = """
+def f(data: list[int], start: int) -> list[int]:
+    return data[start:]
+"""
+        cfg = _build_cfg(src)
+        instrs = [i for b in cfg.blocks.values() for i in b.instructions]
+        call_instrs = [i for i in instrs if i.op == "call"]
+        self.assertEqual(len(call_instrs), 1)
+        self.assertEqual(call_instrs[0].operand, "__list_slice")
+
+    def test_list_slice_helper_emitted_once_for_multiple_sites(self):
+        # Two independent list-slice expressions must share one __list_slice
+        # helper body, called via CALL_L from both sites, not inlined twice.
+        src = """
+def f(a: list[int], b: list[int], start: int) -> list[int]:
+    x: list[int] = a[start:]
+    y: list[int] = b[:start]
+    return x
+"""
+        bc = compile_function(src)
+        self.assertIsInstance(bc, bytes)
+        # Two call sites -> two CALL_L (0x3D) opcodes, but only one NEWARRAY0 (0xC2)
+        # belonging to the shared helper (list literals aren't used here).
+        self.assertEqual(bc.count(bytes([0x35])), 2)  # CALL_L
+        self.assertEqual(bc.count(bytes([0xC2])), 1)  # NEWARRAY0 (helper body only)
+
+    def test_dict_slice_raises(self):
+        src = """
+def f(d: dict[str, int]) -> int:
+    return d[1:2]
+"""
+        with self.assertRaises(TypecheckError):
+            compile_function(src)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -10,6 +10,7 @@ from .types import (
     BytesType,
     BytearrayType,
     StrType,
+    ListType,
     NoneType,
     UInt160Type,
     UInt256Type,
@@ -60,6 +61,7 @@ from .hir import (
     StrIndex,
     StringLiteral,
     Slice,
+    ListSlice,
     ListLiteral,
     TupleLiteral,
     DictLiteral,
@@ -115,6 +117,10 @@ _STDLIB_HASH: bytes = CONTRACT_HASHES.STD_LIB.to_array()  # 20-byte UInt160 LE
 _SYSCALL_CONTRACT_CALL: bytes = Syscalls.get_by_name(
     "System.Contract.Call"
 ).number.to_bytes(4, "little")
+# Sentinel pushed as the __list_slice helper's `stop` arg when a slice omits its upper
+# bound; any real NeoVM array is far smaller than this, so MIN(SIZE(data), sentinel)
+# always resolves to SIZE(data) in that case.
+_LIST_SLICE_STOP_SENTINEL = 0x7FFFFFFF
 
 
 class CFGBuilder:
@@ -1048,6 +1054,30 @@ class CFGBuilder:
                 self._emit(StackInstr(op="SUBSTR", type=STR))
             case Slice(value=v, start=start, stop=stop, step=step, type=t) as s:
                 self._emit_slice(v, start, stop, step, t, s.step_slots)
+
+            case ListSlice(value=v, start=start, stop=stop, step=step, type=t):
+                # Push args right-to-left so the __list_slice helper's LDARG 0 = data,
+                # 1 = start, 2 = stop, 3 = step.
+                if step is not None:
+                    self._emit_expr(step)
+                else:
+                    self._emit(StackInstr(op="PUSH_INT", type=INT, operand=1))
+                if stop is not None:
+                    self._emit_expr(stop)
+                else:
+                    self._emit(
+                        StackInstr(
+                            op="PUSH_INT",
+                            type=INT,
+                            operand=_LIST_SLICE_STOP_SENTINEL,
+                        )
+                    )
+                if start is not None:
+                    self._emit_expr(start)
+                else:
+                    self._emit(StackInstr(op="PUSH_INT", type=INT, operand=0))
+                self._emit_expr(v)
+                self._emit(StackInstr(op="call", type=t, operand="__list_slice"))
 
             case ListLiteral(elements=elts, type=t):
                 self._emit(StackInstr(op="NEWARRAY0", type=t))
