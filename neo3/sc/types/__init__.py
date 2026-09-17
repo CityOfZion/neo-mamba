@@ -21,7 +21,7 @@ class UInt160:
     Represents a unique identifier for a Smart contract or regular account.
     """
 
-    def __init__(self, data: bytes = b""):
+    def __init__(self, data: bytes):
         self.data = data
 
     def __len__(self):
@@ -44,7 +44,7 @@ class UInt256:
     Represents a unique identifier for a Transaction or Block.
     """
 
-    def __init__(self, data: bytes = b""):
+    def __init__(self, data: bytes):
         self.data = data
 
     def __len__(self):
@@ -150,7 +150,7 @@ class ContractState:
     def __init__(self):
         self.id: int = 0
         self.update_counter: int = 0
-        self.hash: UInt160 = UInt160()
+        self.hash: UInt160 = UInt160.zero()
         self.nef: bytes = bytes()
         self.manifest: Any = bytes()
 

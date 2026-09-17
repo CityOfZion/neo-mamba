@@ -3484,6 +3484,14 @@ class HIRBuilder:
                     arg=BytesLiteral(UInt256.from_string(arg.value).to_array()),
                     type=UINT256,
                 )
+            case ast.Call(func=ast.Name(id="UInt160"), args=[]):
+                self._err(
+                    "UInt160() requires an argument; or use UInt160.zero() instead"
+                )
+            case ast.Call(func=ast.Name(id="UInt256"), args=[]):
+                self._err(
+                    "UInt256() requires an argument; or use UInt256.zero() instead"
+                )
             case ast.Call(func=ast.Name(id="UInt160"), args=[arg_node]):
                 arg = self._visit_expr(arg_node)
                 if not isinstance(arg.type, BytesType):
