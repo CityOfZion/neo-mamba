@@ -114,6 +114,97 @@ def main(x: int, y: int) -> int:
             result = compile_module(src, search_path=d)
             self.assertIsInstance(result, bytes)
 
+    def test_subclass_of_imported_class(self):
+        """A locally-defined class subclassing a class imported with
+        `from module import Name`. The base class name in `class Dog(Animal)`
+        is written unmangled, but the registry stores the base under its
+        mangled name (`base_Animal`); base-class lookup must apply the same
+        alias mapping as annotation resolution."""
+        with tempfile.TemporaryDirectory() as d:
+            _write(
+                d,
+                "base.py",
+                """
+class Animal:
+    def __init__(self: Animal, name: str) -> None:
+        self.name: str = name
+
+    def get_name(self: Animal) -> str:
+        return self.name
+""",
+            )
+            src = """
+from base import Animal
+
+from neo3.sc.compiletime import public
+class Dog(Animal):
+    def __init__(self: Dog, name: str) -> None:
+        self.name: str = name
+
+@public
+def make(name: str) -> str:
+    d: Dog = Dog(name)
+    return d.get_name()
+"""
+            result = compile_module(src, search_path=d)
+            self.assertIsInstance(result, bytes)
+
+    def test_class_as_return_type(self):
+        """A class imported with `from module import Name` used directly as a
+        function return type annotation. `from`-imported top-level names are
+        mangled (e.g. `Point` -> `models_Point`) internally so same-named
+        classes from different modules don't collide; the annotation resolver
+        must apply that same alias mapping or it can't find the class."""
+        with tempfile.TemporaryDirectory() as d:
+            _write(
+                d,
+                "models.py",
+                """
+class Point:
+    def __init__(self: Point, x: int, y: int) -> None:
+        self.x: int = x
+        self.y: int = y
+""",
+            )
+            src = """
+from models import Point
+
+from neo3.sc.compiletime import public
+@public
+def make(x: int, y: int) -> Point:
+    return Point(x, y)
+"""
+            result = compile_module(src, search_path=d)
+            self.assertIsInstance(result, bytes)
+
+    def test_class_as_param_type(self):
+        """Same mangling concern as test_class_as_return_type, but for a
+        parameter annotation."""
+        with tempfile.TemporaryDirectory() as d:
+            _write(
+                d,
+                "models.py",
+                """
+class Point:
+    def __init__(self: Point, x: int, y: int) -> None:
+        self.x: int = x
+        self.y: int = y
+
+    def sum(self: Point) -> int:
+        return self.x + self.y
+""",
+            )
+            src = """
+from models import Point
+
+from neo3.sc.compiletime import public
+@public
+def total(p: Point) -> int:
+    return p.sum()
+"""
+            result = compile_module(src, search_path=d)
+            self.assertIsInstance(result, bytes)
+
 
 class TestFromImportAs(unittest.TestCase):
     """from module import name as alias"""
@@ -165,6 +256,29 @@ def main(n: int) -> int:
             result = compile_module(src, search_path=d)
             self.assertIsInstance(result, bytes)
 
+    def test_class_alias_as_return_type(self):
+        """from module import Name as Alias, with Alias used as a return type."""
+        with tempfile.TemporaryDirectory() as d:
+            _write(
+                d,
+                "models.py",
+                """
+class Box:
+    def __init__(self: Box, size: int) -> None:
+        self.size: int = size
+""",
+            )
+            src = """
+from models import Box as Container
+
+from neo3.sc.compiletime import public
+@public
+def make(n: int) -> Container:
+    return Container(n)
+"""
+            result = compile_module(src, search_path=d)
+            self.assertIsInstance(result, bytes)
+
 
 class TestTypeAliasImport(unittest.TestCase):
     """from module import <PEP-695 type alias>"""
@@ -191,14 +305,7 @@ def x() -> ExportDict:
             self.assertIsInstance(result, bytes)
 
     def test_import_as_alias(self):
-        """Aliased import used as a local variable annotation.
-
-        Note: using an aliased import name as a function return/parameter
-        annotation hits a separate, pre-existing gap (signature collection
-        in `_compile_full`'s Pass 3 resolves annotations without applying
-        import aliases at all — reproducible with a plain aliased class
-        import too) that's out of scope for this fix.
-        """
+        """Aliased import used as a local variable annotation."""
         with tempfile.TemporaryDirectory() as d:
             _write(
                 d,
