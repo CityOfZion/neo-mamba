@@ -62,6 +62,7 @@ from .hir import (
     StringLiteral,
     Slice,
     ListSlice,
+    ListPop,
     ListLiteral,
     TupleLiteral,
     DictLiteral,
@@ -85,6 +86,8 @@ from .hir import (
     ListAppend,
     ReverseItems,
     ItemStore,
+    ListPopStmt,
+    ListRemove,
     TupleUnpack,
     StaticStore,
     CallStmt,
@@ -425,6 +428,16 @@ class CFGBuilder:
                 self._emit_expr(idx)
                 self._emit_expr(val)
                 self._emit(StackInstr(op="SETITEM", type=ctr.type))
+
+            case ListPopStmt(container=ctr):
+                self._emit_expr(ctr)
+                self._emit(StackInstr(op="POPITEM", type=NONE))
+                self._emit(StackInstr(op="DROP", type=NONE))
+
+            case ListRemove(container=ctr, index=idx):
+                self._emit_expr(ctr)
+                self._emit_expr(idx)
+                self._emit(StackInstr(op="REMOVE", type=NONE))
 
             case StaticStore(slot=slot, value=expr, type=t):
                 self._emit_expr(expr)
@@ -1078,6 +1091,10 @@ class CFGBuilder:
                     self._emit(StackInstr(op="PUSH_INT", type=INT, operand=0))
                 self._emit_expr(v)
                 self._emit(StackInstr(op="call", type=t, operand="__list_slice"))
+
+            case ListPop(container=ctr, type=t):
+                self._emit_expr(ctr)
+                self._emit(StackInstr(op="POPITEM", type=t))
 
             case ListLiteral(elements=elts, type=t):
                 self._emit(StackInstr(op="NEWARRAY0", type=t))
