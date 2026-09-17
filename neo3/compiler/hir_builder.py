@@ -484,9 +484,6 @@ class HIRBuilder:
                 self._err(f"base must be 10 or 16, got {base_node.value}")
 
     def _resolve_annotation(self, node: ast.expr) -> Type:
-        # Substitute import aliases in type annotations (e.g. Container → Box)
-        if self._aliases and isinstance(node, ast.Name) and node.id in self._aliases:
-            node = ast.Name(id=self._aliases[node.id], ctx=ast.Load())
         return resolve_annotation(
             node,
             self._class_registry,
@@ -494,6 +491,7 @@ class HIRBuilder:
             filename=self._filename,
             module_fn_maps=self._module_fn_maps if self._module_fn_maps else None,
             module_names=self._module_names if self._module_names else None,
+            aliases=self._aliases if self._aliases else None,
         )
 
     def _fn_self_name(self) -> str:
@@ -4267,6 +4265,7 @@ def _extract_event_info(
     extra_names: dict,
     module_fn_maps: Optional[dict[str, dict[str, str]]] = None,
     module_names: Optional[set] = None,
+    aliases: Optional[dict[str, str]] = None,
 ) -> "_EventInfo":
     """Parse @event(name=..., rename=[...]) and the decorated function's signature."""
     assert isinstance(d, ast.Call)
@@ -4325,6 +4324,7 @@ def _extract_event_info(
             filename=filename,
             module_fn_maps=module_fn_maps,
             module_names=module_names,
+            aliases=aliases,
         )
         # Keep the original type (including Optional) for call-site type checking.
         # _type_to_contract_param strips Optional when generating the manifest.
@@ -4511,6 +4511,7 @@ def _build_class_registry(
     module_fn_maps: Optional[dict[str, dict[str, str]]] = None,
     module_names: Optional[set] = None,
     extra_names: Optional[dict[str, Type]] = None,
+    aliases: Optional[dict[str, str]] = None,
 ) -> tuple[
     dict[str, ClassInfo], dict[str, tuple[int, Type]], list[tuple[int, Type, ast.expr]]
 ]:
@@ -4555,10 +4556,10 @@ def _build_class_registry(
                     col_offset=base_node.col_offset,
                     filename=filename,
                 )
-            bname = base_node.id
+            bname = aliases.get(base_node.id, base_node.id) if aliases else base_node.id
             if bname not in registry:
                 raise TypecheckError(
-                    f"Class '{display_name}': base class '{bname}' not yet defined "
+                    f"Class '{display_name}': base class '{base_node.id}' not yet defined "
                     f"(forward references not supported)",
                     lineno=base_node.lineno,
                     col_offset=base_node.col_offset,
@@ -4678,6 +4679,7 @@ def _build_class_registry(
                     filename=getattr(node, "_src_file", filename),
                     module_fn_maps=module_fn_maps,
                     module_names=module_names,
+                    aliases=aliases,
                 )
                 slot = len(statics)
                 statics[f"{cname}.{varname}"] = (slot, vartype)
@@ -4731,6 +4733,7 @@ def _build_class_registry(
                             filename=src_file,
                             module_fn_maps=module_fn_maps,
                             module_names=module_names,
+                            aliases=aliases,
                         )
                         own_fields[tgt.attr] = ftype
                 elif isinstance(stmt, ast.Assign) and len(stmt.targets) == 1:

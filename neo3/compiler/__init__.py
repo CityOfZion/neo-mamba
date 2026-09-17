@@ -473,6 +473,7 @@ def _compile_full(
         module_fn_maps=module_fn_maps,
         module_names=module_names,
         extra_names=iterator_extra,
+        aliases=aliases,
     )
     static_inits.extend(class_var_inits)
 
@@ -509,6 +510,7 @@ def _compile_full(
                     iterator_extra,
                     module_fn_maps=module_fn_maps,
                     module_names=module_names,
+                    aliases=aliases,
                 )
                 event_fn_specs[fn.name] = info
                 break
@@ -527,6 +529,7 @@ def _compile_full(
                     filename=fn_filename,
                     module_fn_maps=module_fn_maps,
                     module_names=module_names,
+                    aliases=aliases,
                 )
                 for a in fn.args.args
             ]
@@ -537,6 +540,7 @@ def _compile_full(
                     filename=fn_filename,
                     module_fn_maps=module_fn_maps,
                     module_names=module_names,
+                    aliases=aliases,
                 )
                 if fn.returns is not None
                 else NONE
@@ -655,6 +659,7 @@ def _compile_full(
             filename=fn_filename,
             module_fn_maps=module_fn_maps,
             module_names=module_names,
+            aliases=aliases,
         )
         param_types: list[Type] = []
         for arg in fn_node.args.args:
@@ -673,6 +678,7 @@ def _compile_full(
                     filename=fn_filename,
                     module_fn_maps=module_fn_maps,
                     module_names=module_names,
+                    aliases=aliases,
                 )
             )
         signatures[fn_node.name] = (param_types, return_type)
@@ -714,6 +720,7 @@ def _compile_full(
                     filename=fn_filename,
                     module_fn_maps=module_fn_maps,
                     module_names=module_names,
+                    aliases=aliases,
                 )
                 raw_params = list(fn_node.args.args)
                 param_types: list[Type] = []
@@ -735,6 +742,7 @@ def _compile_full(
                             filename=fn_filename,
                             module_fn_maps=module_fn_maps,
                             module_names=module_names,
+                            aliases=aliases,
                         )
                     )
                 signatures[compiled] = (param_types, return_type)
@@ -765,6 +773,7 @@ def _compile_full(
                     filename=fn_filename,
                     module_fn_maps=module_fn_maps,
                     module_names=module_names,
+                    aliases=aliases,
                 )
             )
             raw_params = list(fn_node.args.args)
@@ -790,6 +799,7 @@ def _compile_full(
                         filename=fn_filename,
                         module_fn_maps=module_fn_maps,
                         module_names=module_names,
+                        aliases=aliases,
                     )
                 )
             signatures[compiled] = (param_types, return_type)

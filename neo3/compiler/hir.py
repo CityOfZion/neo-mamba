@@ -795,10 +795,17 @@ def resolve_annotation(
     filename: Optional[str] = None,
     module_fn_maps: Optional[dict[str, dict[str, str]]] = None,
     module_names: Optional[set] = None,
+    aliases: Optional[dict[str, str]] = None,
 ) -> Type:
     def _recurse(n: ast.expr) -> Type:
         return resolve_annotation(
-            n, class_registry, extra_names, filename, module_fn_maps, module_names
+            n,
+            class_registry,
+            extra_names,
+            filename,
+            module_fn_maps,
+            module_names,
+            aliases,
         )
 
     def _err(msg: str) -> TypecheckError:
@@ -808,6 +815,10 @@ def resolve_annotation(
 
     if isinstance(node, ast.Constant) and node.value is None:
         return NONE
+    # Substitute import aliases (e.g. a class imported under its original name
+    # from another module gets mangled to `<module>_<name>` in class_registry).
+    if aliases and isinstance(node, ast.Name) and node.id in aliases:
+        node = ast.Name(id=aliases[node.id], ctx=ast.Load())
     if isinstance(node, ast.Name):
         match node.id:
             case "int":
