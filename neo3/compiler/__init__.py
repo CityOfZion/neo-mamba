@@ -82,6 +82,7 @@ from .linearizer import (
     Linearizer,
     _emit_static_literal,
     _emit_to_bytes_helper,
+    _emit_list_slice_helper,
 )
 
 # Strip internal compiler file/line info from CompilerWarning messages so the
@@ -1035,6 +1036,11 @@ def _compile_full(
             _emit_to_bytes_helper(shared_em, "big", False)
         elif variant == "__to_bytes_big_signed":
             _emit_to_bytes_helper(shared_em, "big", True)
+
+    # Emit the shared list-slice helper once, if any list[T] slice referenced it.
+    if any(func_name == "__list_slice" for _, _, func_name in call_fixups):
+        func_offsets["__list_slice"] = shared_em.pos()
+        _emit_list_slice_helper(shared_em)
 
     # Patch CALL_L fixups now that all function offsets are known
     for placeholder_pos, call_opcode_pos, func_name in call_fixups:

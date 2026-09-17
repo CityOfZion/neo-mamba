@@ -89,6 +89,7 @@ from .hir import (
     StrIndex,
     StringLiteral,
     Slice,
+    ListSlice,
     ListLiteral,
     TupleLiteral,
     DictLiteral,
@@ -3964,8 +3965,10 @@ class HIRBuilder:
                 value = self._visit_expr(v)
                 match s:
                     case ast.Slice(lower=lo, upper=hi, step=st):
-                        if not value.type.is_byteslike():
-                            self._err("slicing requires bytes, bytearray, or str")
+                        if not value.type.is_byteslike() and not isinstance(
+                            value.type, ListType
+                        ):
+                            self._err("slicing requires bytes, bytearray, str, or list")
                         step = None
                         if st is not None:
                             step = self._visit_expr(st)
@@ -3982,6 +3985,14 @@ class HIRBuilder:
                         for idx in [start, stop]:
                             if idx is not None and not isinstance(idx.type, IntType):
                                 self._err("slice indices must be int")
+                        if isinstance(value.type, ListType):
+                            return ListSlice(
+                                value=value,
+                                start=start,
+                                stop=stop,
+                                step=step,
+                                type=value.type,
+                            )
                         step_slots = None
                         if step is not None:
                             step_slots = (

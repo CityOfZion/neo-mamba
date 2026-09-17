@@ -372,6 +372,17 @@ class Slice:
 
 
 @dataclasses.dataclass
+class ListSlice:
+    """data[start:stop:step] for list[T]; compiles to a call to the shared __list_slice helper."""
+
+    value: "Expr"
+    start: Optional["Expr"]  # None = from beginning
+    stop: Optional["Expr"]  # None = to end
+    step: Optional["Expr"]  # None means step=1
+    type: Type  # same ListType as value.type
+
+
+@dataclasses.dataclass
 class ListLiteral:
     """[e1, e2, ...] — homogeneous list literal."""
 

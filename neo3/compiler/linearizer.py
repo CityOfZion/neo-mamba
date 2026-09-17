@@ -837,3 +837,83 @@ def _emit_to_bytes_helper(em: "Emitter", byteorder: str, signed: bool) -> None:
         em.emit_opcode(OpCode.CONVERT)
         em.emit_byte(0x28)
         em.emit_opcode(OpCode.RET)
+
+
+def _emit_list_slice_helper(em: "Emitter") -> None:
+    """Emit the shared ``__list_slice`` helper directly into *em*.
+
+    One variant serves every ``list[T]`` slice in the contract regardless of
+    element type, since PICKITEM/APPEND/SIZE are element-type-agnostic.
+
+    Calling convention (right-to-left push, so inside the helper):
+      LDARG 0 = data (list)
+      LDARG 1 = start (int)
+      LDARG 2 = stop (int; caller passes a large sentinel when the slice omits
+                an upper bound, since MIN(SIZE(data), sentinel) == SIZE(data))
+      LDARG 3 = step (int; > 0)
+    Returns a new list (NeoVM Array) containing data[start:stop:step].
+
+    Locals: 0 = result, 1 = read_idx, 2 = stop_clamped.
+    """
+    em.emit_opcode(OpCode.INITSLOT)
+    em.emit_byte(3)  # locals
+    em.emit_byte(4)  # args
+
+    # stop_clamped = min(SIZE(data), stop)
+    em.emit_opcode(OpCode.LDARG)
+    em.emit_byte(0)
+    em.emit_opcode(OpCode.SIZE)
+    em.emit_opcode(OpCode.LDARG)
+    em.emit_byte(2)
+    em.emit_opcode(OpCode.MIN)
+    em.emit_opcode(OpCode.STLOC)
+    em.emit_byte(2)
+
+    # read_idx = start
+    em.emit_opcode(OpCode.LDARG)
+    em.emit_byte(1)
+    em.emit_opcode(OpCode.STLOC)
+    em.emit_byte(1)
+
+    # result = []
+    em.emit_opcode(OpCode.NEWARRAY0)
+    em.emit_opcode(OpCode.STLOC)
+    em.emit_byte(0)
+
+    # header: while read_idx < stop_clamped:
+    header_pos = em.pos()
+    em.emit_opcode(OpCode.LDLOC)
+    em.emit_byte(1)
+    em.emit_opcode(OpCode.LDLOC)
+    em.emit_byte(2)
+    em.emit_opcode(OpCode.LT)
+    jmpifnot_op_pos, jmpifnot_placeholder = em.emit_jump(OpCode.JMPIFNOT_L)
+
+    #     result.append(data[read_idx])
+    em.emit_opcode(OpCode.LDLOC)
+    em.emit_byte(0)
+    em.emit_opcode(OpCode.LDARG)
+    em.emit_byte(0)
+    em.emit_opcode(OpCode.LDLOC)
+    em.emit_byte(1)
+    em.emit_opcode(OpCode.PICKITEM)
+    em.emit_opcode(OpCode.APPEND)
+
+    #     read_idx += step
+    em.emit_opcode(OpCode.LDLOC)
+    em.emit_byte(1)
+    em.emit_opcode(OpCode.LDARG)
+    em.emit_byte(3)
+    em.emit_opcode(OpCode.ADD)
+    em.emit_opcode(OpCode.STLOC)
+    em.emit_byte(1)
+
+    jmp_op_pos, jmp_placeholder = em.emit_jump(OpCode.JMP_L)
+    em.patch_i32(jmp_placeholder, jmp_op_pos, header_pos)
+
+    # exit: return result
+    exit_pos = em.pos()
+    em.patch_i32(jmpifnot_placeholder, jmpifnot_op_pos, exit_pos)
+    em.emit_opcode(OpCode.LDLOC)
+    em.emit_byte(0)
+    em.emit_opcode(OpCode.RET)
