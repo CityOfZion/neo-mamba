@@ -224,14 +224,16 @@ class TestComparison(SmartContractTestCase):
 
     async def test_bytes_concat_eq_matching(self) -> None:
         result, _ = await self.call(
-            "bytes_concat_eq", [b"\xaa\xbb\xbb\xcc", b"\xaa\xbb", b"\xbb\xcc"],
+            "bytes_concat_eq",
+            [b"\xaa\xbb\xbb\xcc", b"\xaa\xbb", b"\xbb\xcc"],
             return_type=bool,
         )
         self.assertTrue(result)
 
     async def test_bytes_concat_eq_non_matching(self) -> None:
         result, _ = await self.call(
-            "bytes_concat_eq", [b"\xaa\xbb\xbb\xdd", b"\xaa\xbb", b"\xbb\xcc"],
+            "bytes_concat_eq",
+            [b"\xaa\xbb\xbb\xdd", b"\xaa\xbb", b"\xbb\xcc"],
             return_type=bool,
         )
         self.assertFalse(result)
@@ -243,14 +245,16 @@ class TestComparison(SmartContractTestCase):
 
     async def test_bytes_slice_eq_matching(self) -> None:
         result, _ = await self.call(
-            "bytes_slice_eq", [b"\xaa\xbb\xbb\xcc", b"\x00\xaa\xbb\xbb\xcc"],
+            "bytes_slice_eq",
+            [b"\xaa\xbb\xbb\xcc", b"\x00\xaa\xbb\xbb\xcc"],
             return_type=bool,
         )
         self.assertTrue(result)
 
     async def test_bytes_slice_eq_non_matching(self) -> None:
         result, _ = await self.call(
-            "bytes_slice_eq", [b"\xaa\xbb\xbb\xdd", b"\x00\xaa\xbb\xbb\xcc"],
+            "bytes_slice_eq",
+            [b"\xaa\xbb\xbb\xdd", b"\x00\xaa\xbb\xbb\xcc"],
             return_type=bool,
         )
         self.assertFalse(result)
@@ -260,15 +264,11 @@ class TestComparison(SmartContractTestCase):
     # ------------------------------------------------------------------
 
     async def test_str_index_eq_matching(self) -> None:
-        result, _ = await self.call(
-            "str_index_eq", ["b", "abc", 1], return_type=bool
-        )
+        result, _ = await self.call("str_index_eq", ["b", "abc", 1], return_type=bool)
         self.assertTrue(result)
 
     async def test_str_index_eq_non_matching(self) -> None:
-        result, _ = await self.call(
-            "str_index_eq", ["c", "abc", 1], return_type=bool
-        )
+        result, _ = await self.call("str_index_eq", ["c", "abc", 1], return_type=bool)
         self.assertFalse(result)
 
     # ------------------------------------------------------------------
