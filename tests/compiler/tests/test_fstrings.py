@@ -99,6 +99,15 @@ class TestFStringOpcodes(unittest.TestCase):
         )
         self.assertGreaterEqual(bc.count(_CAT), 3)
 
+    def test_fstring_multi_str_result_is_bytestring(self):
+        # Each CAT in a multi-part f-string produces a Buffer; since the
+        # result is declared `str`, it must be converted back to
+        # ByteString so `==` against a plain ByteString still works.
+        bc = compile_function(
+            'def f(a: str, b: str, c: str) -> str:\n    return f"{a} and {b} = {c}"'
+        )
+        self.assertIn(_CONVERT, bc)
+
 
 class TestFStringErrors(unittest.TestCase):
 

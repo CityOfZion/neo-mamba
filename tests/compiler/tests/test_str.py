@@ -102,14 +102,16 @@ def f(a: str, b: str) -> str:
         self.assertIsInstance(bc, bytes)
         self.assertIn(0x8B, bc)  # CAT
 
-    def test_str_plus_str_no_convert(self):
-        # str + str → str (ByteString), no CONVERT needed
+    def test_str_plus_str_converts_back_to_bytestring(self):
+        # str + str emits CAT, which always produces a Buffer; since the
+        # result is declared `str` (ByteString), it must be converted back
+        # so `==` against a plain ByteString still works.
         src = """
 def f(a: str, b: str) -> str:
     return a + b
 """
         bc = compile_function(src)
-        self.assertNotIn(0xDB, bc)  # no CONVERT
+        self.assertIn(0xDB, bc)  # CONVERT
 
     def test_str_concat_local(self):
         src = """

@@ -143,7 +143,7 @@ def f(s: str) -> str:
         bc = compile_function(src)
         self.assertIsInstance(bc, bytes)
         self.assertIn(0x8D, bc)  # LEFT
-        self.assertNotIn(0xDB, bc)  # no CONVERT
+        self.assertIn(0xDB, bc)  # CONVERT back to ByteString
 
     def test_substr_str_compiles(self):
         src = """
@@ -153,7 +153,7 @@ def f(s: str) -> str:
         bc = compile_function(src)
         self.assertIsInstance(bc, bytes)
         self.assertIn(0x8C, bc)  # SUBSTR
-        self.assertNotIn(0xDB, bc)  # no CONVERT
+        self.assertIn(0xDB, bc)  # CONVERT back to ByteString
 
     def test_right_str_compiles(self):
         src = """
@@ -163,7 +163,7 @@ def f(s: str) -> str:
         bc = compile_function(src)
         self.assertIsInstance(bc, bytes)
         self.assertIn(0x8E, bc)  # RIGHT
-        self.assertNotIn(0xDB, bc)  # no CONVERT
+        self.assertIn(0xDB, bc)  # CONVERT back to ByteString
 
 
 class TestSliceErrors(unittest.TestCase):

@@ -255,7 +255,7 @@ def f(a: bytes, b: bytearray) -> bytes:
         bc = compile_function(src)
         self.assertIsInstance(bc, bytes)
         self.assertIn(0x8B, bc)
-        self.assertNotIn(0xDB, bc)  # no CONVERT needed
+        self.assertIn(0xDB, bc)  # CONVERT back to ByteString — result is `bytes`
 
     def test_bytearray_plus_bytes_returns_bytes(self):
         src = """
@@ -265,7 +265,7 @@ def f(a: bytearray, b: bytes) -> bytes:
         bc = compile_function(src)
         self.assertIsInstance(bc, bytes)
         self.assertIn(0x8B, bc)
-        self.assertNotIn(0xDB, bc)
+        self.assertIn(0xDB, bc)  # CONVERT back to ByteString — result is `bytes`
 
     def test_bytearray_cat_cfg_has_convert(self):
         src = """
@@ -277,7 +277,10 @@ def f(a: bytearray, b: bytearray) -> bytearray:
         self.assertIn("cat", ops)
         self.assertIn("CONVERT", ops)
 
-    def test_bytes_cat_cfg_no_convert(self):
+    def test_bytes_cat_cfg_has_convert(self):
+        # `+` always emits CAT (which produces a NeoVM Buffer); since the
+        # result is declared `bytes`, it must be converted back to
+        # ByteString so `==` against a plain ByteString still works.
         src = """
 def f(a: bytes, b: bytes) -> bytes:
     return a + b
@@ -285,7 +288,7 @@ def f(a: bytes, b: bytes) -> bytes:
         cfg = _build_cfg(src)
         ops = [i.op for b in cfg.blocks.values() for i in b.instructions]
         self.assertIn("cat", ops)
-        self.assertNotIn("CONVERT", ops)
+        self.assertIn("CONVERT", ops)
 
     def test_cat_local_variable(self):
         src = """
@@ -375,6 +378,54 @@ def f(n: int) -> int:
 """
         with self.assertRaises(TypecheckError):
             compile_function(src)
+
+
+class TestBytearrayEquality(unittest.TestCase):
+    """`bytearray` is a NeoVM Buffer at rest; EQUAL never treats two Buffers
+    as content-equal, so `==`/`!=` must convert bytearray operands to
+    ByteString right before the comparison (without affecting the operand
+    elsewhere, since only the freshly-loaded copy on the stack is converted).
+    """
+
+    def test_bytearray_eq_cfg_converts_both_operands(self):
+        src = """
+def f(a: bytearray, b: bytearray) -> bool:
+    return a == b
+"""
+        cfg = _build_cfg(src)
+        ops = [i.op for b in cfg.blocks.values() for i in b.instructions]
+        self.assertEqual(ops.count("CONVERT"), 2)
+        self.assertIn("==", ops)
+
+    def test_bytearray_bytes_eq_cfg_converts_bytearray_operand_only(self):
+        src = """
+def f(a: bytearray, b: bytes) -> bool:
+    return a == b
+"""
+        cfg = _build_cfg(src)
+        ops = [i.op for b in cfg.blocks.values() for i in b.instructions]
+        self.assertEqual(ops.count("CONVERT"), 1)
+
+    def test_bytes_eq_cfg_no_convert(self):
+        # Plain `bytes` parameters are already ByteString; no CONVERT needed
+        # at the comparison site.
+        src = """
+def f(a: bytes, b: bytes) -> bool:
+    return a == b
+"""
+        cfg = _build_cfg(src)
+        ops = [i.op for b in cfg.blocks.values() for i in b.instructions]
+        self.assertNotIn("CONVERT", ops)
+
+    def test_bytearray_eq_bytecode_compiles(self):
+        src = """
+def f(a: bytearray, b: bytearray) -> bool:
+    return a == b
+"""
+        bc = compile_function(src)
+        self.assertIsInstance(bc, bytes)
+        self.assertIn(0xDB, bc)  # CONVERT
+        self.assertIn(0x97, bc)  # EQUAL
 
     def test_index_bool_index_raises(self):
         src = """

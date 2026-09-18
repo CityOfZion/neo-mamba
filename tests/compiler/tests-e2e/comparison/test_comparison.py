@@ -217,6 +217,103 @@ class TestComparison(SmartContractTestCase):
         self.assertFalse(result)
 
     # ------------------------------------------------------------------
+    # bytes == (x + y) — `+` always emits CAT, which yields a NeoVM Buffer;
+    # the result must be converted back to ByteString or `==` against a
+    # plain ByteString silently returns False regardless of content.
+    # ------------------------------------------------------------------
+
+    async def test_bytes_concat_eq_matching(self) -> None:
+        result, _ = await self.call(
+            "bytes_concat_eq", [b"\xaa\xbb\xbb\xcc", b"\xaa\xbb", b"\xbb\xcc"],
+            return_type=bool,
+        )
+        self.assertTrue(result)
+
+    async def test_bytes_concat_eq_non_matching(self) -> None:
+        result, _ = await self.call(
+            "bytes_concat_eq", [b"\xaa\xbb\xbb\xdd", b"\xaa\xbb", b"\xbb\xcc"],
+            return_type=bool,
+        )
+        self.assertFalse(result)
+
+    # ------------------------------------------------------------------
+    # bytes == x[1:] — slicing always emits LEFT/RIGHT/SUBSTR, which also
+    # yield a NeoVM Buffer; same conversion requirement as concatenation.
+    # ------------------------------------------------------------------
+
+    async def test_bytes_slice_eq_matching(self) -> None:
+        result, _ = await self.call(
+            "bytes_slice_eq", [b"\xaa\xbb\xbb\xcc", b"\x00\xaa\xbb\xbb\xcc"],
+            return_type=bool,
+        )
+        self.assertTrue(result)
+
+    async def test_bytes_slice_eq_non_matching(self) -> None:
+        result, _ = await self.call(
+            "bytes_slice_eq", [b"\xaa\xbb\xbb\xdd", b"\x00\xaa\xbb\xbb\xcc"],
+            return_type=bool,
+        )
+        self.assertFalse(result)
+
+    # ------------------------------------------------------------------
+    # str == s[i] — single-character indexing emits SUBSTR, same issue.
+    # ------------------------------------------------------------------
+
+    async def test_str_index_eq_matching(self) -> None:
+        result, _ = await self.call(
+            "str_index_eq", ["b", "abc", 1], return_type=bool
+        )
+        self.assertTrue(result)
+
+    async def test_str_index_eq_non_matching(self) -> None:
+        result, _ = await self.call(
+            "str_index_eq", ["c", "abc", 1], return_type=bool
+        )
+        self.assertFalse(result)
+
+    # ------------------------------------------------------------------
+    # bytearray == — bytearray is intentionally a NeoVM Buffer at rest;
+    # `==`/`!=` must convert it to ByteString right before comparing, or
+    # content-equal bytearrays never compare equal.
+    # ------------------------------------------------------------------
+
+    async def test_bytearray_eq_matching(self) -> None:
+        result, _ = await self.call(
+            "bytearray_eq", [b"\xaa\xbb", b"\xaa\xbb"], return_type=bool
+        )
+        self.assertTrue(result)
+
+    async def test_bytearray_eq_non_matching(self) -> None:
+        result, _ = await self.call(
+            "bytearray_eq", [b"\xaa\xbb", b"\xaa\xcc"], return_type=bool
+        )
+        self.assertFalse(result)
+
+    async def test_bytearray_ne_non_matching(self) -> None:
+        result, _ = await self.call(
+            "bytearray_ne", [b"\xaa\xbb", b"\xaa\xcc"], return_type=bool
+        )
+        self.assertTrue(result)
+
+    async def test_bytearray_ne_matching(self) -> None:
+        result, _ = await self.call(
+            "bytearray_ne", [b"\xaa\xbb", b"\xaa\xbb"], return_type=bool
+        )
+        self.assertFalse(result)
+
+    async def test_bytearray_bytes_eq_matching(self) -> None:
+        result, _ = await self.call(
+            "bytearray_bytes_eq", [b"\xaa\xbb", b"\xaa\xbb"], return_type=bool
+        )
+        self.assertTrue(result)
+
+    async def test_bytearray_bytes_eq_non_matching(self) -> None:
+        result, _ = await self.call(
+            "bytearray_bytes_eq", [b"\xaa\xbb", b"\xaa\xcc"], return_type=bool
+        )
+        self.assertFalse(result)
+
+    # ------------------------------------------------------------------
     # chained comparison (lo <= x <= hi)
     # ------------------------------------------------------------------
 
