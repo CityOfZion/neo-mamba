@@ -670,6 +670,8 @@ class CFGBuilder:
                 self._emit(StackInstr(op="LEFT", type=BYTES))
                 if convert_op is None:
                     self._emit(StackInstr(op="CONVERT", type=BYTEARRAY, operand=0x30))
+                else:
+                    self._emit(StackInstr(op="CONVERT", type=t, operand=convert_op))
             elif stop is None:
                 self._emit_expr(v)
                 self._emit(StackInstr(op="DUP", type=t))
@@ -679,6 +681,8 @@ class CFGBuilder:
                 self._emit(StackInstr(op="RIGHT", type=BYTES))
                 if convert_op is None:
                     self._emit(StackInstr(op="CONVERT", type=BYTEARRAY, operand=0x30))
+                else:
+                    self._emit(StackInstr(op="CONVERT", type=t, operand=convert_op))
             else:
                 self._emit_expr(v)
                 self._emit_expr(start)
@@ -691,6 +695,8 @@ class CFGBuilder:
                 self._emit(StackInstr(op="SUBSTR", type=BYTES))
                 if convert_op is None:
                     self._emit(StackInstr(op="CONVERT", type=BYTEARRAY, operand=0x30))
+                else:
+                    self._emit(StackInstr(op="CONVERT", type=t, operand=convert_op))
         else:
             assert (
                 step_slots is not None
@@ -833,13 +839,22 @@ class CFGBuilder:
                 self._emit_expr(r)
                 self._emit(StackInstr(op="cat", type=BYTES))
                 self._emit(StackInstr(op="CONVERT", type=BYTEARRAY, operand=0x30))
+            case BinOp(left=l, op="cat", right=r, type=t):
+                self._emit_expr(l)
+                self._emit_expr(r)
+                self._emit(StackInstr(op="cat", type=t))
+                self._emit(StackInstr(op="CONVERT", type=t, operand=0x28))
             case BinOp(left=l, op=op, right=r, type=t):
                 self._emit_expr(l)
                 self._emit_expr(r)
                 self._emit(StackInstr(op=op, type=t))
             case Compare(left=l, op=op, right=r):
                 self._emit_expr(l)
+                if isinstance(l.type, BytearrayType):
+                    self._emit(StackInstr(op="CONVERT", type=BYTES, operand=0x28))
                 self._emit_expr(r)
+                if isinstance(r.type, BytearrayType):
+                    self._emit(StackInstr(op="CONVERT", type=BYTES, operand=0x28))
                 self._emit(StackInstr(op=op, type=BOOL))
             case BoolAnd(left=l, right=r):
                 # Short-circuit: if left is False, skip right and push False.
@@ -1065,6 +1080,7 @@ class CFGBuilder:
                 self._emit_expr(idx)
                 self._emit(StackInstr(op="PUSH_INT", type=INT, operand=1))
                 self._emit(StackInstr(op="SUBSTR", type=STR))
+                self._emit(StackInstr(op="CONVERT", type=STR, operand=0x28))
             case Slice(value=v, start=start, stop=stop, step=step, type=t) as s:
                 self._emit_slice(v, start, stop, step, t, s.step_slots)
 
