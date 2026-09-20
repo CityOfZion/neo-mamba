@@ -81,6 +81,55 @@ def f() -> int:
         with self.assertRaises(TypecheckError):
             compile_function(src)
 
+    def test_empty_list_unannotated_then_homogeneous_append_return(self):
+        src = """
+def f() -> list[int]:
+    r = []
+    r.append(1)
+    r.append(2)
+    return r
+"""
+        bc = compile_function(src)
+        self.assertIsInstance(bc, bytes)
+
+    def test_empty_list_unannotated_then_heterogeneous_append_raises(self):
+        src = """
+def f() -> list[int]:
+    r = []
+    r.append(1)
+    r.append("x")
+    return r
+"""
+        with self.assertRaises(TypecheckError) as ctx:
+            compile_function(src)
+        self.assertIn(".append() type mismatch", str(ctx.exception))
+
+    def test_heterogeneous_literal_unannotated_return_raises(self):
+        src = """
+def f() -> list[int]:
+    r = [1, "a"]
+    return r
+"""
+        with self.assertRaises(TypecheckError):
+            compile_function(src)
+
+    def test_never_mutated_empty_list_unannotated_return(self):
+        src = """
+def f() -> list[int]:
+    r = []
+    return r
+"""
+        bc = compile_function(src)
+        self.assertIsInstance(bc, bytes)
+
+    def test_return_empty_list_literal_non_int_element(self):
+        src = """
+def f() -> list[str]:
+    return []
+"""
+        bc = compile_function(src)
+        self.assertIsInstance(bc, bytes)
+
     def test_list_literal_cfg_ops(self):
         src = """
 def f() -> int:
@@ -124,6 +173,103 @@ def f(b: bytes) -> int:
 """
         with self.assertRaises(TypecheckError):
             compile_function(src)
+
+
+class TestListPop(unittest.TestCase):
+
+    def test_pop_no_arg_expr_compiles(self):
+        src = """
+def f(lst: list[int]) -> int:
+    return lst.pop()
+"""
+        bc = compile_function(src)
+        self.assertIsInstance(bc, bytes)
+        self.assertIn(0xD4, bc)  # POPITEM
+
+    def test_pop_no_arg_stmt_compiles(self):
+        src = """
+def f(lst: list[int]) -> int:
+    lst.pop()
+    return len(lst)
+"""
+        bc = compile_function(src)
+        self.assertIsInstance(bc, bytes)
+        self.assertIn(0xD4, bc)  # POPITEM
+
+    def test_pop_index_stmt_has_no_pickitem(self):
+        # Discarded pop(i) never reads the value, so no PICKITEM should appear.
+        src = """
+def f(lst: list[int], i: int) -> int:
+    lst.pop(i)
+    return len(lst)
+"""
+        bc = compile_function(src)
+        self.assertIsInstance(bc, bytes)
+        self.assertIn(0xD2, bc)  # REMOVE
+        self.assertNotIn(0xCE, bc)  # PICKITEM
+
+    def test_pop_index_expr_has_pickitem_and_remove(self):
+        src = """
+def f(lst: list[int], i: int) -> int:
+    return lst.pop(i)
+"""
+        bc = compile_function(src)
+        self.assertIsInstance(bc, bytes)
+        self.assertIn(0xCE, bc)  # PICKITEM
+        self.assertIn(0xD2, bc)  # REMOVE
+
+    def test_pop_negative_literal_index_compiles(self):
+        src = """
+def f(lst: list[int]) -> int:
+    return lst.pop(-1)
+"""
+        bc = compile_function(src)
+        self.assertIsInstance(bc, bytes)
+        self.assertIn(0xCE, bc)  # PICKITEM
+        self.assertIn(0xD2, bc)  # REMOVE
+
+    def test_pop_on_non_list_raises(self):
+        src = """
+def f(d: dict[int, int]) -> int:
+    return d.pop()
+"""
+        with self.assertRaises(TypecheckError):
+            compile_function(src)
+
+    def test_pop_too_many_args_raises(self):
+        src = """
+def f(lst: list[int]) -> int:
+    return lst.pop(0, 1)
+"""
+        with self.assertRaises(TypecheckError):
+            compile_function(src)
+
+    def test_pop_index_not_int_raises(self):
+        src = """
+def f(lst: list[int]) -> int:
+    return lst.pop(True)
+"""
+        with self.assertRaises(TypecheckError):
+            compile_function(src)
+
+    def test_pop_no_arg_cfg_has_popitem(self):
+        src = """
+def f(lst: list[int]) -> int:
+    return lst.pop()
+"""
+        cfg = _build_cfg(src)
+        ops = [i.op for b in cfg.blocks.values() for i in b.instructions]
+        self.assertIn("POPITEM", ops)
+
+    def test_pop_index_cfg_has_remove(self):
+        src = """
+def f(lst: list[int], i: int) -> int:
+    lst.pop(i)
+    return len(lst)
+"""
+        cfg = _build_cfg(src)
+        ops = [i.op for b in cfg.blocks.values() for i in b.instructions]
+        self.assertIn("REMOVE", ops)
 
 
 class TestListIndex(unittest.TestCase):

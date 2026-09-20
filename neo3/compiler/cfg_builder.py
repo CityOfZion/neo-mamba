@@ -10,6 +10,7 @@ from .types import (
     BytesType,
     BytearrayType,
     StrType,
+    ListType,
     NoneType,
     UInt160Type,
     UInt256Type,
@@ -60,12 +61,15 @@ from .hir import (
     StrIndex,
     StringLiteral,
     Slice,
+    ListSlice,
+    ListPop,
     ListLiteral,
     TupleLiteral,
     DictLiteral,
     HasKey,
     DictKeys,
     DictValues,
+    DictGet,
     StaticLoad,
     NoneLiteral,
     IsNone,
@@ -82,6 +86,8 @@ from .hir import (
     ListAppend,
     ReverseItems,
     ItemStore,
+    ListPopStmt,
+    ListRemove,
     TupleUnpack,
     StaticStore,
     CallStmt,
@@ -114,6 +120,10 @@ _STDLIB_HASH: bytes = CONTRACT_HASHES.STD_LIB.to_array()  # 20-byte UInt160 LE
 _SYSCALL_CONTRACT_CALL: bytes = Syscalls.get_by_name(
     "System.Contract.Call"
 ).number.to_bytes(4, "little")
+# Sentinel pushed as the __list_slice helper's `stop` arg when a slice omits its upper
+# bound; any real NeoVM array is far smaller than this, so MIN(SIZE(data), sentinel)
+# always resolves to SIZE(data) in that case.
+_LIST_SLICE_STOP_SENTINEL = 0x7FFFFFFF
 
 
 class CFGBuilder:
@@ -188,7 +198,10 @@ class CFGBuilder:
                 )  # implicit RET for void functions that fall off the end
             else:
                 raise TypecheckError(
-                    f"Block '{self._current.label}' has no terminator (missing return?)"
+                    f"function '{self._fn.name}' expects {self._fn.return_type} "
+                    "returned. Missing return statement?",
+                    lineno=self._fn.lineno,
+                    filename=self._fn.filename,
                 )
         return self._cfg
 
@@ -415,6 +428,16 @@ class CFGBuilder:
                 self._emit_expr(idx)
                 self._emit_expr(val)
                 self._emit(StackInstr(op="SETITEM", type=ctr.type))
+
+            case ListPopStmt(container=ctr):
+                self._emit_expr(ctr)
+                self._emit(StackInstr(op="POPITEM", type=NONE))
+                self._emit(StackInstr(op="DROP", type=NONE))
+
+            case ListRemove(container=ctr, index=idx):
+                self._emit_expr(ctr)
+                self._emit_expr(idx)
+                self._emit(StackInstr(op="REMOVE", type=NONE))
 
             case StaticStore(slot=slot, value=expr, type=t):
                 self._emit_expr(expr)
@@ -647,6 +670,8 @@ class CFGBuilder:
                 self._emit(StackInstr(op="LEFT", type=BYTES))
                 if convert_op is None:
                     self._emit(StackInstr(op="CONVERT", type=BYTEARRAY, operand=0x30))
+                else:
+                    self._emit(StackInstr(op="CONVERT", type=t, operand=convert_op))
             elif stop is None:
                 self._emit_expr(v)
                 self._emit(StackInstr(op="DUP", type=t))
@@ -656,6 +681,8 @@ class CFGBuilder:
                 self._emit(StackInstr(op="RIGHT", type=BYTES))
                 if convert_op is None:
                     self._emit(StackInstr(op="CONVERT", type=BYTEARRAY, operand=0x30))
+                else:
+                    self._emit(StackInstr(op="CONVERT", type=t, operand=convert_op))
             else:
                 self._emit_expr(v)
                 self._emit_expr(start)
@@ -668,6 +695,8 @@ class CFGBuilder:
                 self._emit(StackInstr(op="SUBSTR", type=BYTES))
                 if convert_op is None:
                     self._emit(StackInstr(op="CONVERT", type=BYTEARRAY, operand=0x30))
+                else:
+                    self._emit(StackInstr(op="CONVERT", type=t, operand=convert_op))
         else:
             assert (
                 step_slots is not None
@@ -810,13 +839,22 @@ class CFGBuilder:
                 self._emit_expr(r)
                 self._emit(StackInstr(op="cat", type=BYTES))
                 self._emit(StackInstr(op="CONVERT", type=BYTEARRAY, operand=0x30))
+            case BinOp(left=l, op="cat", right=r, type=t):
+                self._emit_expr(l)
+                self._emit_expr(r)
+                self._emit(StackInstr(op="cat", type=t))
+                self._emit(StackInstr(op="CONVERT", type=t, operand=0x28))
             case BinOp(left=l, op=op, right=r, type=t):
                 self._emit_expr(l)
                 self._emit_expr(r)
                 self._emit(StackInstr(op=op, type=t))
             case Compare(left=l, op=op, right=r):
                 self._emit_expr(l)
+                if isinstance(l.type, BytearrayType):
+                    self._emit(StackInstr(op="CONVERT", type=BYTES, operand=0x28))
                 self._emit_expr(r)
+                if isinstance(r.type, BytearrayType):
+                    self._emit(StackInstr(op="CONVERT", type=BYTES, operand=0x28))
                 self._emit(StackInstr(op=op, type=BOOL))
             case BoolAnd(left=l, right=r):
                 # Short-circuit: if left is False, skip right and push False.
@@ -1042,8 +1080,37 @@ class CFGBuilder:
                 self._emit_expr(idx)
                 self._emit(StackInstr(op="PUSH_INT", type=INT, operand=1))
                 self._emit(StackInstr(op="SUBSTR", type=STR))
+                self._emit(StackInstr(op="CONVERT", type=STR, operand=0x28))
             case Slice(value=v, start=start, stop=stop, step=step, type=t) as s:
                 self._emit_slice(v, start, stop, step, t, s.step_slots)
+
+            case ListSlice(value=v, start=start, stop=stop, step=step, type=t):
+                # Push args right-to-left so the __list_slice helper's LDARG 0 = data,
+                # 1 = start, 2 = stop, 3 = step.
+                if step is not None:
+                    self._emit_expr(step)
+                else:
+                    self._emit(StackInstr(op="PUSH_INT", type=INT, operand=1))
+                if stop is not None:
+                    self._emit_expr(stop)
+                else:
+                    self._emit(
+                        StackInstr(
+                            op="PUSH_INT",
+                            type=INT,
+                            operand=_LIST_SLICE_STOP_SENTINEL,
+                        )
+                    )
+                if start is not None:
+                    self._emit_expr(start)
+                else:
+                    self._emit(StackInstr(op="PUSH_INT", type=INT, operand=0))
+                self._emit_expr(v)
+                self._emit(StackInstr(op="call", type=t, operand="__list_slice"))
+
+            case ListPop(container=ctr, type=t):
+                self._emit_expr(ctr)
+                self._emit(StackInstr(op="POPITEM", type=t))
 
             case ListLiteral(elements=elts, type=t):
                 self._emit(StackInstr(op="NEWARRAY0", type=t))
@@ -1079,6 +1146,36 @@ class CFGBuilder:
             case DictValues(container=ctr, type=t):
                 self._emit_expr(ctr)
                 self._emit(StackInstr(op="VALUES", type=t))
+
+            case DictGet(container=ctr, key=key, default=default, type=t):
+                # if key in container: container[key] else: default
+                # Evaluate container/key once, duplicate them (OVER, OVER) so HASKEY
+                # can consume a copy while the originals remain for PICKITEM.
+                then_lbl = self._fresh("dget_then")
+                else_lbl = self._fresh("dget_else")
+                join_lbl = self._fresh("dget_join")
+
+                self._emit_expr(ctr)
+                self._emit_expr(key)
+                self._emit(StackInstr(op="OVER", type=ctr.type))
+                self._emit(StackInstr(op="OVER", type=key.type))
+                self._emit(StackInstr(op="HASKEY", type=BOOL))
+                self._close(CondJump(true_target=then_lbl, false_target=else_lbl))
+
+                then_bb = self._cfg.new_block(then_lbl)
+                self._switch(then_bb)
+                self._emit(StackInstr(op="PICKITEM", type=t))
+                self._close(Jump(target=join_lbl))
+
+                else_bb = self._cfg.new_block(else_lbl)
+                self._switch(else_bb)
+                self._emit(StackInstr(op="DROP", type=key.type))
+                self._emit(StackInstr(op="DROP", type=ctr.type))
+                self._emit_expr(default)
+                self._close(Jump(target=join_lbl))
+
+                join_bb = self._cfg.new_block(join_lbl)
+                self._switch(join_bb)
             case StaticLoad(slot=slot, type=t):
                 self._emit(StackInstr(op="LDSFLD", type=t, operand=slot))
             case NoneLiteral():

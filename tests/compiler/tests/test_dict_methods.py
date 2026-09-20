@@ -236,6 +236,83 @@ def f(d: dict[int, str]) -> str:
         self.assertIn(0xCC, bc)  # KEYS
 
 
+class TestDictGet(unittest.TestCase):
+
+    def test_get_with_default_compiles(self):
+        src = """
+def f(d: dict[str, int]) -> int:
+    return d.get("k", 0)
+"""
+        bc = compile_function(src)
+        self.assertIsInstance(bc, bytes)
+        self.assertIn(0xCB, bc)  # HASKEY
+        self.assertIn(0xCE, bc)  # PICKITEM
+
+    def test_get_with_default_cfg_ops(self):
+        src = """
+def f(d: dict[str, int]) -> int:
+    return d.get("k", 0)
+"""
+        cfg = _build_cfg(src)
+        ops = [i.op for b in cfg.blocks.values() for i in b.instructions]
+        self.assertIn("HASKEY", ops)
+        self.assertIn("PICKITEM", ops)
+        self.assertIn("OVER", ops)
+        self.assertIn("DROP", ops)
+
+    def test_get_without_default_compiles(self):
+        src = """
+def f(d: dict[str, int]) -> int:
+    v = d.get("k")
+    if v is None:
+        return -1
+    return v
+"""
+        bc = compile_function(src)
+        self.assertIsInstance(bc, bytes)
+        self.assertIn(0xCB, bc)  # HASKEY
+
+    def test_get_key_type_mismatch_raises(self):
+        src = """
+def f(d: dict[str, int]) -> int:
+    return d.get(1, 0)
+"""
+        with self.assertRaises(TypecheckError):
+            compile_function(src)
+
+    def test_get_default_type_mismatch_raises(self):
+        src = """
+def f(d: dict[str, int]) -> int:
+    return d.get("k", "not an int")
+"""
+        with self.assertRaises(TypecheckError):
+            compile_function(src)
+
+    def test_get_too_many_args_raises(self):
+        src = """
+def f(d: dict[str, int]) -> int:
+    return d.get("k", 0, 1)
+"""
+        with self.assertRaises(TypecheckError):
+            compile_function(src)
+
+    def test_get_no_args_raises(self):
+        src = """
+def f(d: dict[str, int]) -> int:
+    return d.get()
+"""
+        with self.assertRaises(TypecheckError):
+            compile_function(src)
+
+    def test_get_on_non_dict_raises(self):
+        src = """
+def f(n: int) -> int:
+    return n.get(1, 0)
+"""
+        with self.assertRaises(TypecheckError):
+            compile_function(src)
+
+
 class TestDictMethodErrors(unittest.TestCase):
 
     def test_unknown_method_raises(self):

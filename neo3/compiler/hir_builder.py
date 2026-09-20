@@ -31,6 +31,7 @@ from .types import (
     OptionalType,
     ClassType,
     AnyType,
+    ElasticAnyType,
     IteratorType,
     UInt160Type,
     UInt256Type,
@@ -44,6 +45,7 @@ from .types import (
     STR,
     NONE,
     ANY,
+    ELASTIC_ANY,
     ITERATOR,
     UINT160,
     UINT256,
@@ -87,12 +89,15 @@ from .hir import (
     StrIndex,
     StringLiteral,
     Slice,
+    ListSlice,
+    ListPop,
     ListLiteral,
     TupleLiteral,
     DictLiteral,
     HasKey,
     DictKeys,
     DictValues,
+    DictGet,
     StaticLoad,
     NoneLiteral,
     IsNone,
@@ -109,6 +114,8 @@ from .hir import (
     ListAppend,
     ReverseItems,
     ItemStore,
+    ListPopStmt,
+    ListRemove,
     TupleUnpack,
     StaticStore,
     CallStmt,
@@ -247,6 +254,7 @@ class HIRBuilder:
         syscall_module_fn_specs: Optional[dict[str, "dict[str, _SyscallSpec]"]] = None,
         event_fn_specs: Optional[dict[str, "_EventInfo"]] = None,
         iterator_names: Optional[set[str]] = None,
+        type_aliases: Optional[dict[str, Type]] = None,
         findoptions_names: Optional[set[str]] = None,
         callflags_names: Optional[set[str]] = None,
         namedcurvehash_names: Optional[set[str]] = None,
@@ -282,6 +290,8 @@ class HIRBuilder:
                 functions decorated with ``@event``.
             iterator_names: Set of locally imported names that resolve to
                 ``IteratorType``, used during annotation resolution.
+            type_aliases: Map from module-level ``type X = ...`` alias name to
+                its resolved ``Type``, used during annotation resolution.
             findoptions_names: Set of locally imported names that refer to
                 ``FindOptions`` constants (enables constant folding).
             callflags_names: Set of locally imported names that refer to
@@ -317,10 +327,12 @@ class HIRBuilder:
         )
         # Maps local function name → _EventInfo for @event-decorated functions
         self._event_fn_specs: dict[str, "_EventInfo"] = event_fn_specs or {}
-        # Maps imported local name → IteratorType for type annotation resolution
+        # Maps imported local name → IteratorType, and module-level `type X = ...`
+        # alias name → resolved Type, for type annotation resolution
         self._iterator_extra: dict[str, Type] = {
             n: ITERATOR for n in (iterator_names or set())
         }
+        self._iterator_extra.update(type_aliases or {})
         # Set of local names that refer to FindOptions (for constant folding)
         self._findoptions_names: set[str] = findoptions_names or set()
         # Set of local names that refer to CallFlags (for constant folding)
@@ -354,6 +366,59 @@ class HIRBuilder:
         raise TypecheckError(
             msg, lineno=lineno, col_offset=col, filename=self._filename
         )
+
+    def _build_dict_method_call(
+        self, obj: "Expr", meth_name: str, call_args: "list[ast.expr]"
+    ) -> "Expr":
+        """Build the HIR for d.keys() / d.values() / d.get(key[, default]), or lst.pop()."""
+        if isinstance(obj.type, ListType) and meth_name == "pop":
+            if len(call_args) == 0:
+                return ListPop(container=obj, type=obj.type.elem)
+            if len(call_args) == 1:
+                idx = self._visit_expr(call_args[0])
+                if not isinstance(idx.type, IntType):
+                    self._err(".pop() index must be int")
+                stmts, val_expr = self._desugar_list_pop_index(
+                    obj, idx, want_value=True
+                )
+                self._pre_stmts.extend(stmts)
+                assert val_expr is not None
+                return val_expr
+            self._err(".pop() takes at most 1 argument")
+        if not isinstance(obj.type, DictType):
+            self._err(f"Unknown method '{meth_name}' on {obj.type}")
+        if meth_name in ("keys", "values"):
+            if call_args:
+                self._err(f"'{meth_name}' takes no arguments")
+            if meth_name == "keys":
+                return DictKeys(container=obj, type=ListType(obj.type.key))
+            return DictValues(container=obj, type=ListType(obj.type.val))
+        if meth_name == "get":
+            if not (1 <= len(call_args) <= 2):
+                self._err(f"'get' takes 1 or 2 arguments, got {len(call_args)}")
+            key = self._visit_expr(call_args[0])
+            if not _type_compatible(key.type, obj.type.key, self._class_registry):
+                self._err(
+                    f"dict key type mismatch: expected {obj.type.key}, got {key.type}"
+                )
+            if len(call_args) == 2:
+                default = self._visit_expr(call_args[1])
+                if not _type_compatible(
+                    default.type, obj.type.val, self._class_registry
+                ):
+                    self._err(
+                        f"'get' default type mismatch: expected {obj.type.val}, got {default.type}"
+                    )
+                return DictGet(
+                    container=obj, key=key, default=default, type=obj.type.val
+                )
+            return DictGet(
+                container=obj,
+                key=key,
+                default=NoneLiteral(),
+                type=OptionalType(obj.type.val),
+            )
+        self._err(f"Unknown method '{meth_name}' on {obj.type}")
 
     def _alloc_temp(self, hint: str, t: Type) -> int:
         """Append a synthetic temp slot to the function's local table and return its index."""
@@ -427,6 +492,57 @@ class HIRBuilder:
             ItemStore(container=lst_load, index=idx_load, value=val_load),
         ]
 
+    def _desugar_list_pop_index(
+        self, obj: "Expr", idx: "Expr", want_value: bool
+    ) -> "tuple[list[Stmt], Optional[Expr]]":
+        """Desugar lst.pop(idx), normalizing a negative idx like Python, via temps.
+
+        Container/index are captured in temps because the normalized index
+        expression references them twice (once to test idx < 0, once to add
+        len(lst)); re-evaluating the original expressions a second time would
+        be wrong if they have side effects.
+
+        stmts:  lst_t = obj; idx_t = idx
+                normalized = idx_t < 0 ? idx_t + len(lst_t) : idx_t
+                [val_t = lst_t[normalized]]   # only if want_value
+                ListRemove(lst_t, normalized)
+        Returns (stmts, LocalLoad(val_t) if want_value else None).
+        """
+        assert isinstance(obj.type, ListType)
+        elem_t = obj.type.elem
+
+        name_lst, slot_lst = self._alloc_named_temp("pop_lst", obj.type)
+        name_idx, slot_idx = self._alloc_named_temp("pop_idx", INT)
+        lst_load = LocalLoad(name=name_lst, type=obj.type)
+        idx_load = LocalLoad(name=name_idx, type=INT)
+
+        stmts: list[Stmt] = [
+            LocalStore(name=name_lst, slot=slot_lst, value=obj, type=obj.type),
+            LocalStore(name=name_idx, slot=slot_idx, value=idx, type=INT),
+        ]
+        normalized_idx: Expr = IfExp(
+            condition=Compare(left=idx_load, op="<", right=IntLiteral(0)),
+            then_expr=BinOp(left=idx_load, op="+", right=Len(lst_load), type=INT),
+            else_expr=idx_load,
+            type=INT,
+        )
+
+        result_expr: Optional[Expr] = None
+        if want_value:
+            name_val, slot_val = self._alloc_named_temp("pop_val", elem_t)
+            stmts.append(
+                LocalStore(
+                    name=name_val,
+                    slot=slot_val,
+                    value=Index(value=lst_load, index=normalized_idx, type=elem_t),
+                    type=elem_t,
+                )
+            )
+            result_expr = LocalLoad(name=name_val, type=elem_t)
+
+        stmts.append(ListRemove(container=lst_load, index=normalized_idx))
+        return stmts, result_expr
+
     def _display(self, name: str) -> str:
         return self._name_display.get(name, name)
 
@@ -437,9 +553,6 @@ class HIRBuilder:
                 self._err(f"base must be 10 or 16, got {base_node.value}")
 
     def _resolve_annotation(self, node: ast.expr) -> Type:
-        # Substitute import aliases in type annotations (e.g. Container → Box)
-        if self._aliases and isinstance(node, ast.Name) and node.id in self._aliases:
-            node = ast.Name(id=self._aliases[node.id], ctx=ast.Load())
         return resolve_annotation(
             node,
             self._class_registry,
@@ -447,6 +560,7 @@ class HIRBuilder:
             filename=self._filename,
             module_fn_maps=self._module_fn_maps if self._module_fn_maps else None,
             module_names=self._module_names if self._module_names else None,
+            aliases=self._aliases if self._aliases else None,
         )
 
     def _fn_self_name(self) -> str:
@@ -506,6 +620,8 @@ class HIRBuilder:
             return_type=self._return_type,
             locals=dict(self._locals),
             body=body,
+            lineno=node.lineno,
+            filename=self._filename,
         )
 
     def build(self, node: ast.FunctionDef) -> HIRFunction:
@@ -538,6 +654,8 @@ class HIRBuilder:
             return_type=self._return_type,
             locals=dict(self._locals),
             body=body,
+            lineno=node.lineno,
+            filename=self._filename,
         )
 
     def _resolve_aliases_in_stmt(self, node: "ast.stmt") -> "ast.stmt":
@@ -728,6 +846,7 @@ class HIRBuilder:
                         self._err("bare 'return' not supported in non-void functions")
                     return Return(value=NoneLiteral(), type=NONE)
                 expr = self._visit_expr(val)
+                expr = self._resolve_elastic_or_empty(expr, self._return_type)
                 if not _type_compatible(
                     expr.type, self._return_type, self._class_registry
                 ):
@@ -763,6 +882,7 @@ class HIRBuilder:
                 if not isinstance(obj.type, ListType):
                     self._err(".append() only supported on list[T]")
                 arg = self._visit_expr(arg_node)
+                obj = self._narrow_elastic_list_elem(obj, arg.type)
                 if not _type_compatible(arg.type, obj.type.elem, self._class_registry):
                     self._err(
                         f".append() type mismatch: expected {obj.type.elem}, got {arg.type}"
@@ -783,6 +903,7 @@ class HIRBuilder:
                 if not isinstance(idx.type, IntType):
                     self._err(".insert() index must be int")
                 val = self._visit_expr(val_node)
+                obj = self._narrow_elastic_list_elem(obj, val.type)
                 if not _type_compatible(val.type, obj.type.elem, self._class_registry):
                     self._err(
                         f".insert() type mismatch: expected {obj.type.elem}, got {val.type}"
@@ -801,6 +922,27 @@ class HIRBuilder:
                 if not isinstance(obj.type, (BytearrayType, ListType)):
                     self._err(".reverse() only supported on bytearray and list[T]")
                 return ReverseItems(container=obj)
+
+            case ast.Expr(
+                value=ast.Call(
+                    func=ast.Attribute(value=obj_node, attr="pop"),
+                    args=pop_args,
+                    keywords=[],
+                )
+            ) if (
+                len(pop_args) <= 1
+            ):
+                obj = self._visit_expr(obj_node)
+                if not isinstance(obj.type, ListType):
+                    self._err(".pop() only supported on list[T]")
+                if len(pop_args) == 0:
+                    return ListPopStmt(container=obj)
+                idx = self._visit_expr(pop_args[0])
+                if not isinstance(idx.type, IntType):
+                    self._err(".pop() index must be int")
+                stmts, _ = self._desugar_list_pop_index(obj, idx, want_value=False)
+                self._pre_stmts.extend(stmts)
+                return None
 
             case ast.Assign(targets=[ast.Tuple(elts=tgt_nodes)], value=val_node):
                 rhs = self._visit_expr(val_node)
@@ -847,6 +989,9 @@ class HIRBuilder:
                 container = self._visit_expr(ctr_node)
                 if isinstance(container.type, DictType):
                     key = self._visit_expr(idx_node)
+                    container = self._narrow_elastic_dict_kv(
+                        container, new_key=key.type, new_val=None
+                    )
                     if not _type_compatible(
                         key.type, container.type.key, self._class_registry
                     ):
@@ -854,6 +999,9 @@ class HIRBuilder:
                             f"dict key type mismatch: expected {container.type.key}, got {key.type}"
                         )
                     value = self._visit_expr(val_node)
+                    container = self._narrow_elastic_dict_kv(
+                        container, new_key=None, new_val=value.type
+                    )
                     if not _type_compatible(
                         value.type, container.type.val, self._class_registry
                     ):
@@ -866,6 +1014,7 @@ class HIRBuilder:
                     if not isinstance(index.type, IntType):
                         self._err("list index must be int")
                     value = self._visit_expr(val_node)
+                    container = self._narrow_elastic_list_elem(container, value.type)
                     if not _type_compatible(
                         value.type, container.type.elem, self._class_registry
                     ):
@@ -1217,7 +1366,7 @@ class HIRBuilder:
             ) if not (
                 # don't intercept list mutator methods — handled above
                 meth_name
-                in ("append", "insert")
+                in ("append", "insert", "pop")
             ):
                 obj = self._visit_expr(obj_node)
                 if not isinstance(obj.type, ClassType) or self._class_registry is None:
@@ -1268,6 +1417,8 @@ class HIRBuilder:
                 self._err("nested function definitions are not supported")
             case ast.ClassDef():
                 self._err("nested class definitions are not supported")
+            case ast.TypeAlias():
+                self._err("type alias statements are only supported at module level")
             case _:
                 self._err(f"Unsupported statement: {ast.dump(node)}")
 
@@ -1451,6 +1602,110 @@ class HIRBuilder:
         if isinstance(test.ops[0], ast.IsNot):
             return (name, False)  # is not None
         return None
+
+    def _narrow_elastic_list_elem(self, obj: Expr, new_elem: Type) -> Expr:
+        """If obj is a LocalLoad of a list local whose elem type is still
+        ElasticAnyType, and new_elem is concrete (not itself Any-ish), permanently
+        narrow that local's recorded type and return an updated LocalLoad.
+        Otherwise return obj unchanged."""
+        if not isinstance(obj, LocalLoad) or not isinstance(obj.type, ListType):
+            return obj
+        if not isinstance(obj.type.elem, ElasticAnyType) or isinstance(
+            new_elem, AnyType
+        ):
+            return obj
+        new_type = ListType(new_elem)
+        slot, _ = self._locals[obj.name]
+        self._locals[obj.name] = (slot, new_type)
+        self._local_orig_types[obj.name] = new_type
+        return dataclasses.replace(obj, type=new_type)
+
+    def _narrow_elastic_dict_kv(
+        self, obj: Expr, new_key: Optional[Type], new_val: Optional[Type]
+    ) -> Expr:
+        """Independently narrow whichever of a dict local's key/val components is
+        still ElasticAnyType. Pass None for a component not being observed by the
+        current statement."""
+        if not isinstance(obj, LocalLoad) or not isinstance(obj.type, DictType):
+            return obj
+        cur = obj.type
+        resolved_key = cur.key
+        if (
+            new_key is not None
+            and isinstance(cur.key, ElasticAnyType)
+            and not isinstance(new_key, AnyType)
+        ):
+            resolved_key = new_key
+        resolved_val = cur.val
+        if (
+            new_val is not None
+            and isinstance(cur.val, ElasticAnyType)
+            and not isinstance(new_val, AnyType)
+        ):
+            resolved_val = new_val
+        if resolved_key is cur.key and resolved_val is cur.val:
+            return obj
+        new_type = DictType(resolved_key, resolved_val)
+        slot, _ = self._locals[obj.name]
+        self._locals[obj.name] = (slot, new_type)
+        self._local_orig_types[obj.name] = new_type
+        return dataclasses.replace(obj, type=new_type)
+
+    def _resolve_elastic_or_empty(self, expr: Expr, declared: Type) -> Expr:
+        """Coerce an expr flowing into a concrete-type-expecting context when it is
+        (a) a bare empty list/dict literal (placeholder type — always safe to adopt
+            the declared shape), or
+        (b) a LocalLoad of a local whose recorded type still carries
+            ElasticAnyType component(s) — permanently resolving that local's state,
+            exactly as a mutation would have.
+        Falls through unchanged otherwise, including for genuinely-heterogeneous
+        locals (plain AnyType, not ElasticAnyType), so those still correctly fail
+        the caller's subsequent _type_compatible check."""
+        if (
+            isinstance(expr, ListLiteral)
+            and not expr.elements
+            and isinstance(declared, ListType)
+        ):
+            return dataclasses.replace(expr, type=declared)
+        if (
+            isinstance(expr, DictLiteral)
+            and not expr.pairs
+            and isinstance(declared, DictType)
+        ):
+            return dataclasses.replace(expr, type=declared)
+        if isinstance(expr, LocalLoad) and expr.name in self._locals:
+            slot, cur_type = self._locals[expr.name]
+            if (
+                isinstance(cur_type, ListType)
+                and isinstance(cur_type.elem, ElasticAnyType)
+                and isinstance(declared, ListType)
+            ):
+                self._locals[expr.name] = (slot, declared)
+                self._local_orig_types[expr.name] = declared
+                return dataclasses.replace(expr, type=declared)
+            if (
+                isinstance(cur_type, DictType)
+                and isinstance(declared, DictType)
+                and (
+                    isinstance(cur_type.key, ElasticAnyType)
+                    or isinstance(cur_type.val, ElasticAnyType)
+                )
+            ):
+                new_key = (
+                    declared.key
+                    if isinstance(cur_type.key, ElasticAnyType)
+                    else cur_type.key
+                )
+                new_val = (
+                    declared.val
+                    if isinstance(cur_type.val, ElasticAnyType)
+                    else cur_type.val
+                )
+                new_type = DictType(new_key, new_val)
+                self._locals[expr.name] = (slot, new_type)
+                self._local_orig_types[expr.name] = new_type
+                return dataclasses.replace(expr, type=new_type)
+        return expr
 
     def _set_local_type(self, name: str, new_type: Type) -> Type:
         """Temporarily update the type of a local/arg; return the old type for restoration."""
@@ -2538,10 +2793,7 @@ class HIRBuilder:
             self._err(f"'{name}' must have a value")
         declared = self._resolve_annotation(ann)
         expr = self._visit_expr(val)
-        if isinstance(expr, ListLiteral) and not expr.elements:
-            expr = dataclasses.replace(expr, type=declared)
-        if isinstance(expr, DictLiteral) and not expr.pairs:
-            expr = dataclasses.replace(expr, type=declared)
+        expr = self._resolve_elastic_or_empty(expr, declared)
         if not _type_compatible(expr.type, declared, self._class_registry):
             self._err(_type_mismatch_msg(f"assigning '{name}'", declared, expr.type))
         if name in self._args:
@@ -2575,9 +2827,11 @@ class HIRBuilder:
                     f"'{name}: Optional[<type>] = None' or '{name}: NoneType = None'."
                 )
             if isinstance(expr, ListLiteral) and not expr.elements:
-                expr = dataclasses.replace(expr, type=ListType(ANY))
+                expr = dataclasses.replace(expr, type=ListType(ELASTIC_ANY))
             if isinstance(expr, DictLiteral) and not expr.pairs:
-                expr = dataclasses.replace(expr, type=DictType(ANY, ANY))
+                expr = dataclasses.replace(
+                    expr, type=DictType(ELASTIC_ANY, ELASTIC_ANY)
+                )
             inferred = expr.type
             slot = len(self._locals)
             self._locals[name] = (slot, inferred)
@@ -2608,6 +2862,7 @@ class HIRBuilder:
             )
         slot, declared = self._locals[name]
         expr = self._visit_expr(val)
+        expr = self._resolve_elastic_or_empty(expr, declared)
         if not _type_compatible(expr.type, declared, self._class_registry):
             self._err(_type_mismatch_msg(f"reassigning '{name}'", declared, expr.type))
         return LocalStore(name=name, slot=slot, value=expr, type=declared)
@@ -2673,10 +2928,7 @@ class HIRBuilder:
         if val is None:
             self._err(f"Field '{fname}' must have a value")
         expr = self._visit_expr(val)
-        if isinstance(expr, ListLiteral) and not expr.elements:
-            expr = dataclasses.replace(expr, type=fi.type)
-        if isinstance(expr, DictLiteral) and not expr.pairs:
-            expr = dataclasses.replace(expr, type=fi.type)
+        expr = self._resolve_elastic_or_empty(expr, fi.type)
         if not _type_compatible(expr.type, fi.type, self._class_registry):
             self._err(
                 _type_mismatch_msg(f"assigning field '{fname}'", fi.type, expr.type)
@@ -3320,6 +3572,14 @@ class HIRBuilder:
                     arg=BytesLiteral(UInt256.from_string(arg.value).to_array()),
                     type=UINT256,
                 )
+            case ast.Call(func=ast.Name(id="UInt160"), args=[]):
+                self._err(
+                    "UInt160() requires an argument; or use UInt160.zero() instead"
+                )
+            case ast.Call(func=ast.Name(id="UInt256"), args=[]):
+                self._err(
+                    "UInt256() requires an argument; or use UInt256.zero() instead"
+                )
             case ast.Call(func=ast.Name(id="UInt160"), args=[arg_node]):
                 arg = self._visit_expr(arg_node)
                 if not isinstance(arg.type, BytesType):
@@ -3685,31 +3945,16 @@ class HIRBuilder:
                             args=visited_m,
                             type=return_type,
                         )
-                # Fall through to dict .keys()/.values() or error
-                if not isinstance(obj.type, DictType) or meth_name not in (
-                    "keys",
-                    "values",
-                ):
-                    self._err(f"Unknown method '{meth_name}' on {obj.type}")
-                if call_args:
-                    self._err(f"'{meth_name}' takes no arguments")
-                if meth_name == "keys":
-                    return DictKeys(container=obj, type=ListType(obj.type.key))
-                return DictValues(container=obj, type=ListType(obj.type.val))
+                # Fall through to dict .keys()/.values()/.get() or error
+                return self._build_dict_method_call(obj, meth_name, call_args)
 
             case ast.Call(
-                func=ast.Attribute(value=obj_node, attr=attr), args=[], keywords=[]
+                func=ast.Attribute(value=obj_node, attr=attr),
+                args=call_args,
+                keywords=[],
             ):
                 obj = self._visit_expr(obj_node)
-                if not isinstance(obj.type, DictType):
-                    self._err(f"Unknown method '{attr}' on {obj.type}")
-                match attr:
-                    case "keys":
-                        return DictKeys(container=obj, type=ListType(obj.type.key))
-                    case "values":
-                        return DictValues(container=obj, type=ListType(obj.type.val))
-                    case _:
-                        self._err(f"Unknown method '{attr}' on {obj.type}")
+                return self._build_dict_method_call(obj, attr, call_args)
 
             # --- NewInstance: ClassName(args) ---
             case ast.Call(func=ast.Name(id=name), args=call_args) if (
@@ -3809,8 +4054,10 @@ class HIRBuilder:
                 value = self._visit_expr(v)
                 match s:
                     case ast.Slice(lower=lo, upper=hi, step=st):
-                        if not value.type.is_byteslike():
-                            self._err("slicing requires bytes, bytearray, or str")
+                        if not value.type.is_byteslike() and not isinstance(
+                            value.type, ListType
+                        ):
+                            self._err("slicing requires bytes, bytearray, str, or list")
                         step = None
                         if st is not None:
                             step = self._visit_expr(st)
@@ -3827,6 +4074,14 @@ class HIRBuilder:
                         for idx in [start, stop]:
                             if idx is not None and not isinstance(idx.type, IntType):
                                 self._err("slice indices must be int")
+                        if isinstance(value.type, ListType):
+                            return ListSlice(
+                                value=value,
+                                start=start,
+                                stop=stop,
+                                step=step,
+                                type=value.type,
+                            )
                         step_slots = None
                         if step is not None:
                             step_slots = (
@@ -4110,6 +4365,7 @@ def _extract_event_info(
     extra_names: dict,
     module_fn_maps: Optional[dict[str, dict[str, str]]] = None,
     module_names: Optional[set] = None,
+    aliases: Optional[dict[str, str]] = None,
 ) -> "_EventInfo":
     """Parse @event(name=..., rename=[...]) and the decorated function's signature."""
     assert isinstance(d, ast.Call)
@@ -4168,6 +4424,7 @@ def _extract_event_info(
             filename=filename,
             module_fn_maps=module_fn_maps,
             module_names=module_names,
+            aliases=aliases,
         )
         # Keep the original type (including Optional) for call-site type checking.
         # _type_to_contract_param strips Optional when generating the manifest.
@@ -4353,6 +4610,8 @@ def _build_class_registry(
     filename: Optional[str] = None,
     module_fn_maps: Optional[dict[str, dict[str, str]]] = None,
     module_names: Optional[set] = None,
+    extra_names: Optional[dict[str, Type]] = None,
+    aliases: Optional[dict[str, str]] = None,
 ) -> tuple[
     dict[str, ClassInfo], dict[str, tuple[int, Type]], list[tuple[int, Type, ast.expr]]
 ]:
@@ -4397,10 +4656,10 @@ def _build_class_registry(
                     col_offset=base_node.col_offset,
                     filename=filename,
                 )
-            bname = base_node.id
+            bname = aliases.get(base_node.id, base_node.id) if aliases else base_node.id
             if bname not in registry:
                 raise TypecheckError(
-                    f"Class '{display_name}': base class '{bname}' not yet defined "
+                    f"Class '{display_name}': base class '{base_node.id}' not yet defined "
                     f"(forward references not supported)",
                     lineno=base_node.lineno,
                     col_offset=base_node.col_offset,
@@ -4516,9 +4775,11 @@ def _build_class_registry(
                 vartype = resolve_annotation(
                     item.annotation,
                     registry,
+                    extra_names=extra_names,
                     filename=getattr(node, "_src_file", filename),
                     module_fn_maps=module_fn_maps,
                     module_names=module_names,
+                    aliases=aliases,
                 )
                 slot = len(statics)
                 statics[f"{cname}.{varname}"] = (slot, vartype)
@@ -4568,9 +4829,11 @@ def _build_class_registry(
                         ftype = resolve_annotation(
                             stmt.annotation,
                             registry,
+                            extra_names=extra_names,
                             filename=src_file,
                             module_fn_maps=module_fn_maps,
                             module_names=module_names,
+                            aliases=aliases,
                         )
                         own_fields[tgt.attr] = ftype
                 elif isinstance(stmt, ast.Assign) and len(stmt.targets) == 1:
@@ -4642,6 +4905,14 @@ def _stmt_name(stmt: ast.stmt) -> Optional[str]:
         return stmt.name
     if isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name):
         return stmt.target.id
+    if (
+        isinstance(stmt, ast.Assign)
+        and len(stmt.targets) == 1
+        and isinstance(stmt.targets[0], ast.Name)
+    ):
+        return stmt.targets[0].id
+    if isinstance(stmt, ast.TypeAlias):
+        return stmt.name.id
     return None
 
 
@@ -4771,6 +5042,19 @@ def _mangle_module_body(
                 simple=orig_ann.simple,
             )
             ast.copy_location(stmt, orig_ann)
+        elif (
+            isinstance(stmt, ast.Assign)
+            and len(stmt.targets) == 1
+            and isinstance(stmt.targets[0], ast.Name)
+            and stmt.targets[0].id in mangle_map
+        ):
+            orig_assign = stmt
+            new_tgt = ast.Name(
+                id=mangle_map[orig_assign.targets[0].id], ctx=ast.Store()
+            )
+            ast.copy_location(new_tgt, orig_assign.targets[0])
+            stmt = ast.Assign(targets=[new_tgt], value=orig_assign.value)
+            ast.copy_location(stmt, orig_assign)
         result.append(stmt)
     return result
 
@@ -4895,7 +5179,15 @@ def _load_module_stmts(
     # Build mangle_map for this module's own top-level definitions.
     prefix = _mangle_prefix(abs_path, search_path)
     local_names = {_stmt_name(s) for s in body if _stmt_name(s) is not None}
-    mangle_map: dict[str, str] = {n: prefix + n for n in local_names}
+    # `type X = ...` aliases are resolved via a flat, module-agnostic registry
+    # (see _compile_full's PEP-695 alias pass), so they must keep their plain
+    # name rather than being mangled — map them to themselves instead so they
+    # still appear in mangle_registry (needed for already-bundled re-import
+    # validation) without ever being renamed.
+    type_alias_names = {s.name.id for s in body if isinstance(s, ast.TypeAlias)}
+    mangle_map: dict[str, str] = {
+        n: (n if n in type_alias_names else prefix + n) for n in local_names
+    }
     # Also include names imported by this module (_aliases) so that re-exports
     # from __init__.py files are visible to callers.  Own definitions take
     # precedence (mangle_map is the right operand and wins on key collision).

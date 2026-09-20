@@ -261,6 +261,26 @@ class TestCollectionTypes(SmartContractTestCase):
         result, _ = await self.call("dict_items_keys_in_order", [], return_type=list)
         self.assertEqual([item.as_int() for item in result], [4, 2])
 
+    # ------------------------------------------------------------------
+    # dict[K, V] — .get()
+    # ------------------------------------------------------------------
+
+    async def test_dict_get_present(self) -> None:
+        result, _ = await self.call("dict_get_present", [], return_type=int)
+        self.assertEqual(result, 1)
+
+    async def test_dict_get_missing_default(self) -> None:
+        result, _ = await self.call("dict_get_missing_default", [], return_type=int)
+        self.assertEqual(result, 0)
+
+    async def test_dict_get_no_default_present(self) -> None:
+        result, _ = await self.call("dict_get_no_default_present", [], return_type=int)
+        self.assertEqual(result, 1)
+
+    async def test_dict_get_no_default_missing(self) -> None:
+        result, _ = await self.call("dict_get_no_default_missing", [], return_type=None)
+        self.assertIsNone(result)
+
     # Dict[str, Any] — heterogeneous values compile and resolve correctly
 
     async def test_dict_any_get_int(self) -> None:

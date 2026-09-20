@@ -372,6 +372,25 @@ class Slice:
 
 
 @dataclasses.dataclass
+class ListSlice:
+    """data[start:stop:step] for list[T]; compiles to a call to the shared __list_slice helper."""
+
+    value: "Expr"
+    start: Optional["Expr"]  # None = from beginning
+    stop: Optional["Expr"]  # None = to end
+    step: Optional["Expr"]  # None means step=1
+    type: Type  # same ListType as value.type
+
+
+@dataclasses.dataclass
+class ListPop:
+    """lst.pop() (no index) used as an expression; compiles to POPITEM."""
+
+    container: "Expr"
+    type: Type  # container.type.elem
+
+
+@dataclasses.dataclass
 class ListLiteral:
     """[e1, e2, ...] — homogeneous list literal."""
 
@@ -418,6 +437,16 @@ class DictValues:
 
     container: "Expr"
     type: Type  # ListType(val_t)
+
+
+@dataclasses.dataclass
+class DictGet:
+    """d.get(key) / d.get(key, default) — HASKEY-guarded PICKITEM with a fallback value."""
+
+    container: "Expr"
+    key: "Expr"
+    default: "Expr"
+    type: Type  # val_t, or Optional[val_t] when no default was given
 
 
 @dataclasses.dataclass
@@ -514,12 +543,15 @@ Expr = Union[
     StrIndex,
     StringLiteral,
     Slice,
+    ListSlice,
+    ListPop,
     ListLiteral,
     TupleLiteral,
     DictLiteral,
     HasKey,
     DictKeys,
     DictValues,
+    DictGet,
     StaticLoad,
     NoneLiteral,
     IsNone,
@@ -594,6 +626,25 @@ class ItemStore:
     container: Expr  # ListType or DictType
     index: Expr  # IntType for list; key type for dict
     value: Expr  # must match container element/value type
+
+
+@dataclasses.dataclass(frozen=True)
+class ListPopStmt:
+    """lst.pop() (no index) used as a bare statement; result discarded. Compiles to POPITEM+DROP."""
+
+    container: Expr
+
+
+@dataclasses.dataclass(frozen=True)
+class ListRemove:
+    """Removes lst[index] without returning it; compiles to REMOVE.
+
+    Used both for bare "lst.pop(i)" statements and as the tail of the
+    pop(i)-used-as-expression desugar (see HirBuilder._desugar_list_pop_index).
+    """
+
+    container: Expr
+    index: Expr  # already normalized for negative indices by the caller
 
 
 @dataclasses.dataclass(frozen=True)
@@ -702,6 +753,8 @@ Stmt = Union[
     ListAppend,
     ReverseItems,
     ItemStore,
+    ListPopStmt,
+    ListRemove,
     TupleUnpack,
     StaticStore,
     CallStmt,
@@ -727,6 +780,8 @@ class HIRFunction:
     return_type: Type
     locals: dict[str, tuple[int, Type]]
     body: list[Stmt]
+    lineno: Optional[int] = None
+    filename: Optional[str] = None
 
 
 @dataclasses.dataclass
@@ -782,10 +837,17 @@ def resolve_annotation(
     filename: Optional[str] = None,
     module_fn_maps: Optional[dict[str, dict[str, str]]] = None,
     module_names: Optional[set] = None,
+    aliases: Optional[dict[str, str]] = None,
 ) -> Type:
     def _recurse(n: ast.expr) -> Type:
         return resolve_annotation(
-            n, class_registry, extra_names, filename, module_fn_maps, module_names
+            n,
+            class_registry,
+            extra_names,
+            filename,
+            module_fn_maps,
+            module_names,
+            aliases,
         )
 
     def _err(msg: str) -> TypecheckError:
@@ -795,6 +857,10 @@ def resolve_annotation(
 
     if isinstance(node, ast.Constant) and node.value is None:
         return NONE
+    # Substitute import aliases (e.g. a class imported under its original name
+    # from another module gets mangled to `<module>_<name>` in class_registry).
+    if aliases and isinstance(node, ast.Name) and node.id in aliases:
+        node = ast.Name(id=aliases[node.id], ctx=ast.Load())
     if isinstance(node, ast.Name):
         match node.id:
             case "int":

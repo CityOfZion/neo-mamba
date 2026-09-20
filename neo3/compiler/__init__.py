@@ -82,6 +82,7 @@ from .linearizer import (
     Linearizer,
     _emit_static_literal,
     _emit_to_bytes_helper,
+    _emit_list_slice_helper,
 )
 
 # Strip internal compiler file/line info from CompilerWarning messages so the
@@ -409,6 +410,49 @@ def _compile_full(
     tree.body = extra_stmts + main_body
     iterator_extra: dict[str, Type] = {n: ITERATOR for n in iterator_names}
 
+    # Resolve PEP 695 `type X = ...` aliases (module level only) before any other
+    # pass sees them, and fold the results into iterator_extra so every existing
+    # call site that already threads iterator_extra as `extra_names` picks up
+    # alias names for free.
+    alias_nodes = [n for n in tree.body if isinstance(n, ast.TypeAlias)]
+    pending_aliases = list(alias_nodes)
+    changed = True
+    while changed and pending_aliases:
+        changed = False
+        still_pending = []
+        for node in pending_aliases:
+            if node.type_params:
+                raise TypecheckError(
+                    "generic type aliases are not supported",
+                    lineno=node.lineno,
+                    col_offset=node.col_offset,
+                    filename=filename,
+                )
+            try:
+                resolved = resolve_annotation(
+                    node.value,
+                    extra_names=iterator_extra,
+                    filename=filename,
+                    module_fn_maps=module_fn_maps,
+                    module_names=module_names,
+                )
+            except TypecheckError:
+                still_pending.append(node)
+                continue
+            iterator_extra[node.name.id] = resolved
+            changed = True
+        pending_aliases = still_pending
+    if pending_aliases:
+        # Re-resolve the first remaining alias to surface its real error.
+        resolve_annotation(
+            pending_aliases[0].value,
+            extra_names=iterator_extra,
+            filename=filename,
+            module_fn_maps=module_fn_maps,
+            module_names=module_names,
+        )
+    tree.body = [n for n in tree.body if not isinstance(n, ast.TypeAlias)]
+
     # Pass 1: Collect module-level static field declarations (anywhere in tree.body)
     statics, static_inits, const_values = _collect_module_statics(
         tree.body,
@@ -429,6 +473,8 @@ def _compile_full(
         filename=filename,
         module_fn_maps=module_fn_maps,
         module_names=module_names,
+        extra_names=iterator_extra,
+        aliases=aliases,
     )
     static_inits.extend(class_var_inits)
 
@@ -465,6 +511,7 @@ def _compile_full(
                     iterator_extra,
                     module_fn_maps=module_fn_maps,
                     module_names=module_names,
+                    aliases=aliases,
                 )
                 event_fn_specs[fn.name] = info
                 break
@@ -483,6 +530,7 @@ def _compile_full(
                     filename=fn_filename,
                     module_fn_maps=module_fn_maps,
                     module_names=module_names,
+                    aliases=aliases,
                 )
                 for a in fn.args.args
             ]
@@ -493,6 +541,7 @@ def _compile_full(
                     filename=fn_filename,
                     module_fn_maps=module_fn_maps,
                     module_names=module_names,
+                    aliases=aliases,
                 )
                 if fn.returns is not None
                 else NONE
@@ -611,6 +660,7 @@ def _compile_full(
             filename=fn_filename,
             module_fn_maps=module_fn_maps,
             module_names=module_names,
+            aliases=aliases,
         )
         param_types: list[Type] = []
         for arg in fn_node.args.args:
@@ -629,6 +679,7 @@ def _compile_full(
                     filename=fn_filename,
                     module_fn_maps=module_fn_maps,
                     module_names=module_names,
+                    aliases=aliases,
                 )
             )
         signatures[fn_node.name] = (param_types, return_type)
@@ -670,6 +721,7 @@ def _compile_full(
                     filename=fn_filename,
                     module_fn_maps=module_fn_maps,
                     module_names=module_names,
+                    aliases=aliases,
                 )
                 raw_params = list(fn_node.args.args)
                 param_types: list[Type] = []
@@ -691,6 +743,7 @@ def _compile_full(
                             filename=fn_filename,
                             module_fn_maps=module_fn_maps,
                             module_names=module_names,
+                            aliases=aliases,
                         )
                     )
                 signatures[compiled] = (param_types, return_type)
@@ -721,6 +774,7 @@ def _compile_full(
                     filename=fn_filename,
                     module_fn_maps=module_fn_maps,
                     module_names=module_names,
+                    aliases=aliases,
                 )
             )
             raw_params = list(fn_node.args.args)
@@ -746,6 +800,7 @@ def _compile_full(
                         filename=fn_filename,
                         module_fn_maps=module_fn_maps,
                         module_names=module_names,
+                        aliases=aliases,
                     )
                 )
             signatures[compiled] = (param_types, return_type)
@@ -779,6 +834,7 @@ def _compile_full(
             syscall_module_fn_specs=syscall_module_fn_specs,
             event_fn_specs=event_fn_specs,
             iterator_names=iterator_names,
+            type_aliases=iterator_extra,
             findoptions_names=findoptions_names,
             callflags_names=callflags_names,
             namedcurvehash_names=namedcurvehash_names,
@@ -813,6 +869,7 @@ def _compile_full(
                 syscall_module_fn_specs=syscall_module_fn_specs,
                 event_fn_specs=event_fn_specs,
                 iterator_names=iterator_names,
+                type_aliases=iterator_extra,
                 findoptions_names=findoptions_names,
                 callflags_names=callflags_names,
                 namedcurvehash_names=namedcurvehash_names,
@@ -979,6 +1036,11 @@ def _compile_full(
             _emit_to_bytes_helper(shared_em, "big", False)
         elif variant == "__to_bytes_big_signed":
             _emit_to_bytes_helper(shared_em, "big", True)
+
+    # Emit the shared list-slice helper once, if any list[T] slice referenced it.
+    if any(func_name == "__list_slice" for _, _, func_name in call_fixups):
+        func_offsets["__list_slice"] = shared_em.pos()
+        _emit_list_slice_helper(shared_em)
 
     # Patch CALL_L fixups now that all function offsets are known
     for placeholder_pos, call_opcode_pos, func_name in call_fixups:
