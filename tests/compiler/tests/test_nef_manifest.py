@@ -487,6 +487,221 @@ def x() -> int:
             _write_contract(src)
         self.assertIn("multiple values", str(ctx.exception))
 
+
+class TestSupportedStandardsAutoDetection(unittest.TestCase):
+    """Test auto-detection of NEP-17 and NEP-11 standards from contract methods."""
+
+    def _compile(self, src: str) -> dict:
+        _, manifest = _write_contract(src)
+        return manifest
+
+    def test_nep17_auto_detected(self):
+        """Contract with NEP-17 methods (4-param transfer) gets 'NEP-17' auto-added."""
+        src = """
+from typing import Any
+from neo3.sc.compiletime import public
+
+@public
+def symbol() -> str:
+    return "TKN"
+
+@public
+def decimals() -> int:
+    return 8
+
+@public
+def totalSupply() -> int:
+    return 1000000
+
+@public
+def balanceOf(account: bytes) -> int:
+    return 0
+
+@public
+def transfer(from_: bytes, to: bytes, amount: int, data: Any) -> bool:
+    return True
+"""
+        manifest = self._compile(src)
+        self.assertIn("NEP-17", manifest.get("supportedstandards", []))
+
+    def test_nep11_auto_detected_3_param_transfer(self):
+        """Contract with NEP-11 methods (3-param transfer) gets 'NEP-11' auto-added."""
+        src = """
+from typing import Any
+from neo3.sc.compiletime import public
+
+@public
+def symbol() -> str:
+    return "NFT"
+
+@public
+def decimals() -> int:
+    return 0
+
+@public
+def totalSupply() -> int:
+    return 100
+
+@public
+def balanceOf(owner: bytes) -> int:
+    return 1
+
+@public
+def tokensOf(owner: bytes) -> list:
+    return []
+
+@public
+def ownerOf(tokenId: bytes) -> bytes:
+    return b""
+
+@public
+def transfer(to: bytes, tokenId: bytes, data: Any) -> bool:
+    return True
+"""
+        manifest = self._compile(src)
+        self.assertIn("NEP-11", manifest.get("supportedstandards", []))
+
+    def test_nep11_auto_detected_5_param_transfer(self):
+        """Contract with NEP-11 divisible methods (5-param transfer) gets 'NEP-11' auto-added."""
+        src = """
+from typing import Any
+from neo3.sc.compiletime import public
+
+@public
+def symbol() -> str:
+    return "DNFT"
+
+@public
+def decimals() -> int:
+    return 2
+
+@public
+def totalSupply() -> int:
+    return 1000
+
+@public
+def balanceOf(owner: bytes) -> int:
+    return 10
+
+@public
+def tokensOf(owner: bytes) -> list:
+    return []
+
+@public
+def ownerOf(tokenId: bytes) -> bytes:
+    return b""
+
+@public
+def transfer(from_: bytes, to: bytes, amount: int, tokenId: bytes, data: Any) -> bool:
+    return True
+"""
+        manifest = self._compile(src)
+        self.assertIn("NEP-11", manifest.get("supportedstandards", []))
+
+    def test_no_duplicate_when_manually_declared(self):
+        """Manual ContractManifest(supported_standards=['NEP-17']) + structural match → no duplicate."""
+        src = """
+from typing import Any
+from neo3.sc.compiletime import public, ContractManifest
+
+ContractManifest(supported_standards=["NEP-17"])
+
+@public
+def symbol() -> str:
+    return "TKN"
+
+@public
+def decimals() -> int:
+    return 8
+
+@public
+def totalSupply() -> int:
+    return 1000000
+
+@public
+def balanceOf(account: bytes) -> int:
+    return 0
+
+@public
+def transfer(from_: bytes, to: bytes, amount: int, data: Any) -> bool:
+    return True
+"""
+        manifest = self._compile(src)
+        standards = manifest.get("supportedstandards", [])
+        self.assertEqual(standards.count("NEP-17"), 1, "NEP-17 should appear exactly once")
+        self.assertIn("NEP-17", standards)
+
+    def test_plain_contract_no_standards(self):
+        """Contract with unrelated methods has no supportedstandards or empty list."""
+        src = """
+from neo3.sc.compiletime import public
+
+@public
+def foo(x: int) -> int:
+    return x * 2
+
+@public
+def bar() -> str:
+    return "hello"
+"""
+        manifest = self._compile(src)
+        standards = manifest.get("supportedstandards", [])
+        self.assertEqual(standards, [], "Unrelated contract should have no auto-detected standards")
+
+    def test_partial_nep17_no_detection(self):
+        """Contract with only some NEP-17 methods (missing transfer) is not detected."""
+        src = """
+from neo3.sc.compiletime import public
+
+@public
+def symbol() -> str:
+    return "TKN"
+
+@public
+def decimals() -> int:
+    return 8
+
+@public
+def totalSupply() -> int:
+    return 1000000
+
+@public
+def balanceOf(account: bytes) -> int:
+    return 0
+"""
+        manifest = self._compile(src)
+        standards = manifest.get("supportedstandards", [])
+        self.assertNotIn("NEP-17", standards, "Incomplete NEP-17 should not be detected")
+
+    def test_wrong_transfer_arity_no_detection(self):
+        """Contract with NEP-17 methods but wrong transfer arity is not detected."""
+        src = """
+from neo3.sc.compiletime import public
+
+@public
+def symbol() -> str:
+    return "TKN"
+
+@public
+def decimals() -> int:
+    return 8
+
+@public
+def totalSupply() -> int:
+    return 1000000
+
+@public
+def balanceOf(account: bytes) -> int:
+    return 0
+
+@public
+def transfer(to: bytes, amount: int) -> bool:
+    return True
+"""
+        manifest = self._compile(src)
+        standards = manifest.get("supportedstandards", [])
+        self.assertNotIn("NEP-17", standards, "Wrong transfer arity should prevent detection")
+
     def test_permission_invalid_contract_raises(self):
         from neo3.compiler import TypecheckError
 
