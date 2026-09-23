@@ -265,6 +265,15 @@ class Linearizer:
             next_label: Label of the block that will be emitted immediately
                 after this one, used for fall-through elimination.
         """
+        if block.terminator is None:
+            # CFGBuilder leaves unreachable join blocks (e.g. after an if/else whose
+            # branches all return) empty and open; they emit nothing. An open block
+            # with instructions would fall through into whatever block follows.
+            if block.instructions:
+                raise NotImplementedError(
+                    f"Block '{block.label}' has instructions but no terminator"
+                )
+            return
         for instr in block.instructions:
             self._emit_instr(instr)
         self._emit_terminator(block.terminator, next_label)
@@ -515,6 +524,8 @@ class Linearizer:
                 self._fixups.append((placeholder, end_pos, lbl))
             case EndFinally():
                 self._em.emit_opcode(OpCode.ENDFINALLY)
+            case _:
+                raise NotImplementedError(f"Unknown terminator: {type(term).__name__}")
 
     def _patch_jumps(self) -> None:
         """Resolve all collected jump placeholders.
@@ -524,6 +535,8 @@ class Linearizer:
         offsets recorded in ``_offsets``.
         """
         for placeholder_pos, jmp_opcode_pos, label in self._fixups:
+            if self._cfg.blocks[label].terminator is None:
+                raise NotImplementedError(f"Jump to unterminated block '{label}'")
             self._em.patch_i32(placeholder_pos, jmp_opcode_pos, self._offsets[label])
 
 

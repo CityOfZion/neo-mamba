@@ -632,6 +632,11 @@ class CFGBuilder:
                 if rt != NONE:
                     self._emit(StackInstr(op="DROP", type=NONE))
 
+            case _:
+                raise NotImplementedError(
+                    f"Unknown HIR statement: {type(stmt).__name__}"
+                )
+
     def _emit_slice(
         self,
         v: Expr,
@@ -1249,3 +1254,8 @@ class CFGBuilder:
                     self._emit_expr(arg)
                 self._emit_expr(obj_expr)  # self is last pushed = LDARG 0
                 self._emit(StackInstr(op="call", type=t, operand=cname))
+
+            case _:
+                raise NotImplementedError(
+                    f"Unknown HIR expression: {type(expr).__name__}"
+                )
