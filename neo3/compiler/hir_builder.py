@@ -95,6 +95,8 @@ from .hir import (
     TupleLiteral,
     DictLiteral,
     HasKey,
+    ListContains,
+    SubstringContains,
     DictKeys,
     DictValues,
     DictGet,
@@ -153,6 +155,20 @@ _SYSCALL_ITERATOR_NEXT: bytes = Syscalls.get_by_name(
 _SYSCALL_ITERATOR_VALUE: bytes = Syscalls.get_by_name(
     "System.Iterator.Value"
 ).number.to_bytes(4, "little")
+
+# list[T] element types whose NeoVM EQUAL matches Python `==` (bytearray via CONVERT)
+_LIST_CONTAINS_ELEM = (
+    IntType,
+    BoolType,
+    BytesType,
+    BytearrayType,
+    StrType,
+    UInt160Type,
+    UInt256Type,
+    ECPointType,
+)
+# Container types supporting substring `in` (lowered to StdLib memorySearch)
+_SUBSTRING_LIKE = (BytesType, BytearrayType, StrType)
 
 # The module that must be imported for the @public decorator to be recognised.
 _COMPILETIME_MODULE = "neo3.sc.compiletime"
@@ -3198,6 +3214,35 @@ class HIRBuilder:
             case _:
                 self._err(f"Unsupported expression: {ast.dump(node)}")
 
+    def _visit_membership(self, l: "ast.expr", r: "ast.expr") -> "Expr":
+        """Build the HIR node for `l in r` (callers wrap it in Not for `not in`)."""
+        item = self._visit_expr(l)
+        container = self._visit_expr(r)
+        ct = container.type
+        if isinstance(ct, DictType):
+            if item.type != ct.key:
+                self._err(f"'in' key type mismatch: expected {ct.key}, got {item.type}")
+            return HasKey(container=container, key=item)
+        if isinstance(ct, ListType):
+            # NeoVM EQUAL compares Array/Struct/Map by reference, not by value as Python does
+            if not isinstance(ct.elem, _LIST_CONTAINS_ELEM):
+                self._err(f"'in' not supported for list[{ct.elem}]")
+            if item.type != ct.elem:
+                self._err(
+                    f"'in' element type mismatch: expected {ct.elem}, got {item.type}"
+                )
+            return ListContains(container=container, item=item)
+        if isinstance(ct, _SUBSTRING_LIKE):
+            if not isinstance(item.type, _SUBSTRING_LIKE):
+                self._err(f"'in' requires a {ct} left operand, got {item.type}")
+            # str cannot mix with bytes/bytearray (Python TypeError)
+            if isinstance(ct, StrType) != isinstance(item.type, StrType):
+                self._err(f"'in' cannot test {item.type} in {ct}")
+            return SubstringContains(container=container, item=item)
+        self._err(
+            "'in' operator only supported for dict[K,V], list[T], str, bytes and bytearray"
+        )
+
     def _visit_operator_expr(self, node: "ast.expr") -> "Expr":
         """Handle binary ops, comparisons, boolean ops, unary ops, and ternary."""
         match node:
@@ -3251,15 +3296,9 @@ class HIRBuilder:
                     )
                 return IsNone(operand=operand, negated=True)
             case ast.Compare(left=l, ops=[ast.In()], comparators=[r]):
-                key = self._visit_expr(l)
-                container = self._visit_expr(r)
-                if not isinstance(container.type, DictType):
-                    self._err("'in' operator only supported for dict[K,V]")
-                if key.type != container.type.key:
-                    self._err(
-                        f"'in' key type mismatch: expected {container.type.key}, got {key.type}"
-                    )
-                return HasKey(container=container, key=key)
+                return self._visit_membership(l, r)
+            case ast.Compare(left=l, ops=[ast.NotIn()], comparators=[r]):
+                return Not(operand=self._visit_membership(l, r))
             case ast.Compare(left=l, ops=[op], comparators=[r]):
                 left, right = self._visit_expr(l), self._visit_expr(r)
                 # str vs bytes: distinct types — fold to constant per Python semantics

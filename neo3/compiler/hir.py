@@ -424,6 +424,24 @@ class HasKey:
 
 
 @dataclasses.dataclass
+class ListContains:
+    """item in lst — value membership for list[T]; compiles to a call to the shared __list_contains helper."""
+
+    container: "Expr"
+    item: "Expr"
+    type: Type = dataclasses.field(default_factory=lambda: BOOL, init=False)
+
+
+@dataclasses.dataclass
+class SubstringContains:
+    """sub in s — substring membership for str / bytes / bytearray; compiles to StdLib memorySearch."""
+
+    container: "Expr"
+    item: "Expr"
+    type: Type = dataclasses.field(default_factory=lambda: BOOL, init=False)
+
+
+@dataclasses.dataclass
 class DictKeys:
     """d.keys() — returns Array of keys as list[K]."""
 
@@ -549,6 +567,8 @@ Expr = Union[
     TupleLiteral,
     DictLiteral,
     HasKey,
+    ListContains,
+    SubstringContains,
     DictKeys,
     DictValues,
     DictGet,

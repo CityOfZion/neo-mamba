@@ -67,6 +67,8 @@ from .hir import (
     TupleLiteral,
     DictLiteral,
     HasKey,
+    ListContains,
+    SubstringContains,
     DictKeys,
     DictValues,
     DictGet,
@@ -1138,6 +1140,37 @@ class CFGBuilder:
                 self._emit_expr(ctr)
                 self._emit_expr(key)
                 self._emit(StackInstr(op="HASKEY", type=BOOL))
+
+            case ListContains(container=ctr, item=item):
+                # Push args right-to-left so the helper's LDARG 0 = list, 1 = item.
+                # bytearray elements need the variant that CONVERTs Buffers before EQUAL.
+                helper = (
+                    "__list_contains_buf"
+                    if isinstance(item.type, BytearrayType)
+                    else "__list_contains"
+                )
+                self._emit_expr(item)
+                self._emit_expr(ctr)
+                self._emit(StackInstr(op="call", type=BOOL, operand=helper))
+
+            case SubstringContains(container=ctr, item=item):
+                # memorySearch(mem, value) returns -1 when value is absent.
+                # Push value first → items[1]; mem last → items[0] after PACK.
+                self._emit_expr(item)
+                if isinstance(item.type, BytearrayType):
+                    self._emit(StackInstr(op="CONVERT", type=BYTES, operand=0x28))
+                self._emit_expr(ctr)
+                if isinstance(ctr.type, BytearrayType):
+                    self._emit(StackInstr(op="CONVERT", type=BYTES, operand=0x28))
+                self._emit(
+                    StackInstr(
+                        op="contract_call",
+                        type=INT,
+                        operand=(_STDLIB_HASH, "memorySearch", 2, 15),
+                    )
+                )
+                self._emit(StackInstr(op="PUSH_INT", type=INT, operand=-1))
+                self._emit(StackInstr(op="!=", type=BOOL))
 
             case DictKeys(container=ctr, type=t):
                 self._emit_expr(ctr)
