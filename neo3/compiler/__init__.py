@@ -83,6 +83,7 @@ from .linearizer import (
     _emit_static_literal,
     _emit_to_bytes_helper,
     _emit_list_slice_helper,
+    _emit_list_contains_helper,
 )
 
 # Strip internal compiler file/line info from CompilerWarning messages so the
@@ -1041,6 +1042,15 @@ def _compile_full(
     if any(func_name == "__list_slice" for _, _, func_name in call_fixups):
         func_offsets["__list_slice"] = shared_em.pos()
         _emit_list_slice_helper(shared_em)
+
+    # Emit the shared list-contains helpers once each, if any `in list[T]` referenced them.
+    for helper_name, convert_buffers in (
+        ("__list_contains", False),
+        ("__list_contains_buf", True),
+    ):
+        if any(func_name == helper_name for _, _, func_name in call_fixups):
+            func_offsets[helper_name] = shared_em.pos()
+            _emit_list_contains_helper(shared_em, convert_buffers)
 
     # Patch CALL_L fixups now that all function offsets are known
     for placeholder_pos, call_opcode_pos, func_name in call_fixups:

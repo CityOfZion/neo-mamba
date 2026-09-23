@@ -921,3 +921,77 @@ def _emit_list_slice_helper(em: "Emitter") -> None:
     em.emit_opcode(OpCode.LDLOC)
     em.emit_byte(0)
     em.emit_opcode(OpCode.RET)
+
+
+def _emit_list_contains_helper(em: "Emitter", convert_buffers: bool) -> None:
+    """Emit a shared ``__list_contains`` helper directly into *em*.
+
+    One variant serves every ``item in list[T]`` in the contract for element types
+    whose NeoVM EQUAL matches Python ``==``. With *convert_buffers* (the
+    ``__list_contains_buf`` variant, for ``list[bytearray]``) both operands are
+    CONVERTed to ByteString first, since EQUAL compares Buffers by reference.
+
+    Calling convention (right-to-left push, so inside the helper):
+      LDARG 0 = data (list)
+      LDARG 1 = item
+    Returns True on the first element equal to item, else False.
+
+    Locals: 0 = read_idx.
+    """
+    em.emit_opcode(OpCode.INITSLOT)
+    em.emit_byte(1)  # locals
+    em.emit_byte(2)  # args
+
+    # read_idx = 0
+    em.emit_opcode(OpCode.PUSH0)
+    em.emit_opcode(OpCode.STLOC)
+    em.emit_byte(0)
+
+    # header: while read_idx < SIZE(data):
+    header_pos = em.pos()
+    em.emit_opcode(OpCode.LDLOC)
+    em.emit_byte(0)
+    em.emit_opcode(OpCode.LDARG)
+    em.emit_byte(0)
+    em.emit_opcode(OpCode.SIZE)
+    em.emit_opcode(OpCode.LT)
+    jmpifnot_op_pos, jmpifnot_placeholder = em.emit_jump(OpCode.JMPIFNOT_L)
+
+    #     if data[read_idx] == item: return True
+    em.emit_opcode(OpCode.LDARG)
+    em.emit_byte(0)
+    em.emit_opcode(OpCode.LDLOC)
+    em.emit_byte(0)
+    em.emit_opcode(OpCode.PICKITEM)
+    if convert_buffers:
+        em.emit_opcode(OpCode.CONVERT)
+        em.emit_byte(0x28)
+    em.emit_opcode(OpCode.LDARG)
+    em.emit_byte(1)
+    if convert_buffers:
+        em.emit_opcode(OpCode.CONVERT)
+        em.emit_byte(0x28)
+    em.emit_opcode(OpCode.EQUAL)
+    jmpif_op_pos, jmpif_placeholder = em.emit_jump(OpCode.JMPIF_L)
+
+    #     read_idx += 1
+    em.emit_opcode(OpCode.LDLOC)
+    em.emit_byte(0)
+    em.emit_opcode(OpCode.INC)
+    em.emit_opcode(OpCode.STLOC)
+    em.emit_byte(0)
+
+    jmp_op_pos, jmp_placeholder = em.emit_jump(OpCode.JMP_L)
+    em.patch_i32(jmp_placeholder, jmp_op_pos, header_pos)
+
+    # not found: return False
+    exit_pos = em.pos()
+    em.patch_i32(jmpifnot_placeholder, jmpifnot_op_pos, exit_pos)
+    em.emit_opcode(OpCode.PUSHF)
+    em.emit_opcode(OpCode.RET)
+
+    # found: return True
+    found_pos = em.pos()
+    em.patch_i32(jmpif_placeholder, jmpif_op_pos, found_pos)
+    em.emit_opcode(OpCode.PUSHT)
+    em.emit_opcode(OpCode.RET)

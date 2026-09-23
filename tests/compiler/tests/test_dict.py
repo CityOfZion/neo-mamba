@@ -301,10 +301,40 @@ def f(d: dict[str, int]) -> int:
         self.assertIsInstance(bc, bytes)
         self.assertIn(0xCB, bc)  # HASKEY
 
-    def test_haskey_non_dict_raises(self):
+    def test_haskey_non_container_raises(self):
         src = """
-def f(lst: list[int]) -> bool:
-    return 1 in lst
+def f(x: int) -> bool:
+    return 1 in x
+"""
+        with self.assertRaises(TypecheckError):
+            compile_function(src)
+
+
+class TestDictNotIn(unittest.TestCase):
+
+    def test_not_in_compiles(self):
+        src = """
+def f(d: dict[str, int]) -> bool:
+    return "x" not in d
+"""
+        bc = compile_function(src)
+        self.assertIsInstance(bc, bytes)
+        self.assertIn(0xCB, bc)  # HASKEY
+        self.assertIn(0xAA, bc)  # NOT
+
+    def test_not_in_cfg_ops(self):
+        src = """
+def f(d: dict[str, int]) -> bool:
+    return "x" not in d
+"""
+        cfg = _build_cfg(src)
+        ops = [i.op for b in cfg.blocks.values() for i in b.instructions]
+        self.assertEqual(ops[ops.index("HASKEY") + 1], "not")
+
+    def test_not_in_wrong_key_type_raises(self):
+        src = """
+def f(d: dict[str, int]) -> bool:
+    return 42 not in d
 """
         with self.assertRaises(TypecheckError):
             compile_function(src)

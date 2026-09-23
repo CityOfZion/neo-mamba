@@ -436,5 +436,77 @@ def f(data: bytes, flag: bool) -> int:
             compile_function(src)
 
 
+class TestSubstringContains(unittest.TestCase):
+
+    def _contract_calls(self, src):
+        cfg = _build_cfg(src)
+        return [
+            i.operand[1]
+            for b in cfg.blocks.values()
+            for i in b.instructions
+            if i.op == "contract_call"
+        ]
+
+    def test_bytes_in_bytes(self):
+        src = """
+def f(data: bytes) -> bool:
+    return b"ab" in data
+"""
+        self.assertIsInstance(compile_function(src), bytes)
+        self.assertEqual(self._contract_calls(src), ["memorySearch"])
+
+    def test_str_in_str(self):
+        src = """
+def f(s: str) -> bool:
+    return "ab" in s
+"""
+        self.assertIsInstance(compile_function(src), bytes)
+        self.assertEqual(self._contract_calls(src), ["memorySearch"])
+
+    def test_bytes_in_bytearray_converts(self):
+        src = """
+def f(data: bytearray) -> bool:
+    return b"ab" in data
+"""
+        self.assertIsInstance(compile_function(src), bytes)
+        cfg = _build_cfg(src)
+        ops = [i.op for b in cfg.blocks.values() for i in b.instructions]
+        self.assertEqual(ops[ops.index("contract_call") - 1], "CONVERT")
+
+    def test_not_in(self):
+        src = """
+def f(s: str) -> bool:
+    return "ab" not in s
+"""
+        self.assertIsInstance(compile_function(src), bytes)
+        cfg = _build_cfg(src)
+        ops = [i.op for b in cfg.blocks.values() for i in b.instructions]
+        self.assertEqual(ops[ops.index("!=") + 1], "not")
+
+    def test_str_in_bytes_raises(self):
+        src = """
+def f(data: bytes) -> bool:
+    return "a" in data
+"""
+        with self.assertRaises(TypecheckError):
+            compile_function(src)
+
+    def test_bytes_in_str_raises(self):
+        src = """
+def f(s: str) -> bool:
+    return b"a" in s
+"""
+        with self.assertRaises(TypecheckError):
+            compile_function(src)
+
+    def test_int_in_bytes_raises(self):
+        src = """
+def f(data: bytes) -> bool:
+    return 1 in data
+"""
+        with self.assertRaises(TypecheckError):
+            compile_function(src)
+
+
 if __name__ == "__main__":
     unittest.main()

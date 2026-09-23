@@ -411,5 +411,96 @@ def f(lst: list[bool]) -> bool:
         self.assertIsInstance(bc, bytes)
 
 
+class TestListContains(unittest.TestCase):
+
+    def _calls(self, src):
+        cfg = _build_cfg(src)
+        return [
+            i.operand
+            for b in cfg.blocks.values()
+            for i in b.instructions
+            if i.op == "call"
+        ]
+
+    def test_in_list_int_compiles(self):
+        src = """
+def f(needle: int) -> bool:
+    x: list[int] = [1, 2, 3]
+    return needle in x
+"""
+        bc = compile_function(src)
+        self.assertIsInstance(bc, bytes)
+        self.assertEqual(self._calls(src), ["__list_contains"])
+
+    def test_in_list_str_compiles(self):
+        src = """
+def f(lst: list[str]) -> bool:
+    return "a" in lst
+"""
+        self.assertIsInstance(compile_function(src), bytes)
+        self.assertEqual(self._calls(src), ["__list_contains"])
+
+    def test_in_list_bytes_compiles(self):
+        src = """
+def f(lst: list[bytes]) -> bool:
+    return b"a" in lst
+"""
+        self.assertIsInstance(compile_function(src), bytes)
+        self.assertEqual(self._calls(src), ["__list_contains"])
+
+    def test_in_list_bytearray_uses_buffer_variant(self):
+        src = """
+def f(lst: list[bytearray], item: bytearray) -> bool:
+    return item in lst
+"""
+        self.assertIsInstance(compile_function(src), bytes)
+        self.assertEqual(self._calls(src), ["__list_contains_buf"])
+
+    def test_not_in_list(self):
+        src = """
+def f(lst: list[int]) -> bool:
+    return 3 not in lst
+"""
+        self.assertIsInstance(compile_function(src), bytes)
+        cfg = _build_cfg(src)
+        ops = [i.op for b in cfg.blocks.values() for i in b.instructions]
+        self.assertIn("call", ops)
+        self.assertEqual(ops[ops.index("call") + 1], "not")
+
+    def test_helper_emitted_once(self):
+        src = """
+def f(lst: list[int]) -> bool:
+    return 1 in lst or 2 in lst
+"""
+        bc = compile_function(src)
+        # helper prologue: INITSLOT 1 local, 2 args (f itself has 0 locals, 1 arg)
+        self.assertEqual(bc.count(bytes([0x57, 0x01, 0x02])), 1)
+        self.assertEqual(self._calls(src), ["__list_contains", "__list_contains"])
+
+    def test_element_type_mismatch_raises(self):
+        src = """
+def f(lst: list[int]) -> bool:
+    return "a" in lst
+"""
+        with self.assertRaises(TypecheckError):
+            compile_function(src)
+
+    def test_unsupported_element_type_raises(self):
+        src = """
+def f(lst: list[list[int]], item: list[int]) -> bool:
+    return item in lst
+"""
+        with self.assertRaises(TypecheckError):
+            compile_function(src)
+
+    def test_in_unsupported_container_raises(self):
+        src = """
+def f(x: int) -> bool:
+    return 1 in x
+"""
+        with self.assertRaises(TypecheckError):
+            compile_function(src)
+
+
 if __name__ == "__main__":
     unittest.main()
