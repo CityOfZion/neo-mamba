@@ -396,6 +396,8 @@ class Linearizer:
                 self._em.emit_opcode(OpCode.DUP)
             case "OVER":
                 self._em.emit_opcode(OpCode.OVER)
+            case "NIP":
+                self._em.emit_opcode(OpCode.NIP)
             case "SWAP":
                 self._em.emit_opcode(OpCode.SWAP)
             case "SIGN":
@@ -876,13 +878,33 @@ def _emit_list_slice_helper(em: "Emitter") -> None:
     em.emit_byte(3)  # locals
     em.emit_byte(4)  # args
 
-    # stop_clamped = min(SIZE(data), stop)
-    em.emit_opcode(OpCode.LDARG)
-    em.emit_byte(0)
-    em.emit_opcode(OpCode.SIZE)
+    # start/stop follow Python slice rules: a negative bound counts from the end,
+    # then clamps to [0, SIZE(data)]
+    for arg in (1, 2):
+        # arg = min(max(arg + (arg < 0) * SIZE(data), 0), SIZE(data))
+        em.emit_opcode(OpCode.LDARG)
+        em.emit_byte(0)
+        em.emit_opcode(OpCode.LDARG)
+        em.emit_byte(arg)
+        em.emit_opcode(OpCode.OVER)
+        em.emit_opcode(OpCode.SIZE)
+        em.emit_opcode(OpCode.OVER)
+        em.emit_opcode(OpCode.PUSH0)
+        em.emit_opcode(OpCode.LT)
+        em.emit_opcode(OpCode.MUL)
+        em.emit_opcode(OpCode.ADD)
+        em.emit_opcode(OpCode.PUSH0)
+        em.emit_opcode(OpCode.MAX)
+        em.emit_opcode(OpCode.OVER)
+        em.emit_opcode(OpCode.SIZE)
+        em.emit_opcode(OpCode.MIN)
+        em.emit_opcode(OpCode.STARG)
+        em.emit_byte(arg)
+        em.emit_opcode(OpCode.DROP)
+
+    # stop_clamped = stop (already clamped above)
     em.emit_opcode(OpCode.LDARG)
     em.emit_byte(2)
-    em.emit_opcode(OpCode.MIN)
     em.emit_opcode(OpCode.STLOC)
     em.emit_byte(2)
 

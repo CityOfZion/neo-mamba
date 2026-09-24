@@ -67,6 +67,7 @@ StackOp = Literal[
     # Stack manipulation
     "DUP",
     "OVER",
+    "NIP",
     "SWAP",
     "SIGN",
     "REVERSEITEMS",

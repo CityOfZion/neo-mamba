@@ -62,6 +62,17 @@ class TestListInsert(SmartContractTestCase):
         result = list(map(lambda si: si.as_int(), result))
         self.assertEqual(result, [10, 20, 30, 99])
 
+    async def test_insert_dynamic_index_negative(self) -> None:
+        for idx in (-1, -3, -100, 100):
+            with self.subTest(idx=idx):
+                result, _ = await self.call(
+                    "insert_dynamic_index", [idx], return_type=list
+                )
+                result = list(map(lambda si: si.as_int(), result))
+                expected = [10, 20, 30]
+                expected.insert(idx, 99)
+                self.assertEqual(expected, result)
+
     async def test_insert_str_list(self) -> None:
         result, _ = await self.call("insert_str", [], return_type=list)
         result = list(map(lambda si: si.as_str(), result))
