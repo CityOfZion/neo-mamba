@@ -428,3 +428,198 @@ def f(x: int) -> int:
     return s
 """
         _raises(src)
+
+
+class TestReassignmentNarrowing(unittest.TestCase):
+    """Assigning to an Optional local/arg updates its flow type; checks use the declared type."""
+
+    def test_reassign_in_none_branch_narrows_after_if(self):
+        src = """
+class User:
+    def my_func(self) -> bool:
+        return True
+
+def try_get(user_id: int) -> Optional[User]:
+    if user_id % 2 == 0:
+        return User()
+    return None
+
+def f(user_id: int) -> bool:
+    u = try_get(user_id)
+    if u is None:
+        u = User()
+    return u.my_func()
+"""
+        _ok(src)
+
+    def test_reassign_in_none_branch_narrows_arg(self):
+        src = """
+def f(x: Optional[int]) -> int:
+    if x is None:
+        x = 0
+    return x + 1
+"""
+        _ok(src)
+
+    def test_both_branches_assign_value_narrows(self):
+        src = """
+def f(c: int) -> int:
+    u: Optional[int] = None
+    if c > 0:
+        u = c
+    else:
+        u = 5
+    return u
+"""
+        _ok(src)
+
+    def test_one_branch_assigns_other_does_not_stays_optional(self):
+        src = """
+def f(c: int) -> int:
+    u: Optional[int] = None
+    if c > 0:
+        u = c
+    return u
+"""
+        _raises(src)
+
+    def test_reassign_none_after_assert_narrowing(self):
+        src = """
+def f(c: int) -> int:
+    u: Optional[int] = None
+    if c > 1:
+        u = 5
+    assert u is not None
+    u = None
+    return 1
+"""
+        _ok(src)
+
+    def test_reassign_none_after_arg_narrowing(self):
+        src = """
+def f(x: Optional[int]) -> int:
+    if x is not None:
+        x = None
+    return 1
+"""
+        _ok(src)
+
+    def test_reassign_none_then_use_raises(self):
+        src = """
+def f(x: Optional[int]) -> int:
+    if x is None:
+        return 0
+    x = None
+    return x
+"""
+        _raises(src)
+
+    def test_none_check_on_narrowed_optional_allowed(self):
+        src = """
+def f(x: Optional[int]) -> int:
+    if x is None:
+        x = 0
+    if x is None:
+        return 1
+    return x
+"""
+        _ok(src)
+
+    def test_incompatible_reassignment_still_raises(self):
+        src = """
+def f(x: Optional[int]) -> int:
+    if x is None:
+        x = "a"
+    return 1
+"""
+        _raises(src)
+
+    def test_tuple_unpack_narrows(self):
+        src = """
+def f(x: Optional[int]) -> int:
+    a, x = (1, 2)
+    return x
+"""
+        _ok(src)
+
+
+class TestLoopBackEdgeNarrowing(unittest.TestCase):
+    """A store in a loop body flows back to the loop head; narrowing must not assume otherwise."""
+
+    def test_while_body_reassign_none_widens_head(self):
+        src = """
+def f(x: Optional[int], c: int) -> int:
+    if x is None:
+        return 0
+    while c > 0:
+        y = x + 1
+        x = None
+        c = c - 1
+    return 0
+"""
+        _raises(src)
+
+    def test_for_body_reassign_none_widens_head(self):
+        src = """
+def f(x: Optional[int]) -> int:
+    if x is None:
+        return 0
+    for i in range(3):
+        y = x + 1
+        x = None
+    return 0
+"""
+        _raises(src)
+
+    def test_continue_reassign_none_widens_head(self):
+        src = """
+def f(x: Optional[int], c: int) -> int:
+    if x is None:
+        return 0
+    while c > 0:
+        y = x + 1
+        c = c - 1
+        if c == 1:
+            x = None
+            continue
+        x = 2
+    return 0
+"""
+        _raises(src)
+
+    def test_break_reassign_none_widens_after_loop(self):
+        src = """
+def f(x: Optional[int], c: int) -> int:
+    if x is None:
+        return 0
+    while c > 0:
+        x = None
+        break
+    return x
+"""
+        _raises(src)
+
+    def test_loop_reassign_non_none_keeps_narrowing(self):
+        src = """
+def f(x: Optional[int], c: int) -> int:
+    if x is None:
+        return 0
+    while c > 0:
+        x = x + 1
+        c = c - 1
+    return x
+"""
+        _ok(src)
+
+    def test_loop_assigns_none_then_value_keeps_narrowing(self):
+        src = """
+def f(x: Optional[int], c: int) -> int:
+    if x is None:
+        return 0
+    while c > 0:
+        x = None
+        x = c
+        c = c - 1
+    return x
+"""
+        _ok(src)

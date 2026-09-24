@@ -32,6 +32,7 @@ from .types import (
     ClassType,
     AnyType,
     ElasticAnyType,
+    UnionType,
     IteratorType,
     UInt160Type,
     UInt256Type,
@@ -368,6 +369,19 @@ class HIRBuilder:
         # Tracks the type a local was *first declared* with (before any assert narrowing).
         # Used to undo narrowing leaking between if/elif branches.
         self._local_orig_types: dict[str, Type] = {}
+        # Declared (annotated) types of arguments; `_args` holds the current, possibly narrowed, type.
+        self._arg_decl_types: dict[str, Type] = {}
+        # One entry per enclosing loop: (locals, args, statics) type snapshots taken at each
+        # `break`/`continue`, used to widen types at the loop head (see _visit_loop_body).
+        self._loop_exit_snaps: list[
+            list[
+                tuple[
+                    dict[str, tuple[int, Type]],
+                    dict[str, tuple[int, Type]],
+                    dict[str, Type],
+                ]
+            ]
+        ] = []
         self._return_type: Optional[Type] = None
         self._in_loop: bool = False
         self._declared_globals: set[str] = set()
@@ -625,6 +639,7 @@ class HIRBuilder:
                 self._err(f"Argument '{arg.arg}' missing annotation")
             t = self._resolve_annotation(arg.annotation)
             self._args[arg.arg] = (len(args), t)
+            self._arg_decl_types[arg.arg] = t
             args.append((arg.arg, t))
 
         body = self._visit_stmts(node.body)
@@ -651,6 +666,7 @@ class HIRBuilder:
                 self._err(f"Argument '{arg.arg}' missing annotation")
             t = self._resolve_annotation(arg.annotation)
             self._args[arg.arg] = (len(args), t)
+            self._arg_decl_types[arg.arg] = t
             args.append((arg.arg, t))
 
         for stmt in node.body:
@@ -771,25 +787,25 @@ class HIRBuilder:
 
     def _visit_while_stmt(self, node: "ast.While") -> "While":
         """Compile an ast.While node — includes Optional narrowing and loop context save/restore."""
-        cond = self._visit_expr(node.test)
-        if cond.type != BOOL:
-            self._err("while condition must be bool")
         prev_in_loop = self._in_loop
         self._in_loop = True
-        snap_locals_w = dict(self._locals)
-        snap_args_w = dict(self._args)
-        snap_statics_w = dict(self._statics_current_types)
-        nc = self._extract_none_check(node.test)
-        if nc is not None and not nc[1]:
-            varname, _ = nc
-            _, opt_t = (
-                self._locals[varname]
-                if varname in self._locals
-                else self._args[varname]
-            )
-            self._set_local_type(varname, opt_t.inner)
-        body_stmts = self._visit_stmts(node.body)
-        self._restore_types(snap_locals_w, snap_args_w, snap_statics_w)
+
+        def visit_cond_and_body() -> "tuple[Expr, list[Stmt]]":
+            cond = self._visit_expr(node.test)
+            if cond.type != BOOL:
+                self._err("while condition must be bool")
+            nc = self._extract_none_check(node.test)
+            if nc is not None and not nc[1]:
+                varname, _ = nc
+                _, opt_t = (
+                    self._locals[varname]
+                    if varname in self._locals
+                    else self._args[varname]
+                )
+                self._set_local_type(varname, opt_t.inner)
+            return cond, self._visit_stmts(node.body)
+
+        cond, body_stmts = self._visit_loop_body(visit_cond_and_body, node.body)
         else_stmts = self._visit_stmts(node.orelse)
         self._in_loop = prev_in_loop
         return While(condition=cond, body=body_stmts, else_body=else_stmts)
@@ -880,11 +896,13 @@ class HIRBuilder:
             case ast.Break():
                 if not self._in_loop:
                     self._err("'break' outside loop")
+                self._snap_loop_exit()
                 return Break()
 
             case ast.Continue():
                 if not self._in_loop:
                     self._err("'continue' outside loop")
+                self._snap_loop_exit()
                 return Continue()
 
             case ast.Expr(
@@ -974,24 +992,18 @@ class HIRBuilder:
                     if not isinstance(tgt_node, ast.Name):
                         self._err("tuple unpack targets must be simple names")
                     name = tgt_node.id
-                    if name in self._args:
-                        slot, declared_t = self._args[name]
+                    if name in self._args or name in self._locals:
+                        is_arg = name in self._args
+                        slot, _ = self._args[name] if is_arg else self._locals[name]
+                        declared_t = self._declared_type(name)
                         if not _type_compatible(
                             elem_t, declared_t, self._class_registry
                         ):
                             self._err(
                                 f"unpack type mismatch: '{name}' declared as {declared_t}, got {elem_t}"
                             )
-                        tgts.append((slot, True, declared_t))
-                    elif name in self._locals:
-                        slot, declared_t = self._locals[name]
-                        if not _type_compatible(
-                            elem_t, declared_t, self._class_registry
-                        ):
-                            self._err(
-                                f"unpack type mismatch: '{name}' declared as {declared_t}, got {elem_t}"
-                            )
-                        tgts.append((slot, False, declared_t))
+                        self._record_store(name, elem_t)
+                        tgts.append((slot, is_arg, declared_t))
                     else:
                         # First assignment — infer type from tuple element
                         slot = len(self._locals)
@@ -1733,6 +1745,111 @@ class HIRBuilder:
         self._args[name] = (slot, new_type)
         return old
 
+    def _may_be_none_check(self, operand: Expr) -> bool:
+        """True if `operand is (not) None` is a valid check: the operand is Optional/None, or
+        it is a local/arg declared Optional that is currently narrowed by flow typing.
+        """
+        if isinstance(operand.type, (OptionalType, NoneType)):
+            return True
+        return (
+            isinstance(operand, LocalLoad)
+            and (operand.name in self._locals or operand.name in self._args)
+            and isinstance(self._declared_type(operand.name), OptionalType)
+        )
+
+    def _declared_type(self, name: str) -> Type:
+        """Declared type of an existing local/arg, ignoring any flow narrowing."""
+        if name in self._args:
+            return self._arg_decl_types.get(name, self._args[name][1])
+        return self._local_orig_types.get(name, self._locals[name][1])
+
+    def _record_store(self, name: str, value_type: Type) -> None:
+        """Update the flow type of an existing local/arg after a (type-checked) store.
+
+        An ``Optional[T]`` variable narrows to ``T`` when assigned a plain ``T`` value and to
+        ``None`` when assigned ``None``; anything else resets it to its declared type.
+        """
+        declared = self._declared_type(name)
+        new_type = declared
+        if isinstance(declared, OptionalType):
+            if isinstance(value_type, NoneType):
+                new_type = NONE
+            elif not isinstance(value_type, (AnyType, OptionalType, UnionType)):
+                new_type = declared.inner
+        self._set_local_type(name, new_type)
+
+    def _snap_loop_exit(self) -> None:
+        """Record the current types at a `break`/`continue` of the innermost loop."""
+        if self._loop_exit_snaps:
+            self._loop_exit_snaps[-1].append(
+                (
+                    dict(self._locals),
+                    dict(self._args),
+                    dict(self._statics_current_types),
+                )
+            )
+
+    def _visit_loop_body(self, visit: Any, body: list[ast.stmt]) -> Any:
+        """Type-check a loop body (via ``visit()``) against sound loop-head types.
+
+        The body is compiled once, but at runtime a store late in the body flows back to the
+        loop head. Any local/arg/static whose type at a back edge (end of body, `continue`)
+        or at a `break` differs from its type at the loop head is widened to its declared
+        type, and the body is re-visited until the head types are stable. Afterwards the
+        types are restored to the (widened) loop-head types, which also hold after the loop.
+        """
+        while True:
+            entry_locals = dict(self._locals)
+            entry_args = dict(self._args)
+            entry_statics = dict(self._statics_current_types)
+            entry_orig = dict(self._local_orig_types)
+            self._loop_exit_snaps.append([])
+            try:
+                result = visit()
+            finally:
+                snaps = self._loop_exit_snaps.pop()
+            if not _always_terminates(body):
+                snaps.append(
+                    (
+                        dict(self._locals),
+                        dict(self._args),
+                        dict(self._statics_current_types),
+                    )
+                )
+
+            widened = False
+            for name, (slot, t) in entry_locals.items():
+                declared = entry_orig.get(name, t)
+                if t != declared and any(
+                    name in sl and sl[name][1] != t for sl, _, _ in snaps
+                ):
+                    entry_locals[name] = (slot, declared)
+                    widened = True
+            for name, (slot, t) in entry_args.items():
+                declared = self._arg_decl_types.get(name, t)
+                if t != declared and any(
+                    name in sa and sa[name][1] != t for _, sa, _ in snaps
+                ):
+                    entry_args[name] = (slot, declared)
+                    widened = True
+            for name, t in entry_statics.items():
+                declared = self._statics[name][1] if name in self._statics else t
+                if t != declared and any(
+                    name in ss and ss[name] != t for _, _, ss in snaps
+                ):
+                    entry_statics[name] = declared
+                    widened = True
+
+            if not widened:
+                self._restore_types(entry_locals, entry_args, entry_statics)
+                return result
+            # Roll back everything the discarded visit declared and try again.
+            self._locals = entry_locals
+            self._args = entry_args
+            self._statics_current_types = entry_statics
+            self._local_orig_types = entry_orig
+            self._pre_stmts = []
+
     def _restore_types(
         self,
         snap_locals: dict[str, tuple[int, "Type"]],
@@ -1999,11 +2116,9 @@ class HIRBuilder:
 
         prev_in_loop = self._in_loop
         self._in_loop = True
-        snap_lf = dict(self._locals)
-        snap_af = dict(self._args)
-        snap_sf = dict(self._statics_current_types)
-        raw_body = self._visit_stmts(node.body)
-        self._restore_types(snap_lf, snap_af, snap_sf)
+        raw_body = self._visit_loop_body(
+            lambda: self._visit_stmts(node.body), node.body
+        )
         else_stmts = self._visit_stmts(node.orelse)
         self._in_loop = prev_in_loop
 
@@ -2067,11 +2182,9 @@ class HIRBuilder:
 
         prev_in_loop = self._in_loop
         self._in_loop = True
-        snap_lfl = dict(self._locals)
-        snap_afl = dict(self._args)
-        snap_sfl = dict(self._statics_current_types)
-        raw_body = self._visit_stmts(node.body)
-        self._restore_types(snap_lfl, snap_afl, snap_sfl)
+        raw_body = self._visit_loop_body(
+            lambda: self._visit_stmts(node.body), node.body
+        )
         else_stmts = self._visit_stmts(node.orelse)
         self._in_loop = prev_in_loop
 
@@ -2157,11 +2270,9 @@ class HIRBuilder:
 
         prev_in_loop = self._in_loop
         self._in_loop = True
-        snap_lfi = dict(self._locals)
-        snap_afi = dict(self._args)
-        snap_sfi = dict(self._statics_current_types)
-        raw_body = self._visit_stmts(node.body)
-        self._restore_types(snap_lfi, snap_afi, snap_sfi)
+        raw_body = self._visit_loop_body(
+            lambda: self._visit_stmts(node.body), node.body
+        )
         else_stmts = self._visit_stmts(node.orelse)
         self._in_loop = prev_in_loop
 
@@ -2651,11 +2762,9 @@ class HIRBuilder:
 
         prev_in_loop = self._in_loop
         self._in_loop = True
-        snap_lfd = dict(self._locals)
-        snap_afd = dict(self._args)
-        snap_sfd = dict(self._statics_current_types)
-        raw_body = self._visit_stmts(node.body)
-        self._restore_types(snap_lfd, snap_afd, snap_sfd)
+        raw_body = self._visit_loop_body(
+            lambda: self._visit_stmts(node.body), node.body
+        )
         else_stmts = self._visit_stmts(node.orelse)
         self._in_loop = prev_in_loop
 
@@ -2778,11 +2887,9 @@ class HIRBuilder:
 
         prev_in_loop = self._in_loop
         self._in_loop = True
-        snap_lfe = dict(self._locals)
-        snap_afe = dict(self._args)
-        snap_sfe = dict(self._statics_current_types)
-        raw_body = self._visit_stmts(node.body)
-        self._restore_types(snap_lfe, snap_afe, snap_sfe)
+        raw_body = self._visit_loop_body(
+            lambda: self._visit_stmts(node.body), node.body
+        )
         else_stmts = self._visit_stmts(node.orelse)
         self._in_loop = prev_in_loop
 
@@ -2813,13 +2920,15 @@ class HIRBuilder:
         if not _type_compatible(expr.type, declared, self._class_registry):
             self._err(_type_mismatch_msg(f"assigning '{name}'", declared, expr.type))
         if name in self._args:
-            idx, arg_declared = self._args[name]
+            idx, _ = self._args[name]
+            arg_declared = self._declared_type(name)
             if declared != arg_declared:
                 self._err(
                     _type_mismatch_msg(
                         f"re-annotating argument '{name}'", arg_declared, declared
                     )
                 )
+            self._set_local_type(name, declared)
             return LocalStore(
                 name=name, slot=idx, value=expr, type=declared, is_arg=True
             )
@@ -2827,6 +2936,7 @@ class HIRBuilder:
             self._locals[name] = (len(self._locals), declared)
             self._local_orig_types[name] = declared
         slot, _ = self._locals[name]
+        self._locals[name] = (slot, self._local_orig_types.get(name, declared))
         return LocalStore(name=name, slot=slot, value=expr, type=declared)
 
     def _handle_assign_name(self, name: str, val: ast.expr) -> Stmt:
@@ -2865,7 +2975,8 @@ class HIRBuilder:
             self._statics_current_types[name] = expr.type
             return StaticStore(name=name, slot=slot, value=expr, type=declared)
         if name in self._args:
-            idx, declared = self._args[name]
+            idx, _ = self._args[name]
+            declared = self._declared_type(name)
             expr = self._visit_expr(val)
             if not _type_compatible(expr.type, declared, self._class_registry):
                 self._err(
@@ -2873,14 +2984,17 @@ class HIRBuilder:
                         f"reassigning argument '{name}'", declared, expr.type
                     )
                 )
+            self._record_store(name, expr.type)
             return LocalStore(
                 name=name, slot=idx, value=expr, type=declared, is_arg=True
             )
-        slot, declared = self._locals[name]
+        slot, _ = self._locals[name]
+        declared = self._declared_type(name)
         expr = self._visit_expr(val)
         expr = self._resolve_elastic_or_empty(expr, declared)
         if not _type_compatible(expr.type, declared, self._class_registry):
             self._err(_type_mismatch_msg(f"reassigning '{name}'", declared, expr.type))
+        self._record_store(name, expr.type)
         return LocalStore(name=name, slot=slot, value=expr, type=declared)
 
     def _handle_augassign(self, name: str, op: ast.operator, val: ast.expr) -> Stmt:
@@ -3281,7 +3395,7 @@ class HIRBuilder:
                 left=l, ops=[ast.Is()], comparators=[ast.Constant(value=None)]
             ):
                 operand = self._visit_expr(l)
-                if not isinstance(operand.type, (OptionalType, NoneType)):
+                if not self._may_be_none_check(operand):
                     self._err(
                         f"'is None' requires Optional or None type, got {operand.type}"
                     )
@@ -3290,7 +3404,7 @@ class HIRBuilder:
                 left=l, ops=[ast.IsNot()], comparators=[ast.Constant(value=None)]
             ):
                 operand = self._visit_expr(l)
-                if not isinstance(operand.type, (OptionalType, NoneType)):
+                if not self._may_be_none_check(operand):
                     self._err(
                         f"'is not None' requires Optional or None type, got {operand.type}"
                     )
