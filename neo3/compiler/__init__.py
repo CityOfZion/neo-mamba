@@ -345,6 +345,89 @@ def _type_to_contract_param(t: Type) -> ContractParameterType:
     return ContractParameterType.ANY
 
 
+_NEP17_METHODS = {"symbol", "decimals", "totalSupply", "balanceOf", "transfer"}
+_NEP11_METHODS = {"symbol", "decimals", "totalSupply", "balanceOf", "tokensOf", "ownerOf", "transfer"}
+
+
+def _detect_supported_standards(public_methods) -> list[str]:
+    """
+    Detect if the compiled contract's public methods match known NEP
+    standards (NEP-17, NEP-11), so they can be auto-added to the
+    manifest's `supportedstandards` field.
+    """
+    names = {m.name for m in public_methods}
+    arity = {m.name: len(m.params) for m in public_methods}
+
+    detected = []
+    if _NEP17_METHODS.issubset(names) and arity.get("transfer") == 4:
+        detected.append("NEP-17")
+    if _NEP11_METHODS.issubset(names) and arity.get("transfer") in (3, 5):
+        detected.append("NEP-11")
+    return detected
+
+
+def _build_manifest_json(
+    contract_name: str,
+    public_methods: list,
+    event_infos: list,
+    manifest_override: Optional[dict],
+) -> dict:
+    """
+    Build a manifest JSON dictionary from compiled contract information.
+    
+    This helper consolidates the manifest construction logic shared by
+    compile_to_nef() and compile_source_to_nef().
+    """
+    methods = [
+        ContractMethodDescriptor(
+            name=m.name,
+            offset=m.offset,
+            parameters=[
+                ContractParameterDefinition(
+                    param_name, _type_to_contract_param(param_type)
+                )
+                for param_name, param_type in m.params
+            ],
+            return_type=_type_to_contract_param(m.return_type),
+            safe=m.safe,
+        )
+        for m in public_methods
+    ]
+    
+    detected_standards = _detect_supported_standards(public_methods)
+    
+    events = [
+        ContractEventDescriptor(
+            name=e.event_name,
+            parameters=[
+                ContractParameterDefinition(
+                    param_name, _type_to_contract_param(param_type)
+                )
+                for param_name, param_type in e.params
+            ],
+        )
+        for e in event_infos
+    ]
+    
+    manifest = ContractManifest(contract_name)
+    manifest.abi = ContractABI(methods=methods, events=events)
+
+    manifest_json = manifest.to_json()
+    if manifest_override:
+        if "permissions" in manifest_override:
+            manifest_override["permissions"] = [
+                {k: v for k, v in p.items() if not k.startswith("_")}
+                for p in manifest_override["permissions"]
+            ]
+        manifest_json.update(manifest_override)
+    
+    if detected_standards:
+        existing = set(manifest_json.get("supportedstandards", []))
+        manifest_json["supportedstandards"] = sorted(existing | set(detected_standards))
+    
+    return manifest_json
+
+
 def _compile_full(
     source: str,
     search_path: Optional[str] = None,
@@ -1173,44 +1256,9 @@ def compile_to_nef(
     contract_name = stem
     manifest_path = out_dir / f"{stem}.manifest.json"
 
-    methods = [
-        ContractMethodDescriptor(
-            name=m.name,
-            offset=m.offset,
-            parameters=[
-                ContractParameterDefinition(
-                    param_name, _type_to_contract_param(param_type)
-                )
-                for param_name, param_type in m.params
-            ],
-            return_type=_type_to_contract_param(m.return_type),
-            safe=m.safe,
-        )
-        for m in public_methods
-    ]
-    events = [
-        ContractEventDescriptor(
-            name=e.event_name,
-            parameters=[
-                ContractParameterDefinition(
-                    param_name, _type_to_contract_param(param_type)
-                )
-                for param_name, param_type in e.params
-            ],
-        )
-        for e in event_infos
-    ]
-    manifest = ContractManifest(contract_name)
-    manifest.abi = ContractABI(methods=methods, events=events)
-
-    manifest_json = manifest.to_json()
-    if manifest_override:
-        if "permissions" in manifest_override:
-            manifest_override["permissions"] = [
-                {k: v for k, v in p.items() if not k.startswith("_")}
-                for p in manifest_override["permissions"]
-            ]
-        manifest_json.update(manifest_override)
+    manifest_json = _build_manifest_json(
+        contract_name, public_methods, event_infos, manifest_override
+    )
 
     try:
         with open(manifest_path, "w", encoding="utf-8") as f:
@@ -1246,43 +1294,8 @@ def compile_source_to_nef(
 
     nef = NEF(compiler_name="neo-mamba", script=script)
 
-    methods = [
-        ContractMethodDescriptor(
-            name=m.name,
-            offset=m.offset,
-            parameters=[
-                ContractParameterDefinition(
-                    param_name, _type_to_contract_param(param_type)
-                )
-                for param_name, param_type in m.params
-            ],
-            return_type=_type_to_contract_param(m.return_type),
-            safe=m.safe,
-        )
-        for m in public_methods
-    ]
-    events = [
-        ContractEventDescriptor(
-            name=e.event_name,
-            parameters=[
-                ContractParameterDefinition(
-                    param_name, _type_to_contract_param(param_type)
-                )
-                for param_name, param_type in e.params
-            ],
-        )
-        for e in event_infos
-    ]
-    manifest = ContractManifest(contract_name)
-    manifest.abi = ContractABI(methods=methods, events=events)
-
-    manifest_json = manifest.to_json()
-    if manifest_override:
-        if "permissions" in manifest_override:
-            manifest_override["permissions"] = [
-                {k: v for k, v in p.items() if not k.startswith("_")}
-                for p in manifest_override["permissions"]
-            ]
-        manifest_json.update(manifest_override)
+    manifest_json = _build_manifest_json(
+        contract_name, public_methods, event_infos, manifest_override
+    )
 
     return nef, ContractManifest.from_json(manifest_json)
