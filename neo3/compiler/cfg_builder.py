@@ -425,9 +425,8 @@ class CFGBuilder:
                     self._emit_expr(ctr)
                     self._emit(StackInstr(op="REVERSEITEMS", type=ctr.type))
 
-            case ItemStore(container=ctr, index=idx, value=val):
-                self._emit_expr(ctr)
-                self._emit_expr(idx)
+            case ItemStore(container=ctr, index=idx, value=val, wrap_negative=wrap):
+                self._emit_container_and_index(ctr, idx, wrap)
                 self._emit_expr(val)
                 self._emit(StackInstr(op="SETITEM", type=ctr.type))
 
@@ -637,6 +636,54 @@ class CFGBuilder:
                     f"Unknown HIR statement: {type(stmt).__name__}"
                 )
 
+    def _emit_container_and_index(
+        self, container: Expr, index: Expr, wrap_negative: bool
+    ) -> None:
+        """Push ``container`` then ``index``, wrapping a negative index like Python.
+
+        NeoVM's PICKITEM/SETITEM/SUBSTR fault on a negative index, so with
+        *wrap_negative* the index is rewritten to ``index + len(container)``
+        when it is negative. A non-negative literal needs no fix-up, and a
+        negative literal becomes ``len(container) - k`` without a runtime test.
+        An index that is still out of range afterwards keeps faulting, which is
+        the NeoVM equivalent of Python's IndexError.
+        """
+        self._emit_expr(container)
+        literal: Optional[int] = None
+        if isinstance(index, IntLiteral):
+            literal = index.value
+        elif isinstance(index, Negate) and isinstance(index.operand, IntLiteral):
+            literal = -index.operand.value
+        if not wrap_negative or (literal is not None and literal >= 0):
+            self._emit_expr(index)
+        elif literal is not None:
+            self._emit(StackInstr(op="DUP", type=container.type))
+            self._emit(StackInstr(op="SIZE", type=INT))
+            self._emit(StackInstr(op="PUSH_INT", type=INT, operand=-literal))
+            self._emit(StackInstr(op="-", type=INT))
+        else:
+            self._emit_expr(index)
+            self._emit_wrap_index()
+
+    def _emit_wrap_index(self) -> None:
+        """``[c, i] -> [c, i + (i < 0) * len(c)]``; branch-free (MUL reads a Boolean as 0/1)."""
+        self._emit(StackInstr(op="OVER", type=ANY))
+        self._emit(StackInstr(op="SIZE", type=INT))
+        self._emit(StackInstr(op="OVER", type=INT))
+        self._emit(StackInstr(op="PUSH_INT", type=INT, operand=0))
+        self._emit(StackInstr(op="<", type=BOOL))
+        self._emit(StackInstr(op="*", type=INT))
+        self._emit(StackInstr(op="+", type=INT))
+
+    def _emit_clamp_bound(self) -> None:
+        """``[c, x] -> [c, x']`` with x' a Python slice bound: wrapped if negative, then clamped to ``[0, len(c)]``."""
+        self._emit_wrap_index()
+        self._emit(StackInstr(op="PUSH_INT", type=INT, operand=0))
+        self._emit(StackInstr(op="max", type=INT))
+        self._emit(StackInstr(op="OVER", type=ANY))
+        self._emit(StackInstr(op="SIZE", type=INT))
+        self._emit(StackInstr(op="min", type=INT))
+
     def _emit_slice(
         self,
         v: Expr,
@@ -674,16 +721,20 @@ class CFGBuilder:
             elif start is None:
                 self._emit_expr(v)
                 self._emit_expr(stop)
+                self._emit_clamp_bound()
                 self._emit(StackInstr(op="LEFT", type=BYTES))
                 if convert_op is None:
                     self._emit(StackInstr(op="CONVERT", type=BYTEARRAY, operand=0x30))
                 else:
                     self._emit(StackInstr(op="CONVERT", type=t, operand=convert_op))
             elif stop is None:
+                # RIGHT takes a count: len(v) - start, with start wrapped and clamped
                 self._emit_expr(v)
-                self._emit(StackInstr(op="DUP", type=t))
-                self._emit(StackInstr(op="SIZE", type=INT))
                 self._emit_expr(start)
+                self._emit_clamp_bound()
+                self._emit(StackInstr(op="OVER", type=t))
+                self._emit(StackInstr(op="SIZE", type=INT))
+                self._emit(StackInstr(op="SWAP", type=INT))
                 self._emit(StackInstr(op="-", type=INT))
                 self._emit(StackInstr(op="RIGHT", type=BYTES))
                 if convert_op is None:
@@ -691,14 +742,20 @@ class CFGBuilder:
                 else:
                     self._emit(StackInstr(op="CONVERT", type=t, operand=convert_op))
             else:
+                # SUBSTR takes (index, count): both bounds are wrapped and clamped,
+                # and the count floors at 0 so that e.g. v[3:1] is empty
                 self._emit_expr(v)
                 self._emit_expr(start)
+                if not (isinstance(start, IntLiteral) and start.value == 0):
+                    self._emit_clamp_bound()
                 self._emit(StackInstr(op="OVER", type=t))
-                self._emit(StackInstr(op="SIZE", type=INT))
                 self._emit_expr(stop)
-                self._emit(StackInstr(op="min", type=INT))
+                self._emit_clamp_bound()
+                self._emit(StackInstr(op="NIP", type=INT))
                 self._emit(StackInstr(op="OVER", type=INT))
                 self._emit(StackInstr(op="-", type=INT))
+                self._emit(StackInstr(op="PUSH_INT", type=INT, operand=0))
+                self._emit(StackInstr(op="max", type=INT))
                 self._emit(StackInstr(op="SUBSTR", type=BYTES))
                 if convert_op is None:
                     self._emit(StackInstr(op="CONVERT", type=BYTEARRAY, operand=0x30))
@@ -728,18 +785,20 @@ class CFGBuilder:
             self._emit_expr(v)
             self._emit(_st(slot_data, t))
             if start is not None:
+                self._emit(_ld(slot_data, t))
                 self._emit_expr(start)
+                self._emit_clamp_bound()
+                self._emit(StackInstr(op="NIP", type=INT))
             else:
                 self._emit(StackInstr(op="PUSH_INT", type=INT, operand=0))
             self._emit(_st(slot_start, INT))
+            self._emit(_ld(slot_data, t))
             if stop is not None:
                 self._emit_expr(stop)
+                self._emit_clamp_bound()
+                self._emit(StackInstr(op="NIP", type=INT))
             else:
-                self._emit(_ld(slot_data, t))
                 self._emit(StackInstr(op="SIZE", type=INT))
-            self._emit(_ld(slot_data, t))
-            self._emit(StackInstr(op="SIZE", type=INT))
-            self._emit(StackInstr(op="min", type=INT))
             self._emit(_st(slot_stop, INT))
             self._emit_expr(step)
             self._emit(_st(slot_step, INT))
@@ -1078,13 +1137,11 @@ class CFGBuilder:
                     self._emit(StackInstr(op="CONVERT", type=t, operand=tag))
             case Cast(arg=arg):
                 self._emit_expr(arg)  # no-op at runtime; type declared on the HIR node
-            case Index(value=v, index=idx):
-                self._emit_expr(v)
-                self._emit_expr(idx)
+            case Index(value=v, index=idx, wrap_negative=wrap):
+                self._emit_container_and_index(v, idx, wrap)
                 self._emit(StackInstr(op="PICKITEM", type=INT))
-            case StrIndex(value=v, index=idx):
-                self._emit_expr(v)
-                self._emit_expr(idx)
+            case StrIndex(value=v, index=idx, wrap_negative=wrap):
+                self._emit_container_and_index(v, idx, wrap)
                 self._emit(StackInstr(op="PUSH_INT", type=INT, operand=1))
                 self._emit(StackInstr(op="SUBSTR", type=STR))
                 self._emit(StackInstr(op="CONVERT", type=STR, operand=0x28))

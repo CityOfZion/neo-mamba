@@ -470,7 +470,9 @@ class HIRBuilder:
         """Desugar lst.insert(idx, val) to a While-based shift-right loop.
 
         Algorithm:
-          store lst/idx/val in temps; n = len(lst); lst.append(val); j = n
+          store lst/idx/val in temps; n = len(lst)
+          idx = max(idx + n, 0) if idx < 0 else min(idx, n)   # Python clamping
+          lst.append(val); j = n
           while j > idx: lst[j] = lst[j-1]; j -= 1
           lst[idx] = val
         """
@@ -488,12 +490,35 @@ class HIRBuilder:
         val_load = LocalLoad(name=name_val, type=elem_t)
         n_load = LocalLoad(name=name_n, type=INT)
         j_load = LocalLoad(name=name_j, type=INT)
+        wrapped = BinOp(left=idx_load, op="+", right=n_load, type=INT)
 
         return [
             LocalStore(name=name_lst, slot=slot_lst, value=obj, type=obj.type),
             LocalStore(name=name_idx, slot=slot_idx, value=idx, type=INT),
             LocalStore(name=name_val, slot=slot_val, value=val, type=elem_t),
             LocalStore(name=name_n, slot=slot_n, value=Len(lst_load), type=INT),
+            # Clamp idx to [0, n] like Python: a negative idx counts from the end
+            LocalStore(
+                name=name_idx,
+                slot=slot_idx,
+                value=IfExp(
+                    condition=Compare(left=idx_load, op="<", right=IntLiteral(0)),
+                    then_expr=IfExp(
+                        condition=Compare(left=wrapped, op="<", right=IntLiteral(0)),
+                        then_expr=IntLiteral(0),
+                        else_expr=wrapped,
+                        type=INT,
+                    ),
+                    else_expr=IfExp(
+                        condition=Compare(left=idx_load, op=">", right=n_load),
+                        then_expr=n_load,
+                        else_expr=idx_load,
+                        type=INT,
+                    ),
+                    type=INT,
+                ),
+                type=INT,
+            ),
             ListAppend(container=lst_load, value=val_load),
             LocalStore(name=name_j, slot=slot_j, value=n_load, type=INT),
             While(
@@ -1049,7 +1074,12 @@ class HIRBuilder:
                         self._err(
                             f"cannot assign {value.type} to list[{container.type.elem}]"
                         )
-                    return ItemStore(container=container, index=index, value=value)
+                    return ItemStore(
+                        container=container,
+                        index=index,
+                        value=value,
+                        wrap_negative=True,
+                    )
                 elif isinstance(container.type, BytearrayType):
                     index = self._visit_expr(idx_node)
                     if not isinstance(index.type, IntType):
@@ -1057,7 +1087,12 @@ class HIRBuilder:
                     value = self._visit_expr(val_node)
                     if not isinstance(value.type, IntType):
                         self._err("bytearray element must be int")
-                    return ItemStore(container=container, index=index, value=value)
+                    return ItemStore(
+                        container=container,
+                        index=index,
+                        value=value,
+                        wrap_negative=True,
+                    )
                 elif isinstance(container.type, TupleType):
                     self._err("tuples are immutable; element assignment not allowed")
                 else:
@@ -4267,28 +4302,44 @@ class HIRBuilder:
                             index = self._visit_expr(s)
                             if not isinstance(index.type, IntType):
                                 self._err("list index must be int")
-                            return Index(value=value, index=index, type=value.type.elem)
+                            return Index(
+                                value=value,
+                                index=index,
+                                type=value.type.elem,
+                                wrap_negative=True,
+                            )
                         elif isinstance(value.type, StrType):
                             index = self._visit_expr(s)
                             if not isinstance(index.type, IntType):
                                 self._err("str index must be int")
-                            return StrIndex(value=value, index=index)
+                            return StrIndex(
+                                value=value, index=index, wrap_negative=True
+                            )
                         elif isinstance(value.type, (BytesType, BytearrayType)):
                             index = self._visit_expr(s)
                             if not isinstance(index.type, IntType):
                                 self._err("index must be int")
-                            return Index(value=value, index=index, type=INT)
+                            return Index(
+                                value=value, index=index, type=INT, wrap_negative=True
+                            )
                         elif isinstance(value.type, TupleType):
-                            if not isinstance(s, ast.Constant) or not isinstance(
-                                s.value, int
-                            ):
+                            match s:
+                                case ast.Constant(value=int() as idx):
+                                    pass
+                                case ast.UnaryOp(
+                                    op=ast.USub(),
+                                    operand=ast.Constant(value=int() as idx),
+                                ):
+                                    idx = -idx
+                                case _:
+                                    self._err(
+                                        "tuple indexing requires a compile-time integer constant"
+                                    )
+                            n_elems = len(value.type.elements)
+                            i = idx + n_elems if idx < 0 else idx
+                            if i < 0 or i >= n_elems:
                                 self._err(
-                                    "tuple indexing requires a compile-time integer constant"
-                                )
-                            i = s.value
-                            if i < 0 or i >= len(value.type.elements):
-                                self._err(
-                                    f"tuple index {i} out of range for {value.type}"
+                                    f"tuple index {idx} out of range for {value.type}"
                                 )
                             return Index(
                                 value=value,

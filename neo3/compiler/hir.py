@@ -341,6 +341,8 @@ class Index:
     value: "Expr"
     index: "Expr"
     type: Type  # INT for bytes/bytearray; elem type for list[T]
+    # True for user-written subscripts: a negative index is wrapped by len(value)
+    wrap_negative: bool = False
 
 
 @dataclasses.dataclass
@@ -350,6 +352,7 @@ class StrIndex:
     value: "Expr"
     index: "Expr"
     type: Type = dataclasses.field(default_factory=lambda: STR, init=False)
+    wrap_negative: bool = False
 
 
 @dataclasses.dataclass
@@ -646,6 +649,8 @@ class ItemStore:
     container: Expr  # ListType or DictType
     index: Expr  # IntType for list; key type for dict
     value: Expr  # must match container element/value type
+    # True for user-written list/bytearray stores: a negative index is wrapped by len(container)
+    wrap_negative: bool = False
 
 
 @dataclasses.dataclass(frozen=True)
