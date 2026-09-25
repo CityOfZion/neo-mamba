@@ -751,6 +751,74 @@ class Account:
             res.append(a[i] ^ b[i])
         return bytes(res)
 
+    def token_add(self, token_hash: types.UInt160, name: str) -> bool:
+        """
+        Add a token to track for this account.
+
+        Args:
+            token_hash: the script hash of the token contract.
+            name: the name/symbol of the token.
+
+        Returns:
+            True if added, False if already exists.
+        """
+        if "tokens" not in self.extra:
+            self.extra["tokens"] = []
+
+        token_hash_str = str(token_hash)
+
+        # Check if token already exists
+        for token_entry in self.extra["tokens"]:
+            if token_entry["hash"] == token_hash_str:
+                return False
+
+        self.extra["tokens"].append({"hash": token_hash_str, "name": name})
+        return True
+
+    def token_delete(self, token_hash: types.UInt160) -> bool:
+        """
+        Remove a token from this account.
+
+        Args:
+            token_hash: the script hash of the token contract.
+
+        Returns:
+            True if deleted, False if not found.
+        """
+        if "tokens" not in self.extra:
+            return False
+
+        token_hash_str = str(token_hash)
+
+        # Find and remove the token
+        for i, token_entry in enumerate(self.extra["tokens"]):
+            if token_entry["hash"] == token_hash_str:
+                self.extra["tokens"].pop(i)
+                return True
+
+        return False
+
+    def token_delete_by_name(self, token_name: str) -> bool:
+        """
+        Remove a token by its name.
+
+        Args:
+            token_name: the name/symbol of the token to remove.
+
+        Returns:
+            True if deleted, False if not found.
+        """
+        if "tokens" not in self.extra:
+            return False
+
+        # Find and remove the token by name
+        for i, token_entry in enumerate(self.extra["tokens"]):
+            if token_entry["name"] == token_name:
+                self.extra["tokens"].pop(i)
+                return True
+
+        return False
+
     def _validate_tx(self, tx: transaction.Transaction) -> None:
         """
         Helper to validate properties before signing

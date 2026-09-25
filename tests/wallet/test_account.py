@@ -137,3 +137,139 @@ class AccountCreationTestCase(unittest.TestCase):
         wif = "L5kx9QRKG9dwzSJF72pgps1d2scJZjnECWoKuUGVsz2D1WRBEaJ7"
         acc = account.Account.from_wif(wif)
         self.assertEqual(wif, account.Account.private_key_to_wif(acc.private_key))
+
+
+class AccountTokenManagementTestCase(unittest.TestCase):
+    def test_token_add_new(self):
+        """Test adding a new token to an account."""
+        from neo3.core.types import UInt160
+
+        acc = account.Account.create_new()
+        token_hash = UInt160.from_string("d2a4cff31913016155e38e474a2c06d08be276cf")
+
+        result = acc.token_add(token_hash, "TestToken")
+        self.assertTrue(result)
+        self.assertIn("tokens", acc.extra)
+        self.assertEqual(len(acc.extra["tokens"]), 1)
+        self.assertEqual(acc.extra["tokens"][0]["hash"], str(token_hash))
+        self.assertEqual(acc.extra["tokens"][0]["name"], "TestToken")
+
+    def test_token_add_duplicate(self):
+        """Test that adding the same token twice returns False."""
+        from neo3.core.types import UInt160
+
+        acc = account.Account.create_new()
+        token_hash = UInt160.from_string("d2a4cff31913016155e38e474a2c06d08be276cf")
+
+        result1 = acc.token_add(token_hash, "TestToken")
+        self.assertTrue(result1)
+
+        result2 = acc.token_add(token_hash, "TestToken")
+        self.assertFalse(result2)
+        self.assertEqual(len(acc.extra["tokens"]), 1)
+
+    def test_token_delete_existing(self):
+        """Test deleting an existing token."""
+        from neo3.core.types import UInt160
+
+        acc = account.Account.create_new()
+        token_hash = UInt160.from_string("d2a4cff31913016155e38e474a2c06d08be276cf")
+
+        acc.token_add(token_hash, "TestToken")
+        result = acc.token_delete(token_hash)
+        self.assertTrue(result)
+        self.assertEqual(len(acc.extra["tokens"]), 0)
+
+    def test_token_delete_nonexistent(self):
+        """Test deleting a token that doesn't exist."""
+        from neo3.core.types import UInt160
+
+        acc = account.Account.create_new()
+        token_hash = UInt160.from_string("d2a4cff31913016155e38e474a2c06d08be276cf")
+
+        result = acc.token_delete(token_hash)
+        self.assertFalse(result)
+
+    def test_token_delete_empty_list(self):
+        """Test deleting from an account with no tokens."""
+        from neo3.core.types import UInt160
+
+        acc = account.Account.create_new()
+        token_hash = UInt160.from_string("d2a4cff31913016155e38e474a2c06d08be276cf")
+
+        result = acc.token_delete(token_hash)
+        self.assertFalse(result)
+
+    def test_token_add_multiple(self):
+        """Test adding multiple different tokens."""
+        from neo3.core.types import UInt160
+
+        acc = account.Account.create_new()
+        token_hash1 = UInt160.from_string("d2a4cff31913016155e38e474a2c06d08be276cf")
+        token_hash2 = UInt160.from_string("ef4073a0f2b305a38ec4050e4d3d28bc40ea63f5")
+
+        acc.token_add(token_hash1, "Token1")
+        acc.token_add(token_hash2, "Token2")
+
+        self.assertEqual(len(acc.extra["tokens"]), 2)
+        self.assertEqual(acc.extra["tokens"][0]["hash"], str(token_hash1))
+        self.assertEqual(acc.extra["tokens"][0]["name"], "Token1")
+        self.assertEqual(acc.extra["tokens"][1]["hash"], str(token_hash2))
+        self.assertEqual(acc.extra["tokens"][1]["name"], "Token2")
+
+    def test_token_delete_by_name(self):
+        """Test deleting a token by its name."""
+        from neo3.core.types import UInt160
+
+        acc = account.Account.create_new()
+        token_hash1 = UInt160.from_string("d2a4cff31913016155e38e474a2c06d08be276cf")
+        token_hash2 = UInt160.from_string("ef4073a0f2b305a38ec4050e4d3d28bc40ea63f5")
+
+        acc.token_add(token_hash1, "Token1")
+        acc.token_add(token_hash2, "Token2")
+
+        result = acc.token_delete_by_name("Token1")
+        self.assertTrue(result)
+        self.assertEqual(len(acc.extra["tokens"]), 1)
+        self.assertEqual(acc.extra["tokens"][0]["name"], "Token2")
+
+    def test_token_delete_by_name_nonexistent(self):
+        """Test deleting a token by name that doesn't exist."""
+        from neo3.core.types import UInt160
+
+        acc = account.Account.create_new()
+        token_hash = UInt160.from_string("d2a4cff31913016155e38e474a2c06d08be276cf")
+
+        acc.token_add(token_hash, "TestToken")
+
+        result = acc.token_delete_by_name("NonExistent")
+        self.assertFalse(result)
+        self.assertEqual(len(acc.extra["tokens"]), 1)
+
+    def test_token_persistence_in_json(self):
+        """Test that tokens are persisted when converting to/from JSON."""
+        from neo3.core.types import UInt160
+
+        acc = account.Account.create_new()
+        token_hash = UInt160.from_string("d2a4cff31913016155e38e474a2c06d08be276cf")
+        acc.token_add(token_hash, "TestToken")
+
+        password = "test_password"
+        json_data = acc.to_json(password)
+
+        # Verify tokens are in JSON
+        self.assertIn("extra", json_data)
+        self.assertIn("tokens", json_data["extra"])
+        self.assertEqual(len(json_data["extra"]["tokens"]), 1)
+        self.assertEqual(json_data["extra"]["tokens"][0]["hash"], str(token_hash))
+        self.assertEqual(json_data["extra"]["tokens"][0]["name"], "TestToken")
+
+        # Add isDefault field (normally added by Wallet class)
+        json_data["isDefault"] = False
+
+        # Load from JSON and verify tokens are restored
+        acc2 = account.Account.from_json(json_data, password)
+        self.assertIn("tokens", acc2.extra)
+        self.assertEqual(len(acc2.extra["tokens"]), 1)
+        self.assertEqual(acc2.extra["tokens"][0]["hash"], str(token_hash))
+        self.assertEqual(acc2.extra["tokens"][0]["name"], "TestToken")
