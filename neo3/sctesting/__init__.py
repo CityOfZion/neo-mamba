@@ -193,7 +193,6 @@ class SmartContractTestCase(unittest.IsolatedAsyncioTestCase):
         cls._check_vmstate(receipt)
         exec_result = receipt.result
         notifications = receipt.notifications
-        print(f"gas_consumed: {receipt.gas_consumed}")
 
         if return_type is str:
             return unwrap.as_str(exec_result), notifications
