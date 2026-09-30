@@ -226,5 +226,114 @@ class TestForIteratorLoop(unittest.TestCase):
         self.assertIn(_ITER_VALUE_INSTR, bc)
 
 
+class TestForIteratorKeyValueLoop(unittest.TestCase):
+
+    def test_kv_loop_default_options(self):
+        src = (
+            _IMPORT_FIND
+            + "def f(p: bytes) -> int:\n"
+            + "    total = 0\n"
+            + "    for k, v in find(p):\n"
+            + "        total += len(k) + len(v)\n"
+            + "    return total\n"
+        )
+        bc = compile_function(src)
+        self.assertIn(_FIND_INSTR, bc)
+        self.assertIn(_ITER_NEXT_INSTR, bc)
+        self.assertIn(_ITER_VALUE_INSTR, bc)
+        self.assertIn(bytes([0xCE]), bc)  # PICKITEM
+
+    def test_kv_loop_compatible_options(self):
+        for opts in (
+            "FindOptions.REMOVE_PREFIX",
+            "FindOptions.BACKWARDS",
+            "FindOptions.REMOVE_PREFIX | FindOptions.BACKWARDS",
+        ):
+            with self.subTest(opts=opts):
+                src = (
+                    _IMPORT_FIND
+                    + _IMPORT_FIND_OPTIONS
+                    + "def f(p: bytes) -> None:\n"
+                    + f"    for k, v in find(p, options={opts}):\n"
+                    + "        pass\n"
+                )
+                self.assertIn(_FIND_INSTR, compile_function(src))
+
+    def test_kv_loop_vars_are_bytes(self):
+        src = (
+            _IMPORT_FIND
+            + "from neo3.sc.storage import put, delete\n"
+            + "def f(p: bytes) -> None:\n"
+            + "    for k, v in find(p):\n"
+            + "        put(k + b'x', v)\n"
+            + "        delete(k)\n"
+        )
+        self.assertIsInstance(compile_function(src), bytes)
+
+    def test_kv_loop_over_iterator_local(self):
+        src = (
+            _IMPORT_FIND
+            + _IMPORT_ITERATOR
+            + "def f(p: bytes) -> list[bytes]:\n"
+            + "    result: list[bytes] = []\n"
+            + "    it: Iterator = find(p)\n"
+            + "    for k, v in it:\n"
+            + "        result.append(k + v)\n"
+            + "    return result\n"
+        )
+        self.assertIn(_ITER_VALUE_INSTR, compile_function(src))
+
+    def test_kv_loop_existing_non_bytes_var_raises(self):
+        src = (
+            _IMPORT_FIND
+            + "def f(p: bytes) -> int:\n"
+            + "    k: int = 0\n"
+            + "    for k, v in find(p):\n"
+            + "        pass\n"
+            + "    return k\n"
+        )
+        with self.assertRaises(TypecheckError):
+            compile_function(src)
+
+    def test_kv_loop_incompatible_options_raise(self):
+        for opts in (
+            "FindOptions.KEYS_ONLY",
+            "FindOptions.VALUES_ONLY",
+            "FindOptions.DESERIALIZE_VALUES",
+            "FindOptions.PICK_FIELD0",
+            "FindOptions.PICK_FIELD1",
+            "FindOptions.KEYS_ONLY | FindOptions.REMOVE_PREFIX",
+        ):
+            with self.subTest(opts=opts):
+                src = (
+                    _IMPORT_FIND
+                    + _IMPORT_FIND_OPTIONS
+                    + "def f(p: bytes) -> None:\n"
+                    + f"    for k, v in find(p, {opts}):\n"
+                    + "        pass\n"
+                )
+                with self.assertRaises(TypecheckError):
+                    compile_function(src)
+
+    def test_kv_loop_three_targets_raises(self):
+        src = (
+            _IMPORT_FIND
+            + "def f(p: bytes) -> None:\n"
+            + "    for a, b, c in find(p):\n"
+            + "        pass\n"
+        )
+        with self.assertRaises(TypecheckError):
+            compile_function(src)
+
+    def test_tuple_target_on_non_iterator_raises(self):
+        src = (
+            "def f(xs: list[bytes]) -> None:\n"
+            + "    for a, b in xs:\n"
+            + "        pass\n"
+        )
+        with self.assertRaises(TypecheckError):
+            compile_function(src)
+
+
 if __name__ == "__main__":
     unittest.main()

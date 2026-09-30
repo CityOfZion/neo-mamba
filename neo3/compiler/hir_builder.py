@@ -156,6 +156,17 @@ _SYSCALL_ITERATOR_NEXT: bytes = Syscalls.get_by_name(
 _SYSCALL_ITERATOR_VALUE: bytes = Syscalls.get_by_name(
     "System.Iterator.Value"
 ).number.to_bytes(4, "little")
+_SYSCALL_STORAGE_LOCAL_FIND: bytes = Syscalls.get_by_name(
+    "System.Storage.Local.Find"
+).number.to_bytes(4, "little")
+# FindOptions flags under which find() no longer yields (bytes key, bytes value) pairs
+_FIND_OPTIONS_NON_KV_MASK: int = (
+    _FindOptions_enum.KEYS_ONLY
+    | _FindOptions_enum.VALUES_ONLY
+    | _FindOptions_enum.DESERIALIZE_VALUES
+    | _FindOptions_enum.PICK_FIELD0
+    | _FindOptions_enum.PICK_FIELD1
+)
 
 # list[T] element types whose NeoVM EQUAL matches Python `==` (bytearray via CONVERT)
 _LIST_CONTAINS_ELEM = (
@@ -2062,14 +2073,18 @@ class HIRBuilder:
                 and node.iter.func.id == "enumerate"
             ):
                 return self._desugar_for_enumerate(node, k_var, v_var)
-            if not (
+            is_items_call = (
                 isinstance(node.iter, ast.Call)
                 and isinstance(node.iter.func, ast.Attribute)
                 and node.iter.func.attr == "items"
                 and not node.iter.args
-            ):
+            )
+            if not is_items_call:
+                iter_expr = self._visit_expr(node.iter)
+                if isinstance(iter_expr.type, IteratorType):
+                    return self._desugar_for_iterator_kv(node, k_var, v_var, iter_expr)
                 self._err(
-                    "for loop with tuple target only supported with dict.items() or enumerate()"
+                    "for loop with tuple target only supported with dict.items(), enumerate() or Iterator"
                 )
             dict_expr = self._visit_expr(node.iter.func.value)
             if not isinstance(dict_expr.type, DictType):
@@ -2328,6 +2343,91 @@ class HIRBuilder:
                 body=[value_assign] + raw_body,
                 else_body=else_stmts,
             ),
+        ]
+
+    def _desugar_for_iterator_kv(
+        self, node: ast.For, k_var: str, v_var: str, iter_expr: "Expr"
+    ) -> list[Stmt]:
+        """Desugar `for k, v in iterator` (e.g. storage find()) to a while loop that unpacks
+        each iterator.value() struct into (bytes key, bytes value)."""
+        find_options = (
+            _fold_int_flags(iter_expr.args[1])
+            if isinstance(iter_expr, SyscallCall)
+            and iter_expr.hash == _SYSCALL_STORAGE_LOCAL_FIND
+            and len(iter_expr.args) > 1
+            else None
+        )
+        if find_options is not None and find_options & _FIND_OPTIONS_NON_KV_MASK:
+            self._err(
+                "for k, v in find(...) requires find() to yield (key, value) pairs; "
+                "KEYS_ONLY, VALUES_ONLY, DESERIALIZE_VALUES, PICK_FIELD0 and PICK_FIELD1 are not supported"
+            )
+
+        loop_vars: list[tuple[int, bool]] = []
+        for name in (k_var, v_var):
+            if name in self._args:
+                slot, existing_t = self._args[name]
+                is_arg = True
+            elif name in self._locals:
+                slot, existing_t = self._locals[name]
+                is_arg = False
+            else:
+                slot = len(self._locals)
+                self._locals[name] = (slot, BYTES)
+                existing_t = BYTES
+                is_arg = False
+            if existing_t != BYTES:
+                self._err(
+                    f"loop variable '{name}' has type {existing_t}, expected {BYTES}"
+                )
+            loop_vars.append((slot, is_arg))
+        (k_slot, k_is_arg), (v_slot, v_is_arg) = loop_vars
+
+        n = len(self._locals)
+        iter_name = f"__for_iter_{n}__"
+        kv_name = f"__for_kv_{n}__"
+        iter_slot = len(self._locals)
+        self._locals[iter_name] = (iter_slot, ITERATOR)
+        kv_slot = len(self._locals)
+        self._locals[kv_name] = (kv_slot, ANY)
+        iter_load = LocalLoad(name=iter_name, type=ITERATOR)
+        kv_load = LocalLoad(name=kv_name, type=ANY)
+
+        prev_in_loop = self._in_loop
+        self._in_loop = True
+        raw_body = self._visit_loop_body(
+            lambda: self._visit_stmts(node.body), node.body
+        )
+        else_stmts = self._visit_stmts(node.orelse)
+        self._in_loop = prev_in_loop
+
+        next_call = SyscallCall(
+            hash=_SYSCALL_ITERATOR_NEXT, args=[iter_load], push_order=[0], type=BOOL
+        )
+        value_call = SyscallCall(
+            hash=_SYSCALL_ITERATOR_VALUE, args=[iter_load], push_order=[0], type=ANY
+        )
+        unpack: list[Stmt] = [
+            LocalStore(name=kv_name, slot=kv_slot, value=value_call, type=ANY),
+            LocalStore(
+                name=k_var,
+                slot=k_slot,
+                value=Index(value=kv_load, index=IntLiteral(0), type=BYTES),
+                type=BYTES,
+                is_arg=k_is_arg,
+            ),
+            LocalStore(
+                name=v_var,
+                slot=v_slot,
+                value=Index(value=kv_load, index=IntLiteral(1), type=BYTES),
+                type=BYTES,
+                is_arg=v_is_arg,
+            ),
+        ]
+        # No _for_rewrite_continues needed: no increment step; continue jumps back to while header
+        return [
+            LocalStore(name=iter_name, slot=iter_slot, value=iter_expr, type=ITERATOR),
+            While(condition=next_call, body=unpack + raw_body, else_body=else_stmts),
         ]
 
     def _desugar_list_comp(
@@ -6427,6 +6527,18 @@ def _eval_default_expr(node: ast.expr) -> Any:
     ):
         return _NAMED_CURVE_HASH_VALUES[node.attr]
     return _UNRESOLVABLE
+
+
+def _fold_int_flags(expr: "Expr") -> Optional[int]:
+    """Fold an HIR int flag expression (literals combined with `|`) to its value, else None."""
+    if isinstance(expr, IntLiteral):
+        return expr.value
+    if isinstance(expr, BinOp) and expr.op == "|":
+        left = _fold_int_flags(expr.left)
+        right = _fold_int_flags(expr.right)
+        if left is not None and right is not None:
+            return left | right
+    return None
 
 
 def _try_fold_const_expr(
