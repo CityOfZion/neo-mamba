@@ -48,7 +48,7 @@ jobs:
            cache: pip
            cache-dependency-path: pyproject.toml
      - name: Install dependencies
-       run: pip install -e ".[dev]"
+       run: pip install -e ".[dev,sctesting]"
      - name: Type check
        run: make type
 
