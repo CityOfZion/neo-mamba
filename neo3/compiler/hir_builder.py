@@ -4652,6 +4652,13 @@ def _is_event_decorator(
     d: ast.expr, event_names: set[str], ct_modules: set[str]
 ) -> bool:
     """True if decorator *d* resolves to @event from compiler.sc.compiletime."""
+    # Handle bare @event decorator (ast.Name)
+    if isinstance(d, ast.Name):
+        return d.id in event_names
+    # Handle @module.event decorator (ast.Attribute)
+    if isinstance(d, ast.Attribute) and d.attr == "event":
+        return isinstance(d.value, ast.Name) and d.value.id in ct_modules
+    # Handle @event(...) decorator with arguments (ast.Call)
     if isinstance(d, ast.Call):
         f = d.func
         if isinstance(f, ast.Name):
