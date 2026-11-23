@@ -389,6 +389,58 @@ class Account:
         # mypy can't figure out that is_watchonly checks if private_key is None
         return cryptography.sign(data, self.private_key)  # type: ignore
 
+    def token_add(self, token_hash: types.UInt160, name: str) -> bool:
+        """
+        Track a token for this account.
+
+        Args:
+            token_hash: the script hash of the token contract.
+            name: the name of the token.
+
+        Returns:
+            True if added, False if the token was already tracked.
+        """
+        if "tokens" not in self.extra:
+            self.extra["tokens"] = {}
+        else:
+            if token_hash in self.extra["tokens"]:
+                return False
+        self.extra["tokens"][token_hash] = name
+        return True
+
+    def token_delete(self, token_hash: types.UInt160) -> bool:
+        """
+        Stop tracking a token for this account.
+
+        Args:
+            token_hash: the script hash of the token contract.
+
+        Returns:
+            True if deleted, False if the token was not tracked.
+        """
+        if "tokens" not in self.extra:
+            return False
+        return self.extra["tokens"].pop(token_hash, None) is not None
+
+    def token_delete_by_name(self, token_name: str) -> bool:
+        """
+        Stop tracking a token by the name it was added with.
+
+        If several tokens share the name only the first one is deleted.
+
+        Args:
+            token_name: the name the token was added with.
+
+        Returns:
+            True if deleted, False if no token has that name.
+        """
+        tokens = self.extra.get("tokens", {})
+        token_hash = next((h for h, n in tokens.items() if n == token_name), None)
+        if token_hash is None:
+            return False
+        del tokens[token_hash]
+        return True
+
     @classmethod
     def create_new(
         cls, scrypt_parameters: Optional[scrypt.ScryptParameters] = None
@@ -524,8 +576,18 @@ class Account:
                 else None
             ),
             "contract": self.contract.to_json() if self.contract is not None else None,
-            "extra": self.extra if len(self.extra) > 0 else None,
+            "extra": self._extra_to_json(),
         }
+
+    def _extra_to_json(self) -> Optional[dict[str, Any]]:
+        if len(self.extra) == 0:
+            return None
+        extra = dict(self.extra)
+        tokens = extra.get("tokens")
+        if isinstance(tokens, dict):
+            # JSON object keys must be strings
+            extra["tokens"] = {str(h): name for h, name in tokens.items()}
+        return extra
 
     @classmethod
     def from_json(
@@ -547,6 +609,16 @@ class Account:
         """
         validate(json, schema=cls._json_schema)
 
+        extra = json["extra"]
+        if extra is not None and isinstance(extra.get("tokens"), dict):
+            extra = {
+                **extra,
+                "tokens": {
+                    types.UInt160.from_string(h): name
+                    for h, name in extra["tokens"].items()
+                },
+            }
+
         private_key = None
         if json["key"] is not None and password is not None:
             private_key = cls.private_key_from_nep2(
@@ -559,7 +631,7 @@ class Account:
             label=json["label"],
             lock=json["lock"],
             contract_=AccountContract.from_json(json["contract"]),
-            extra=json["extra"],
+            extra=extra,
             scrypt_parameters=scrypt_parameters,
             watch_only=True if private_key is None else False,
         )
