@@ -553,6 +553,12 @@ class TestNeoRpcClient(unittest.IsolatedAsyncioTestCase):
 
     async def test_get_version(self):
         user_agent = "/Neo:3.0.3/"
+        standby_committee = [
+            "03b209fd4f53a7170ea4444e0cb0a6bb6a53c2bd016926989cf85f9b0fba17a70c",
+            "02df48f60e8f3e01c48ff40b9b7f1310d7a8b2a193188befe1c2e3df740e895093",
+            "03b8d9d5771d8f513aa0869b9cc8d50986403b78c6da36890638c3d46a5adce04a",
+        ]
+        seed_list = ["seed1.neo.org:10333", "seed2.neo.org:10333"]
         captured = {
             "tcpport": 10333,
             "wsport": 10334,
@@ -575,6 +581,8 @@ class TestNeoRpcClient(unittest.IsolatedAsyncioTestCase):
                     {"name": "Cockatrice", "blockheight": 5450000},
                     {"name": "Domovoi", "blockheight": 5570000},
                 ],
+                "standbycommittee": standby_committee,
+                "seedlist": seed_list,
             },
         }
         self.mock_response(captured)
@@ -582,6 +590,43 @@ class TestNeoRpcClient(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(captured["tcpport"], response.tcp_port)
         self.assertEqual(user_agent, response.user_agent)
         self.assertEqual(captured["protocol"]["network"], response.protocol.network)
+        self.assertEqual(
+            [
+                cryptography.ECPoint.deserialize_from_bytes(bytes.fromhex(key))
+                for key in standby_committee
+            ],
+            response.protocol.standby_committee,
+        )
+        self.assertEqual(seed_list, response.protocol.seed_list)
+
+    async def test_get_version_with_null_seedlist(self):
+        captured = {
+            "tcpport": 10333,
+            "nonce": 1930156121,
+            "useragent": "/NEO-GO:0.108.0/",
+            "rpc": {"maxiteratorresultitems": 100, "sessionenabled": True},
+            "protocol": {
+                "addressversion": 53,
+                "network": 860833102,
+                "validatorscount": 7,
+                "msperblock": 15000,
+                "maxtraceableblocks": 2102400,
+                "maxvaliduntilblockincrement": 5760,
+                "maxtransactionsperblock": 512,
+                "memorypoolmaxtransactions": 50000,
+                "initialgasdistribution": 5200000000000000,
+                "hardforks": [],
+                "standbycommittee": [
+                    "03b209fd4f53a7170ea4444e0cb0a6bb6a53c2bd016926989cf85f9b0fba17a70c",
+                    "02df48f60e8f3e01c48ff40b9b7f1310d7a8b2a193188befe1c2e3df740e895093",
+                    "03b8d9d5771d8f513aa0869b9cc8d50986403b78c6da36890638c3d46a5adce04a",
+                ],
+                "seedlist": None,
+            },
+        }
+        self.mock_response(captured)
+        response = await self.client.get_version()
+        self.assertEqual([], response.protocol.seed_list)
 
     async def test_invoke_contract_verify(self):
         captured = {

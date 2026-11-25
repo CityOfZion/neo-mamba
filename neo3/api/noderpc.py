@@ -93,6 +93,8 @@ class VersionProtocol:
     memorypool_max_transactions: int
     initial_gas_distribution: int
     hardforks: dict[str, int]
+    standby_committee: list[cryptography.ECPoint]
+    seed_list: list[str]
 
 
 @dataclass
@@ -117,6 +119,11 @@ class GetVersionResponse:
         for pair in p["hardforks"]:
             hf.update({pair["name"]: pair["blockheight"]})
 
+        standby_committee = [
+            cryptography.ECPoint.deserialize_from_bytes(bytes.fromhex(key))
+            for key in p["standbycommittee"]
+        ]
+
         vp = VersionProtocol(
             p["addressversion"],
             p["network"],
@@ -128,6 +135,8 @@ class GetVersionResponse:
             p["memorypoolmaxtransactions"],
             p["initialgasdistribution"],
             hf,
+            standby_committee,
+            p["seedlist"] or [],
         )
         wsport = json.get("wsport", None)
         return cls(
