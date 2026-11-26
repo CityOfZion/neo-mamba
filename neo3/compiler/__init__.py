@@ -345,6 +345,253 @@ def _type_to_contract_param(t: Type) -> ContractParameterType:
     return ContractParameterType.ANY
 
 
+# Specifications of the token standards that are detected automatically. A
+# contract is only marked as compliant if its ABI matches the specification
+# exactly.
+# NEP-17: https://github.com/neo-project/proposals/blob/master/nep-17.mediawiki
+# NEP-11: https://github.com/neo-project/proposals/blob/master/nep-11.mediawiki
+_MethodSpec = tuple[tuple[ContractParameterType, ...], ContractParameterType]
+
+_NEP17_METHODS: list[tuple[str, _MethodSpec]] = [
+    ("symbol", ((), ContractParameterType.STRING)),
+    ("decimals", ((), ContractParameterType.INTEGER)),
+    ("totalSupply", ((), ContractParameterType.INTEGER)),
+    (
+        "balanceOf",
+        ((ContractParameterType.HASH160,), ContractParameterType.INTEGER),
+    ),
+    (
+        "transfer",
+        (
+            (
+                ContractParameterType.HASH160,
+                ContractParameterType.HASH160,
+                ContractParameterType.INTEGER,
+                ContractParameterType.ANY,
+            ),
+            ContractParameterType.BOOLEAN,
+        ),
+    ),
+]
+_NEP17_TRANSFER_EVENT = (
+    ContractParameterType.HASH160,
+    ContractParameterType.HASH160,
+    ContractParameterType.INTEGER,
+)
+_NEP17_ON_PAYMENT: _MethodSpec = (
+    (
+        ContractParameterType.HASH160,
+        ContractParameterType.INTEGER,
+        ContractParameterType.ANY,
+    ),
+    ContractParameterType.VOID,
+)
+
+_NEP11_COMMON_METHODS: list[tuple[str, _MethodSpec]] = [
+    ("symbol", ((), ContractParameterType.STRING)),
+    ("decimals", ((), ContractParameterType.INTEGER)),
+    ("totalSupply", ((), ContractParameterType.INTEGER)),
+    (
+        "balanceOf",
+        ((ContractParameterType.HASH160,), ContractParameterType.INTEGER),
+    ),
+    (
+        "tokensOf",
+        ((ContractParameterType.HASH160,), ContractParameterType.INTEROPINTERFACE),
+    ),
+    # Listed under the common methods in the specification, so divisible NFTs
+    # need this `transfer` as well as the divisible one.
+    (
+        "transfer",
+        (
+            (
+                ContractParameterType.HASH160,
+                ContractParameterType.BYTEARRAY,
+                ContractParameterType.ANY,
+            ),
+            ContractParameterType.BOOLEAN,
+        ),
+    ),
+]
+_NEP11_NON_DIVISIBLE_METHODS: list[tuple[str, _MethodSpec]] = [
+    (
+        "ownerOf",
+        ((ContractParameterType.BYTEARRAY,), ContractParameterType.HASH160),
+    ),
+]
+_NEP11_DIVISIBLE_METHODS: list[tuple[str, _MethodSpec]] = [
+    (
+        "transfer",
+        (
+            (
+                ContractParameterType.HASH160,
+                ContractParameterType.HASH160,
+                ContractParameterType.INTEGER,
+                ContractParameterType.BYTEARRAY,
+                ContractParameterType.ANY,
+            ),
+            ContractParameterType.BOOLEAN,
+        ),
+    ),
+    (
+        "ownerOf",
+        (
+            (ContractParameterType.BYTEARRAY,),
+            ContractParameterType.INTEROPINTERFACE,
+        ),
+    ),
+    (
+        "balanceOf",
+        (
+            (ContractParameterType.HASH160, ContractParameterType.BYTEARRAY),
+            ContractParameterType.INTEGER,
+        ),
+    ),
+]
+_NEP11_TRANSFER_EVENT = (
+    ContractParameterType.HASH160,
+    ContractParameterType.HASH160,
+    ContractParameterType.INTEGER,
+    ContractParameterType.BYTEARRAY,
+)
+_NEP11_ON_PAYMENT: _MethodSpec = (
+    (
+        ContractParameterType.HASH160,
+        ContractParameterType.INTEGER,
+        ContractParameterType.BYTEARRAY,
+        ContractParameterType.ANY,
+    ),
+    ContractParameterType.VOID,
+)
+
+
+def _has_method(
+    methods: list[ContractMethodDescriptor], name: str, spec: _MethodSpec
+) -> bool:
+    # A method name can be overloaded (e.g. NEP-11 `balanceOf`) so look at all
+    # methods with the name, not just the first.
+    param_types, return_type = spec
+    return any(
+        m.name == name
+        and m.return_type == return_type
+        and tuple(p.type for p in m.parameters) == param_types
+        for m in methods
+    )
+
+
+def _has_event(
+    events: list[ContractEventDescriptor],
+    name: str,
+    param_types: tuple[ContractParameterType, ...],
+) -> bool:
+    return any(
+        e.name == name and tuple(p.type for p in e.parameters) == param_types
+        for e in events
+    )
+
+
+def _has_valid_receiver(
+    methods: list[ContractMethodDescriptor], name: str, spec: _MethodSpec
+) -> bool:
+    # The `onNEPxxPayment` receiver method is optional, but if the contract has
+    # one it must match the standard.
+    if not any(m.name == name for m in methods):
+        return True
+    return _has_method(methods, name, spec)
+
+
+def _is_nep17(
+    methods: list[ContractMethodDescriptor], events: list[ContractEventDescriptor]
+) -> bool:
+    return (
+        all(_has_method(methods, name, spec) for name, spec in _NEP17_METHODS)
+        and _has_event(events, "Transfer", _NEP17_TRANSFER_EVENT)
+        and _has_valid_receiver(methods, "onNEP17Payment", _NEP17_ON_PAYMENT)
+    )
+
+
+def _is_nep11(
+    methods: list[ContractMethodDescriptor], events: list[ContractEventDescriptor]
+) -> bool:
+    if not (
+        all(_has_method(methods, name, spec) for name, spec in _NEP11_COMMON_METHODS)
+        and _has_event(events, "Transfer", _NEP11_TRANSFER_EVENT)
+        and _has_valid_receiver(methods, "onNEP11Payment", _NEP11_ON_PAYMENT)
+    ):
+        return False
+    return all(
+        _has_method(methods, name, spec) for name, spec in _NEP11_NON_DIVISIBLE_METHODS
+    ) or all(
+        _has_method(methods, name, spec) for name, spec in _NEP11_DIVISIBLE_METHODS
+    )
+
+
+def _detect_supported_standards(
+    methods: list[ContractMethodDescriptor], events: list[ContractEventDescriptor]
+) -> list[str]:
+    """Return the token standards the contract ABI complies with."""
+    detected = []
+    if _is_nep17(methods, events):
+        detected.append("NEP-17")
+    if _is_nep11(methods, events):
+        detected.append("NEP-11")
+    return detected
+
+
+def _build_manifest_json(
+    contract_name: str,
+    public_methods: list[_PublicMethodInfo],
+    event_infos: list[_EventInfo],
+    manifest_override: Optional[dict],
+) -> dict:
+    methods = [
+        ContractMethodDescriptor(
+            name=m.name,
+            offset=m.offset,
+            parameters=[
+                ContractParameterDefinition(
+                    param_name, _type_to_contract_param(param_type)
+                )
+                for param_name, param_type in m.params
+            ],
+            return_type=_type_to_contract_param(m.return_type),
+            safe=m.safe,
+        )
+        for m in public_methods
+    ]
+    events = [
+        ContractEventDescriptor(
+            name=e.event_name,
+            parameters=[
+                ContractParameterDefinition(
+                    param_name, _type_to_contract_param(param_type)
+                )
+                for param_name, param_type in e.params
+            ],
+        )
+        for e in event_infos
+    ]
+    manifest = ContractManifest(contract_name)
+    manifest.abi = ContractABI(methods=methods, events=events)
+
+    manifest_json = manifest.to_json()
+    if manifest_override:
+        if "permissions" in manifest_override:
+            manifest_override["permissions"] = [
+                {k: v for k, v in p.items() if not k.startswith("_")}
+                for p in manifest_override["permissions"]
+            ]
+        manifest_json.update(manifest_override)
+
+    detected = _detect_supported_standards(methods, events)
+    if detected:
+        # Add to, never replace, standards declared with ContractManifest(...)
+        manifest_json["supportedstandards"] = sorted(
+            set(manifest_json.get("supportedstandards", [])) | set(detected)
+        )
+    return manifest_json
+
+
 def _compile_full(
     source: str,
     search_path: Optional[str] = None,
@@ -1173,44 +1420,9 @@ def compile_to_nef(
     contract_name = stem
     manifest_path = out_dir / f"{stem}.manifest.json"
 
-    methods = [
-        ContractMethodDescriptor(
-            name=m.name,
-            offset=m.offset,
-            parameters=[
-                ContractParameterDefinition(
-                    param_name, _type_to_contract_param(param_type)
-                )
-                for param_name, param_type in m.params
-            ],
-            return_type=_type_to_contract_param(m.return_type),
-            safe=m.safe,
-        )
-        for m in public_methods
-    ]
-    events = [
-        ContractEventDescriptor(
-            name=e.event_name,
-            parameters=[
-                ContractParameterDefinition(
-                    param_name, _type_to_contract_param(param_type)
-                )
-                for param_name, param_type in e.params
-            ],
-        )
-        for e in event_infos
-    ]
-    manifest = ContractManifest(contract_name)
-    manifest.abi = ContractABI(methods=methods, events=events)
-
-    manifest_json = manifest.to_json()
-    if manifest_override:
-        if "permissions" in manifest_override:
-            manifest_override["permissions"] = [
-                {k: v for k, v in p.items() if not k.startswith("_")}
-                for p in manifest_override["permissions"]
-            ]
-        manifest_json.update(manifest_override)
+    manifest_json = _build_manifest_json(
+        contract_name, public_methods, event_infos, manifest_override
+    )
 
     try:
         with open(manifest_path, "w", encoding="utf-8") as f:
@@ -1246,43 +1458,8 @@ def compile_source_to_nef(
 
     nef = NEF(compiler_name="neo-mamba", script=script)
 
-    methods = [
-        ContractMethodDescriptor(
-            name=m.name,
-            offset=m.offset,
-            parameters=[
-                ContractParameterDefinition(
-                    param_name, _type_to_contract_param(param_type)
-                )
-                for param_name, param_type in m.params
-            ],
-            return_type=_type_to_contract_param(m.return_type),
-            safe=m.safe,
-        )
-        for m in public_methods
-    ]
-    events = [
-        ContractEventDescriptor(
-            name=e.event_name,
-            parameters=[
-                ContractParameterDefinition(
-                    param_name, _type_to_contract_param(param_type)
-                )
-                for param_name, param_type in e.params
-            ],
-        )
-        for e in event_infos
-    ]
-    manifest = ContractManifest(contract_name)
-    manifest.abi = ContractABI(methods=methods, events=events)
-
-    manifest_json = manifest.to_json()
-    if manifest_override:
-        if "permissions" in manifest_override:
-            manifest_override["permissions"] = [
-                {k: v for k, v in p.items() if not k.startswith("_")}
-                for p in manifest_override["permissions"]
-            ]
-        manifest_json.update(manifest_override)
+    manifest_json = _build_manifest_json(
+        contract_name, public_methods, event_infos, manifest_override
+    )
 
     return nef, ContractManifest.from_json(manifest_json)

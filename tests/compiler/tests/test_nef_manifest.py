@@ -6,7 +6,17 @@ import os
 import tempfile
 import unittest
 
-from neo3.compiler import compile_to_nef, CompilerWarning
+from neo3.compiler import (
+    compile_to_nef,
+    CompilerWarning,
+    _detect_supported_standards,
+)
+from neo3.contracts.abi import (
+    ContractEventDescriptor,
+    ContractMethodDescriptor,
+    ContractParameterDefinition,
+    ContractParameterType,
+)
 
 # Minimal contract with one @public method and one @public(safe=True) method.
 _SRC = """
@@ -762,3 +772,254 @@ class TestPermissionValidation(unittest.TestCase):
         self.assertTrue(
             all("line" in m for m in group_msgs), "expected line number in warning"
         )
+
+
+_NEP17_HEADER = """
+from typing import Any, Optional
+from neo3.sc.compiletime import public, event, ContractManifest
+from neo3.sc.types import UInt160
+"""
+
+_NEP17_EVENT = """
+@event(name="Transfer")
+def on_transfer(from_: Optional[UInt160], to: Optional[UInt160], amount: int) -> None: ...
+"""
+
+_NEP17_METHODS = """
+@public(safe=True)
+def symbol() -> str:
+    return "TKN"
+
+@public(safe=True)
+def decimals() -> int:
+    return 8
+
+@public(safe=True)
+def totalSupply() -> int:
+    return 1
+
+@public(safe=True)
+def balanceOf(account: UInt160) -> int:
+    return 0
+
+@public
+def transfer(from_: UInt160, to: UInt160, amount: int, data: Any) -> bool:
+    return True
+"""
+
+
+def _nep17_contract(
+    event: str = _NEP17_EVENT, methods: str = _NEP17_METHODS, extra: str = ""
+) -> str:
+    return _NEP17_HEADER + event + methods + extra
+
+
+class TestSupportedStandardsDetectionNEP17(unittest.TestCase):
+    """The compiler adds NEP-17 to the manifest if the ABI matches exactly."""
+
+    def _standards(self, src: str) -> list:
+        _, manifest = _write_contract(src)
+        return manifest["supportedstandards"]
+
+    def test_detected(self):
+        self.assertEqual(self._standards(_nep17_contract()), ["NEP-17"])
+
+    def test_detected_with_valid_receiver(self):
+        extra = """
+@public
+def onNEP17Payment(from_: Optional[UInt160], amount: int, data: Any) -> None:
+    return
+"""
+        self.assertEqual(self._standards(_nep17_contract(extra=extra)), ["NEP-17"])
+
+    def test_not_detected_with_malformed_receiver(self):
+        extra = """
+@public
+def onNEP17Payment(from_: Optional[UInt160], amount: int) -> None:
+    return
+"""
+        self.assertEqual(self._standards(_nep17_contract(extra=extra)), [])
+
+    def test_not_detected_without_transfer_event(self):
+        self.assertEqual(self._standards(_nep17_contract(event="")), [])
+
+    def test_not_detected_with_wrong_transfer_event_params(self):
+        event = """
+@event(name="Transfer")
+def on_transfer(from_: Optional[UInt160], amount: int) -> None: ...
+"""
+        self.assertEqual(self._standards(_nep17_contract(event=event)), [])
+
+    def test_not_detected_with_wrong_param_type(self):
+        methods = _NEP17_METHODS.replace(
+            "balanceOf(account: UInt160)", "balanceOf(account: bytes)"
+        )
+        self.assertEqual(self._standards(_nep17_contract(methods=methods)), [])
+
+    def test_not_detected_with_wrong_return_type(self):
+        methods = _NEP17_METHODS.replace(
+            "data: Any) -> bool:\n    return True",
+            "data: Any) -> int:\n    return 1",
+        )
+        self.assertEqual(self._standards(_nep17_contract(methods=methods)), [])
+
+    def test_not_detected_with_wrong_arity(self):
+        methods = _NEP17_METHODS.replace(
+            "from_: UInt160, to: UInt160, amount: int, data: Any",
+            "to: UInt160, amount: int",
+        )
+        self.assertEqual(self._standards(_nep17_contract(methods=methods)), [])
+
+    def test_not_detected_with_missing_method(self):
+        methods = _NEP17_METHODS.replace("totalSupply", "total_supply")
+        self.assertEqual(self._standards(_nep17_contract(methods=methods)), [])
+
+    def test_declared_event_does_not_need_to_be_emitted(self):
+        # Detection only looks at the manifest. The event is declared but never
+        # fired in this contract and must still end up in the ABI.
+        _, manifest = _write_contract(_nep17_contract())
+        self.assertEqual([e["name"] for e in manifest["abi"]["events"]], ["Transfer"])
+        self.assertEqual(manifest["supportedstandards"], ["NEP-17"])
+
+    def test_manual_declaration_is_not_duplicated(self):
+        extra = 'ContractManifest(supported_standards=["NEP-17"])\n'
+        self.assertEqual(self._standards(_nep17_contract(extra=extra)), ["NEP-17"])
+
+    def test_manual_declaration_is_kept(self):
+        extra = 'ContractManifest(supported_standards=["NEP-24"])\n'
+        self.assertEqual(
+            self._standards(_nep17_contract(extra=extra)), ["NEP-17", "NEP-24"]
+        )
+
+    def test_plain_contract_has_no_standards(self):
+        self.assertEqual(self._standards(_SRC), [])
+
+
+def _method(name: str, params: tuple, return_type) -> ContractMethodDescriptor:
+    return ContractMethodDescriptor(
+        name=name,
+        offset=0,
+        parameters=[
+            ContractParameterDefinition(f"p{i}", t) for i, t in enumerate(params)
+        ],
+        return_type=return_type,
+        safe=False,
+    )
+
+
+def _event(name: str, params: tuple) -> ContractEventDescriptor:
+    return ContractEventDescriptor(
+        name, [ContractParameterDefinition(f"p{i}", t) for i, t in enumerate(params)]
+    )
+
+
+class TestSupportedStandardsDetectionNEP11(unittest.TestCase):
+    """
+    The compiler currently maps `Iterator` to `Any` instead of `InteropInterface`
+    so a NEP-11 ABI can't be produced from source yet. These tests therefore
+    check the detection against hand-built ABIs that follow the specification.
+    """
+
+    T = ContractParameterType
+
+    def _common(self):
+        T = self.T
+        return [
+            _method("symbol", (), T.STRING),
+            _method("decimals", (), T.INTEGER),
+            _method("totalSupply", (), T.INTEGER),
+            _method("balanceOf", (T.HASH160,), T.INTEGER),
+            _method("tokensOf", (T.HASH160,), T.INTEROPINTERFACE),
+            _method("transfer", (T.HASH160, T.BYTEARRAY, T.ANY), T.BOOLEAN),
+        ]
+
+    def _non_divisible(self):
+        T = self.T
+        return self._common() + [_method("ownerOf", (T.BYTEARRAY,), T.HASH160)]
+
+    def _divisible(self):
+        T = self.T
+        return self._common() + [
+            _method(
+                "transfer",
+                (T.HASH160, T.HASH160, T.INTEGER, T.BYTEARRAY, T.ANY),
+                T.BOOLEAN,
+            ),
+            _method("ownerOf", (T.BYTEARRAY,), T.INTEROPINTERFACE),
+            _method("balanceOf", (T.HASH160, T.BYTEARRAY), T.INTEGER),
+        ]
+
+    def _events(self):
+        T = self.T
+        return [_event("Transfer", (T.HASH160, T.HASH160, T.INTEGER, T.BYTEARRAY))]
+
+    def test_non_divisible_detected(self):
+        self.assertEqual(
+            _detect_supported_standards(self._non_divisible(), self._events()),
+            ["NEP-11"],
+        )
+
+    def test_divisible_detected(self):
+        self.assertEqual(
+            _detect_supported_standards(self._divisible(), self._events()),
+            ["NEP-11"],
+        )
+
+    def test_divisible_requires_two_param_balance_of(self):
+        methods = [
+            m
+            for m in self._divisible()
+            if not (m.name == "balanceOf" and len(m.parameters) == 2)
+        ]
+        self.assertEqual(_detect_supported_standards(methods, self._events()), [])
+
+    def test_divisible_requires_the_common_three_param_transfer(self):
+        methods = [
+            m
+            for m in self._divisible()
+            if not (m.name == "transfer" and len(m.parameters) == 3)
+        ]
+        self.assertEqual(_detect_supported_standards(methods, self._events()), [])
+
+    def test_mixing_non_divisible_and_divisible_methods_is_not_detected(self):
+        T = self.T
+        # divisible `ownerOf` without the other divisible methods
+        methods = [m for m in self._non_divisible() if m.name != "ownerOf"] + [
+            _method("ownerOf", (T.BYTEARRAY,), T.INTEROPINTERFACE)
+        ]
+        self.assertEqual(_detect_supported_standards(methods, self._events()), [])
+
+    def test_wrong_return_type_is_not_detected(self):
+        T = self.T
+        methods = [m for m in self._non_divisible() if m.name != "tokensOf"] + [
+            _method("tokensOf", (T.HASH160,), T.ANY)
+        ]
+        self.assertEqual(_detect_supported_standards(methods, self._events()), [])
+
+    def test_missing_transfer_event_is_not_detected(self):
+        self.assertEqual(_detect_supported_standards(self._non_divisible(), []), [])
+
+    def test_wrong_transfer_event_is_not_detected(self):
+        T = self.T
+        events = [_event("Transfer", (T.HASH160, T.HASH160, T.INTEGER))]
+        self.assertEqual(_detect_supported_standards(self._non_divisible(), events), [])
+
+    def test_receiver_with_four_parameters_is_detected(self):
+        T = self.T
+        methods = self._non_divisible() + [
+            _method(
+                "onNEP11Payment",
+                (T.HASH160, T.INTEGER, T.BYTEARRAY, T.ANY),
+                T.VOID,
+            )
+        ]
+        self.assertEqual(
+            _detect_supported_standards(methods, self._events()), ["NEP-11"]
+        )
+
+    def test_receiver_with_three_parameters_is_not_detected(self):
+        T = self.T
+        methods = self._non_divisible() + [
+            _method("onNEP11Payment", (T.HASH160, T.INTEGER, T.ANY), T.VOID)
+        ]
+        self.assertEqual(_detect_supported_standards(methods, self._events()), [])
